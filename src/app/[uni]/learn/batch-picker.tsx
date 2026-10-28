@@ -15,7 +15,7 @@ function Go({ label, variant = "primary" }: { label: string; variant?: "primary"
   );
 }
 
-const fmtDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "long" });
+const fmtDate = (d: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "UTC", day: "numeric", month: "long" }).format(new Date(`${d}T00:00:00Z`));
 
 /**
  * PRD page 5, "What the student sees": every open batch as a card with timings,
@@ -35,6 +35,7 @@ export function BatchPicker({
   priceLabel?: string;
 }) {
   const [picked, setPicked] = useState<string>("");
+  const [reason, setReason] = useState("");
   const [state, action] = useActionState<EnrolState, FormData>(mode === "enrol" ? enrolAction : requestSwitchAction, null);
   const pickable = mode === "switch" ? options.filter((o) => !o.mine) : options;
   const clashes = state?.clashes && state.batchId === picked ? state.clashes : null;
@@ -42,6 +43,8 @@ export function BatchPicker({
   return (
     <form action={action}>
       <input type="hidden" name="uni" value={uni} />
+      {/* React resets native form fields after each action, so the choice travels in state, not in the radios. */}
+      <input type="hidden" name="batchId" value={picked} />
       {enrolmentId && <input type="hidden" name="enrolmentId" value={enrolmentId} />}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {pickable.map((o) => {
@@ -51,28 +54,28 @@ export function BatchPicker({
             <label
               key={o.batchId}
               className={cx(
-                "relative block rounded-2xl border bg-surface p-4 transition",
-                disabled ? "cursor-not-allowed border-line opacity-55" : "cursor-pointer hover:border-brand",
-                selected ? "border-brand ring-2 ring-brand-soft" : "border-line",
+                "relative block rounded-[20px] border bg-surface p-4 transition",
+                disabled ? "cursor-not-allowed border-line opacity-55" : "cursor-pointer hover:border-brand/50",
+                selected ? "border-brand ring-4 ring-gold-soft" : "border-line",
               )}
             >
               <input
                 type="radio"
-                name="batchId"
+                name="batchChoice"
                 value={o.batchId}
                 disabled={disabled}
                 checked={selected}
                 onChange={() => setPicked(o.batchId)}
                 className="sr-only"
               />
-              <div className="font-semibold">{o.name}</div>
+              <div className="font-medium">{o.name}</div>
               <div className="mt-1 text-sm text-muted">{o.timings}</div>
               <div className="text-sm text-muted">Starts {fmtDate(o.startDate)}</div>
               <div className={cx("mt-3 text-sm font-medium", disabled ? "text-muted" : "text-brand")}>
                 {disabled ? "Full" : `${o.seatsLeft} seat${o.seatsLeft === 1 ? "" : "s"} left`}
               </div>
               {o.faculty.length > 0 && <div className="mt-1 truncate text-xs text-faint">with {o.faculty.join(", ")}</div>}
-              {o.mine && <div className="mt-2 rounded-lg bg-brand-soft px-2 py-1 text-xs text-brand-strong">Your seat is held — pick it to pay</div>}
+              {o.mine && <div className="mt-2 rounded-lg bg-brand-soft px-2 py-1 text-xs text-brand-strong">Your seat is held. Pick it to pay.</div>}
               {o.clashes.length > 0 && !disabled && (
                 <div className="mt-2 rounded-lg bg-warn-soft px-2 py-1 text-xs text-warn">Overlaps {o.clashes[0].courseTitle}</div>
               )}
@@ -83,7 +86,13 @@ export function BatchPicker({
       {pickable.length === 0 && <p className="text-muted">No other open batches right now.</p>}
 
       {mode === "switch" && picked && (
-        <input name="reason" placeholder="Why do you want to switch? (optional)" className="mt-4 h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm" />
+        <input
+          name="reason"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Why do you want to switch? (optional)"
+          className="mt-4 h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm"
+        />
       )}
 
       {clashes ? (

@@ -64,6 +64,12 @@ npm test          # 67 tests against a separate zinny_test database
 
 Covers the page 3 matrix, scope checks, row-level security (cross-university reads and writes are refused by the database itself), support-mode logging, the seat race (five students, one seat, exactly one wins), hold expiry and late payments, clash detection, timetable building with cancelled and moved classes, batch switching, CSV import, graduation and parent access.
 
+## Brand
+
+Colours come straight from the logo: Zinny green `#0B5E4C`, gold `#D4A72A` and cream `#FAF6EA` (tokens in `src/app/globals.css`). Type is Lexend, a typeface designed to make reading easier. Logo files live in `public/brand/`: the mark, the wordmark in green and in cream (for dark backgrounds), and the full lockup.
+
+The dashboard opens on the **Today board**: the day's classes laid out like a bell schedule, with a gold line for the current time. Under it: what needs you (switch requests, faculty about to expire, batches filling up, refunds), key numbers, and a seat map for every batch. Accounts staff, who don't see batches, get the month's collections on the board instead.
+
 ## How the code is laid out
 
 ```

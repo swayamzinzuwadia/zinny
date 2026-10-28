@@ -132,7 +132,26 @@ async function main() {
     courseId: py.id, name: "Weekend", startDate: runningSince, endDate: termEnd, seatLimit: 30,
     slots: days([6, 7], "10:00", "13:00"), faculty: [{ userId: farah.id, role: "permanent_faculty" }],
   });
+  const pyEvening = await createBatch(hema, {
+    courseId: py.id, name: "Weekday evening", startDate: runningSince, endDate: termEnd, seatLimit: 12,
+    slots: days([1, 2, 3, 4], "17:00", "19:00"), faculty: [{ userId: farah.id, role: "permanent_faculty" }],
+    meetingUrl: "https://meet.google.com/demo-python",
+  });
   await updateCourse(hema, py.id, { status: "published" });
+
+  // Running on weekdays, so the Today board always has classes on a weekday.
+  const ml = await createCourse(hema, {
+    departmentId: cs.id,
+    title: "Machine Learning Foundations",
+    description: "Regression, classification and model evaluation with Python.",
+    pricePaise: 15_000_00,
+  });
+  const mlMorning = await createBatch(hema, {
+    courseId: ml.id, name: "Morning", startDate: runningSince, endDate: termEnd, seatLimit: 10,
+    slots: days([1, 2, 3, 4, 5], "10:00", "12:00"), faculty: [{ userId: farah.id, role: "permanent_faculty" }],
+    meetingUrl: "https://meet.google.com/demo-ml",
+  });
+  await updateCourse(hema, ml.id, { status: "published" });
 
   const dm = await createCourse(mehul, {
     departmentId: mkt.id,
@@ -167,6 +186,8 @@ async function main() {
   for (const s of ["Sneha", "Arjun", "Zoya"]) await enrol(s, daWeekend.id); // weekend: 3 of 3 → Full
   for (const s of ["Tara", "Neil", "Diya", "Ishaan"]) await enrol(s, pyWeekend.id);
   for (const s of ["Aditi", "Meera", "Tara"]) await enrol(s, dmEvening.id);
+  for (const s of ["Ishaan", "Meera", "Rohan", "Sneha", "Arjun", "Zoya", "Tara", "Diya"]) await enrol(s, mlMorning.id); // 8 of 10: almost full
+  for (const s of ["Kabir", "Aditi", "Rohan"]) await enrol(s, pyEvening.id);
 
   // A pending batch switch for Hema to approve.
   if (kabir.status !== "clash") {

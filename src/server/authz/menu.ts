@@ -141,10 +141,15 @@ export function menuFor(actor: Actor, universityId: string, now = new Date()) {
   }
   return MENU.filter((s) => best.has(s.key))
     .map((s) => ({ ...s, access: best.get(s.key)! }))
-    // HOD and faculty don't get bulk import or role settings
-    .map((s) =>
-      s.key === "users" && s.access !== "full"
-        ? { ...s, items: s.items.filter((i) => !["/users/import", "/users/roles"].includes(i.href)) }
-        : s,
-    );
+    // Scoped viewers only get the people lists they can actually use.
+    .map((s) => {
+      if (s.key !== "users" || s.access === "full") return s;
+      const keep =
+        s.access === "students"
+          ? ["/users/students"]
+          : s.access === "dept"
+            ? ["/users/teaching", "/users/students", "/users/departments"]
+            : ["/users/administration", "/users/teaching", "/users/students", "/users/departments"];
+      return { ...s, items: s.items.filter((i) => keep.includes(i.href)) };
+    });
 }

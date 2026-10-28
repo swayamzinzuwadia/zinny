@@ -240,7 +240,7 @@ export async function holdSeat(actor: Actor, input: { batchId: string; acknowled
       await notify(tx, uni(actor), [actor.userId], {
         kind: "enrolment.confirmed",
         title: `You're enrolled in ${course.title}`,
-        body: `${batch.name} starts on ${formatDate(batch.startDate)}. It's on your timetable now.`,
+        body: batch.startDate > today ? `${batch.name} starts on ${formatDate(batch.startDate)}. It's on your timetable.` : `${batch.name} is on your timetable now.`,
         data: { courseId: course.id, batchId: batch.id },
       });
       await audit(tx, actor, "enrolment.create", "enrolment", e.id, { batchId: batch.id, free: true, clashAcknowledged: clashes.length > 0 });
@@ -357,7 +357,7 @@ export async function confirmPayment(universityId: string, input: { orderId: str
     await notify(tx, universityId, [order.userId], {
       kind: "enrolment.confirmed",
       title: `You're enrolled in ${course.title}`,
-      body: `${batch.name} starts on ${formatDate(batch.startDate)}. Invoice ${invoice.number} is ready.`,
+      body: `${batch.startDate > (await universityToday(tx, universityId)) ? `${batch.name} starts on ${formatDate(batch.startDate)}` : `${batch.name} is on your timetable now`}. Invoice ${invoice.number} is ready.`,
       data: { courseId: course.id, batchId: batch.id, invoiceId: invoice.id },
     });
     await audit(tx, sys, "payment.confirmed", "order", order.id, { gatewayPaymentId: input.gatewayPaymentId, invoice: invoice.number });

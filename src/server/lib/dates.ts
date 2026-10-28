@@ -86,3 +86,11 @@ export function formatDate(date: string, opts: { weekday?: boolean; year?: boole
 export function earliestStart(slots: { startTime: string }[]): string {
   return slots.map((s) => s.startTime).sort()[0] ?? "99:99";
 }
+
+/** Minutes since midnight right now, in a time zone. */
+export function minutesNowIn(timezone: string, now = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(now);
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const m = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  return h * 60 + m;
+}

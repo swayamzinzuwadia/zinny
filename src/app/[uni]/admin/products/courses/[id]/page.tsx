@@ -2,7 +2,7 @@ import Link from "next/link";
 import { DayTimePicker } from "@/components/day-picker";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { SwitchRequests } from "@/components/switch-requests";
-import { Badge, Card, CardTitle, Empty, Field, Input, Notice, PageHeader, Select, Tabs } from "@/components/ui";
+import { Badge, Card, CardTitle, Empty, Field, Input, Notice, PageHeader, SeatMap, Select, Tabs } from "@/components/ui";
 import { can } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { listBatches } from "@/server/services/batches";
@@ -81,7 +81,7 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
               <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
                 {batches.map((b) => (
                   <Link key={b.batchId} href={`/${uni}/admin/products/batches/${b.batchId}`}>
-                    <Card className={b.seatsLeft === 0 ? "opacity-70 hover:border-brand" : "hover:border-brand"}>
+                    <Card className="h-full hover:border-brand/40">
                       <div className="flex items-start justify-between gap-2">
                         <div className="font-semibold">{b.batchName}</div>
                         {b.status !== "open" && <Badge>{b.status}</Badge>}
@@ -89,12 +89,15 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
                       <div className="mt-1 text-sm text-muted">{b.timings}</div>
                       <div className="text-sm text-muted">Starts {new Date(b.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "long" })}</div>
                       <div className="mt-3 flex items-center justify-between text-sm">
-                        <span className={b.seatsLeft === 0 ? "font-medium text-muted" : "font-medium text-brand"}>
+                        <span className={b.seatsLeft === 0 ? "font-medium text-danger" : "font-medium text-brand"}>
                           {b.seatsLeft === 0 ? "Full" : `${b.seatsLeft} seats left`}
                         </span>
-                        <span className="text-faint">
+                        <span className="tabular text-faint">
                           {b.seatsTaken}/{b.seatLimit}
                         </span>
+                      </div>
+                      <div className="mt-2">
+                        <SeatMap limit={b.seatLimit} taken={b.seatsTaken} />
                       </div>
                       <div className="mt-2 truncate text-xs text-muted">{b.faculty?.join(", ") || "No faculty"}</div>
                     </Card>

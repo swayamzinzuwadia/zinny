@@ -2,11 +2,12 @@ import type { Session } from "@/server/services/schedule";
 import { addDays, formatTime, isoWeekday, weekdayLabel } from "@/server/lib/dates";
 import { cx } from "./ui";
 
+/** Brand green and gold first, then two quiet companions that sit well on cream. */
 const PALETTE = [
-  "bg-brand-soft text-brand-strong border-brand/20",
-  "bg-[#eef1fb] text-[#2f437f] border-[#2f437f]/15",
-  "bg-[#fbf1e8] text-[#7a4416] border-[#7a4416]/15",
-  "bg-[#f3eefa] text-[#5b3a86] border-[#5b3a86]/15",
+  "bg-brand text-canvas border-brand",
+  "bg-gold-soft text-gold-strong border-gold/40",
+  "bg-[#e6ebf3] text-[#2f4a72] border-[#2f4a72]/15",
+  "bg-[#f1e6ee] text-[#7a3d66] border-[#7a3d66]/15",
 ];
 
 /** Week grid like PRD page 6: one column per day, today highlighted. */
@@ -22,20 +23,20 @@ export function WeekView({ from, today, sessions, compact = false }: { from: str
           const items = sessions.filter((s) => s.date === d);
           const isToday = d === today;
           return (
-            <div key={d} className={cx("rounded-2xl border p-2", isToday ? "border-brand bg-surface" : "border-line bg-surface/60")}>
-              <div className={cx("mb-2 px-1 text-[13px] font-semibold", isToday ? "text-brand" : "text-muted")}>
+            <div key={d} className={cx("rounded-[18px] border p-2", isToday ? "border-gold bg-surface ring-2 ring-gold-soft" : "border-line bg-surface/70")}>
+              <div className={cx("mb-2 px-1 text-[13px] font-medium", isToday ? "text-gold-strong" : "text-muted")}>
                 {weekdayLabel(isoWeekday(d))} <span className="font-normal">{Number(d.slice(8))}</span>
               </div>
               <div className="space-y-1.5">
                 {items.length === 0 && <div className="px-1 text-xs text-faint sm:h-8">—</div>}
                 {items.map((s, i) => (
-                  <div key={i} className={cx("rounded-xl border px-2 py-1.5 text-[12px] leading-snug", color(s.courseId))}>
-                    <div className="font-medium tabular-nums">
+                  <div key={i} className={cx("rounded-[12px] border px-2.5 py-2 text-[12px] leading-snug", color(s.courseId))}>
+                    <div className="tabular opacity-85">
                       {formatTime(s.startTime)}–{formatTime(s.endTime)}
                     </div>
-                    <div className="font-semibold">{s.courseTitle}</div>
+                    <div className="font-medium">{s.courseTitle}</div>
                     {!compact && <div className="opacity-80">{s.batchName}</div>}
-                    {s.kind !== "regular" && <div className="mt-0.5 text-[11px] uppercase tracking-wide opacity-80">{s.kind === "extra" ? "Extra class" : "Moved"}</div>}
+                    {s.kind !== "regular" && <div className="mt-0.5 text-[11px] opacity-80">{s.kind === "extra" ? "Extra class" : "Moved here"}</div>}
                   </div>
                 ))}
               </div>
