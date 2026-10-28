@@ -50,7 +50,7 @@ export default async function Dashboard({ params }: { params: Promise<{ uni: str
   const refunds = data.money?.refundsDue ?? 0;
   const needsCount = requests.length + data.expiring.length + fillingFast.length + refunds;
   const showNeeds = data.canDecideSwitches || !!data.money;
-  const avgOrder = data.money && data.money.monthOrders ? Math.round(data.money.monthPaise / data.money.monthOrders) : 0;
+  const avgOrder = data.money && data.money.monthOrders ? Math.round(data.money.monthPaise / data.money.monthOrders / 100) * 100 : 0;
 
   return (
     <div className="space-y-6">
