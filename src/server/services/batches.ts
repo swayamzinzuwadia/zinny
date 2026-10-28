@@ -10,13 +10,14 @@ import {
   batches,
   courses,
   enrolments,
+  notifications,
   roleAssignments,
   sessionOverrides,
   users,
 } from "@/db/schema";
 import { assertCan, reach, type Actor, type Target } from "../authz/engine";
 import { ConflictError, NotFoundError, ValidationError } from "../errors";
-import { normaliseTime } from "../lib/dates";
+import { earliestStart, formatDate, normaliseTime } from "../lib/dates";
 import { audit, withTenant } from "../tenant";
 import { courseTarget } from "./courses";
 import { hodsOf, notify } from "./notifications";
@@ -251,7 +252,7 @@ export async function updateBatch(actor: Actor, batchId: string, patch: BatchPat
       await notify(tx, uni(actor), await studentsIn(tx, batchId), {
         kind: "timetable.changed",
         title: `${course.title}: ${next.name} timings changed`,
-        body: patch.slots ? `New timings: ${describeSlots(patch.slots)}.` : `New dates: ${next.startDate} to ${next.endDate}.`,
+        body: patch.slots ? `New timings: ${describeSlots(patch.slots)}.` : `New dates: ${formatDate(next.startDate)} to ${formatDate(next.endDate)}.`,
         data: { batchId },
       });
     }
@@ -287,10 +288,10 @@ export async function addSessionOverride(
     const [course] = await tx.select().from(courses).where(eq(courses.id, batch.courseId));
     const title =
       input.kind === "cancelled"
-        ? `${course.title}: class on ${input.date} is cancelled`
+        ? `${course.title}: class on ${formatDate(input.date, { weekday: true })} is cancelled`
         : input.kind === "rescheduled"
-          ? `${course.title}: class on ${input.date} moved to ${input.newDate}`
-          : `${course.title}: extra class on ${input.date}`;
+          ? `${course.title}: class on ${formatDate(input.date, { weekday: true })} moved to ${formatDate(input.newDate!, { weekday: true })}`
+          : `${course.title}: extra class on ${formatDate(input.date, { weekday: true })}`;
     await notify(tx, uni(actor), await studentsIn(tx, batchId), { kind: "timetable.changed", title, body: input.note ?? "", data: { batchId } });
     await audit(tx, actor, "batch.override", "batch", batchId, input as Record<string, unknown>);
     return o;
@@ -342,7 +343,9 @@ export async function listBatches(actor: Actor, courseId: string) {
       const taken = await seatsTaken(tx, b.batchId);
       out.push({ ...b, timings: describeSlots(b.slots), seatsTaken: taken, seatsLeft: Math.max(0, b.seatLimit - taken) });
     }
-    return out.sort((a, b) => a.startDate.localeCompare(b.startDate) || a.batchName.localeCompare(b.batchName));
+    return out.sort(
+      (a, b) => a.startDate.localeCompare(b.startDate) || earliestStart(a.slots).localeCompare(earliestStart(b.slots)) || a.batchName.localeCompare(b.batchName),
+    );
   });
 }
 
@@ -378,14 +381,48 @@ export async function facultyExpiryAlerts(actor: Actor, withinDays = 14) {
       const last = new Date(Math.max(...fac.map((a) => a.endsAt!.getTime())));
       if (b.endDate < last.toISOString().slice(0, 10)) continue; // batch ends first — fine
       alerts.push({ batchId: b.id, batchName: b.name, lastAccessEnds: last });
+      // Remind at most once a week per batch.
+      const [recent] = await tx
+        .select({ id: notifications.id })
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.kind, "batch.faculty_expiring"),
+            sql`${notifications.data}->>'batchId' = ${b.id}`,
+            gt(notifications.createdAt, new Date(now.getTime() - 7 * 86_400_000)),
+          ),
+        )
+        .limit(1);
+      if (recent) continue;
       const [course] = await tx.select().from(courses).where(eq(courses.id, b.courseId));
       await notify(tx, uni(actor), await hodsOf(tx, b.departmentId), {
         kind: "batch.faculty_expiring",
         title: `${course.title}: ${b.name} needs a new faculty member`,
-        body: `Visiting faculty access ends on ${last.toISOString().slice(0, 10)}, before the batch ends on ${b.endDate}.`,
+        body: `Visiting faculty access ends on ${formatDate(last.toISOString().slice(0, 10))}, before the batch ends on ${formatDate(b.endDate)}.`,
         data: { batchId: b.id },
       });
     }
     return alerts;
+  });
+}
+
+/** Everything the batch page needs. */
+export async function getBatchDetail(actor: Actor, batchId: string) {
+  return withTenant(actor, async (tx) => {
+    const { batch, target } = await loadBatch(tx, uni(actor), batchId);
+    assertCan(actor, "batch.view", target);
+    const [course] = await tx.select().from(courses).where(eq(courses.id, batch.courseId));
+    const [sched] = await scheduledBatches(tx, [batchId]);
+    const now = new Date();
+    const faculty = (
+      await tx
+        .select({ userId: users.id, name: users.name, role: roleAssignments.role, endsAt: roleAssignments.endsAt })
+        .from(roleAssignments)
+        .innerJoin(users, eq(users.id, roleAssignments.userId))
+        .where(and(eq(roleAssignments.batchId, batchId), isNull(roleAssignments.revokedAt)))
+        .orderBy(asc(users.name))
+    ).filter((f) => !f.endsAt || f.endsAt > now);
+    const taken = await seatsTaken(tx, batchId);
+    return { batch, course, schedule: sched, faculty, seatsTaken: taken, target };
   });
 }

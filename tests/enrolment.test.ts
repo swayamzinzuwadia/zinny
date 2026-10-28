@@ -93,8 +93,8 @@ describe("PRD page 5: HOD sets up the course and its batches", () => {
     await updateCourse(hod, courseId, { status: "published" });
     const list = await listBatches(hod, courseId);
     expect(list.map((b) => [b.batchName, b.timings, b.seatsLeft])).toEqual([
-      ["Weekday evening", "Mon to Fri, 7 pm to 9 pm", 5],
       ["Weekday morning", "Mon to Fri, 9 am to 11 am", 12],
+      ["Weekday evening", "Mon to Fri, 7 pm to 9 pm", 5],
       ["Weekend", "Sat and Sun, 10 am to 1 pm", 1],
     ]);
   });

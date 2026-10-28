@@ -1,26 +1,39 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Zinny design tokens: clean and quiet, one green accent. */
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-ink: #1d1d1f;
+  --color-muted: #6e6e73;
+  --color-faint: #a1a1a6;
+  --color-line: #e5e5ea;
+  --color-canvas: #f5f5f7;
+  --color-surface: #ffffff;
+
+  --color-brand: #1f6b50;
+  --color-brand-strong: #165540;
+  --color-brand-soft: #e8f1ec;
+
+  --color-warn: #9a5208;
+  --color-warn-soft: #fdf3e4;
+  --color-danger: #b42a25;
+  --color-danger-soft: #fbeceb;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-feature-settings: "cv11", "ss01";
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
 }

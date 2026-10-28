@@ -21,7 +21,7 @@ import {
 import { systemActorFor } from "../actor";
 import { assertCan, reach, type Actor } from "../authz/engine";
 import { AppError, ConflictError, NotFoundError, ValidationError } from "../errors";
-import { todayIn } from "../lib/dates";
+import { earliestStart, formatDate, todayIn } from "../lib/dates";
 import { gateway } from "../payments/gateway";
 import { audit, withTenant } from "../tenant";
 import { loadBatch, scheduledBatches, seatsTaken } from "./batches";
@@ -122,6 +122,8 @@ export type BatchOption = {
   faculty: string[];
   clashes: Clash[];
   mine: boolean;
+  /** Earliest class time, for ordering. */
+  earliest: string;
 };
 
 /** The batch picker: every open batch, seats left, and whether it clashes with the student's timetable. */
@@ -163,9 +165,10 @@ export async function batchOptions(actor: Actor, courseId: string) {
         faculty: b.faculty ?? [],
         clashes: findClashes(b, others),
         mine: myEnrolment?.batchId === b.batchId,
+        earliest: earliestStart(b.slots),
       });
     }
-    options.sort((a, b) => a.startDate.localeCompare(b.startDate) || a.name.localeCompare(b.name));
+    options.sort((a, b) => a.startDate.localeCompare(b.startDate) || a.earliest.localeCompare(b.earliest) || a.name.localeCompare(b.name));
     return { course, options, myEnrolment: myEnrolment ?? null };
   });
 }
@@ -237,7 +240,7 @@ export async function holdSeat(actor: Actor, input: { batchId: string; acknowled
       await notify(tx, uni(actor), [actor.userId], {
         kind: "enrolment.confirmed",
         title: `You're enrolled in ${course.title}`,
-        body: `${batch.name} starts on ${batch.startDate}. It's on your timetable now.`,
+        body: `${batch.name} starts on ${formatDate(batch.startDate)}. It's on your timetable now.`,
         data: { courseId: course.id, batchId: batch.id },
       });
       await audit(tx, actor, "enrolment.create", "enrolment", e.id, { batchId: batch.id, free: true, clashAcknowledged: clashes.length > 0 });
@@ -354,7 +357,7 @@ export async function confirmPayment(universityId: string, input: { orderId: str
     await notify(tx, universityId, [order.userId], {
       kind: "enrolment.confirmed",
       title: `You're enrolled in ${course.title}`,
-      body: `${batch.name} starts on ${batch.startDate}. Invoice ${invoice.number} is ready.`,
+      body: `${batch.name} starts on ${formatDate(batch.startDate)}. Invoice ${invoice.number} is ready.`,
       data: { courseId: course.id, batchId: batch.id, invoiceId: invoice.id },
     });
     await audit(tx, sys, "payment.confirmed", "order", order.id, { gatewayPaymentId: input.gatewayPaymentId, invoice: invoice.number });
@@ -515,6 +518,7 @@ export async function listSwitchRequests(actor: Actor, status: "pending" | "appr
         student: users.name,
         studentEmail: users.email,
         course: courses.title,
+        courseId: courses.id,
         fromBatchId: batchSwitchRequests.fromBatchId,
         toBatchId: batchSwitchRequests.toBatchId,
         departmentId: batches.departmentId,

@@ -70,3 +70,19 @@ export function financialYear(date: string): string {
   const start = m >= 4 ? y : y - 1;
   return `${String(start % 100).padStart(2, "0")}-${String((start + 1) % 100).padStart(2, "0")}`;
 }
+
+/** "2026-11-08" → "8 Nov 2026" (or "Sun 8 Nov" with weekday). */
+export function formatDate(date: string, opts: { weekday?: boolean; year?: boolean } = { year: true }): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+    ...(opts.year !== false && !opts.weekday && { year: "numeric" }),
+    ...(opts.weekday && { weekday: "short" }),
+  }).format(new Date(`${date}T00:00:00Z`));
+}
+
+/** Earliest class time in a set of slots, for ordering batches (morning before evening). */
+export function earliestStart(slots: { startTime: string }[]): string {
+  return slots.map((s) => s.startTime).sort()[0] ?? "99:99";
+}

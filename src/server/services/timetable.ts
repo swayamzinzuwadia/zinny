@@ -5,7 +5,7 @@
  */
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { Tx } from "@/db/client";
-import { enrolments, parentLinks, roleAssignments, universities } from "@/db/schema";
+import { enrolments, parentLinks, roleAssignments, universities, users } from "@/db/schema";
 import { assertCan, type Actor } from "../authz/engine";
 import { NotFoundError } from "../errors";
 import { addDays, todayIn, weekStart } from "../lib/dates";
@@ -68,4 +68,16 @@ export async function facultyTimetable(actor: Actor, range?: { from: string; to:
     const sched = await scheduledBatches(tx, mine.map((a) => a.batchId!));
     return { today, from, to, sessions: expandSessions(sched, from, to) };
   });
+}
+
+/** Students linked to this parent (read-only view, PRD page 7). */
+export async function myChildren(actor: Actor) {
+  assertCan(actor, "parent.view_child", { universityId: actor.universityId! });
+  return withTenant(actor, (tx) =>
+    tx
+      .select({ id: users.id, name: users.name })
+      .from(parentLinks)
+      .innerJoin(users, eq(users.id, parentLinks.studentUserId))
+      .where(eq(parentLinks.parentUserId, actor.userId)),
+  );
 }

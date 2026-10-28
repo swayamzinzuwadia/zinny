@@ -338,7 +338,7 @@ export async function importPeople(actor: Actor, csv: string, opts: { commit: bo
       await audit(tx, actor, "user.import", "user", null, { rows: saved });
     }
     return {
-      rows: rows.map(({ input: _input, ...r }) => r),
+      rows: rows.map((r) => ({ line: r.line, name: r.name, email: r.email, role: r.role, department: r.department, ok: r.ok, error: r.error })),
       total: rows.length,
       errors,
       saved,
