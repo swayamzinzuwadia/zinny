@@ -1,0 +1,124 @@
+{
+  "_comment": "Each entry is a literal path prefix (directories end with '/'). Not globs: route folders contain brackets. Every agent may also change package.json, package-lock.json, tests/<module>/, docs/handoff/<agent>.md and docs/handoff/<agent>/. Anything not listed belongs to core and is read-only during a wave.",
+  "shared": [
+    "package.json",
+    "package-lock.json"
+  ],
+  "agents": {
+    "assessments": {
+      "module": "assessments",
+      "port": 3101,
+      "paths": [
+        "src/modules/assessments/",
+        "src/app/[uni]/admin/products/tests/",
+        "src/app/[uni]/learn/tests/"
+      ]
+    },
+    "live-classes": {
+      "module": "live-classes",
+      "port": 3102,
+      "paths": [
+        "src/modules/live-classes/",
+        "src/app/[uni]/learn/join/",
+        "src/app/[uni]/admin/products/batches/[id]/attendance/"
+      ]
+    },
+    "assignments-polls": {
+      "module": "assignments-polls",
+      "port": 3103,
+      "paths": [
+        "src/modules/assignments-polls/",
+        "src/app/[uni]/admin/products/assignments/",
+        "src/app/[uni]/learn/assignments/",
+        "src/app/[uni]/learn/polls/"
+      ]
+    },
+    "content-progress": {
+      "module": "content-progress",
+      "port": 3104,
+      "paths": [
+        "src/modules/content-progress/",
+        "src/app/[uni]/admin/products/content/",
+        "src/app/[uni]/learn/lessons/"
+      ]
+    },
+    "certificates": {
+      "module": "certificates",
+      "port": 3105,
+      "paths": [
+        "src/modules/certificates/",
+        "src/app/[uni]/admin/products/certificates/",
+        "src/app/[uni]/learn/certificates/",
+        "src/app/verify/"
+      ]
+    },
+    "payments": {
+      "module": "payments",
+      "port": 3106,
+      "paths": [
+        "src/modules/payments/",
+        "src/app/[uni]/learn/checkout/",
+        "src/app/[uni]/learn/invoices/",
+        "src/app/[uni]/admin/finance/sales/",
+        "src/app/api/payments/"
+      ]
+    },
+    "reports-board": {
+      "module": "reports-board",
+      "port": 3107,
+      "paths": [
+        "src/modules/reports-board/",
+        "src/app/[uni]/admin/finance/reports/",
+        "src/app/[uni]/admin/insights/"
+      ]
+    },
+    "gamification": {
+      "module": "gamification",
+      "port": 3108,
+      "paths": [
+        "src/modules/gamification/",
+        "src/app/[uni]/admin/leaderboards/",
+        "src/app/[uni]/learn/leaderboard/"
+      ]
+    },
+    "website-builder": {
+      "module": "website-builder",
+      "port": 3109,
+      "paths": [
+        "src/modules/website-builder/",
+        "src/app/[uni]/admin/website/",
+        "src/app/site/"
+      ]
+    },
+    "notifications-delivery": {
+      "module": "notifications-delivery",
+      "port": 3110,
+      "paths": [
+        "src/modules/notifications-delivery/",
+        "src/app/[uni]/admin/settings/notifications/",
+        "src/app/[uni]/learn/settings/"
+      ]
+    },
+    "identity": {
+      "module": "identity",
+      "port": 3111,
+      "paths": [
+        "src/modules/identity/",
+        "src/server/auth/",
+        "src/app/login/",
+        "src/app/invite/",
+        "src/app/reset/",
+        "src/app/[uni]/profile/",
+        "src/app/[uni]/admin/users/invites/"
+      ]
+    },
+    "zinny-team-panel": {
+      "module": "zinny-team-panel",
+      "port": 3112,
+      "paths": [
+        "src/modules/zinny-team-panel/",
+        "src/app/platform/"
+      ]
+    }
+  }
+}
