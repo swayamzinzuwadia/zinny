@@ -49,7 +49,16 @@ export default async function AdminLayout({ children, params }: { children: Reac
             <div className="truncate text-canvas/60">{roles.join(", ")}</div>
           </div>
         </div>
-        <div className="mt-3 flex items-center justify-between text-[12.5px]">
+        <div className="mt-3 flex items-center gap-3 text-[12.5px]">
+          <Link href={`/${uni}/profile`} className="text-canvas/75 hover:text-canvas hover:underline">
+            Your profile
+          </Link>
+          {/* Every staff member reaches their own "My notifications" here; admins also get the Settings item. */}
+          <Link href={`/${uni}/admin/settings/notifications`} className="text-canvas/75 hover:text-canvas hover:underline">
+            Notifications
+          </Link>
+        </div>
+        <div className="mt-2 flex items-center justify-between text-[12.5px]">
           {isLearner ? (
             <Link href={`/${uni}/learn`} className="text-gold hover:underline">
               Learner app

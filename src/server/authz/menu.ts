@@ -46,6 +46,9 @@ export const MENU: MenuSection[] = [
     items: [
       { label: "Courses", href: "/products/courses" },
       { label: "Tests", href: "/products/tests" },
+      { label: "Assignments", href: "/products/assignments" },
+      { label: "Learning progress", href: "/products/content" },
+      { label: "Certificates", href: "/products/certificates" },
       { label: "Categories & utilities", href: "/products/categories" },
       { label: "More products", href: "/products/more" },
     ],
@@ -59,6 +62,7 @@ export const MENU: MenuSection[] = [
       { label: "Teaching", href: "/users/teaching" },
       { label: "Students", href: "/users/students" },
       { label: "Departments", href: "/users/departments" },
+      { label: "Invitations", href: "/users/invites" },
       { label: "Bulk import", href: "/users/import" },
       { label: "Roles & permissions", href: "/users/roles" },
     ],
@@ -95,8 +99,19 @@ export const MENU: MenuSection[] = [
   { key: "marketing", label: "Marketing", hint: "Unchanged", items: [{ label: "Marketing", href: "/marketing" }] },
   { key: "community", label: "Community", hint: "Unchanged", items: [{ label: "Community", href: "/community" }] },
   { key: "insights", label: "Insights", hint: "Unchanged", items: [{ label: "Insights", href: "/insights" }] },
-  { key: "settings", label: "Settings", hint: "Unchanged", items: [{ label: "Settings", href: "/settings" }] },
+  {
+    key: "settings",
+    label: "Settings",
+    hint: "Unchanged",
+    items: [
+      { label: "Settings", href: "/settings" },
+      { label: "Notifications", href: "/settings/notifications" },
+    ],
+  },
 ];
+
+/** Reports live under Finance, but HODs have no Finance section (PRD page 3): they reach Reports from Insights. */
+const REPORTS_ITEM = { label: "Reports", href: "/finance/reports" };
 
 /** PRD page 3, row by row. Missing = no access. */
 export const SECTION_ACCESS: Partial<Record<RoleName, Partial<Record<SectionKey, Access>>>> = {
@@ -141,6 +156,7 @@ export function menuFor(actor: Actor, universityId: string, now = new Date()) {
   }
   return MENU.filter((s) => best.has(s.key))
     .map((s) => ({ ...s, access: best.get(s.key)! }))
+    .map((s) => (s.key === "insights" && !best.has("finance") ? { ...s, items: [...s.items, REPORTS_ITEM] } : s))
     // Scoped viewers only get the people lists they can actually use.
     .map((s) => {
       if (s.key !== "users" || s.access === "full") return s;
@@ -148,7 +164,7 @@ export function menuFor(actor: Actor, universityId: string, now = new Date()) {
         s.access === "students"
           ? ["/users/students"]
           : s.access === "dept"
-            ? ["/users/teaching", "/users/students", "/users/departments"]
+            ? ["/users/teaching", "/users/students", "/users/departments", "/users/invites"]
             : ["/users/administration", "/users/teaching", "/users/students", "/users/departments"];
       return { ...s, items: s.items.filter((i) => keep.includes(i.href)) };
     });

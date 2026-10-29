@@ -15,9 +15,23 @@ function Marker() {
   );
 }
 
+/**
+ * The one menu item that owns `path`: an exact match, or else the item with the longest
+ * prefix. So /leaderboards/badges marks "Badges", not "Leaderboard" (/leaderboards) as well.
+ */
+export function activeHref(path: string, base: string, hrefs: string[]): string | null {
+  const matches = hrefs.filter((h) => (h === "" ? path === base : path === base + h || path.startsWith(base + h + "/")));
+  return matches.sort((a, b) => b.length - a.length)[0] ?? null;
+}
+
 export function AdminNav({ base, sections }: { base: string; sections: NavSection[] }) {
   const path = usePathname();
-  const isActive = (href: string) => (href === "" ? path === base : path === base + href || path.startsWith(base + href + "/"));
+  const current = activeHref(
+    path,
+    base,
+    sections.flatMap((s) => s.items.map((i) => i.href)),
+  );
+  const isActive = (href: string) => href === current;
 
   return (
     <nav className="space-y-6">

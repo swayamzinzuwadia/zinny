@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { can, canPlatform, type Actor, type Assignment } from "@/server/authz/engine";
 import type { Action } from "@/server/authz/roles";
 import { menuFor } from "@/server/authz/menu";
+import { activeHref } from "@/components/admin-nav";
 import type { RoleName } from "@/db/schema";
 
 const U = "uni-1";
@@ -69,6 +70,44 @@ describe("PRD page 3: who sees what in the admin menu", () => {
   it("HOD doesn't see bulk import or role settings", () => {
     const users = menuFor(hodCS, U).find((s) => s.key === "users")!;
     expect(users.items.map((i) => i.label)).not.toContain("Bulk import");
+  });
+
+  // Wave 1 integration: menu items for the merged modules.
+  const items = (a: Actor, key: string) => (menuFor(a, U).find((s) => s.key === key)?.items ?? []).map((i) => i.href);
+  it("Products lists assignments, learning progress and certificates", () => {
+    for (const a of [admin, board, hodCS, facultyB1]) {
+      expect(items(a, "products")).toEqual(expect.arrayContaining(["/products/assignments", "/products/content", "/products/certificates"]));
+    }
+  });
+  it("Invitations: Institute Admin and HOD, not Board or faculty", () => {
+    expect(items(admin, "users")).toContain("/users/invites");
+    expect(items(hodCS, "users")).toContain("/users/invites");
+    expect(items(board, "users")).not.toContain("/users/invites");
+    expect(items(facultyB1, "users")).not.toContain("/users/invites");
+  });
+  it("HODs reach Reports from Insights; roles with Finance keep it there only", () => {
+    expect(items(hodCS, "insights")).toContain("/finance/reports");
+    expect(sections(hodCS).finance).toBeUndefined();
+    expect(items(admin, "insights")).not.toContain("/finance/reports");
+    expect(items(admin, "finance")).toContain("/finance/reports");
+    expect(items(board, "insights")).not.toContain("/finance/reports");
+  });
+  it("Settings lists Notifications for the Institute Admin", () => {
+    expect(items(admin, "settings")).toContain("/settings/notifications");
+  });
+});
+
+describe("admin sidebar: one active item", () => {
+  const hrefs = menuFor(admin, U).flatMap((s) => s.items.map((i) => i.href));
+  const base = "/demo/admin";
+  it("marks the closest item only (Badges, not Leaderboard too)", () => {
+    expect(activeHref(`${base}/leaderboards/badges`, base, hrefs)).toBe("/leaderboards/badges");
+    expect(activeHref(`${base}/leaderboards/challenges/abc`, base, hrefs)).toBe("/leaderboards/challenges");
+    expect(activeHref(`${base}/leaderboards`, base, hrefs)).toBe("/leaderboards");
+    expect(activeHref(`${base}/settings/notifications`, base, hrefs)).toBe("/settings/notifications");
+    expect(activeHref(`${base}/products/courses/x`, base, hrefs)).toBe("/products/courses");
+    expect(activeHref(base, base, hrefs)).toBe("");
+    expect(activeHref(`${base}/nowhere`, base, hrefs)).toBeNull();
   });
 });
 
