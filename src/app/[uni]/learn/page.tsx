@@ -4,7 +4,7 @@ import { Card, CardTitle, Empty, buttonClass, cx } from "@/components/ui";
 import { WeekView } from "@/components/week-view";
 import { hasRole } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
-import { joinPath } from "@/server/lib/links";
+import { joinPath, joinWindowOpen } from "@/server/lib/links";
 import { visibleSlots } from "@/server/registry";
 import { addDays, formatDate, formatTime, isoWeekday, minutesNowIn, toMinutes, weekStart, weekdayLabel } from "@/server/lib/dates";
 import { greetingFor } from "@/server/services/dashboard";
@@ -109,9 +109,10 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
                 {next.faculty.length > 0 && `, with ${next.faculty.join(" and ")}`}
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-3">
-                {next.joinUrl && (next.date === today || isLive) ? (
-                  // A plain link, never prefetched: the join route records attendance, then redirects to the meeting.
-                  <a href={joinPath(uni, next.batchId, next.date)} target="_blank" rel="noreferrer" className={buttonClass(isLive ? "primary" : "gold")}>
+                {joinWindowOpen(next, today, nowMin) ? (
+                  // A plain link, never prefetched: the join route records attendance, then redirects to the
+                  // meeting. Shown for every class (a per-class link counts too) once the window opens.
+                  <a href={joinPath(uni, next.batchId, next.date, next.startTime)} target="_blank" rel="noreferrer" className={buttonClass(isLive ? "primary" : "gold")}>
                     Join class
                   </a>
                 ) : null}

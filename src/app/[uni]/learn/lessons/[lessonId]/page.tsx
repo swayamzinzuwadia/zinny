@@ -130,9 +130,9 @@ export default async function LessonPage({ params }: { params: Promise<{ uni: st
                                 {s.kind !== "regular" && ` · ${s.kind === "extra" ? "Extra class" : "Moved"}`}
                               </div>
                             </div>
-                            {isToday && s.joinUrl && (
+                            {isToday && (
                               // A plain link (never prefetched): the join route records attendance.
-                              <a href={joinPath(uni, enrolment.batchId, s.date)} target="_blank" rel="noreferrer" className={buttonClass("gold", "sm")}>
+                              <a href={joinPath(uni, enrolment.batchId, s.date, s.startTime)} target="_blank" rel="noreferrer" className={buttonClass("gold", "sm")}>
                                 Join class
                               </a>
                             )}

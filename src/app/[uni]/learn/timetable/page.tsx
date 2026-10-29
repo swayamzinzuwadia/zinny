@@ -15,7 +15,8 @@ export default async function Timetable({ params, searchParams }: { params: Prom
   const from = week && /^\d{4}-\d{2}-\d{2}$/.test(week) ? weekStart(week) : undefined;
   const t = await studentTimetable(actor, from ? { from, to: addDays(from, 6) } : undefined);
   const base = `/${uni}/learn/timetable`;
-  const upcoming = t.sessions.filter((s) => s.date >= t.today && s.joinUrl).slice(0, 3);
+  // Every class gets Join (a per-class link counts too); the join route explains a missing link or a closed window.
+  const upcoming = t.sessions.filter((s) => s.date >= t.today).slice(0, 3);
 
   return (
     <>
@@ -50,7 +51,7 @@ export default async function Timetable({ params, searchParams }: { params: Prom
                 <b>{s.courseTitle}</b> · {s.date === t.today ? "Today" : formatDate(s.date, { weekday: true })}, {formatTime(s.startTime)}
               </span>
               {/* A plain link, never prefetched: the join route records attendance, then redirects to the meeting. */}
-              <a href={joinPath(uni, s.batchId, s.date)} target="_blank" rel="noreferrer" className={buttonClass("primary", "sm")}>
+              <a href={joinPath(uni, s.batchId, s.date, s.startTime)} target="_blank" rel="noreferrer" className={buttonClass("primary", "sm")}>
                 Join
               </a>
             </div>
