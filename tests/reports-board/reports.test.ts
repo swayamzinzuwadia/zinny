@@ -254,7 +254,7 @@ describe("the runner", () => {
         };
       },
     };
-    setTestModules([{ id: "assessments", reports: [scores] } as ZinnyModule]);
+    setTestModules([{ id: "assessments", reports: [scores] } as ZinnyModule], { only: true });
     expect(runnableReports(w.hod).map((r) => r.id)).toContain("assessments.test-scores");
     expect(runnableReports(w.board).map((r) => r.id)).toContain("assessments.test-scores");
     expect(runnableReports(w.accounts).map((r) => r.id)).not.toContain("assessments.test-scores");
