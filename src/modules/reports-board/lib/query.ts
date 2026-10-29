@@ -132,8 +132,9 @@ export function reportParams(filters: readonly ReportFilter[], q: ReportQuery, r
 export function downloadName(label: string, range: ResolvedRange | null, ext: "csv" | "xlsx"): string {
   const slug =
     label
-      .toLowerCase()
       .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "") || "report";
   return `${slug}${range ? `-${range.from}-to-${range.to}` : ""}.${ext}`;
