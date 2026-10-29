@@ -767,7 +767,9 @@ export async function resendPhoneCode(input: { ref: string | null | undefined; i
     return { kind: "go" as const, phone: c.phone };
   });
   if (step.kind === "restart") throw restart();
-  if (step.kind === "wait") throw new ValidationError(`Wait ${step.seconds} seconds before asking for a new code.`, "too_soon");
+  if (step.kind === "wait") {
+    throw new ValidationError(`Wait ${step.seconds} second${step.seconds === 1 ? "" : "s"} before asking for a new code.`, "too_soon");
+  }
   if (step.kind === "too_many") throw new ValidationError("That's the most codes we can send for one sign-in. Enter your number again to start over.", "too_many_sends");
   await assertSendAllowed(step.phone, input.ip, now);
 

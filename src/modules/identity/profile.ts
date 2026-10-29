@@ -142,7 +142,7 @@ export async function startPhoneChange(actor: Actor, userId: string, input: { ph
       .limit(1);
     if (recent && now.getTime() - recent.sentAt.getTime() < AUTH.otp.resendAfterMs) {
       const wait = Math.ceil((recent.sentAt.getTime() + AUTH.otp.resendAfterMs - now.getTime()) / 1000);
-      throw new ValidationError(`Wait ${wait} seconds before asking for a new code.`);
+      throw new ValidationError(`Wait ${wait} second${wait === 1 ? "" : "s"} before asking for a new code.`);
     }
     // One pending change at a time: older codes stop working.
     await tx
