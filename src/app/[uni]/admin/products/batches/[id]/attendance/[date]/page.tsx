@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Badge, Card, CardTitle, Field, Input, Notice, PageHeader, Stat, cx } from "@/components/ui";
 import { spaceContext } from "@/server/context";
-import { AppError, NotFoundError } from "@/server/errors";
+import { AppError, ForbiddenError, NotFoundError } from "@/server/errors";
 import { lockRegisterAction, saveLinksAction, unlockRegisterAction } from "@/modules/live-classes/actions";
 import { KindNote, LinkText, StateBadge } from "@/modules/live-classes/components/bits";
 import { RefreshEvery, StartClassButton } from "@/modules/live-classes/components/client";
+import { NoAttendanceAccess } from "@/modules/live-classes/components/no-access";
 import { RegisterForm, type RegisterRow } from "@/modules/live-classes/components/register-form";
 import { WindowRail } from "@/modules/live-classes/components/window-rail";
 import { attendanceHref, registerHref, startHref } from "@/modules/live-classes/links";
@@ -46,9 +47,10 @@ export default async function RegisterPage({
   const now = new Date();
   const result = await register(actor, { batchId: id, date, startTime: start && /^\d{2}:\d{2}$/.test(start) ? start : null }, now).catch((e) => {
     if (e instanceof NotFoundError) notFound();
-    if (e instanceof AppError && e.code !== "forbidden") return e;
+    if (e instanceof AppError) return e;
     throw e;
   });
+  if (result instanceof ForbiddenError) return <NoAttendanceAccess uni={uni} />;
 
   if (result instanceof AppError) {
     const to = (result.details as { to?: { date: string; startTime: string } } | undefined)?.to;

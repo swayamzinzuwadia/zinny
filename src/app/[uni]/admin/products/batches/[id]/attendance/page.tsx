@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Stat, Table, Td, cx } from "@/components/ui";
 import { spaceContext } from "@/server/context";
-import { NotFoundError } from "@/server/errors";
+import { ForbiddenError, NotFoundError } from "@/server/errors";
 import { setThresholdAction } from "@/modules/live-classes/actions";
 import { KindNote, Pct, PctBar, StateBadge } from "@/modules/live-classes/components/bits";
 import { RefreshEvery, StartClassButton } from "@/modules/live-classes/components/client";
+import { NoAttendanceAccess } from "@/modules/live-classes/components/no-access";
 import { registerHref, startHref } from "@/modules/live-classes/links";
 import { batchAttendance } from "@/modules/live-classes/overview";
 import { canSetThreshold, startable } from "@/modules/live-classes/staff";
@@ -21,8 +22,10 @@ export default async function AttendancePage({ params }: { params: Promise<{ uni
   const { actor } = await spaceContext(uni);
   const data = await batchAttendance(actor, id).catch((e) => {
     if (e instanceof NotFoundError) notFound();
+    if (e instanceof ForbiddenError) return null;
     throw e;
   });
+  if (!data) return <NoAttendanceAccess uni={uni} />;
   const below = data.students.filter((s) => s.below && s.current);
   const showThreshold = canSetThreshold(actor);
   const onNow = data.past.find((s) => s.state === "live") ?? data.upcoming.find((s) => s.state === "open");
