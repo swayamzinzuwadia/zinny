@@ -5,7 +5,7 @@ import type { CourseTabProps } from "@/contracts/module";
 import { can } from "@/server/core";
 import { addLessonAction, addSectionAction } from "../actions";
 import { describeDrip, formatMinutes, KIND_LABEL, LESSON_KINDS } from "../lib/kinds";
-import { batchProgressPath, lessonEditorPath } from "../paths";
+import { batchProgressPath, lessonEditorPath, progressOverviewPath } from "../paths";
 import { canEditCurriculum, getCurriculum } from "../service";
 import { courseProgressBatches } from "../staff";
 import { Icon, ProgressBar } from "./bits";
@@ -127,18 +127,24 @@ export async function CurriculumTab({ uni, actor, course, target }: CourseTabPro
                 <input type="hidden" name="uni" value={uni} />
                 <input type="hidden" name="courseId" value={course.id} />
                 <input type="hidden" name="sectionId" value={s.id} />
-                <Input name="title" placeholder="New lesson title" required minLength={2} maxLength={200} aria-label={`New lesson in ${s.title}`} className="min-w-0 flex-1 basis-48" />
-                <Select name="kind" className="w-32" aria-label="Lesson type" defaultValue="video">
-                  {LESSON_KINDS.map((k) => (
-                    <option key={k} value={k}>
-                      {KIND_LABEL[k]}
-                    </option>
-                  ))}
-                </Select>
-                <Select name="required" className="w-32" aria-label="Required or optional" defaultValue="required">
-                  <option value="required">Required</option>
-                  <option value="optional">Optional</option>
-                </Select>
+                <div className="min-w-0 flex-1 basis-56">
+                  <Input name="title" placeholder="New lesson title" required minLength={2} maxLength={200} aria-label={`New lesson in ${s.title}`} />
+                </div>
+                <div className="w-32 shrink-0">
+                  <Select name="kind" aria-label="Lesson type" defaultValue="video">
+                    {LESSON_KINDS.map((k) => (
+                      <option key={k} value={k}>
+                        {KIND_LABEL[k]}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="w-32 shrink-0">
+                  <Select name="required" aria-label="Required or optional" defaultValue="required">
+                    <option value="required">Required</option>
+                    <option value="optional">Optional</option>
+                  </Select>
+                </div>
                 <SubmitButton size="sm" variant="secondary" pendingText="Adding…">
                   Add lesson
                 </SubmitButton>
@@ -184,6 +190,9 @@ export async function CurriculumTab({ uni, actor, course, target }: CourseTabPro
                 </li>
               ))}
             </ul>
+            <Link href={progressOverviewPath(uni)} className="mt-5 inline-block text-[13px] text-brand hover:underline">
+              See progress for all courses
+            </Link>
           </Card>
         )}
       </div>

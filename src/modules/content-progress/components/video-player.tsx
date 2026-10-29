@@ -106,7 +106,7 @@ export function VideoPlayer({
       if (!duration.current || (ranges.length === 0 && !opts.beacon)) return;
       const body = JSON.stringify({ ranges, duration: duration.current, position: position.current });
       if (opts.beacon && navigator.sendBeacon) {
-        navigator.sendBeacon(progressUrl, new Blob([body], { type: "application/json" }));
+        navigator.sendBeacon(progressUrl, new Blob([body], { type: "text/plain;charset=UTF-8" }));
         return;
       }
       if (sending.current) {
