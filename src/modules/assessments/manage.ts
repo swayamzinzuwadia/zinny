@@ -53,10 +53,10 @@ export async function listTests(actor: Actor, f: TestListFilter = {}) {
       .select({
         test: assessTests,
         courseTitle: courses.title,
-        picked: sql<number>`(select count(*)::int from ${assessTestQuestions} tq join ${assessQuestions} q on q.id = tq.question_id where tq.test_id = ${assessTests.id} and q.archived_at is null)`,
-        drawn: sql<number>`(select coalesce(sum(dr.count), 0)::int from ${assessDrawRules} dr where dr.test_id = ${assessTests.id})`,
-        attempts: sql<number>`(select count(*)::int from ${assessAttempts} a where a.test_id = ${assessTests.id} and a.status <> 'in_progress')`,
-        children: sql<number>`(select count(*)::int from ${assessTests} c where c.series_id = ${assessTests.id})`,
+        picked: sql<number>`(select count(*)::int from ${assessTestQuestions} tq join ${assessQuestions} q on q.id = tq.question_id where tq.test_id = assess_tests.id and q.archived_at is null)`,
+        drawn: sql<number>`(select coalesce(sum(dr.count), 0)::int from ${assessDrawRules} dr where dr.test_id = assess_tests.id)`,
+        attempts: sql<number>`(select count(*)::int from ${assessAttempts} a where a.test_id = assess_tests.id and a.status <> 'in_progress')`,
+        children: sql<number>`(select count(*)::int from ${assessTests} c where c.series_id = assess_tests.id)`,
       })
       .from(assessTests)
       .innerJoin(courses, eq(courses.id, assessTests.courseId))
@@ -512,7 +512,7 @@ export async function seriesTests(actor: Actor, seriesId: string) {
     const children = await tx
       .select({
         test: assessTests,
-        attempts: sql<number>`(select count(*)::int from ${assessAttempts} a where a.test_id = ${assessTests.id} and a.status <> 'in_progress')`,
+        attempts: sql<number>`(select count(*)::int from ${assessAttempts} a where a.test_id = assess_tests.id and a.status <> 'in_progress')`,
       })
       .from(assessTests)
       .where(eq(assessTests.seriesId, seriesId))

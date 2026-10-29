@@ -88,7 +88,7 @@ async function loadMine(tx: Tx, actor: Actor, opts: { courseId?: string; batchId
         inArray(assessTests.courseId, courseIds),
         or(
           eq(assessTests.allBatches, true),
-          sql`exists (select 1 from ${assessTestBatches} tb where tb.test_id = ${assessTests.id} and tb.batch_id in (${sql.join(
+          sql`exists (select 1 from ${assessTestBatches} tb where tb.test_id = assess_tests.id and tb.batch_id in (${sql.join(
             batchIds.map((b) => sql`${b}::uuid`),
             sql`, `,
           )}))`,
@@ -110,16 +110,21 @@ async function loadMine(tx: Tx, actor: Actor, opts: { courseId?: string; batchId
         .where(and(eq(assessAttempts.userId, actor.userId), inArray(assessAttempts.testId, ids)))
         .orderBy(desc(assessAttempts.attemptNo))
     : [];
-  const counts = ids.length
-    ? await tx
-        .select({
-          testId: assessTests.id,
-          n: sql<number>`(select count(*)::int from ${assessTestQuestions} tq where tq.test_id = ${assessTests.id}) + (select coalesce(sum(dr.count), 0)::int from ${assessDrawRules} dr where dr.test_id = ${assessTests.id})`,
-        })
-        .from(assessTests)
-        .where(inArray(assessTests.id, ids))
-    : [];
-  const countOf = new Map(counts.map((c) => [c.testId, c.n]));
+  // Questions per test: picked ones plus what the draw rules add.
+  const countOf = new Map<string, number>();
+  if (ids.length) {
+    const picked = await tx
+      .select({ testId: assessTestQuestions.testId, n: sql<number>`count(*)::int` })
+      .from(assessTestQuestions)
+      .where(inArray(assessTestQuestions.testId, ids))
+      .groupBy(assessTestQuestions.testId);
+    const drawn = await tx
+      .select({ testId: assessDrawRules.testId, n: sql<number>`coalesce(sum(${assessDrawRules.count}), 0)::int` })
+      .from(assessDrawRules)
+      .where(inArray(assessDrawRules.testId, ids))
+      .groupBy(assessDrawRules.testId);
+    for (const r of [...picked, ...drawn]) countOf.set(r.testId, (countOf.get(r.testId) ?? 0) + r.n);
+  }
 
   const now = new Date();
   const tests: MyTest[] = testRows.map(({ t, courseTitle }) => {

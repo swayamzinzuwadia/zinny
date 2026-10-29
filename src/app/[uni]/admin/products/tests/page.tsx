@@ -72,7 +72,7 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
             <form className="ml-auto flex gap-2" action={base}>
               {kind && <input type="hidden" name="kind" value={kind} />}
               {courses.length > 1 && (
-                <Select name="course" defaultValue={courseId} className="w-44" aria-label="Course">
+                <Select name="course" defaultValue={courseId} className="w-44!" aria-label="Course">
                   <option value="">All courses</option>
                   {courses.map(([id, title]) => (
                     <option key={id} value={id}>
@@ -81,7 +81,7 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
                   ))}
                 </Select>
               )}
-              <Input name="q" defaultValue={q} placeholder="Search by title" className="w-48" aria-label="Search tests" />
+              <Input name="q" defaultValue={q} placeholder="Search by title" className="w-48!" aria-label="Search tests" />
               <button className={buttonClass("secondary")}>Search</button>
             </form>
           </div>

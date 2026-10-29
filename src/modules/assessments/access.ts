@@ -195,7 +195,7 @@ export async function testsInReach(tx: Tx, r: Reach): Promise<SQL | undefined> {
     const courseIds = (await tx.select({ courseId: batches.courseId }).from(batches).where(inArray(batches.id, ids))).map((b) => b.courseId);
     if (courseIds.length) conds.push(and(eq(assessTests.allBatches, true), inArray(assessTests.courseId, courseIds)));
     conds.push(
-      sql`exists (select 1 from ${assessTestBatches} tb where tb.test_id = ${assessTests.id} and tb.batch_id in (${sql.join(
+      sql`exists (select 1 from ${assessTestBatches} tb where tb.test_id = assess_tests.id and tb.batch_id in (${sql.join(
         ids.map((i) => sql`${i}::uuid`),
         sql`, `,
       )}))`,

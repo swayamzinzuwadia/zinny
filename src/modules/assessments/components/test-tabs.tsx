@@ -70,7 +70,7 @@ export function ProctoringTab({ uni, info }: { uni: string; info: TestInfo }) {
             </label>
             <div className="ml-7 mt-2 flex items-center gap-2 text-[13px]">
               Allowed
-              <Input type="number" name="tabSwitchLimit" min={0} max={50} defaultValue={t.tabSwitchLimit ?? 3} className="h-8 w-20" disabled={ro} aria-label="Tab switches allowed" />
+              <Input type="number" name="tabSwitchLimit" min={0} max={50} defaultValue={t.tabSwitchLimit ?? 3} className="h-8! w-20!" disabled={ro} aria-label="Tab switches allowed" />
               times
             </div>
           </div>
@@ -206,7 +206,7 @@ export async function ResultsTab({ uni, actor, testId, batchId, base }: { uni: s
       {r.batches.length > 1 && (
         <form className="flex items-center gap-2" action={base}>
           <input type="hidden" name="tab" value="results" />
-          <Select name="batch" defaultValue={batchId ?? ""} className="w-56" aria-label="Batch">
+          <Select name="batch" defaultValue={batchId ?? ""} className="w-56!" aria-label="Batch">
             <option value="">All my batches</option>
             {r.batches.map((b) => (
               <option key={b.id} value={b.id}>

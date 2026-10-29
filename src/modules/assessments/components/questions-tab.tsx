@@ -139,7 +139,7 @@ export async function QuestionsTab({ uni, actor, testId, search, base }: { uni: 
           <CardTitle hint={<Link href={`${base.replace(/\/[^/]+$/, "")}/pool`}>Open the pool</Link>}>Pick from the pool</CardTitle>
           <form className="mb-3 flex flex-wrap gap-2" action={base}>
             <input type="hidden" name="tab" value="questions" />
-            <Select name="pool" defaultValue={f.pool} className="w-48" aria-label="Pool">
+            <Select name="pool" defaultValue={f.pool} className="w-48!" aria-label="Pool">
               {pool.pools.length > 1 && <option value="all">All pools</option>}
               {pool.pools.map((p) => (
                 <option key={p.key} value={p.key}>
@@ -148,13 +148,13 @@ export async function QuestionsTab({ uni, actor, testId, search, base }: { uni: 
               ))}
             </Select>
             <Input name="q" defaultValue={f.q} placeholder="Search" className="min-w-0 flex-1" aria-label="Search the pool" />
-            <Input name="tag" defaultValue={f.tag} placeholder="Tag" className="w-28" list="pool-tags-2" aria-label="Tag" />
+            <Input name="tag" defaultValue={f.tag} placeholder="Tag" className="w-28!" list="pool-tags-2" aria-label="Tag" />
             <datalist id="pool-tags-2">
               {pool.tags.map((t) => (
                 <option key={t.tag} value={t.tag} />
               ))}
             </datalist>
-            <Select name="difficulty" defaultValue={f.difficulty} className="w-32" aria-label="Difficulty">
+            <Select name="difficulty" defaultValue={f.difficulty} className="w-32!" aria-label="Difficulty">
               <option value="">Any difficulty</option>
               {DIFFICULTIES.map((d) => (
                 <option key={d} value={d}>
@@ -162,7 +162,7 @@ export async function QuestionsTab({ uni, actor, testId, search, base }: { uni: 
                 </option>
               ))}
             </Select>
-            <Select name="type" defaultValue={f.type} className="w-36" aria-label="Type">
+            <Select name="type" defaultValue={f.type} className="w-36!" aria-label="Type">
               <option value="">Any type</option>
               {QUESTION_TYPES.map((t) => (
                 <option key={t} value={t}>

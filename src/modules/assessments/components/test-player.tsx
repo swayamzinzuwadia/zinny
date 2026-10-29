@@ -281,7 +281,7 @@ export function TestPlayer({ uni, paper }: { uni: string; paper: PaperView }) {
       </ol>
 
       {/* Bottom bar: navigation and submit, within thumb reach on phones */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface px-4 py-3">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
           {paper.onePerPage ? (
             <div className="flex gap-2">

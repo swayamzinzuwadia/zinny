@@ -117,6 +117,14 @@ describe("assessments: questions, draw rules and publishing", () => {
     expect(view.rules[0]).toMatchObject({ count: 8, difficulty: "medium", tag: "SQL", available: 10 });
     await setPublished(w.hod, t.id, true);
     expect((await getTest(w.hod, t.id)).test.status).toBe("published");
+    // Both lists count picked plus drawn questions for this test only.
+    const other = await createTest(w.hod, { kind: "quiz", title: "Other", courseId: w.course.id, allBatches: true, batchIds: [] });
+    await addQuestionsToTest(w.hod, other.id, [qs[0].id]);
+    const listed = await listTests(w.hod);
+    expect(listed.find((x) => x.id === t.id)).toMatchObject({ questionCount: 11, attemptCount: 0 });
+    expect(listed.find((x) => x.id === other.id)).toMatchObject({ questionCount: 1 });
+    const { myTests } = await import("@/modules/assessments/learner");
+    expect((await myTests(w.riya)).tests.find((x) => x.id === t.id)?.questionCount).toBe(11);
   });
 
   it("faculty can't add another department's questions to their test", async () => {
@@ -179,6 +187,7 @@ describe("assessments: test series", () => {
     await expect(addToSeries(w.hod, series.id, a.id)).rejects.toThrow(/already in the series/);
     await expect(addToSeries(w.hod, series.id, series.id)).rejects.toThrow(/can't contain another series/);
     const { moveInSeries } = await import("@/modules/assessments/manage");
+    expect((await listTests(w.hod, { kind: "series" }))[0].childCount).toBe(2);
     await moveInSeries(w.hod, series.id, a.id, "up");
     expect((await seriesTests(w.hod, series.id)).children.map((c) => c.title)).toEqual(["Week 1", "Week 2"]);
     await removeFromSeries(w.hod, series.id, b.id);

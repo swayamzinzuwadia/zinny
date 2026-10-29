@@ -95,9 +95,12 @@ export default async function StaffAttemptPage({ params }: { params: Promise<{ u
                     {i.needsGrading ? (
                       <Badge tone="gold">To grade</Badge>
                     ) : i.awarded === null ? null : (
-                      <span className={cx("tabular font-medium", i.awarded > 0 ? "text-brand" : i.awarded < 0 ? "text-danger" : "text-muted")}>
-                        {i.awarded > 0 ? "+" : ""}
-                        {fmtMarks(i.awarded)} / {fmtMarks(i.marks)}
+                      <span className="flex items-center gap-2">
+                        {i.gradedAt && <Badge tone="brand">Graded</Badge>}
+                        <span className={cx("tabular font-medium", i.awarded > 0 ? "text-brand" : i.awarded < 0 ? "text-danger" : "text-muted")}>
+                          {i.awarded > 0 ? "+" : ""}
+                          {fmtMarks(i.awarded)} / {fmtMarks(i.marks)}
+                        </span>
                       </span>
                     )}
                   </div>

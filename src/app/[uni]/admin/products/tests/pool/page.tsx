@@ -140,7 +140,7 @@ export default async function PoolPage({ params, searchParams }: { params: Promi
             {f.pool !== "all" && <input type="hidden" name="pool" value={f.pool} />}
             {f.tag && <input type="hidden" name="tag" value={f.tag} />}
             <Input name="q" defaultValue={f.q} placeholder="Search question text" className="min-w-0 flex-1" aria-label="Search questions" />
-            <Select name="type" defaultValue={f.type} className="w-40" aria-label="Type">
+            <Select name="type" defaultValue={f.type} className="w-40!" aria-label="Type">
               <option value="">Any type</option>
               {QUESTION_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -148,7 +148,7 @@ export default async function PoolPage({ params, searchParams }: { params: Promi
                 </option>
               ))}
             </Select>
-            <Select name="difficulty" defaultValue={f.difficulty} className="w-36" aria-label="Difficulty">
+            <Select name="difficulty" defaultValue={f.difficulty} className="w-36!" aria-label="Difficulty">
               <option value="">Any difficulty</option>
               {DIFFICULTIES.map((d) => (
                 <option key={d} value={d}>
@@ -188,8 +188,10 @@ export default async function PoolPage({ params, searchParams }: { params: Promi
               {data.rows.map((q) => (
                 <li key={q.id}>
                   <Card className="p-5">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <QuestionPreview q={q} />
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <QuestionPreview q={q} />
+                      </div>
                       {q.canEdit && (
                         <div className="flex shrink-0 gap-1">
                           <Link href={`${base}/${q.id}${back ? `?back=${encodeURIComponent(back)}` : ""}`} className={buttonClass("ghost", "sm")}>
@@ -201,7 +203,7 @@ export default async function PoolPage({ params, searchParams }: { params: Promi
                         </div>
                       )}
                     </div>
-                    {q.explanation && <p className="mt-2 text-[13px] text-muted">{q.explanation}</p>}
+                    {q.explanation && !("guide" in q.answer && q.answer.guide === q.explanation) && <p className="mt-2 text-[13px] text-muted">{q.explanation}</p>}
                   </Card>
                 </li>
               ))}
