@@ -111,7 +111,8 @@ export function verifyBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
     if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("CERTIFICATE_VERIFY_BASE_URL must start with https://");
     return u.origin + u.pathname.replace(/\/+$/, "");
   }
-  if (env.NODE_ENV === "production") {
+  // Demo runs of a production build (ZINNY_DEMO=1, see README) may use localhost like dev.
+  if (env.NODE_ENV === "production" && env.ZINNY_DEMO !== "1") {
     throw new Error("Set CERTIFICATE_VERIFY_BASE_URL (for example https://app.zinny.in) before issuing certificates. See src/modules/certificates/ENV.md.");
   }
   return `http://localhost:${env.PORT || 3000}`;

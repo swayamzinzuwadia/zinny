@@ -58,6 +58,7 @@ describe("links and names", () => {
     expect(verifyBaseUrl({ CERTIFICATE_VERIFY_BASE_URL: "https://app.zinny.in/" } as unknown as NodeJS.ProcessEnv)).toBe("https://app.zinny.in");
     expect(verifyBaseUrl({ PORT: "3105" } as unknown as NodeJS.ProcessEnv)).toBe("http://localhost:3105");
     expect(() => verifyBaseUrl({ NODE_ENV: "production" } as unknown as NodeJS.ProcessEnv)).toThrow(/CERTIFICATE_VERIFY_BASE_URL/);
+    expect(verifyBaseUrl({ NODE_ENV: "production", ZINNY_DEMO: "1", PORT: "3000" } as unknown as NodeJS.ProcessEnv)).toBe("http://localhost:3000");
     expect(() => verifyBaseUrl({ CERTIFICATE_VERIFY_BASE_URL: "javascript:alert(1)" } as unknown as NodeJS.ProcessEnv)).toThrow();
   });
 
