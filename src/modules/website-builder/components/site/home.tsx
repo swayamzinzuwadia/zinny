@@ -33,7 +33,7 @@ function Hero({ site, s, data, uni }: { site: SiteInfo; s: PageSection; data: Ho
               >
                 <span className="now-dot h-2 w-2 shrink-0 rounded-full bg-gold" aria-hidden />
                 <span>
-                  {next.courseTitle}: next batch starts {formatDate(next.startDate, { weekday: true })}
+                  {next.courseTitle}: next batch starts {formatDate(next.startDate, { weekday: true, year: false })}
                 </span>
               </Link>
             )}
@@ -163,7 +163,7 @@ function Testimonials({ s, data }: { s: PageSection; data: HomeData }) {
       <SectionHead id="testimonials" heading={s.heading} intro={s.intro} />
       <figure className="max-w-4xl">
         <blockquote className="text-[23px] font-medium leading-[1.4] tracking-[-0.015em] sm:text-[30px]">
-          <span aria-hidden className="mr-1 text-[var(--site-primary)]">“</span>
+          <span aria-hidden className="text-[var(--site-primary)]">“</span>
           {first.quote}
           <span aria-hidden className="text-[var(--site-primary)]">”</span>
         </blockquote>

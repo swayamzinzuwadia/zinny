@@ -64,11 +64,11 @@ export function SiteFooter({ site }: { site: SiteInfo }) {
   const home = `/site/${site.slug}`;
   const year = new Date().getFullYear();
   return (
-    <footer className="mt-24 bg-[var(--site-deep)] text-[var(--site-on-primary)]">
+    <footer className="mt-12 bg-[var(--site-deep)] text-[var(--site-on-primary)]">
       <div className={`${container} grid gap-10 py-14 md:grid-cols-[1.3fr_1fr_1fr]`}>
         <div>
           <div className="flex items-center gap-3">
-            <Monogram site={site} size={44} />
+            <Monogram site={site} size={40} onDark />
             <span className="text-[19px] font-semibold">{site.name}</span>
           </div>
           {site.tagline && <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-[var(--site-on-primary)]/75">{site.tagline}</p>}

@@ -103,7 +103,7 @@ export default async function CoursePage({ params }: Props) {
         ) : (
           <ul className="mt-6 divide-y divide-[var(--site-line)] border-y border-[var(--site-line)]">
             {course.batches.map((b) => (
-              <li key={b.id} className="grid gap-x-8 gap-y-2 py-6 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto] sm:items-center">
+              <li key={b.id} className="grid gap-x-8 gap-y-2 py-6 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_230px] sm:items-center">
                 <div>
                   <div className="text-[19px] font-semibold">{b.name}</div>
                   <div className="text-[14px] text-muted">

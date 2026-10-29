@@ -53,6 +53,31 @@ export function darkenToContrast(hex: string): string {
   return c;
 }
 
+function toHsl(hex: string): [number, number, number] {
+  const [r, g, b] = rgb(hex).map((v) => v / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h * 60, s, l];
+}
+
+function fromHsl(h: number, s: number, l: number): string {
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return toHex([f(0) * 255, f(8) * 255, f(4) * 255]);
+}
+
+/** A light tint of the same hue (mixing a cool colour into cream turns it grey; this doesn't). */
+export function tint(hex: string, lightness: number, maxSaturation: number): string {
+  const [h, s] = toHsl(hex);
+  return fromHsl(h, Math.min(s, maxSaturation), lightness);
+}
+
 export function isReadableBrand(hex: string): boolean {
   return contrast(hex, CREAM) >= MIN_CONTRAST;
 }
@@ -79,8 +104,8 @@ export function sitePalette(profileColor: string | null | undefined, brandingCol
   return {
     primary,
     deep: mix(primary, "#000000", 0.38),
-    soft: mix(primary, CREAM, 0.9),
-    line: mix(primary, CREAM, 0.78),
+    soft: tint(primary, 0.93, 0.32),
+    line: tint(primary, 0.84, 0.18),
     onPrimary: CREAM,
   };
 }

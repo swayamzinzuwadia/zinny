@@ -15,13 +15,22 @@ export function SiteImage({ image, sizes, className, priority, alt }: { image: M
   return <Image src={image.src} width={image.width} height={image.height} alt={alt ?? image.alt} sizes={sizes} className={className} priority={priority} />;
 }
 
-export function Monogram({ site, size = 40 }: { site: Pick<SiteInfo, "name" | "logo" | "brandingLogoUrl">; size?: number }) {
+/** The logo (uploaded, or from the university's branding), else initials. `onDark` puts it on a cream tile. */
+export function Monogram({ site, size = 40, onDark }: { site: Pick<SiteInfo, "name" | "logo" | "brandingLogoUrl">; size?: number; onDark?: boolean }) {
+  const tile = (img: ReactNode) =>
+    onDark ? (
+      <span className="inline-flex shrink-0 items-center justify-center rounded-[30%] bg-canvas" style={{ width: size + 12, height: size + 12 }}>
+        {img}
+      </span>
+    ) : (
+      img
+    );
   if (site.logo) {
-    return <Image src={site.logo.src} width={site.logo.width} height={site.logo.height} alt="" className="shrink-0 object-contain" style={{ width: size, height: size }} sizes={`${size * 2}px`} />;
+    return tile(<Image src={site.logo.src} width={site.logo.width} height={site.logo.height} alt="" className="shrink-0 object-contain" style={{ width: size, height: size }} sizes={`${size * 2}px`} />);
   }
   if (site.brandingLogoUrl) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={site.brandingLogoUrl} alt="" className="shrink-0 object-contain" style={{ width: size, height: size }} />;
+    return tile(<img src={site.brandingLogoUrl} alt="" className="shrink-0 object-contain" style={{ width: size, height: size }} />);
   }
   return (
     <span
@@ -77,7 +86,7 @@ export function priceLine(c: { pricePaise: number; gstRateBp: number }) {
 
 /** "Starts Mon 2 Nov" or "Running now". */
 export function startLine(b: { startDate: string; started: boolean }) {
-  return b.started ? "Running now, join any week" : `Starts ${formatDate(b.startDate, { weekday: true })}`;
+  return b.started ? "Running now, join any week" : `Starts ${formatDate(b.startDate, { weekday: true, year: false })}`;
 }
 
 /** Seats left, with gold only when few are left (it needs attention now). */
@@ -98,7 +107,7 @@ export function CourseRow({ uni, c }: { uni: string; c: PublicCourseCard }) {
     <li>
       <Link
         href={`/site/${uni}/courses/${c.id}`}
-        className="group grid gap-x-8 gap-y-2 py-6 transition-colors sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] sm:items-center"
+        className="group grid gap-x-8 gap-y-2 py-6 transition-colors sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_230px] sm:items-center"
       >
         <div className="min-w-0">
           <div className="text-[13px] text-muted">{c.departmentName}</div>

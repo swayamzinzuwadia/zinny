@@ -60,7 +60,7 @@ export function PostView({ uni, post }: { uni: string; post: PublicPost }) {
         <Link href={`/site/${uni}/blog`} className="text-[14px] text-muted hover:text-ink">
           ← Blog
         </Link>
-        <div className="mx-auto mt-8 max-w-3xl">
+        <div className="mx-auto mt-8 max-w-[720px]">
           <h1 className="text-balance text-[34px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[46px]">{post.title}</h1>
           {post.excerpt && <p className="mt-4 text-[19px] leading-relaxed text-muted">{post.excerpt}</p>}
           <p className="mt-6 text-[14px] text-muted">
@@ -87,7 +87,7 @@ export function PostView({ uni, post }: { uni: string; post: PublicPost }) {
         )}
       </header>
       <div className={`${container} mt-12`}>
-        <div className={cx("mx-auto max-w-[68ch] [&_a]:text-[var(--site-primary)] [&_blockquote]:border-[var(--site-primary)]", PROSE)} dangerouslySetInnerHTML={{ __html: post.bodyHtml }} />
+        <div className={cx("mx-auto max-w-[720px] [&_a]:text-[var(--site-primary)] [&_blockquote]:border-[var(--site-primary)]", PROSE)} dangerouslySetInnerHTML={{ __html: post.bodyHtml }} />
       </div>
       {post.related.length > 0 && (
         <aside aria-labelledby="related-heading" className={`${container} mt-20 border-t border-[var(--site-line)] pt-12`}>
