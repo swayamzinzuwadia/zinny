@@ -19,7 +19,7 @@ const CONTRACT_EXPORTS = [
   "batchStudentIds", "studentEnrolments", "enrolmentById", "markEnrolmentCompleted",
   "scheduledBatches", "expandSessions", "studentTimetable",
   "notify", "hodsOf", "storage", "sendEmail", "sendSms", "gateway",
-  "orderForCheckout", "confirmPayment", "failPayment", "markOrderRefunded", "orderUniversity",
+  "orderForCheckout", "confirmPayment", "failPayment", "holdSeat", "markOrderRefunded", "orderUniversity",
   "listUniversities", "createUniversity", "updateUniversity", "enterSupportMode", "exitSupportMode", "supportTrail",
   "grantPlatformRole", "revokePlatformRole", "assertPlatform", "canPlatform",
 ];
