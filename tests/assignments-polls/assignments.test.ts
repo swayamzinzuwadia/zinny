@@ -339,4 +339,27 @@ describe("batch switches", () => {
     expect((await gradeSubmission(omar, { assignmentId: a.id, studentId: fresh.kabir.userId, marks: 5 })).finalMarks).toBe(5);
     expect(await systemDb().select().from(asgnSubmissionVersions).where(eq(asgnSubmissionVersions.submissionId, s.id))).toHaveLength(1);
   });
+
+  it("work for an assignment the new batch doesn't have stays with the old batch, and the student still sees it read only", async () => {
+    const fresh = await twoBatches("Switch Stay U");
+    const a = await createAssignment(fresh.farah, assignmentInput(fresh.course.id, { title: "Morning only", batchIds: [fresh.batchA.id] }), at(T.before));
+    await submitAssignment(fresh.kabir, { assignmentId: a.id, text: "morning work" }, at(T.before));
+    const { requestSwitch, decideSwitch, myLearning } = await import("@/server/services/enrolment");
+    const kabirEnrolment = (await myLearning(fresh.kabir)).find((l) => l.status === "active")!.enrolmentId;
+    const req = await requestSwitch(fresh.kabir, { enrolmentId: kabirEnrolment, toBatchId: fresh.batchB.id, acknowledgeClash: true });
+    if (req.status !== "requested") throw new Error(`unexpected ${req.status}`);
+    await decideSwitch(fresh.hod, req.requestId, { approve: true });
+    await drainEvents();
+    const [s] = await systemDb().select().from(asgnSubmissions).where(eq(asgnSubmissions.assignmentId, a.id));
+    expect(s.batchId).toBe(fresh.batchA.id);
+    const mine = await myAssignment(fresh.kabir, a.id, at(T.before));
+    expect(mine).toMatchObject({ status: "submitted", canSubmit: false });
+    expect(mine.closedReason).toMatch(/moved to a batch/);
+    expect((await myAssignments(fresh.kabir, at(T.before))).map((x) => x.id)).toContain(a.id);
+    await expect(submitAssignment(fresh.kabir, { assignmentId: a.id, text: "again" }, at(T.before))).rejects.toThrow(/not found/);
+    expect((await gradeSubmission(fresh.farah, { assignmentId: a.id, studentId: fresh.kabir.userId, marks: 6 })).finalMarks).toBe(6);
+    expect((await myAssignment(fresh.kabir, a.id, at(T.before))).finalMarks).toBe(6);
+    // A student who never handed in anything doesn't see the old batch's work.
+    expect((await myAssignments(fresh.zoya, at(T.before))).map((x) => x.id)).not.toContain(a.id);
+  });
 });

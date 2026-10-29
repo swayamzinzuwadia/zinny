@@ -673,8 +673,19 @@ export type LearnerAssignment = {
   preview: string;
 };
 
-function learnerStatus(a: AssignmentRow, seat: LearnerSeat, s: typeof asgnSubmissions.$inferSelect | undefined, now: Date): { status: LearnerStatus; canSubmit: boolean } {
-  const open = seat.status === "active";
+/**
+ * The student's seat for an assignment. A student who moved to a batch the assignment isn't
+ * for still sees the work they handed in there (read only), so their grade never disappears.
+ */
+function learnerSeatFor(seats: LearnerSeat[], a: AssignmentRow, covered: string[], s: typeof asgnSubmissions.$inferSelect | undefined) {
+  const seat = seatFor(seats, a, covered);
+  if (seat) return { seat, moved: false };
+  const inCourse = s ? seats.find((x) => x.courseId === a.courseId) : undefined;
+  return inCourse ? { seat: { ...inCourse, batchId: s!.batchId }, moved: true } : null;
+}
+
+function learnerStatus(a: AssignmentRow, seat: LearnerSeat, s: typeof asgnSubmissions.$inferSelect | undefined, now: Date, moved = false): { status: LearnerStatus; canSubmit: boolean } {
+  const open = seat.status === "active" && !moved;
   const pastDue = now.getTime() > a.dueAt.getTime();
   if (s?.gradedAt) return { status: "graded", canSubmit: false };
   if (s?.submittedAt) return { status: "submitted", canSubmit: open && !pastDue };
@@ -689,18 +700,28 @@ export async function myAssignments(actor: Actor, opts: Opts & { courseId?: stri
   const now = opts.now ?? new Date();
   return withTenant(actor, async (tx) => {
     const seats = (await learnerSeats(tx, actor.userId)).filter((s) => !opts.courseId || s.courseId === opts.courseId);
-    const list = await assignmentsForBatches(tx, seats);
-    const covered = await coveredBatchMap(tx, list);
-    const subs = list.length
-      ? await tx.select().from(asgnSubmissions).where(and(eq(asgnSubmissions.userId, actor.userId), inArray(asgnSubmissions.assignmentId, list.map((a) => a.id))))
+    const courseIds = [...new Set(seats.map((s) => s.courseId))];
+    const subs = courseIds.length
+      ? (
+          await tx
+            .select({ s: asgnSubmissions })
+            .from(asgnSubmissions)
+            .innerJoin(asgnAssignments, eq(asgnAssignments.id, asgnSubmissions.assignmentId))
+            .where(and(eq(asgnSubmissions.userId, actor.userId), inArray(asgnAssignments.courseId, courseIds)))
+        ).map((r) => r.s)
       : [];
+    const scoped = await assignmentsForBatches(tx, seats);
+    const extra = subs.filter((x) => !scoped.some((a) => a.id === x.assignmentId)).map((x) => x.assignmentId);
+    const list = [...scoped, ...(extra.length ? await tx.select().from(asgnAssignments).where(inArray(asgnAssignments.id, extra)) : [])];
+    const covered = await coveredBatchMap(tx, list);
     const n = await names(tx, list.map((a) => a.courseId), []);
     const out: LearnerAssignment[] = [];
     for (const a of list) {
-      const seat = seatFor(seats, a, covered.get(a.id) ?? []);
-      if (!seat) continue;
       const s = subs.find((x) => x.assignmentId === a.id);
-      const st = learnerStatus(a, seat, s, now);
+      const found = learnerSeatFor(seats, a, covered.get(a.id) ?? [], s);
+      if (!found) continue;
+      const { seat, moved } = found;
+      const st = learnerStatus(a, seat, s, now, moved);
       out.push({
         id: a.id,
         title: a.title,
@@ -749,16 +770,19 @@ export async function myAssignment(actor: Actor, assignmentId: string, opts: Opt
     const [a] = await tx.select().from(asgnAssignments).where(eq(asgnAssignments.id, need(assignmentId, "Assignment")));
     if (!a) throw new NotFoundError("Assignment");
     const seats = await learnerSeats(tx, actor.userId);
-    const seat = seatFor(seats, a, await coveredBatchIds(tx, a));
-    if (!seat) throw new NotFoundError("Assignment");
     const [s] = await tx.select().from(asgnSubmissions).where(and(eq(asgnSubmissions.assignmentId, a.id), eq(asgnSubmissions.userId, actor.userId)));
-    const st = learnerStatus(a, seat, s, now);
+    const found = learnerSeatFor(seats, a, await coveredBatchIds(tx, a), s);
+    if (!found) throw new NotFoundError("Assignment");
+    const { seat, moved } = found;
+    const st = learnerStatus(a, seat, s, now, moved);
     const data = s ? await versionsOf(tx, [s.id]) : { versions: [], files: [] };
     const n = await names(tx, [a.courseId], []);
     const closedReason = st.canSubmit
       ? null
       : seat.status !== "active"
         ? "This course has ended, so work can't be handed in any more."
+        : moved
+          ? "You moved to a batch this assignment isn't set for, so your work here can't be changed."
         : s?.gradedAt
           ? "Your work has been graded, so it can't be changed."
           : s?.submittedAt
