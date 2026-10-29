@@ -113,7 +113,8 @@ describe("enrolments report", () => {
       expect((await runEnrolments(w.hod, params)).rows).toEqual([]);
     }
     // …and the Reports page refuses the filter with a message.
-    for (const extra of [{ dept: w.mkt.id }, { course: w.dm.id }, { batch: w.dmEvening.id }]) {
+    const others: Record<string, string>[] = [{ dept: w.mkt.id }, { course: w.dm.id }, { batch: w.dmEvening.id }];
+    for (const extra of others) {
       const err = await runReport(w.hod, q(ENROLMENTS_REPORT, extra), "2026-10-29").catch((e) => e);
       expect(err).toBeInstanceOf(ForbiddenError);
       expect(err.message).toBe("That filter is outside what you can see. Pick one from the list.");

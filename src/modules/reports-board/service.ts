@@ -178,6 +178,9 @@ export class ReportFailed extends Error {
 
 /** The message to show for anything runReport throws. */
 export function reportErrorMessage(e: unknown): string {
+  if (e instanceof NotFoundError && e.message === new NotFoundError("Report").message) {
+    return "That report isn't available. Pick one from the list.";
+  }
   if (e instanceof AppError || e instanceof ReportFailed) return e.message;
   return new ReportFailed().message;
 }
