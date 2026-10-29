@@ -243,7 +243,7 @@ export function InvoiceVisual({ active }: Props) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-[12px] text-muted">Tax invoice</p>
-          <p className="mt-1 text-[18px] font-medium tabular">INV/26-27/0031</p>
+          <p className="mt-1 text-[16px] font-medium whitespace-nowrap tabular sm:text-[18px]">INV/26-27/0031</p>
         </div>
         <div className="text-right text-[12px] leading-relaxed text-muted">
           <p className="text-ink">Demo University</p>
@@ -277,7 +277,7 @@ export function InvoiceVisual({ active }: Props) {
       <div className="mt-auto flex items-end justify-between pt-6">
         <p className="max-w-[16rem] text-[12px] leading-relaxed text-muted">Refunds are recorded against this invoice and show in the accounts sales view.</p>
         <motion.span
-          className="rounded-lg border-2 border-brand px-3 py-1 text-[13px] font-semibold text-brand"
+          className="shrink-0 rounded-lg border-2 border-brand px-3 py-1 text-[13px] font-semibold whitespace-nowrap text-brand"
           initial={false}
           animate={{ opacity: active ? 1 : 0, scale: active ? 1 : 1.3, rotate: active ? -6 : 0 }}
           transition={{ ...springs.snappy, delay: active ? 1.6 : 0 }}
@@ -303,9 +303,9 @@ export function CertificateVisual({ active }: Props) {
   return (
     <div className="relative h-full w-full">
       <motion.div
-        className={`${card} flex flex-col justify-between p-6 sm:p-9`}
+        className={`${card} flex min-h-[300px] flex-col justify-between gap-6 p-6 sm:p-9`}
         initial={false}
-        animate={{ scale: active ? 0.94 : 1, x: active ? "-3%" : "0%" }}
+        animate={{ scale: active ? 0.97 : 1 }}
         transition={{ duration: motionTokens.duration.slow, ease, delay: active ? 0.9 : 0 }}
       >
         <div aria-hidden className="pointer-events-none absolute inset-3 rounded-[20px] border border-gold/50" />
@@ -341,7 +341,7 @@ export function CertificateVisual({ active }: Props) {
         {active && (
           <motion.div
             key="verified"
-            className={`absolute right-[-4%] bottom-[-6%] w-[58%] max-w-[300px] rounded-[24px] p-5 ${css.glass}`}
+            className={`relative mt-3 w-full rounded-[24px] p-5 lg:absolute lg:right-[-4%] lg:bottom-[-6%] lg:mt-0 lg:w-[58%] lg:max-w-[300px] ${css.glass}`}
             initial={{ opacity: 0, y: motionTokens.distance.xl, rotate: 4 }}
             animate={{ opacity: 1, y: 0, rotate: 0, transition: { ...springs.gentle, delay: 1.2 } }}
             exit={{ opacity: 0, transition: { duration: motionTokens.duration.fast } }}

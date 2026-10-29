@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin-nav";
+import { PageTrail, type TrailParent } from "@/components/page-trail";
 import { SidebarAccount, SidebarLink } from "@/components/sidebar-account";
 import { Logo } from "@/components/ui";
 import { signOut } from "@/server/auth/session";
@@ -17,6 +18,10 @@ export default async function AdminLayout({ children, params }: { children: Reac
 
   const base = `/${uni}/admin`;
   const sections = menuFor(actor, university.id).map((s) => ({ ...s, access: ACCESS_LABEL[s.access] }));
+  // Every page below a menu item leads back to it; batches live inside courses.
+  const items = sections.flatMap((s) => s.items).filter((i) => i.href !== "");
+  const trail: TrailParent[] = items.map((i) => ({ prefix: i.href, href: i.href, label: i.label }));
+  if (items.some((i) => i.href === "/products/courses")) trail.push({ prefix: "/products/batches", href: "/products/courses", label: "Courses" });
   const now = new Date();
   const roles = [
     ...new Set(actor.assignments.filter((a) => isActive(a, now) && a.universityId === university.id).map((a) => ROLE_LABELS[a.role])),
@@ -78,7 +83,10 @@ export default async function AdminLayout({ children, params }: { children: Reac
             </summary>
             <div className="max-h-[75dvh] overflow-y-auto px-3 pb-4">{sidebar}</div>
           </details>
-          <main className="mx-auto max-w-[1280px] px-5 py-8 lg:px-10 lg:py-10">{children}</main>
+          <main className="mx-auto max-w-[1280px] px-5 py-8 lg:px-10 lg:py-10">
+            <PageTrail base={base} parents={trail} />
+            {children}
+          </main>
         </div>
       </div>
     </div>

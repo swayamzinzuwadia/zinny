@@ -185,7 +185,8 @@ function ChapterText({ chapter, index, onActive }: { chapter: Chapter; index: nu
           ))}
         </ul>
       </Reveal>
-      <div className="mt-10 aspect-[10/11] w-full sm:aspect-[10/9] lg:hidden">
+      {/* Phones: the view takes the height its content needs, so nothing is cut off. */}
+      <div className="mt-10 w-full lg:hidden">
         <Visual active={mobileActive} />
       </div>
     </li>

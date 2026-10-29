@@ -77,7 +77,7 @@ export function Roles() {
         </Reveal>
 
         <Reveal delay={0.1} className="mt-12 flex justify-center">
-          <div role="tablist" aria-label="Roles" onKeyDown={onKey} className={`flex max-w-full gap-1 overflow-x-auto rounded-full p-1.5 ${css.glass}`}>
+          <div role="tablist" aria-label="Roles" onKeyDown={onKey} className={`flex w-full justify-between gap-0.5 rounded-full p-1 sm:w-auto sm:justify-start sm:gap-1 sm:p-1.5 ${css.glass}`}>
             {ROLES.map((r, i) => (
               <button
                 key={r.id}
@@ -90,7 +90,7 @@ export function Roles() {
                 aria-controls="role-panel"
                 tabIndex={i === current ? 0 : -1}
                 onClick={() => setCurrent(i)}
-                className="relative shrink-0 rounded-full px-4 py-2.5 text-[14px] outline-offset-2 sm:px-5"
+                className="relative min-w-0 flex-1 rounded-full px-1 py-2.5 text-[13px] outline-offset-2 sm:flex-none sm:px-5 sm:text-[14px]"
               >
                 {i === current && <motion.span layoutId="role-pill" className="absolute inset-0 rounded-full bg-brand" transition={springs.snappy} />}
                 <span className={`relative [transition-property:color] duration-150 ${i === current ? "text-canvas" : "text-muted hover:text-ink"}`}>{r.tab}</span>
@@ -103,7 +103,7 @@ export function Roles() {
           id="role-panel"
           role="tabpanel"
           aria-labelledby={`role-tab-${role.id}`}
-          className="mt-12 grid items-center gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16"
+          className="mt-12 grid grid-cols-1 items-center gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div

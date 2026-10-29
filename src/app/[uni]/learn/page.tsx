@@ -6,11 +6,12 @@ import { hasRole } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { joinPath, joinWindowOpen } from "@/server/lib/links";
 import { visibleSlots } from "@/server/registry";
-import { addDays, formatDate, formatTime, isoWeekday, minutesNowIn, toMinutes, weekStart, weekdayLabel } from "@/server/lib/dates";
+import { addDays, formatDate, formatTime, minutesNowIn, toMinutes, weekStart } from "@/server/lib/dates";
 import { greetingFor } from "@/server/services/dashboard";
 import { myLearning } from "@/server/services/enrolment";
 import { myNotifications } from "@/server/services/notifications";
 import { myChildren, studentTimetable } from "@/server/services/timetable";
+import { DayAgenda } from "./day-agenda";
 
 export const metadata = { title: "Today" };
 
@@ -78,7 +79,6 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
         : next.date === addDays(today, 1)
           ? `Tomorrow at ${formatTime(next.startTime)}`
           : `${formatDate(next.date, { weekday: true })} at ${formatTime(next.startTime)}`;
-  const todays = week.sessions.filter((s) => s.date === today);
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart(today), i));
 
   return (
@@ -149,67 +149,15 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
         </div>
       ))}
 
-      {/* This week, one tile per day */}
-      <Link href={`/${uni}/learn/timetable`} className="grid grid-cols-7 gap-1.5 sm:gap-3">
-        {days.map((d) => {
-          const items = week.sessions.filter((s) => s.date === d);
-          const isToday = d === today;
-          return (
-            <div
-              key={d}
-              className={cx(
-                "rounded-[18px] border px-1 py-3 text-center",
-                isToday ? "border-gold bg-surface ring-2 ring-gold-soft" : "border-line bg-surface/70",
-              )}
-            >
-              <div className={cx("text-[12px]", isToday ? "font-medium text-gold-strong" : "text-muted")}>
-                {weekdayLabel(isoWeekday(d))}
-              </div>
-              <div className="tabular text-[20px] font-semibold leading-tight">{Number(d.slice(8))}</div>
-              <div className="mt-1.5 flex h-2 justify-center gap-1">
-                {items.slice(0, 4).map((s, i) => (
-                  <span key={i} className={cx("h-1.5 w-1.5 rounded-full", colorOf(s.courseId))} />
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </Link>
-
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <Card>
-          <CardTitle hint={todays.length ? `${todays.length} class${todays.length === 1 ? "" : "es"}` : undefined}>Today</CardTitle>
-          {todays.length === 0 ? (
-            <p className="text-[14px] text-muted">No classes today. Use the time to catch up on lessons.</p>
-          ) : (
-            <ol className="relative space-y-4 border-l border-line pl-5">
-              {todays.map((s, i) => {
-                const done = toMinutes(s.endTime) <= nowMin;
-                const now = !done && toMinutes(s.startTime) <= nowMin;
-                return (
-                  <li key={i} className={cx("relative", done && "opacity-55")}>
-                    <span
-                      className={cx(
-                        "absolute -left-[26px] top-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-surface",
-                        now ? "now-dot bg-gold" : colorOf(s.courseId),
-                      )}
-                    />
-                    <div className="tabular text-[13px] text-muted">
-                      {formatTime(s.startTime)}–{formatTime(s.endTime)}
-                      {now && <span className="ml-2 font-medium text-gold-strong">Now</span>}
-                    </div>
-                    <div className="font-medium">{s.courseTitle}</div>
-                    <div className="text-[13px] text-muted">
-                      {s.batchName}
-                      {s.faculty.length > 0 && `, with ${s.faculty.join(" and ")}`}
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-        </Card>
-
+      {/* This week: tap a day to see its classes */}
+      <DayAgenda
+        days={days}
+        today={today}
+        nowMin={nowMin}
+        sessions={week.sessions}
+        dotFor={Object.fromEntries(week.sessions.map((s) => [s.courseId, colorOf(s.courseId)]))}
+        timetableHref={`/${uni}/learn/timetable`}
+      >
         <Card>
           <CardTitle>Updates</CardTitle>
           {notes.length === 0 ? (
@@ -225,7 +173,7 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
             </ul>
           )}
         </Card>
-      </div>
+      </DayAgenda>
 
       <SlotList
         slot="learnerHomeCards"

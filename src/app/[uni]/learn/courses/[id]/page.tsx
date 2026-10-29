@@ -13,10 +13,7 @@ export default async function CoursePage({ params }: { params: Promise<{ uni: st
 
   return (
     <>
-      <Link href={`/${uni}/learn/courses`} className="text-sm text-muted">
-        ← Courses
-      </Link>
-      <h1 className="mt-2 text-[26px] font-semibold tracking-tight">{course.title}</h1>
+      <h1 className="text-[26px] font-semibold tracking-tight">{course.title}</h1>
       {course.description && <p className="mt-1 max-w-2xl text-muted">{course.description}</p>}
       <p className="mt-2 text-sm">
         {course.pricePaise ? (

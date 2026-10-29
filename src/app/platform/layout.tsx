@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { PageTrail } from "@/components/page-trail";
 import { SidebarAccount } from "@/components/sidebar-account";
 import { Logo } from "@/components/ui";
 import { ActionForm } from "@/components/forms";
@@ -79,7 +80,13 @@ export default async function PlatformLayout({ children }: { children: React.Rea
             </summary>
             <div className="max-h-[75dvh] overflow-y-auto px-3 pb-4">{sidebar}</div>
           </details>
-          <main className="mx-auto max-w-[1280px] px-5 py-8 lg:px-10 lg:py-10">{children}</main>
+          <main className="mx-auto max-w-[1280px] px-5 py-8 lg:px-10 lg:py-10">
+            <PageTrail
+              base="/platform"
+              parents={sections.flatMap((s) => s.items).filter((i) => i.href !== "").map((i) => ({ prefix: i.href, href: i.href, label: i.label }))}
+            />
+            {children}
+          </main>
         </div>
       </div>
     </div>
