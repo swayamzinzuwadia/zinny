@@ -11,7 +11,7 @@
  */
 import "./load-env";
 import bcrypt from "bcryptjs";
-import { and, eq, inArray, like, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, like, or } from "drizzle-orm";
 import type { SeedContext, SeedIds } from "../contracts/module";
 import { closeDb, systemDb } from "./client";
 import { batches, courses, departments, enrolments, roleAssignments, universities, users } from "./schema";
@@ -235,6 +235,13 @@ export async function seedDemo(): Promise<SeedContext> {
     await seed(ctx);
     await drainEvents({ retryNow: true });
   }
+
+  // Zinny team members added by module seeds (zinny-team-panel) get the demo password too.
+  // University people stay as the module seeds left them: identity keeps a few invitees without one.
+  await db
+    .update(users)
+    .set({ passwordHash: hash })
+    .where(and(like(users.email, "%@zinny.demo"), isNull(users.passwordHash)));
 
   return ctx;
 }

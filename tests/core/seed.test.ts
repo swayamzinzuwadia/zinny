@@ -1,5 +1,7 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { closeDb } from "@/db/client";
+import { eq } from "drizzle-orm";
+import { closeDb, systemDb } from "@/db/client";
+import { users } from "@/db/schema";
 import type { SeedContext, ZinnyModule } from "@/contracts/module";
 import { setTestModules } from "@/server/registry";
 import { seedDemo } from "@/db/seed";
@@ -13,7 +15,14 @@ describe("contracts section 6: seeds", () => {
   it("runs the core seed, then each module's seed in alphabetical order (gamification last) with the core seed's ids", async () => {
     const calls: { id: string; ctx: SeedContext }[] = [];
     const mod = (id: ZinnyModule["id"]): ZinnyModule => ({ id, seed: async (ctx) => void calls.push({ id, ctx }) });
-    setTestModules([mod("website-builder"), mod("assessments"), mod("gamification"), mod("live-classes")], { only: true });
+    // Like zinny-team-panel's seed: a team member created after the core seed set passwords.
+    const teamSeed: ZinnyModule = {
+      id: "zinny-team-panel",
+      seed: async () => {
+        await systemDb().insert(users).values({ email: "late.member@zinny.demo", name: "Late Member" }).onConflictDoUpdate({ target: users.id, set: { name: "Late Member" } });
+      },
+    };
+    setTestModules([mod("website-builder"), mod("assessments"), mod("gamification"), mod("live-classes"), teamSeed], { only: true });
     const quiet = console.log;
     console.log = () => {};
     try {
@@ -37,5 +46,8 @@ describe("contracts section 6: seeds", () => {
     const hema = await ctx.actorFor("hema@demo.edu");
     expect(hema.universityId).toBe(ctx.universityId);
     expect(hema.assignments.some((a) => a.role === "hod")).toBe(true);
+    const [late] = await systemDb().select().from(users).where(eq(users.email, "late.member@zinny.demo"));
+    expect(late.passwordHash).toBeTruthy();
+    await systemDb().delete(users).where(eq(users.email, "late.member@zinny.demo"));
   });
 });
