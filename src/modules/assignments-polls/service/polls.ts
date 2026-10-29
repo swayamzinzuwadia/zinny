@@ -19,7 +19,6 @@ import {
   listCourseBatches,
   notify,
   peopleLite,
-  reach,
   universityLite,
   withTenant,
   type Actor,
@@ -386,10 +385,4 @@ export async function announceOpenedPolls(actor: Actor, now = new Date()) {
     for (const p of due) await announce(tx, actor, p);
     return due.length;
   });
-}
-
-/** Whether the actor manages polls anywhere (for showing the Polls tab's create form). */
-export function managesPolls(actor: Actor) {
-  const r = reach(actor, "poll.manage", uni(actor));
-  return r.all || r.departmentIds.size > 0 || r.batchIds.size > 0;
 }
