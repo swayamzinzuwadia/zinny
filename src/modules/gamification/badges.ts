@@ -12,6 +12,7 @@ import { grantBadge } from "./engine";
 import { metricValues } from "./metrics";
 import { canSeeScoped, directory, holdsAnywhere, manageableScopes, scopeTarget, uni, visibleDepartments } from "./scope";
 import { gamBadgeAwards, gamBadges, type Badge } from "./schema";
+import { isUuid } from "./util";
 
 export type BadgeInput = {
   name: string;
@@ -56,6 +57,7 @@ async function awardExisting(tx: Tx, badge: Badge): Promise<number> {
 }
 
 async function loadBadge(actor: Actor, badgeId: string): Promise<Badge> {
+  if (!isUuid(badgeId)) throw new NotFoundError("Badge");
   const [b] = await withTenant(actor, (tx) => tx.select().from(gamBadges).where(eq(gamBadges.id, badgeId)));
   if (!b) throw new NotFoundError("Badge");
   return b;
@@ -115,7 +117,7 @@ export async function createBadge(actor: Actor, input: BadgeInput): Promise<{ ba
   const metric = input.metric;
   const threshold = checkThreshold(input.threshold, metric);
   return withTenant(actor, async (tx) => {
-    if (departmentId && !(await directory(tx)).departments.has(departmentId)) throw new NotFoundError("Department");
+    if (departmentId && (!isUuid(departmentId) || !(await directory(tx)).departments.has(departmentId))) throw new NotFoundError("Department");
     const [badge] = await tx
       .insert(gamBadges)
       .values({ universityId: uni(actor), departmentId, ...text, metric, threshold, createdBy: actor.userId || null })

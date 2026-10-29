@@ -118,7 +118,7 @@ describe("challenges: progress and winners", () => {
     const second = await closeEndedChallenges(w.sys);
     expect(second.closed).toBe(0);
     const frozen = await systemDb().select().from(gamChallengeWinners).where(eq(gamChallengeWinners.challengeId, c.id));
-    expect(frozen.map((x) => [x.userId, x.position]).sort((p, q) => p[1] - (q[1] as number))).toEqual([
+    expect(frozen.sort((p, q) => p.position - q.position).map((x) => [x.userId, x.position])).toEqual([
       [fast.id, 1],
       [slow.id, 2],
     ]);

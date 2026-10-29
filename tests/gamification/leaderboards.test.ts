@@ -14,7 +14,6 @@ let riya: Awaited<ReturnType<World["enrolled"]>>;
 let kabir: Awaited<ReturnType<World["enrolled"]>>;
 let aditi: Awaited<ReturnType<World["enrolled"]>>;
 let ishaan: Awaited<ReturnType<World["enrolled"]>>;
-let meera: Awaited<ReturnType<World["enrolled"]>>;
 let rohan: Awaited<ReturnType<World["enrolled"]>>;
 
 beforeAll(async () => {
@@ -26,7 +25,7 @@ beforeAll(async () => {
   kabir = await w.enrolled("Kabir Mehta", [w.batch.id]);
   aditi = await w.enrolled("Aditi Rao", [w.batch.id]);
   ishaan = await w.enrolled("Ishaan Gupta", [w.batch.id]);
-  meera = await w.enrolled("Meera Nair", [w.batch.id]); // earns nothing
+  await w.enrolled("Meera Nair", [w.batch.id]); // earns nothing
   rohan = await w.enrolled("Rohan Das", [w.batchB.id, w.batch2.id]);
   const lessons = async (userId: string, n: number, courseId = w.course.id) => {
     for (let i = 0; i < n; i++) await w.send("lesson.completed", { userId, courseId, lessonId: fakeId() });

@@ -13,7 +13,7 @@ import { batchesOf, parseScope, type BoardScope } from "./leaderboards";
 import { metricProgress } from "./metrics";
 import { batchTarget, courseTargetFrom, directory, holdsAnywhere, uni, type Directory } from "./scope";
 import { gamChallenges, gamChallengeWinners, type Challenge, type NameDisplay } from "./schema";
-import { daysBetween, displayName, isIsoDate } from "./util";
+import { daysBetween, displayName, isIsoDate, isUuid } from "./util";
 
 export type ChallengeInput = {
   title: string;
@@ -113,6 +113,7 @@ export async function standings(tx: Tx, c: Challenge, dir: Directory, names: Nam
 /* ───────────────────────────── Reading ───────────────────────────── */
 
 async function load(tx: Tx, id: string): Promise<Challenge> {
+  if (!isUuid(id)) throw new NotFoundError("Challenge");
   const [c] = await tx.select().from(gamChallenges).where(eq(gamChallenges.id, id));
   if (!c) throw new NotFoundError("Challenge");
   return c;

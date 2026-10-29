@@ -14,6 +14,7 @@ import { describeTrigger, SOURCE_EVENTS, triggerByKey, triggerFor } from "./cata
 import { newCache, processEvent } from "./engine";
 import { directory, holdsAnywhere, manageableScopes, scopeTarget, uni, visibleDepartments, canSeeScoped } from "./scope";
 import { gamXpLedger, gamXpRules, type TriggerEvent, type XpRule } from "./schema";
+import { isUuid } from "./util";
 
 export type RuleInput = {
   name: string;
@@ -51,6 +52,7 @@ function checkScore(score: number | null | undefined) {
 }
 
 async function loadRule(actor: Actor, ruleId: string): Promise<XpRule> {
+  if (!isUuid(ruleId)) throw new NotFoundError("Rule");
   const [rule] = await withTenant(actor, (tx) => tx.select().from(gamXpRules).where(eq(gamXpRules.id, ruleId)));
   if (!rule) throw new NotFoundError("Rule");
   return rule;
@@ -116,7 +118,7 @@ export async function createRule(actor: Actor, input: RuleInput): Promise<XpRule
     dailyCap: checkCap(input.dailyCap),
   };
   return withTenant(actor, async (tx) => {
-    if (departmentId && !(await directory(tx)).departments.has(departmentId)) throw new NotFoundError("Department");
+    if (departmentId && (!isUuid(departmentId) || !(await directory(tx)).departments.has(departmentId))) throw new NotFoundError("Department");
     const [rule] = await tx
       .insert(gamXpRules)
       .values({ universityId: uni(actor), departmentId, ...values, createdBy: actor.userId || null })
