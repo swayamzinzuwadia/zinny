@@ -66,7 +66,7 @@ Branch `agent/assignments-polls`, from `foundation-v1`. Everything is in `src/mo
 
 ## Contracts used / provided
 - **Emits** `assignment.submitted` `{ submissionId, assignmentId, userId, batchId, late }` on every hand-in, versions included, and `assignment.graded` `{ …, scorePercent }` when a grade is new or its final marks change.
-- **Handles** `enrolment.switched` (`assignments-polls.follow-batch-switch`): ungraded work moves to the new batch so its faculty grade it, when the assignment covers that batch.
+- **Handles** `enrolment.switched` (`assignments-polls.follow-batch-switch`): ungraded work moves to the new batch so its faculty grade it, when the assignment covers that batch. Otherwise the work stays with the old batch's graders, and the student still sees it read only.
 - **Slots:**
   - `adminCourseTabs.assignments` (300, `assignment.view`)
   - `adminCourseTabs.polls` (310, `poll.manage`)
