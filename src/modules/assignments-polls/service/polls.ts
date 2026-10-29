@@ -25,7 +25,7 @@ import {
   type Actor,
 } from "@/server/core";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
-import { batchesWhere, canOnAll, courseBatchIds, deptTarget, learnerSeats, names, ownTarget, uni, type LearnerSeat } from "../access";
+import { batchesWhere, canOnAll, courseBatchIds, deptTarget, isUuid, learnerSeats, names, need, ownTarget, uni, type LearnerSeat } from "../access";
 import { formatWhen, zonedToInstant } from "../lib/time";
 import { pollOptions, pollPolls, pollVoters, pollVotes } from "../schema";
 
@@ -90,7 +90,7 @@ async function announce(tx: Tx, actor: Actor, p: PollRow) {
 export async function createPoll(actor: Actor, input: PollInput, opts: Opts = {}): Promise<PollRow> {
   const now = opts.now ?? new Date();
   return withTenant(actor, async (tx) => {
-    const course = await getCourseLite(tx, input.courseId);
+    const course = await getCourseLite(tx, need(input.courseId, "Course"));
     const courseBatches = await courseBatchIds(tx, course.id);
     const batchId = input.batchId || null;
     if (batchId && !courseBatches.includes(batchId)) throw new NotFoundError("Batch");
@@ -135,6 +135,7 @@ export async function createPoll(actor: Actor, input: PollInput, opts: Opts = {}
 }
 
 async function loadManaged(tx: Tx, actor: Actor, pollId: string) {
+  need(pollId, "Poll");
   const [p] = await tx.select().from(pollPolls).where(eq(pollPolls.id, pollId)).for("update");
   if (!p) throw new NotFoundError("Poll");
   const bs = await pollBatchIds(tx, p);
@@ -251,7 +252,7 @@ async function results(tx: Tx, actor: Actor | null, list: PollRow[], now: Date, 
 export async function listCoursePolls(actor: Actor, courseId: string, opts: Opts = {}): Promise<PollResult[]> {
   const now = opts.now ?? new Date();
   return withTenant(actor, async (tx) => {
-    await getCourseLite(tx, courseId);
+    await getCourseLite(tx, need(courseId, "Course"));
     const list = await tx.select().from(pollPolls).where(eq(pollPolls.courseId, courseId));
     const visible: PollRow[] = [];
     for (const p of list) if (canSeePoll(actor, p, await pollBatchIds(tx, p))) visible.push(p);
@@ -265,7 +266,7 @@ export async function listCoursePolls(actor: Actor, courseId: string, opts: Opts
 /** Batches the actor can add a poll to, and whether they can add one for the whole course. */
 export async function pollFormOptions(actor: Actor, courseId: string) {
   return withTenant(actor, async (tx) => {
-    const course = await getCourseLite(tx, courseId);
+    const course = await getCourseLite(tx, need(courseId, "Course"));
     const bs = await listCourseBatches(tx, courseId);
     const manageable = bs.filter((b) => can(actor, "poll.manage", b.target));
     return {
@@ -348,8 +349,9 @@ export async function vote(actor: Actor, pollId: string, optionId: string, opts:
   assertCan(actor, "self.vote", ownTarget(actor));
   const now = opts.now ?? new Date();
   return withTenant(actor, async (tx) => {
-    const [p] = await tx.select().from(pollPolls).where(eq(pollPolls.id, pollId));
+    const [p] = await tx.select().from(pollPolls).where(eq(pollPolls.id, need(pollId, "Poll")));
     if (!p) throw new NotFoundError("Poll");
+    if (!isUuid(optionId)) throw new ValidationError("Pick one of the options.");
     const seats = reaches(p, await learnerSeats(tx, actor.userId));
     if (seats.length === 0) throw new NotFoundError("Poll");
     if (!seats.some((s) => s.status === "active")) throw new ValidationError("This course has ended, so you can't vote in its polls.");

@@ -31,9 +31,11 @@ import {
   courseBatchIds,
   coveredBatchIds,
   coveredBatchMap,
+  isUuid,
   learnerSeats,
   loadForStaff,
   names,
+  need,
   ownTarget,
   seatFor,
   staffAccess,
@@ -147,7 +149,7 @@ async function announceAssignment(tx: Tx, actor: Actor, a: AssignmentRow, batchI
 export async function createAssignment(actor: Actor, input: AssignmentInput, opts: Opts = {}): Promise<AssignmentRow> {
   const now = opts.now ?? new Date();
   return withTenant(actor, async (tx) => {
-    const course = await getCourseLite(tx, input.courseId);
+    const course = await getCourseLite(tx, need(input.courseId, "Course"));
     const tz = (await universityLite(tx)).timezone;
     const courseBatches = await courseBatchIds(tx, course.id);
     const { allBatches, ids } = resolveBatches(actor, course.departmentId, courseBatches, input.batchIds);
@@ -339,7 +341,7 @@ const byDueDesc = (a: { dueAt: Date }, b: { dueAt: Date }) => b.dueAt.getTime() 
 /** Assignments of a course the actor can see (Assignments tab). */
 export async function listCourseAssignments(actor: Actor, courseId: string): Promise<StaffAssignmentSummary[]> {
   return withTenant(actor, async (tx) => {
-    await getCourseLite(tx, courseId);
+    await getCourseLite(tx, need(courseId, "Course"));
     const list = await tx.select().from(asgnAssignments).where(eq(asgnAssignments.courseId, courseId));
     return (await summarise(tx, actor, list)).sort(byDueDesc);
   });
@@ -349,7 +351,7 @@ export async function listCourseAssignments(actor: Actor, courseId: string): Pro
 export async function listBatchAssignments(actor: Actor, batchId: string): Promise<StaffAssignmentSummary[]> {
   return withTenant(actor, async (tx) => {
     const { batchLite } = await import("@/server/core");
-    const b = await batchLite(tx, batchId);
+    const b = await batchLite(tx, need(batchId, "Batch"));
     assertCan(actor, "assignment.view", b.target);
     const list = await assignmentsForBatches(tx, [{ courseId: b.courseId, batchId: b.id }]);
     return (await summarise(tx, actor, list, b.id)).sort(byDueDesc);
@@ -412,7 +414,7 @@ export async function getStaffAssignment(actor: Actor, assignmentId: string): Pr
 /** What the actor can do on a course's Assignments tab: which batches they may set work for. */
 export async function assignmentFormOptions(actor: Actor, courseId: string) {
   return withTenant(actor, async (tx) => {
-    const course = await getCourseLite(tx, courseId);
+    const course = await getCourseLite(tx, need(courseId, "Course"));
     const { listCourseBatches } = await import("@/server/core");
     const bs = await listCourseBatches(tx, courseId);
     const manageable = bs.filter((b) => can(actor, "assignment.manage", b.target));
@@ -484,7 +486,7 @@ function toVersionViews(submissionId: string, data: Awaited<ReturnType<typeof ve
 export async function gradingQueue(actor: Actor, assignmentId: string, batchId: string): Promise<GradingQueue> {
   return withTenant(actor, async (tx) => {
     const { a, access } = await loadForStaff(tx, actor, assignmentId);
-    if (!access.viewBatchIds.includes(batchId)) throw new NotFoundError("Batch");
+    if (!isUuid(batchId) || !access.viewBatchIds.includes(batchId)) throw new NotFoundError("Batch");
     const n = await names(tx, [], [batchId]);
     const active = await tx
       .select({ userId: enrolments.userId, status: enrolments.status })
@@ -556,6 +558,7 @@ export async function gradeSubmission(actor: Actor, input: GradeInput, opts: Opt
   const removedKeys: string[] = [];
   const result = await withTenant(actor, async (tx) => {
     const { a, access } = await loadForStaff(tx, actor, input.assignmentId);
+    need(input.studentId, "Student");
     let [s] = await tx
       .select()
       .from(asgnSubmissions)
@@ -728,7 +731,7 @@ export async function myAssignment(actor: Actor, assignmentId: string, opts: Opt
   assertCan(actor, "self.submit_assignment", ownTarget(actor));
   const now = opts.now ?? new Date();
   return withTenant(actor, async (tx) => {
-    const [a] = await tx.select().from(asgnAssignments).where(eq(asgnAssignments.id, assignmentId));
+    const [a] = await tx.select().from(asgnAssignments).where(eq(asgnAssignments.id, need(assignmentId, "Assignment")));
     if (!a) throw new NotFoundError("Assignment");
     const seats = await learnerSeats(tx, actor.userId);
     const seat = seatFor(seats, a, await coveredBatchIds(tx, a));
@@ -799,11 +802,12 @@ export async function submitAssignment(actor: Actor, input: SubmitInput, opts: O
   assertCan(actor, "self.submit_assignment", ownTarget(actor));
   const now = opts.now ?? new Date();
   return withTenant(actor, async (tx) => {
-    const [a] = await tx.select().from(asgnAssignments).where(eq(asgnAssignments.id, input.assignmentId));
+    const [a] = await tx.select().from(asgnAssignments).where(eq(asgnAssignments.id, need(input.assignmentId, "Assignment")));
     if (!a) throw new NotFoundError("Assignment");
     const seat = seatFor(await learnerSeats(tx, actor.userId), a, await coveredBatchIds(tx, a));
     if (!seat) throw new NotFoundError("Assignment");
     if (seat.status !== "active") throw new ValidationError("This course has ended, so work can't be handed in any more.");
+    if ([...(input.fileIds ?? []), ...(input.keepFileIds ?? [])].some((id) => !isUuid(id))) throw new ValidationError("A file didn't finish uploading. Remove it, upload it again and save.");
 
     await tx
       .insert(asgnSubmissions)

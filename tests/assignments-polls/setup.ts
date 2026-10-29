@@ -90,8 +90,10 @@ export function assignmentInput(courseId: string, over: Partial<AssignmentInput>
   };
 }
 
+type UploadTarget = StartUpload extends infer U ? (U extends StartUpload ? Omit<U, "size" | "fileName"> : never) : never;
+
 /** Uploads a whole file the way the browser does (start, parts, finish) and returns its id. */
-export async function upload(actor: Actor, input: Omit<StartUpload, "size" | "fileName"> & { fileName?: string; body?: Buffer | string }) {
+export async function upload(actor: Actor, input: UploadTarget & { fileName?: string; body?: Buffer | string }) {
   const body = Buffer.isBuffer(input.body) ? input.body : Buffer.from(input.body ?? "%PDF-1.4 test file");
   const { body: _b, fileName, ...rest } = input;
   void _b;

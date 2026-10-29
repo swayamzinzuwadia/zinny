@@ -17,7 +17,7 @@ import { and, eq, inArray, isNull, isNotNull, lt, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { audit, can, getCourseLite, storage, withTenant, type Actor } from "@/server/core";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
-import { batchesWhere, coveredBatchIds, deptTarget, learnerSeats, loadForStaff, ownTarget, seatFor, uni, courseBatchIds } from "../access";
+import { batchesWhere, coveredBatchIds, deptTarget, isUuid, learnerSeats, loadForStaff, need, ownTarget, seatFor, uni, courseBatchIds } from "../access";
 import { checkUpload, displayName, MAX_UPLOAD_MB, storageKeyFor } from "../lib/files";
 import { asgnAssignments, asgnFiles, asgnSubmissions } from "../schema";
 
@@ -46,7 +46,7 @@ const partsFor = (size: number) => Math.max(1, Math.ceil(size / PART_BYTES));
 async function uploadLimit(tx: Tx, actor: Actor, input: StartUpload): Promise<{ maxMb: number; assignmentId: string | null }> {
   const u = uni(actor);
   if (input.purpose === "attachment") {
-    const course = await getCourseLite(tx, input.courseId);
+    const course = await getCourseLite(tx, need(input.courseId, "Course"));
     const bs = await courseBatchIds(tx, course.id);
     const allowed = can(actor, "assignment.manage", deptTarget(u, course.departmentId)) || batchesWhere(actor, "assignment.manage", course.departmentId, bs).length > 0;
     if (!allowed) throw new ForbiddenError("You can't add assignments to this course.");
@@ -54,11 +54,11 @@ async function uploadLimit(tx: Tx, actor: Actor, input: StartUpload): Promise<{ 
   }
   if (input.purpose === "returned") {
     const { a, access } = await loadForStaff(tx, actor, input.assignmentId);
-    if (!access.gradeBatchIds.includes(input.batchId)) throw new ForbiddenError("You can only return files to students in batches you grade.");
+    if (!isUuid(input.batchId) || !access.gradeBatchIds.includes(input.batchId)) throw new ForbiddenError("You can only return files to students in batches you grade.");
     return { maxMb: MAX_UPLOAD_MB, assignmentId: a.id };
   }
   if (!can(actor, "self.submit_assignment", ownTarget(actor))) throw new ForbiddenError("Only students can hand in assignments.");
-  const [a] = await tx.select().from(asgnAssignments).where(eq(asgnAssignments.id, input.assignmentId));
+  const [a] = await tx.select().from(asgnAssignments).where(eq(asgnAssignments.id, need(input.assignmentId, "Assignment")));
   if (!a) throw new NotFoundError("Assignment");
   const seat = seatFor(await learnerSeats(tx, actor.userId), a, await coveredBatchIds(tx, a));
   if (!seat) throw new NotFoundError("Assignment");
@@ -92,6 +92,7 @@ export async function startUpload(actor: Actor, input: StartUpload): Promise<Sta
 }
 
 async function stagedFile(tx: Tx, actor: Actor, fileId: string): Promise<FileRow> {
+  need(fileId, "Upload");
   const [f] = await tx.select().from(asgnFiles).where(eq(asgnFiles.id, fileId));
   if (!f || f.uploadedBy !== actor.userId || f.attachedAt) throw new NotFoundError("Upload");
   return f;
@@ -141,6 +142,7 @@ export async function claimFiles(
 ): Promise<FileRow[]> {
   const ids = [...new Set(fileIds.filter(Boolean))];
   if (ids.length === 0) return [];
+  if (ids.some((id) => !isUuid(id))) throw new ValidationError("A file didn't finish uploading. Remove it, upload it again and save.");
   const rows = await tx
     .select()
     .from(asgnFiles)
@@ -172,6 +174,7 @@ export async function deleteStored(actor: Actor, keys: string[]) {
  * Everyone else gets "not found", so file ids reveal nothing.
  */
 export async function fileLink(actor: Actor, fileId: string): Promise<{ url: string; fileName: string }> {
+  need(fileId, "File");
   const f = await withTenant(actor, async (tx) => {
     const [f] = await tx.select().from(asgnFiles).where(eq(asgnFiles.id, fileId));
     if (!f || !f.storedAt) throw new NotFoundError("File");

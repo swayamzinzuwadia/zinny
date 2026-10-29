@@ -16,6 +16,18 @@ import { asgnAssignmentBatches, asgnAssignments } from "./schema";
 
 export type AssignmentRow = typeof asgnAssignments.$inferSelect;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(id: unknown): id is string {
+  return typeof id === "string" && UUID.test(id);
+}
+
+/** Ids come from URLs and forms: anything that isn't an id is simply "not found". */
+export function need(id: unknown, what: string): string {
+  if (!isUuid(id)) throw new NotFoundError(what);
+  return id;
+}
+
 export function uni(actor: Actor): string {
   if (!actor.universityId) throw new ForbiddenError("No university selected.");
   return actor.universityId;
@@ -106,6 +118,7 @@ export function canSeeAsStaff(actor: Actor, a: Pick<AssignmentRow, "departmentId
 
 /** Loads an assignment for staff, or "not found" when the actor can't see it at all. */
 export async function loadForStaff(tx: Tx, actor: Actor, assignmentId: string, opts: { lock?: boolean } = {}) {
+  need(assignmentId, "Assignment");
   const q = tx.select().from(asgnAssignments).where(eq(asgnAssignments.id, assignmentId));
   const [a] = opts.lock ? await q.for("update") : await q;
   if (!a) throw new NotFoundError("Assignment");
