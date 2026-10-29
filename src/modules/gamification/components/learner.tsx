@@ -29,6 +29,9 @@ export function XpHero({ total, week, month, children }: { total: number; week: 
   );
 }
 
+/** Someone with no XP shares last place with everyone else at zero: don't call that a rank. */
+const ranked = (b: { rank: number | null; points: number }) => b.rank !== null && b.points > 0;
+
 /** Rank in each batch, linking to that course's leaderboard tab. */
 export function BatchRanks({
   uni,
@@ -45,9 +48,14 @@ export function BatchRanks({
           href={`/${uni}/learn/my/${b.enrolmentId}?tab=leaderboard`}
           className="group flex items-center gap-4 rounded-[22px] border border-line bg-surface p-4 hover:border-brand/40"
         >
-          <div className="tabular flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-brand-soft text-brand-strong">
+          <div
+            className={cx(
+              "tabular flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl",
+              ranked(b) ? "bg-brand-soft text-brand-strong" : "bg-canvas text-muted ring-1 ring-line",
+            )}
+          >
             <span className="text-[11px] leading-none">Rank</span>
-            <span className="text-[22px] font-semibold leading-tight">{b.rank ?? "–"}</span>
+            <span className="text-[22px] font-semibold leading-tight">{ranked(b) ? b.rank : "–"}</span>
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-medium group-hover:text-brand">{b.title}</div>
@@ -56,7 +64,7 @@ export function BatchRanks({
               {b.status === "completed" ? ", completed" : ""}
             </div>
             <div className="tabular text-[13px] text-muted">
-              {b.points.toLocaleString("en-IN")} XP, {b.of} {b.of === 1 ? "student" : "students"}
+              {ranked(b) ? `${b.points.toLocaleString("en-IN")} XP` : "No XP yet"}, {b.of} {b.of === 1 ? "student" : "students"}
             </div>
           </div>
         </Link>

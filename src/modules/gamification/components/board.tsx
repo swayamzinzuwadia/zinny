@@ -38,11 +38,19 @@ export function RankList({
             >
               {r.rank}
             </span>
-            {avatars && <Avatar name={r.name} size={30} />}
+            {avatars && (
+              <span className="hidden sm:inline-flex">
+                <Avatar name={r.name} size={30} />
+              </span>
+            )}
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className={cx("truncate text-[14px]", mine ? "font-semibold text-ink" : "font-medium")}>{r.name}</span>
-                {mine && <Badge tone="brand">You</Badge>}
+              <div className="flex min-w-0 items-center gap-2">
+                <span className={cx("min-w-0 truncate text-[14px]", mine ? "font-semibold text-ink" : "font-medium")}>{r.name}</span>
+                {mine && (
+                  <span className="shrink-0">
+                    <Badge tone="brand">You</Badge>
+                  </span>
+                )}
               </div>
               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line/70" aria-hidden>
                 <div className="h-full rounded-full bg-brand" style={{ width: top ? `${Math.max(2, (r.points / top) * 100)}%` : "0%" }} />

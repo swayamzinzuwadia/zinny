@@ -101,12 +101,12 @@ export async function XpHubSection({ uni, actor }: HubSectionProps) {
                     {r.title}, <span className="text-muted">{r.subtitle}</span>
                   </span>
                   <span className="tabular shrink-0 text-muted">
-                    {r.rank ? (
+                    {r.rank && r.points > 0 ? (
                       <>
                         <span className="font-medium text-ink">{ordinal(r.rank)}</span> of {r.of}
                       </>
                     ) : (
-                      "–"
+                      "No XP yet"
                     )}
                   </span>
                 </Link>
@@ -168,14 +168,14 @@ export async function CourseLeaderboardTab({ uni, actor, enrolment, searchParams
           <PeriodSwitch active={data.period} href={(p) => `${base}&board=${board}&period=${p}`} />
         </div>
         <p className="mb-3 text-[14px] text-muted">
-          {data.me ? (
+          {data.me && data.me.points > 0 ? (
             <>
               You&apos;re {tied ? "joint " : ""}
               <span className="font-medium text-ink">{ordinal(data.me.rank)}</span> of {data.rows.length} with{" "}
               <span className="tabular font-medium text-ink">{data.me.points.toLocaleString("en-IN")} XP</span> {periodText}.
             </>
           ) : (
-            `${data.title.subtitle}, ranked by XP ${periodText}.`
+            `You haven't earned XP ${data.period === "all" ? "here" : periodText} yet. Finish a lesson or attend a class to get on the board.`
           )}
         </p>
         <RankList rows={data.rows} me={actor.userId} limit={25} />
