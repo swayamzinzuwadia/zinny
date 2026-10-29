@@ -70,7 +70,15 @@ function scopeContains(a: Assignment, t: Target): boolean {
 
 export function can(actor: Actor, action: Action, target: Target, now = new Date()): boolean {
   if (actor.universityId !== null && actor.universityId !== target.universityId) return false;
-  if (SELF_ACTIONS.has(action) && target.ownerUserId !== actor.userId) return false;
+  if (SELF_ACTIONS.has(action)) {
+    if (!actor.userId || target.ownerUserId !== actor.userId) return false;
+    // Your own records don't sit in a department or batch: any active role in this
+    // university that grants the action is enough (a HOD or a faculty member whose
+    // only role is in a department still has their own profile).
+    return actor.assignments.some(
+      (a) => isActive(a, now) && a.scopeType !== "platform" && a.universityId === target.universityId && ROLE_GRANTS[a.role].includes(action),
+    );
+  }
 
   return actor.assignments.some(
     (a) => isActive(a, now) && grants(a, action) && scopeContains(a, target),

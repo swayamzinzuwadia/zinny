@@ -55,27 +55,106 @@ export const ACTIONS = [
   // Zinny team
   "platform.manage_universities",
   "platform.support_mode",
+
+  // ── Module actions (contracts.md section 9), registered up front by foundation-lock.
+  // assessments
+  "assess.manage",
+  "assess.grade",
+  "assess.view_results",
+  "self.take_test",
+  // live-classes
+  "live.manage",
+  "attendance.mark",
+  "attendance.view",
+  "self.join_class",
+  // assignments-polls
+  "assignment.manage",
+  "assignment.grade",
+  "assignment.view",
+  "poll.manage",
+  "self.submit_assignment",
+  "self.vote",
+  // content-progress
+  "content.manage",
+  "content.view_progress",
+  "enrolment.complete",
+  "self.learn",
+  // certificates
+  "cert.manage",
+  "cert.issue",
+  "cert.view",
+  "self.view_certificates",
+  // payments
+  "finance.refund",
+  "self.view_invoices",
+  // gamification
+  "self.view_xp",
+  // identity, notifications-delivery, website-builder (faculty public profile)
+  "self.profile",
+  // zinny-team-panel
+  "platform.licences",
+  "platform.content_review",
+  "platform.partners",
+  "platform.finance",
+  "platform.view_analytics",
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];
 
-/** Actions that only ever apply to the actor's own records. */
-export const SELF_ACTIONS: ReadonlySet<Action> = new Set(["self.enrol", "self.switch_batch", "self.view_learning"]);
+/**
+ * Actions that only ever apply to the actor's own records: the target must carry
+ * `ownerUserId: actor.userId`.
+ */
+export const SELF_ACTIONS: ReadonlySet<Action> = new Set<Action>(ACTIONS.filter((a) => a.startsWith("self.")));
 
-const ADMIN_ALL: Action[] = ACTIONS.filter(
-  (a) => !a.startsWith("self.") && !a.startsWith("platform.") && a !== "parent.view_child",
-);
+/** Every university role manages its own profile (identity, notification preferences). */
+const PROFILE: Action[] = ["self.profile"];
 
-const FACULTY_CORE: Action[] = ["course.view", "batch.view", "batch.teach", "enrolment.view", "user.view"];
+const ADMIN_ALL: Action[] = [
+  ...ACTIONS.filter((a) => !a.startsWith("self.") && !a.startsWith("platform.") && a !== "parent.view_child"),
+  ...PROFILE,
+];
+
+/**
+ * What teaching staff do inside their batches (faculty) or department (HOD). Faculty
+ * grants only ever apply from batch assignments (GRANTS_ONLY_AT below).
+ */
+const TEACHING_MODULE_ACTIONS: Action[] = [
+  "assess.manage",
+  "assess.grade",
+  "assess.view_results",
+  "live.manage",
+  "attendance.mark",
+  "attendance.view",
+  "assignment.manage",
+  "assignment.grade",
+  "assignment.view",
+  "poll.manage",
+  "content.manage",
+  "content.view_progress",
+];
+
+const FACULTY_CORE: Action[] = ["course.view", "batch.view", "batch.teach", "enrolment.view", "user.view", ...TEACHING_MODULE_ACTIONS, "cert.view"];
+
+/** Learners: students, alumni and individual learners. */
+const LEARNER_MODULE_ACTIONS: Action[] = ["self.take_test", "self.learn", "self.view_certificates", "self.view_invoices"];
 
 export const ROLE_GRANTS: Record<RoleName, readonly Action[]> = {
   // ── Zinny team. They never act inside a university directly; support mode does that.
-  super_admin: ["platform.manage_universities", "platform.support_mode"],
-  support_agent: ["platform.support_mode"],
-  account_manager: ["platform.manage_universities"],
-  content_qa: [],
-  finance_admin: [],
-  partnerships: [],
+  super_admin: [
+    "platform.manage_universities",
+    "platform.support_mode",
+    "platform.licences",
+    "platform.content_review",
+    "platform.partners",
+    "platform.finance",
+    "platform.view_analytics",
+  ],
+  support_agent: ["platform.support_mode", "platform.view_analytics"],
+  account_manager: ["platform.manage_universities", "platform.licences", "platform.view_analytics"],
+  content_qa: ["platform.content_review"],
+  finance_admin: ["platform.finance", "platform.licences"],
+  partnerships: ["platform.partners"],
 
   // ── Administration
   institute_admin: ADMIN_ALL,
@@ -88,8 +167,14 @@ export const ROLE_GRANTS: Record<RoleName, readonly Action[]> = {
     "enrolment.view",
     "finance.view",
     "insights.view",
+    "assess.view_results",
+    "attendance.view",
+    "assignment.view",
+    "content.view_progress",
+    "cert.view",
+    ...PROFILE,
   ],
-  accounts_fees: ["university.view", "finance.view", "finance.manage"],
+  accounts_fees: ["university.view", "finance.view", "finance.manage", "finance.refund", ...PROFILE],
 
   // ── Teaching
   hod: [
@@ -115,20 +200,37 @@ export const ROLE_GRANTS: Record<RoleName, readonly Action[]> = {
     "community.view",
     "community.manage",
     "insights.view",
+    ...TEACHING_MODULE_ACTIONS,
+    "enrolment.complete",
+    "cert.manage",
+    "cert.issue",
+    "cert.view",
+    ...PROFILE,
   ],
-  permanent_faculty: [...FACULTY_CORE, "leaderboard.view", "community.view", "community.manage"],
-  visiting_faculty: FACULTY_CORE,
+  permanent_faculty: [...FACULTY_CORE, "leaderboard.view", "community.view", "community.manage", ...PROFILE],
+  visiting_faculty: [...FACULTY_CORE, ...PROFILE],
 
   // ── Students
-  student: ["catalog.browse", "self.enrol", "self.switch_batch", "self.view_learning"],
-  alumni: ["catalog.browse", "self.enrol", "self.view_learning"],
-  parent: ["parent.view_child"],
+  student: [
+    "catalog.browse",
+    "self.enrol",
+    "self.switch_batch",
+    "self.view_learning",
+    ...LEARNER_MODULE_ACTIONS,
+    "self.join_class",
+    "self.submit_assignment",
+    "self.vote",
+    "self.view_xp",
+    ...PROFILE,
+  ],
+  alumni: ["catalog.browse", "self.enrol", "self.view_learning", ...LEARNER_MODULE_ACTIONS, ...PROFILE],
+  parent: ["parent.view_child", ...PROFILE],
 
   // ── Marketplace (phase 3)
   independent_instructor: [],
   sponsor: [],
   corporate_partner: [],
-  individual_learner: ["catalog.browse", "self.enrol", "self.view_learning"],
+  individual_learner: ["catalog.browse", "self.enrol", "self.view_learning", ...LEARNER_MODULE_ACTIONS, ...PROFILE],
 };
 
 export const PLATFORM_ROLES: readonly RoleName[] = [
