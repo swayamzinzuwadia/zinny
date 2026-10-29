@@ -3,7 +3,8 @@ import { systemDb } from "@/db/client";
 import { departments, roleAssignments, universities, users, type RoleName } from "@/db/schema";
 import { loadActor } from "@/server/actor";
 
-const tag = () => randomUUID().slice(0, 6);
+// 12 hex characters: with every module's tests sharing one database, 6 collided now and then.
+const tag = () => randomUUID().replace(/-/g, "").slice(0, 12);
 
 /** A short unique code like "D3F9A1", for unique columns (department codes, slugs) in test data. */
 export const uniqueCode = (prefix = "D") => `${prefix}${randomUUID().slice(0, 6).toUpperCase()}`;
