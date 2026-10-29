@@ -74,7 +74,7 @@ export async function CertificatesCourseTab({ uni, actor, course, target }: Cour
                     </Link>
                     <div className="tabular whitespace-nowrap font-mono text-[12px] text-muted">{c.displayCode}</div>
                   </Td>
-                  <Td className="whitespace-nowrap text-muted">{c.batchName}</Td>
+                  <Td className="text-muted">{c.batchName}</Td>
                   <Td className="tabular whitespace-nowrap">
                     {shortDate(c.issuedOn)}
                     {c.source === "manual" && <div className="text-[12px] text-muted">By hand</div>}
@@ -90,9 +90,6 @@ export async function CertificatesCourseTab({ uni, actor, course, target }: Cour
                     <a href={`${base}/issued/${c.id}/download`} className="text-[13px] font-medium text-brand hover:underline">
                       Download
                     </a>
-                    <Link href={`${base}/issued/${c.id}`} className="ml-4 text-[13px] text-muted hover:text-ink">
-                      Details
-                    </Link>
                   </Td>
                 </tr>
               ))}
@@ -100,7 +97,7 @@ export async function CertificatesCourseTab({ uni, actor, course, target }: Cour
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="grid content-start gap-6 md:grid-cols-2 xl:grid-cols-1">
           <Card>
             <CardTitle hint={rule.custom ? undefined : "Using the defaults"}>Certificate rules</CardTitle>
             {rule.templateFallback && (
@@ -210,7 +207,7 @@ export async function CertificatesCourseTab({ uni, actor, course, target }: Cour
             </Card>
           )}
           {!canIssue && (
-            <p className="px-1 text-[13px] text-muted">
+            <p className="px-1 text-[13px] text-muted md:col-span-2 xl:col-span-1">
               <Badge>View only</Badge> An Institute Admin or the department&apos;s HOD issues and revokes certificates.
             </p>
           )}

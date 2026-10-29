@@ -27,7 +27,7 @@ export async function CertificatesDashboardCard({ uni, actor, today }: Dashboard
         </div>
       )}
       <div className="mt-4 flex gap-4 text-[14px]">
-        <Link href={`${base}?status=all`} className="font-medium text-brand hover:underline">
+        <Link href={`${base}#issued`} className="font-medium text-brand hover:underline">
           See issued certificates
         </Link>
         {canManageTemplates(actor) && (

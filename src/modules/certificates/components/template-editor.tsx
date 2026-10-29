@@ -41,7 +41,11 @@ export function TemplateEditor({
   // Signature uploads happen outside this form; pick up their new image keys.
   const savedKeys = initial.signatories.map((s) => s.imageKey ?? "").join("|");
   useEffect(() => {
-    setDraft((d) => ({ ...d, signatories: d.signatories.map((s, i) => ({ ...s, imageKey: initial.signatories[i]?.imageKey ?? null })) }));
+    setDraft((d) => {
+      const signatories = d.signatories.map((s, i) => ({ ...s, imageKey: initial.signatories[i]?.imageKey ?? null }));
+      // Same keys: keep the same object, so nothing is redrawn.
+      return signatories.every((s, i) => s.imageKey === d.signatories[i].imageKey) ? d : { ...d, signatories };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedKeys]);
 

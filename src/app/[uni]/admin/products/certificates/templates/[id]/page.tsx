@@ -111,7 +111,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ uni: 
                         <Badge tone="gold">No signature</Badge>
                       )}
                     </div>
-                    <ActionForm action={uploadSignatureAction} className="flex flex-wrap items-center gap-2">
+                    <ActionForm action={uploadSignatureAction} className="space-y-2">
                       {hidden}
                       <input type="hidden" name="index" value={i} />
                       <input
@@ -120,7 +120,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ uni: 
                         accept="image/png,image/jpeg"
                         required
                         aria-label={`Signature image for ${s.name}`}
-                        className="min-w-0 flex-1 text-[13px] file:mr-3 file:rounded-full file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-[13px]"
+                        className="block w-full text-[13px] text-muted file:mr-3 file:rounded-full file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-[13px]"
                       />
                       <SubmitButton size="sm" variant="secondary" pendingText="Uploading…">
                         {signatureUrls[i] ? "Replace signature" : "Upload signature"}
