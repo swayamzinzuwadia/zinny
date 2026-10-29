@@ -20,6 +20,13 @@ export function amount(paise: number) {
   return `${neg ? "-" : ""}${new Intl.NumberFormat("en-IN").format(Math.floor(abs / 100))}.${String(abs % 100).padStart(2, "0")}`;
 }
 
+/** Plain decimal rupees without grouping, for CSV: 1416050 → "14160.50". */
+export function decimal(paise: number) {
+  const neg = paise < 0;
+  const abs = Math.abs(paise);
+  return `${neg ? "-" : ""}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
+}
+
 /** Rupees typed by a person ("1,200.50", "₹ 500") → paise. Returns null when it isn't a valid amount. */
 export function parseRupees(input: string): number | null {
   const clean = input.replace(/[₹,\s]/g, "");

@@ -68,7 +68,11 @@ export const payRefunds = pgTable(
 /** processing → processed | ignored | rejected, or failed (Razorpay retries, and the retry processes it again). */
 export const payWebhookStatus = pgEnum("pay_webhook_status", ["processing", "processed", "ignored", "rejected", "failed"]);
 
-/** Every Razorpay webhook we accepted, by its event id, so a replay changes nothing. */
+/**
+ * Every Razorpay webhook with a valid signature, so a replay changes nothing. A webhook
+ * counts as seen when either its event id or the exact body was seen before: the
+ * x-razorpay-event-id header isn't covered by the signature, the body is.
+ */
 export const payWebhookEvents = pgTable(
   "pay_webhook_events",
   {
@@ -76,6 +80,8 @@ export const payWebhookEvents = pgTable(
     universityId: uniRef(),
     /** Razorpay's x-razorpay-event-id (or a hash of the body when the header is missing). */
     eventId: text("event_id").notNull(),
+    /** sha256 of the raw body. Razorpay's retries of one event send the same body. */
+    bodySha256: text("body_sha256").notNull(),
     eventType: text("event_type").notNull(),
     status: payWebhookStatus("status").notNull().default("processing"),
     /** What happened: "enrolled", "already_paid", "refund_due", "amount_mismatch", … */
@@ -90,9 +96,15 @@ export const payWebhookEvents = pgTable(
     error: text("error"),
     attempts: integer("attempts").notNull().default(1),
     receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+    /** When the current attempt started; a claim older than a few minutes is treated as crashed. */
+    claimedAt: timestamp("claimed_at", { withTimezone: true }).notNull().defaultNow(),
     processedAt: timestamp("processed_at", { withTimezone: true }),
   },
-  (t) => [uniqueIndex("pay_webhook_events_event_uq").on(t.eventId), index("pay_webhook_events_order_idx").on(t.orderId)],
+  (t) => [
+    uniqueIndex("pay_webhook_events_event_uq").on(t.eventId),
+    uniqueIndex("pay_webhook_events_body_uq").on(t.bodySha256),
+    index("pay_webhook_events_order_idx").on(t.orderId),
+  ],
 );
 
 /**
