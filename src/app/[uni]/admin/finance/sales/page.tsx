@@ -68,7 +68,7 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
         }
       />
 
-      <form method="get" className="mb-6 grid gap-3 rounded-[22px] border border-line bg-surface p-4 sm:grid-cols-2 lg:grid-cols-[repeat(3,minmax(0,1fr))] xl:grid-cols-[150px_150px_170px_1fr_1fr_1fr_auto]">
+      <form method="get" className="mb-6 grid gap-3 rounded-[22px] border border-line bg-surface p-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="From">
           <Input type="date" name="from" defaultValue={f.from ?? ""} />
         </Field>
@@ -115,7 +115,7 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
         <Field label="Student">
           <Input type="search" name="q" defaultValue={f.q ?? ""} placeholder="Name, email or invoice" />
         </Field>
-        <div className="flex items-end gap-2">
+        <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-2">
           <button type="submit" className={buttonClass("primary")}>
             Apply filters
           </button>
@@ -163,12 +163,11 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
             <Empty title={filtered ? "No orders match these filters" : "No orders yet"}>{filtered ? "Change or clear the filters to see more." : "Orders appear here when students pick a paid batch."}</Empty>
           ) : (
             <>
-              <Table head={["Date", "Student", "Course · Batch", "Amount", "Status", "GST invoice"]}>
+              <Table head={["Student", "Course", "Date", "Amount", "Status"]}>
                 {data.rows.map((r) => {
                   const href = `${base}${query(f, { page: pageQ, order: r.id })}`;
                   return (
                     <tr key={r.id} className={cx("hover:bg-canvas/60", r.id === selected && "bg-brand-soft/50")}>
-                      <Td className="whitespace-nowrap text-muted">{invoiceDate(r.day)}</Td>
                       <Td>
                         <Link href={href} scroll={false} className="font-medium hover:text-brand">
                           {r.studentName}
@@ -176,16 +175,18 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
                         <div className="text-[13px] text-muted">{r.studentEmail}</div>
                       </Td>
                       <Td>
-                        {r.course} <span className="text-muted">· {r.batch}</span>
+                        <div>{r.course}</div>
+                        <div className="text-[13px] text-muted">{r.batch}</div>
                       </Td>
+                      <Td className="whitespace-nowrap text-muted">{invoiceDate(r.day)}</Td>
                       <Td className="whitespace-nowrap">
                         <span className="tabular">{inr(r.totalPaise)}</span>
                         {r.refundedPaise > 0 && <div className="tabular text-[12.5px] text-muted">−{inr(r.refundedPaise)} refunded</div>}
                       </Td>
-                      <Td>
+                      <Td className="whitespace-nowrap">
                         <SalesStatusBadge status={r.display} />
+                        {r.invoiceNumber && <div className="mt-1 font-mono text-[12px] text-muted">{r.invoiceNumber}</div>}
                       </Td>
-                      <Td className="whitespace-nowrap font-mono text-[13px]">{r.invoiceNumber ?? "–"}</Td>
                     </tr>
                   );
                 })}
