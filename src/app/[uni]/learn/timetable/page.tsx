@@ -49,9 +49,10 @@ export default async function Timetable({ params, searchParams }: { params: Prom
               <span>
                 <b>{s.courseTitle}</b> · {s.date === t.today ? "Today" : formatDate(s.date, { weekday: true })}, {formatTime(s.startTime)}
               </span>
-              <Link href={joinPath(uni, s.batchId, s.date)} className={buttonClass("primary", "sm")}>
+              {/* A plain link, never prefetched: the join route records attendance, then redirects to the meeting. */}
+              <a href={joinPath(uni, s.batchId, s.date)} target="_blank" rel="noreferrer" className={buttonClass("primary", "sm")}>
                 Join
-              </Link>
+              </a>
             </div>
           ))}
         </div>

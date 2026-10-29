@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { Badge, Card, Empty, Tabs } from "@/components/ui";
 import { SlotOutlet } from "@/components/slots";
 import { spaceContext } from "@/server/context";
+import { NotFoundError } from "@/server/errors";
 import { formatDate } from "@/server/lib/dates";
 import { visibleSlots } from "@/server/registry";
 import { myEnrolment } from "@/server/services/enrolment";
@@ -20,7 +22,10 @@ export default async function CourseHub({ params, searchParams }: { params: Prom
   const { uni, enrolmentId } = await params;
   const search = await searchParams;
   const { actor, university } = await spaceContext(uni);
-  const e = await myEnrolment(actor, enrolmentId);
+  const e = await myEnrolment(actor, enrolmentId).catch((err) => {
+    if (err instanceof NotFoundError) notFound();
+    throw err;
+  });
   const b = e.batchRecord;
   const target = { universityId: university.id, departmentIds: [b.departmentId], batchIds: [b.id], ownerUserId: actor.userId };
 

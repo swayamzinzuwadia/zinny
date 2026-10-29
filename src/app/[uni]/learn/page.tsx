@@ -110,9 +110,10 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 {next.joinUrl && (next.date === today || isLive) ? (
-                  <Link href={joinPath(uni, next.batchId, next.date)} className={buttonClass(isLive ? "primary" : "gold")}>
+                  // A plain link, never prefetched: the join route records attendance, then redirects to the meeting.
+                  <a href={joinPath(uni, next.batchId, next.date)} target="_blank" rel="noreferrer" className={buttonClass(isLive ? "primary" : "gold")}>
                     Join class
-                  </Link>
+                  </a>
                 ) : null}
                 <Link
                   href={`/${uni}/learn/timetable`}
