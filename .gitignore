@@ -43,3 +43,5 @@ next-env.d.ts
 !.env.example
 
 .claude/worktrees/
+src/generated/
+.storage/

@@ -5,7 +5,7 @@
  *
  *   npm run db:seed        (password for every demo account: zinny123)
  */
-import "dotenv/config";
+import "./load-env";
 import bcrypt from "bcryptjs";
 import { eq, like, or } from "drizzle-orm";
 import { closeDb, systemDb } from "./client";
