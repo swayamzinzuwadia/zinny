@@ -202,8 +202,8 @@ export const assessDrawRules = pgTable(
       .notNull()
       .references(() => assessTests.id, { onDelete: "cascade" }),
     count: integer("count").notNull(),
-    /** "department" = the test's department pool; "university" = the university-wide pool (admins only). */
-    source: text("source").notNull().default("department"),
+    /** The pool to draw from: a department's pool, or null for the university-wide pool. */
+    poolDepartmentId: uuid("pool_department_id").references(() => departments.id, { onDelete: "cascade" }),
     difficulty: assessDifficulty("difficulty"),
     type: assessQuestionType("type"),
     tag: text("tag"),
@@ -211,7 +211,6 @@ export const assessDrawRules = pgTable(
   },
   (t) => [
     check("assess_draw_rules_count", sql`${t.count} between 1 and 200`),
-    check("assess_draw_rules_source", sql`${t.source} in ('department', 'university')`),
     index("assess_draw_rules_test_idx").on(t.testId),
   ],
 );
