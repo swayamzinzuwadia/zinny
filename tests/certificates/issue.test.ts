@@ -16,9 +16,9 @@ import {
   updateTemplate,
 } from "@/modules/certificates/service";
 import { drainEvents, eventsOfType } from "../helpers/events";
-import { certWorld, useTempStorage } from "./helpers";
+import { certWorld, withTempStorage } from "./helpers";
 
-useTempStorage();
+withTempStorage();
 afterAll(closeDb);
 
 const certsFor = (enrolmentId: string) => systemDb().select().from(certCertificates).where(eq(certCertificates.enrolmentId, enrolmentId));

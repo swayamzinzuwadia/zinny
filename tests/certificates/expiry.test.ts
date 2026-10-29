@@ -7,9 +7,9 @@ import { runJobs } from "@/server/jobs-runner";
 import { addDays } from "@/modules/certificates/lib";
 import { certCertificates } from "@/modules/certificates/schema";
 import { issueCertificate, listTemplates, lookupCertificate, runExpiry, saveCourseRule } from "@/modules/certificates/service";
-import { certWorld, useTempStorage } from "./helpers";
+import { certWorld, withTempStorage } from "./helpers";
 
-useTempStorage();
+withTempStorage();
 afterAll(closeDb);
 
 const kinds = async (userId: string, kind: string) =>

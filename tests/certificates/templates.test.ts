@@ -21,9 +21,9 @@ import {
   templateSamplePdf,
   updateTemplate,
 } from "@/modules/certificates/service";
-import { certWorld, useTempStorage } from "./helpers";
+import { certWorld, withTempStorage } from "./helpers";
 
-useTempStorage();
+withTempStorage();
 afterAll(closeDb);
 
 const png = signaturePng("Asha Admin");

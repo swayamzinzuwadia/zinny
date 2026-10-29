@@ -2,9 +2,9 @@ import { afterAll, describe, expect, it } from "vitest";
 import { closeDb } from "@/db/client";
 import { ForbiddenError, ValidationError } from "@/server/errors";
 import { archiveTemplate, cleanRule, getCourseRule, listTemplates, saveCourseRule, setDefaultTemplate } from "@/modules/certificates/service";
-import { certWorld, useTempStorage } from "./helpers";
+import { certWorld, withTempStorage } from "./helpers";
 
-useTempStorage();
+withTempStorage();
 afterAll(closeDb);
 
 describe("certificate rules per course", () => {

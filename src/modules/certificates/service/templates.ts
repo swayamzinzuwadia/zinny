@@ -344,4 +344,10 @@ export async function templateSamplePdf(actor: Actor, templateId: string): Promi
   return { pdf: await renderCertificatePdf(content), name: `Sample certificate - ${content.design}.pdf` };
 }
 
-export { canManageTemplates };
+/** Short-lived links to a template's signature images, for showing them next to the upload buttons. */
+export async function templateSignatureUrls(actor: Actor, id: string): Promise<(string | null)[]> {
+  const t = await getTemplate(actor, id);
+  return Promise.all(t.signatories.map((s) => (s.imageKey ? storage().signedUrl(s.imageKey, 600) : Promise.resolve(null))));
+}
+
+export { canManageTemplates, canSeeTemplates };

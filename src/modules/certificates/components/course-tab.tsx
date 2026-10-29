@@ -43,7 +43,11 @@ export async function CertificatesCourseTab({ uni, actor, course, target }: Cour
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Valid" value={data.counts.valid} />
-        <Stat label="Expiring in 30 days" value={data.counts.expiringSoon} hint={data.counts.expiringSoon ? "Students have been or will be reminded" : "None due"} />
+        <Stat
+          label="Expiring in 30 days"
+          value={data.counts.expiringSoon}
+          hint={rule.reminderDays ? `Students are reminded ${rule.reminderDays} days before` : rule.validityMonths ? "No reminder set" : "Certificates don't expire"}
+        />
         <Stat label="Expired" value={data.counts.expired} hint="Not renewed yet" />
         <Stat label="Revoked" value={data.counts.revoked} />
       </div>

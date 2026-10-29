@@ -5,9 +5,9 @@ import { formatCode } from "@/modules/certificates/lib";
 import { verifyLimits } from "@/modules/certificates/rate-limit";
 import { certCertificates } from "@/modules/certificates/schema";
 import { lookupCertificate, revokeCertificate, verifyForVisitor } from "@/modules/certificates/service";
-import { certWorld, useTempStorage } from "./helpers";
+import { certWorld, withTempStorage } from "./helpers";
 
-useTempStorage();
+withTempStorage();
 afterAll(closeDb);
 beforeEach(() => {
   verifyLimits.lookups.reset();

@@ -21,9 +21,9 @@ import {
   searchCertificates,
 } from "@/modules/certificates/service";
 import { slots, WEEKDAYS } from "../fixtures";
-import { certWorld, useTempStorage } from "./helpers";
+import { certWorld, withTempStorage } from "./helpers";
 
-useTempStorage();
+withTempStorage();
 afterAll(closeDb);
 
 function signedOk(url: string) {

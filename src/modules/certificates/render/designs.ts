@@ -21,7 +21,6 @@ import {
   initials,
   longDate,
   luminance,
-  qrPath,
   roundedRect,
   type CertificateContent,
   type DesignContext,

@@ -11,7 +11,7 @@ import { drainEvents } from "../helpers/events";
 import { makeDepartment, person, setupCourse, uniqueCode } from "../fixtures";
 
 /** Points storage() at a temporary folder for this test file. */
-export function useTempStorage() {
+export function withTempStorage() {
   let dir = "";
   const before = process.env.STORAGE_DIR;
   beforeAll(() => {
