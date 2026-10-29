@@ -20,7 +20,7 @@ User Leaderboards (PRD pages 3, 4 and 8; phase 2): XP rules, awarding, badges, c
 - Each event is normalised into `gam_activity`, once per (event, student).
 - Each matching active rule writes to `gam_xp_ledger`, then emits `xp.awarded`. Ledger uniqueness:
   - on (source event, rule, user), as the brief asks;
-  - and on (rule, user, thing earned), so a re-taken test, a re-completed lesson or a re-marked class never pays twice.
+  - and on (rule, user, thing earned), so a re-taken test, a re-completed lesson, a re-marked class, an assignment handed in again before the due date (new or same `submissionId`) or a regrade never pays twice (tested).
 - Daily caps are counted on the day the activity counts for: the class date for attendance, otherwise the event's date in the university's time zone. A per-(rule, user, day) advisory lock keeps the cap correct when two drains run at once (tested).
 - A department rule only counts activity in that department's courses. An event with no course or batch belongs to no department.
 - XP is attributed to the student's current batch in the course. `enrolment.switched` (handler `gamification.follow-switch`) moves it to the new batch.
@@ -67,7 +67,7 @@ User Leaderboards (PRD pages 3, 4 and 8; phase 2): XP rules, awarding, badges, c
 - Every rule is then applied to past events, giving about 7,900 XP to 12 students and about 30 badges.
 - 4 challenges: running for a batch, running for a course, upcoming, and ended with frozen winners.
 
-**Tests:** 83 in `tests/gamification/` (9 files).
+**Tests:** 84 in `tests/gamification/` (9 files). Browser click-through (Playwright, every role) passes with 0 failures and 0 page errors. Screenshots are in `docs/handoff/gamification/`: admin dashboard, leaderboard, rules, badges, challenges (running and ended), HOD at tablet width, faculty, and learner home, leaderboard, My learning and course tab at desktop and 390 px.
 
 ## Not built (and why)
 - XP isn't taken back when attendance is corrected from present to absent, because the ledger is append-only. Badges and challenges already use the latest mark.
@@ -96,6 +96,7 @@ None (see `src/modules/gamification/ENV.md`). The hourly job needs core's existi
 
 ## Requests for other owners
 - **Core (learner nav):** add "Leaderboard" (`/[uni]/learn/leaderboard`) to `src/app/[uni]/learn/nav.tsx`. Today the page is reached from the home card, the My learning section and each course hub tab.
+- **Core (admin sidebar):** on XP rules, Badges and Challenges, the sidebar highlights "Leaderboard" too. In `src/components/admin-nav.tsx`, `isActive` treats `/leaderboards` as a prefix of `/leaderboards/xp-rules`. An item should only match by prefix when no other item matches more exactly.
 - **Core (admin placeholders):** remove the four `leaderboards*` entries from `PLANNED` in `src/app/[uni]/admin/[...rest]/page.tsx`. My routes already take precedence, so this is tidiness only.
 - **Integrator (seed order):** `live-classes` seeds after `gamification` alphabetically. Gamification therefore emits its own demo `attendance.marked` events (present, late and a few absences for the running batches), and live-classes' real ones will add to them. Drop either set if the demo should show only one.
 - **notifications-delivery:** badge and challenge notifications use the kinds `gamification.badge` and `gamification.challenge_won`, if you want templates for them.

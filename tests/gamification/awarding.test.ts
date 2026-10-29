@@ -88,6 +88,31 @@ describe("awarding XP from events", () => {
     await setRuleActive(w.admin, rule.id, false);
   });
 
+  it("a resubmission before the due date, or a regrade, never earns XP twice", async () => {
+    const onTime = await createRule(w.admin, { name: "Handed in on time", trigger: "assignment-on-time", points: 20 });
+    const handedIn = await createRule(w.admin, { name: "Handed in", trigger: "assignment-any", points: 5 });
+    const graded = await createRule(w.admin, { name: "Graded well", trigger: "assignment-score", minScore: 70, points: 30 });
+    const s = await w.enrolled("Resubmitting Student", [w.batch.id]);
+    const assignmentId = fakeId();
+    const first = fakeId();
+    const submit = (submissionId: string) => w.send("assignment.submitted", { submissionId, assignmentId, userId: s.id, batchId: w.batch.id, late: false });
+    await submit(first);
+    await submit(fakeId()); // handed in again before the due date: a new submission
+    await submit(first); // or the same submission sent again
+    const grade = (scorePercent: number) => w.send("assignment.graded", { submissionId: first, assignmentId, userId: s.id, batchId: w.batch.id, scorePercent });
+    await grade(75);
+    await grade(92); // regraded
+    await w.drain();
+
+    expect(await ledger(s.id, onTime.id)).toHaveLength(1);
+    expect(await ledger(s.id, handedIn.id)).toHaveLength(1);
+    expect(await ledger(s.id, graded.id)).toHaveLength(1);
+    // Badges and challenges count the assignment once too.
+    const { metricValueFor } = await import("@/modules/gamification/metrics");
+    expect(await withTenant(w.sys, (tx) => metricValueFor(tx, "assignments_on_time", s.id))).toBe(1);
+    for (const r of [onTime, handedIn, graded]) await setRuleActive(w.admin, r.id, false);
+  });
+
   it("holds the daily cap per rule, per student, per day", async () => {
     const rule = await createRule(w.admin, { name: "Class attended", trigger: "class-attended", points: 15, dailyCap: 2 });
     const s = await w.enrolled("Ishaan Gupta", [w.batch.id]);
