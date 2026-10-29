@@ -113,7 +113,7 @@ Core pages render whatever the registry provides, ordered by `order`, and only f
 | `learnerCourseTabs` | `/[uni]/learn/my/[enrolmentId]` (course hub, built by foundation-lock) | `lessons` 100 · `live` 200 · `assignments` 300 · `tests` 400 · `certificate` 500 · `leaderboard` 600 |
 | `learnerHubSections` | `/[uni]/learn/my` below the course list | `assignment-grades` 300 · `test-results` 400 · `certificates` 500 · `xp` 600 · `invoices` 700 payments |
 | `learnerHomeCards` | Learner home, below "Today" | `continue-learning` 100 · `join-next` 200 · `due-soon` 300 · `upcoming-tests` 400 · `xp` 600 |
-| `dashboardCards` | Admin dashboard, below "Seats by batch" | `attendance-today` 200 · `to-grade-assignments` 300 · `to-grade-tests` 400 · `certificates-issued` 500 · `top-learners` 600 · `refunds-due` 700 payments |
+| `dashboardCards` | Admin dashboard, below "Seats by batch" | `attendance-today` 200 · `to-grade-assignments` 300 · `to-grade-tests` 400 · `certificates-issued` 500 · `top-learners` 600 · `refunds-due` 700 payments · `website` 700 website-builder · `my-profile-page` 710 website-builder |
 
 ## 4. Reports
 
