@@ -66,6 +66,27 @@ describe("live-classes: joining a class", () => {
     expect(await eventsOfType("attendance.marked", uni.id)).toHaveLength(1);
   });
 
+  it("a student marked absent before joining becomes present or late when they do join; a decision made after joining stays", async () => {
+    const { batch, students, faculty, uni } = await liveSetup("Join After Absent U", { students: 2 });
+    const { markAttendance } = await import("@/modules/live-classes/staff");
+    // Faculty marks both absent at 9:05, before either has joined.
+    await markAttendance(faculty, { batchId: batch.id, date: MON }, [
+      { userId: students[0].userId, status: "absent" },
+      { userId: students[1].userId, status: "absent" },
+    ], ist(MON, "09:05"));
+    // A turns up at 9:20: late, by their join.
+    expect(await joinClass(students[0], batch.id, MON, null, ist(MON, "09:20"))).toMatchObject({ kind: "go", status: "late", firstJoin: true });
+    const [a] = await myAttendance(students[0], batch.id);
+    expect(a).toMatchObject({ status: "late", source: "join", joinCount: 1 });
+    // B joins at 9:00 on Tuesday, then faculty marks them absent (left after five minutes); a rejoin keeps that.
+    await joinClass(students[1], batch.id, TUE, null, ist(TUE, "09:00"));
+    await markAttendance(faculty, { batchId: batch.id, date: TUE }, [{ userId: students[1].userId, status: "absent", note: "Left after five minutes" }], ist(TUE, "09:30"));
+    expect(await joinClass(students[1], batch.id, TUE, null, ist(TUE, "09:40"))).toMatchObject({ kind: "go", status: "absent", firstJoin: false });
+    const statuses = (await eventsOfType("attendance.marked", uni.id)).map((e) => (e.payload as { status: string; date: string }).status);
+    // Two absents, A's late, B's Tuesday present, B's Tuesday absent; the rejoin emits nothing.
+    expect(statuses.sort()).toEqual(["absent", "absent", "absent", "late", "present"]);
+  });
+
   it("two joins at the same moment still make one record", async () => {
     const { batch, students } = await liveSetup("Join Race U", { students: 1 });
     const now = ist(MON, "09:00");

@@ -3,7 +3,7 @@
  * and the "join next" home card. Every function checks `self.join_class` on the
  * student's own records first, and only ever reads the student's own attendance.
  */
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { batches, courses } from "@/db/schema";
 import { assertCan, audit, emit, scheduledBatches, studentEnrolments, withTenant, type Actor } from "@/server/core";
@@ -98,7 +98,13 @@ export async function joinClass(actor: Actor, batchId: string, date: string, sta
     }
 
     const status = statusForJoin(s.window, now);
-    const [row] = await tx
+    const key = and(
+      eq(liveAttendance.batchId, batchId),
+      eq(liveAttendance.date, s.date),
+      eq(liveAttendance.startTime, s.startTime),
+      eq(liveAttendance.userId, actor.userId),
+    );
+    const [inserted] = await tx
       .insert(liveAttendance)
       .values({
         universityId: uniOf(actor),
@@ -114,22 +120,39 @@ export async function joinClass(actor: Actor, batchId: string, date: string, sta
         markedBy: actor.userId,
         markedAt: now,
       })
-      .onConflictDoUpdate({
-        target: [liveAttendance.batchId, liveAttendance.date, liveAttendance.startTime, liveAttendance.userId],
-        set: {
-          lastJoinedAt: now,
-          firstJoinedAt: sql`coalesce(${liveAttendance.firstJoinedAt}, excluded.first_joined_at)`,
-          joinCount: sql`${liveAttendance.joinCount} + 1`,
-        },
-      })
-      .returning({ id: liveAttendance.id, status: liveAttendance.status, joinCount: liveAttendance.joinCount, inserted: sql<boolean>`(xmax = 0)` });
-
-    const firstJoin = row.inserted;
-    await audit(tx, actor, "live.join", "live_attendance", row.id, { batchId, date: s.date, startTime: s.startTime, status: row.status, joins: row.joinCount });
-    if (firstJoin) {
-      await emit(tx, actor, "attendance.marked", { batchId, date: s.date, startTime: s.startTime, userId: actor.userId, status: row.status });
+      .onConflictDoNothing({ target: [liveAttendance.batchId, liveAttendance.date, liveAttendance.startTime, liveAttendance.userId] })
+      .returning({ id: liveAttendance.id, status: liveAttendance.status });
+    if (inserted) {
+      await audit(tx, actor, "live.join", "live_attendance", inserted.id, { batchId, date: s.date, startTime: s.startTime, status, joins: 1 });
+      await emit(tx, actor, "attendance.marked", { batchId, date: s.date, startTime: s.startTime, userId: actor.userId, status });
+      return { kind: "go", url, status, firstJoin: true, session: s, ctx };
     }
-    return { kind: "go", url, status: row.status, firstJoin, session: s, ctx };
+
+    // Already on the register. A join keeps the status, except an absent set before the
+    // student had joined at all (marked absent early, then they turned up): they get the
+    // status their join earns. An absent set after they had joined was a decision; it stays.
+    const [existing] = await tx.select().from(liveAttendance).where(key).for("update");
+    const upgrade = existing.status === "absent" && existing.firstJoinedAt === null;
+    const next = upgrade ? status : existing.status;
+    await tx
+      .update(liveAttendance)
+      .set({
+        lastJoinedAt: now,
+        firstJoinedAt: existing.firstJoinedAt ?? now,
+        joinCount: existing.joinCount + 1,
+        ...(upgrade && { status, source: "join" as const, markedBy: actor.userId, markedAt: now }),
+      })
+      .where(eq(liveAttendance.id, existing.id));
+    await audit(tx, actor, "live.join", "live_attendance", existing.id, {
+      batchId,
+      date: s.date,
+      startTime: s.startTime,
+      status: next,
+      joins: existing.joinCount + 1,
+      ...(upgrade && { from: "absent" }),
+    });
+    if (upgrade) await emit(tx, actor, "attendance.marked", { batchId, date: s.date, startTime: s.startTime, userId: actor.userId, status });
+    return { kind: "go", url, status: next, firstJoin: existing.firstJoinedAt === null, session: s, ctx };
   });
 }
 
