@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionState } from "@/components/forms";
 import { attempt, str } from "@/server/action";
 import { spaceContext } from "@/server/context";
+import { ValidationError } from "@/server/errors";
 import { attendanceHref } from "./links";
 import { lockRegister, markAttendance, setAttendanceThreshold, unlockRegister, updateSessionLinks, type Mark } from "./staff";
 import { ATTENDANCE_STATUSES, type AttendanceStatus } from "./time";
@@ -33,9 +34,12 @@ export async function saveRegisterAction(_: ActionState, data: FormData): Promis
     for (const userId of data.getAll("student").map(String)) {
       const status = str(data, `status:${userId}`);
       const note = str(data, `note:${userId}`);
-      if (!status) continue;
-      if (!ATTENDANCE_STATUSES.includes(status as AttendanceStatus)) continue;
       if (status === str(data, `was:${userId}`) && note === str(data, `wasNote:${userId}`)) continue;
+      if (!status) {
+        if (note) throw new ValidationError("Pick present, late or absent for each student you add a note for, then save.");
+        continue;
+      }
+      if (!ATTENDANCE_STATUSES.includes(status as AttendanceStatus)) throw new ValidationError("Pick present, late or absent.");
       marks.push({ userId, status: status as AttendanceStatus, note });
     }
     if (marks.length === 0) return "Nothing changed.";

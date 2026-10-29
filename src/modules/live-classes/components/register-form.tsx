@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { ActionState } from "@/components/forms";
 import { Avatar, buttonClass, cx, inputClass } from "@/components/ui";
@@ -57,7 +57,24 @@ export function RegisterForm({
   const initial = useMemo(() => Object.fromEntries(rows.map((r) => [r.userId, { status: r.status, note: r.note }])), [rows]);
   const [values, setValues] = useState(initial);
   const [openNote, setOpenNote] = useState<Record<string, boolean>>({});
-  useEffect(() => setValues(initial), [initial]);
+  // The page refreshes while a class is on (students joining). Take the new statuses for rows
+  // nobody has touched here, and keep every unsaved edit.
+  const previous = useRef(initial);
+  useEffect(() => {
+    const before = previous.current;
+    previous.current = initial;
+    if (before === initial) return;
+    setValues((current) =>
+      Object.fromEntries(
+        Object.entries(initial).map(([id, next]) => {
+          const mine = current[id];
+          const was = before[id];
+          const edited = mine && was && (mine.status !== was.status || (mine.note ?? "") !== (was.note ?? ""));
+          return [id, edited ? mine : next];
+        }),
+      ),
+    );
+  }, [initial]);
   const dirty = rows.filter((r) => values[r.userId]?.status !== r.status || (values[r.userId]?.note ?? "") !== r.note).length;
 
   const setAll = (status: AttendanceStatus) =>
