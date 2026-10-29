@@ -142,7 +142,7 @@ export default async function LearnerAssignmentPage({ params }: { params: Promis
             </div>
           )}
           {latest && !pastDue && <p className="mb-4 text-[13px] text-muted">Your teacher sees the newest version. Earlier versions are kept.</p>}
-          <ActionForm action={submitAction} resetOnSuccess={false} className="space-y-4" key={a.versionCount}>
+          <ActionForm action={submitAction} resetOnSuccess={false} className="space-y-4">
             <input type="hidden" name="uni" value={uni} />
             <input type="hidden" name="assignmentId" value={a.id} />
             {a.submissionType !== "files" && (
@@ -152,6 +152,7 @@ export default async function LearnerAssignmentPage({ params }: { params: Promis
             )}
             {a.submissionType !== "text" && (
               <FileUploader
+                key={a.versionCount}
                 endpoint={uploadHref(uni, "learn")}
                 target={{ purpose: "submission", assignmentId: a.id }}
                 label="Files"

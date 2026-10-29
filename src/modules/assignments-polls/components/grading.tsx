@@ -130,7 +130,7 @@ export function GradingView({ uni, q, selected, tz }: { uni: string; q: GradingQ
         {q.canGrade ? (
           <Card>
             <CardTitle hint={current.gradedAt ? `Last saved ${formatWhen(current.gradedAt, tz)}` : undefined}>{current.status === "graded" ? "Change the grade" : "Grade"}</CardTitle>
-            <ActionForm action={gradeAction} resetOnSuccess={false} className="space-y-4" key={`${current.student.id}-${current.gradedAt?.getTime() ?? 0}`}>
+            <ActionForm action={gradeAction} resetOnSuccess={false} className="space-y-4" key={current.student.id}>
               <input type="hidden" name="uni" value={uni} />
               <input type="hidden" name="assignmentId" value={a.id} />
               <input type="hidden" name="batchId" value={q.batch.id} />
@@ -153,6 +153,7 @@ export function GradingView({ uni, q, selected, tz }: { uni: string; q: GradingQ
                 <Textarea name="feedback" rows={5} maxLength={5000} defaultValue={current.feedback ?? ""} placeholder="What went well, and what to work on next." />
               </Field>
               <FileUploader
+                key={current.gradedAt?.getTime() ?? 0}
                 endpoint={uploadHref(uni, "admin")}
                 target={{ purpose: "returned", assignmentId: a.id, batchId: q.batch.id }}
                 label="Return a file"
