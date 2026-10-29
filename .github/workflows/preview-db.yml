@@ -1,0 +1,69 @@
+# Sets up (or refreshes) the preview database on Neon: the app role, the schema with
+# row-level security, and the demo data. Run it by hand from the Actions tab.
+# Steps for Swayam: docs/deploy/preview-vercel-neon.md
+name: Preview database
+
+on:
+  workflow_dispatch:
+    inputs:
+      reset:
+        description: "Wipe the database first (deletes everything in it)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: preview-db
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OWNER_URL: ${{ secrets.PREVIEW_DATABASE_URL_OWNER }}
+      APP_DB_PASSWORD: ${{ secrets.PREVIEW_APP_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Check the secrets are set
+        run: |
+          if [ -z "$OWNER_URL" ] || [ -z "$APP_DB_PASSWORD" ]; then
+            echo "::error::Add the repository secrets PREVIEW_DATABASE_URL_OWNER and PREVIEW_APP_DB_PASSWORD first (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+
+      - name: Create or update the app role (zinny_app)
+        run: |
+          psql "$OWNER_URL" -v ON_ERROR_STOP=1 -v pw="$APP_DB_PASSWORD" <<'SQL'
+          SELECT format('CREATE ROLE zinny_app LOGIN PASSWORD %L', :'pw')
+            WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'zinny_app') \gexec
+          SELECT format('ALTER ROLE zinny_app WITH LOGIN PASSWORD %L', :'pw') \gexec
+          SQL
+
+      - name: Work out the app connection string
+        run: |
+          node -e '
+            const u = new URL(process.env.OWNER_URL);
+            u.username = "zinny_app";
+            u.password = encodeURIComponent(process.env.APP_DB_PASSWORD);
+            console.log("::add-mask::" + u.toString());
+            require("fs").appendFileSync(process.env.GITHUB_ENV, "APP_URL_DB=" + u.toString() + "\n");
+          '
+
+      - run: npm ci
+
+      - name: Push the schema and row-level security
+        env:
+          DATABASE_URL_OWNER: ${{ secrets.PREVIEW_DATABASE_URL_OWNER }}
+        run: |
+          if [ "${{ inputs.reset }}" = "true" ]; then npm run db:reset; else npm run db:push; fi
+
+      - name: Load the demo data (safe to run again; it replaces the Demo University)
+        env:
+          DATABASE_URL_OWNER: ${{ secrets.PREVIEW_DATABASE_URL_OWNER }}
+        run: DATABASE_URL="$APP_URL_DB" npm run db:seed
