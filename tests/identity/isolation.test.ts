@@ -17,7 +17,7 @@ describe("identity tables are isolated per university", () => {
     await expectTenantIsolated(idnInvites, (uni) => ({
       universityId: uni.id,
       userId: u.id,
-      role: "student",
+      role: "student" as const,
       tokenHash: `${uni.id}-${Math.random()}`,
       expiresAt: new Date(Date.now() + 86_400_000),
     }));

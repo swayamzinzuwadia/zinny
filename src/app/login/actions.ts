@@ -12,6 +12,7 @@ import { clientInfo, cookieOptions, spacesFor, startSession, type SessionMethod 
 import {
   PHONE_COOKIE_MS,
   acceptInvite,
+  landingAfterSignIn,
   choosePhoneAccount,
   completePasswordReset,
   demoSignIn,
@@ -27,12 +28,15 @@ import {
 import { PHONE_COOKIE, UNI_COOKIE } from "@/modules/identity/cookies";
 
 
-/** Signs in and remembers the institute when the person belongs to exactly one. */
-async function signInAs(userId: string, method: SessionMethod) {
+/**
+ * Signs in, remembers the institute when the person belongs to exactly one, and returns
+ * where to go next.
+ */
+async function signInAs(userId: string, method: SessionMethod, next?: string | null): Promise<string> {
   await startSession(userId, method);
   const spaces = await spacesFor(userId);
-  const jar = await cookies();
-  if (spaces.length === 1) jar.set(UNI_COOKIE, spaces[0].slug, { ...cookieOptions(), maxAge: 400 * 86_400 });
+  if (spaces.length === 1) (await cookies()).set(UNI_COOKIE, spaces[0].slug, { ...cookieOptions(), maxAge: 400 * 86_400 });
+  return landingAfterSignIn(userId, next);
 }
 
 /** "Not your institute?" on /login. */
@@ -56,25 +60,21 @@ function fail(e: unknown): AuthState {
 
 export async function passwordSignInAction(_: AuthState, data: FormData): Promise<AuthState> {
   const email = str(data, "email");
-  const dest = safeNext(str(data, "next")) ?? "/";
-  let ok = false;
+  let dest: string | null = null;
   try {
     const { ip } = await clientInfo();
     const r = await signInWithPassword({ email, password: String(data.get("password") ?? ""), ip });
     if (!r.ok) return { error: signInMessage(r), code: r.reason, email, at: Date.now() };
-    await signInAs(r.userId, "password");
-    ok = true;
+    dest = await signInAs(r.userId, "password", str(data, "next"));
   } catch (e) {
     return { ...fail(e), email };
   }
-  if (ok) redirect(dest);
-  return null;
+  redirect(dest);
 }
 
 export async function demoSignInAction(data: FormData) {
   const userId = await demoSignIn(str(data, "email"));
-  await signInAs(userId, "demo");
-  redirect("/");
+  redirect(await signInAs(userId, "demo"));
 }
 
 /* ───────────────────────────── Phone ───────────────────────────── */
@@ -127,8 +127,7 @@ export async function phoneResendAction(_: AuthState, _data: FormData): Promise<
 }
 
 export async function phoneVerifyAction(_: AuthState, data: FormData): Promise<AuthState> {
-  const dest = safeNext(str(data, "next")) ?? "/";
-  let done = false;
+  let dest: string | null = null;
   try {
     const ref = await phoneRef();
     const r = await verifyPhoneCode({ ref, code: str(data, "code") });
@@ -138,29 +137,24 @@ export async function phoneVerifyAction(_: AuthState, data: FormData): Promise<A
       redirect(`/login?${new URLSearchParams({ uni, tab: "phone", ...(next && next !== "/" ? { next } : {}) })}`);
     }
     await clearPhoneRef();
-    await signInAs(r.userId, "phone");
-    done = true;
+    dest = await signInAs(r.userId, "phone", str(data, "next"));
   } catch (e) {
     if (e instanceof AppError && ["restart", "locked"].includes(e.code)) await clearPhoneRef();
     return fail(e);
   }
-  if (done) redirect(dest);
-  return null;
+  redirect(dest);
 }
 
 export async function phoneChooseAction(_: AuthState, data: FormData): Promise<AuthState> {
-  const dest = safeNext(str(data, "next")) ?? "/";
-  let done = false;
+  let dest: string | null = null;
   try {
     const r = await choosePhoneAccount({ ref: await phoneRef(), userId: str(data, "userId") });
     await clearPhoneRef();
-    await signInAs(r.userId, "phone");
-    done = true;
+    dest = await signInAs(r.userId, "phone", str(data, "next"));
   } catch (e) {
     return fail(e);
   }
-  if (done) redirect(dest);
-  return null;
+  redirect(dest);
 }
 
 /* ───────────────────────────── Reset ───────────────────────────── */
@@ -180,20 +174,18 @@ export async function resetRequestAction(_: AuthState, data: FormData): Promise<
 }
 
 export async function resetCompleteAction(_: AuthState, data: FormData): Promise<AuthState> {
-  let ok = false;
+  let dest: string | null = null;
   try {
     const r = await completePasswordReset({
       token: str(data, "token"),
       password: String(data.get("password") ?? ""),
       confirm: String(data.get("confirm") ?? ""),
     });
-    await signInAs(r.userId, "reset");
-    ok = true;
+    dest = await signInAs(r.userId, "reset");
   } catch (e) {
     return fail(e);
   }
-  if (ok) redirect("/");
-  return null;
+  redirect(dest);
 }
 
 /* ───────────────────────────── Invite ───────────────────────────── */

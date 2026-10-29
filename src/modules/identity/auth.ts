@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { systemDb, type Tx } from "@/db/client";
-import { roleAssignments, sessions, universities, users } from "@/db/schema";
+import { roleAssignments, sessions, universities, users, type RoleName } from "@/db/schema";
 import type { DomainEvent } from "@/contracts/events";
 import { audit, sendEmail, sendSms, systemActorFor, universityLite, withTenant } from "@/server/core";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
@@ -23,10 +23,10 @@ import { deferAfterResponse, type Defer } from "@/server/auth/defer";
 import { checkNewPassword, hashPassword, verifyAgainstNothing, verifyPassword } from "@/server/auth/passwords";
 import { maskEmail, maskPhone, normalizePhone, phoneTail } from "@/server/auth/phone";
 import { clearThrottle, consume, lockedUntil, pruneThrottles, recordFailure, throttleKey } from "@/server/auth/throttle";
-import { pruneSessions } from "@/server/auth/session";
+import { pruneSessions, spacesFor } from "@/server/auth/session";
 import { compactUuid, expandUuid, hmac, randomToken, sameHex, sha256, sixDigitCode } from "@/server/auth/tokens";
 import { passwordChangedEmail, resetEmail, signInCodeSms } from "./emails";
-import { landingFor, roleTitle } from "./labels";
+import { ADMIN_PANEL, landingFor, roleTitle } from "./labels";
 import { idnInvites, idnOtpChallenges, idnSettings, idnTokens } from "./schema";
 
 const normEmail = (e: string) => e.trim().toLowerCase();
@@ -77,6 +77,22 @@ export function safeNext(next: string | null | undefined): string | null {
   if (/^\/[a-z0-9-]+\/?$/i.test(next.split(/[?#]/)[0])) return "/";
   if (/^\/(login|reset|invite)(\/|$|\?)/.test(next)) return "/";
   return next;
+}
+
+/**
+ * Where to go after signing in: `next` when it's a real page; otherwise straight to the
+ * person's app when they belong to one institute (or to the one `next` names), so the
+ * browser doesn't bounce through the space picker. Zinny team members go to the picker.
+ */
+export async function landingAfterSignIn(userId: string, next: string | null | undefined): Promise<string> {
+  const safe = safeNext(next) ?? "/";
+  if (safe !== "/") return safe;
+  if (await activePlatformRole(userId, new Date())) return "/";
+  const spaces = await spacesFor(userId);
+  const wanted = slugFromNext(next);
+  const space = spaces.find((s) => s.slug === wanted) ?? (spaces.length === 1 ? spaces[0] : null);
+  if (!space) return "/";
+  return `/${space.slug}/${space.roles.some((r) => ADMIN_PANEL.has(r as RoleName)) ? "admin" : "learn"}`;
 }
 
 /* ───────────────────────────── Password sign-in ───────────────────────────── */

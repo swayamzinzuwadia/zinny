@@ -391,6 +391,25 @@ describe("demo accounts and redirects", () => {
     await expect(demoSignIn(u.email)).rejects.toThrow(/isn't a demo account/);
   });
 
+  it("after signing in, goes straight to the person's app, or to the picker when there's a choice", async () => {
+    const { landingAfterSignIn } = await import("@/modules/identity/auth");
+    const a = await makeUniversity("Landing A");
+    const b = await makeUniversity("Landing B");
+    const student = await person("Land Student", "student", { universityId: a.id });
+    const staff = await person("Land Admin", "institute_admin", { universityId: a.id });
+    expect(await landingAfterSignIn(student.user.id, null)).toBe(`/${a.slug}/learn`);
+    expect(await landingAfterSignIn(staff.user.id, "/")).toBe(`/${a.slug}/admin`);
+    expect(await landingAfterSignIn(student.user.id, `/${a.slug}/learn/timetable`)).toBe(`/${a.slug}/learn/timetable`);
+    const { grant } = await import("../fixtures");
+    await grant(student.user.id, "hod", { universityId: b.id, departmentId: (await (await import("../fixtures")).makeDepartment(b.id, "CS", "CS")).id });
+    expect(await landingAfterSignIn(student.user.id, null)).toBe("/");
+    expect(await landingAfterSignIn(student.user.id, `/${b.slug}`)).toBe(`/${b.slug}/admin`);
+    expect(await landingAfterSignIn(student.user.id, "//evil.test")).toBe("/");
+    const team = await makeUser("Land Team");
+    await grant(team.id, "support_agent");
+    expect(await landingAfterSignIn(team.id, null)).toBe("/");
+  });
+
   it("only follows `next` to paths on this site", () => {
     expect(safeNext("/demo/learn/my")).toBe("/demo/learn/my");
     expect(safeNext("https://evil.test")).toBeNull();
