@@ -10,10 +10,10 @@ afterAll(async () => {
 });
 
 describe("contracts section 6: seeds", () => {
-  it("runs the core seed, then each module's seed in alphabetical order with the core seed's ids", async () => {
+  it("runs the core seed, then each module's seed in alphabetical order (gamification last) with the core seed's ids", async () => {
     const calls: { id: string; ctx: SeedContext }[] = [];
     const mod = (id: ZinnyModule["id"]): ZinnyModule => ({ id, seed: async (ctx) => void calls.push({ id, ctx }) });
-    setTestModules([mod("website-builder"), mod("assessments"), mod("gamification")], { only: true });
+    setTestModules([mod("website-builder"), mod("assessments"), mod("gamification"), mod("live-classes")], { only: true });
     const quiet = console.log;
     console.log = () => {};
     try {
@@ -21,7 +21,9 @@ describe("contracts section 6: seeds", () => {
     } finally {
       console.log = quiet;
     }
-    expect(calls.map((c) => c.id)).toEqual(["assessments", "gamification", "website-builder"]);
+    // Gamification's demo fills in only event types no other seed produced, so it goes last
+    // (wave 1 integration: live-classes' real attendance used to land on top of its own).
+    expect(calls.map((c) => c.id)).toEqual(["assessments", "live-classes", "website-builder", "gamification"]);
     const { ctx } = calls[0];
     expect(ctx.universitySlug).toBe("demo");
     expect(ctx.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);

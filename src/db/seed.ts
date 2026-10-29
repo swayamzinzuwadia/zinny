@@ -6,7 +6,8 @@
  *   npm run db:seed        (password for every demo account: zinny123)
  *
  * Order (contracts.md section 6): the core seed below, then every module's
- * `seed(ctx)` in alphabetical order of module id, then pending events are delivered.
+ * `seed(ctx)` in alphabetical order of module id (gamification last, because its demo only
+ * fills in event types the other seeds didn't produce), then pending events are delivered.
  */
 import "./load-env";
 import bcrypt from "bcryptjs";

@@ -142,7 +142,7 @@ export type Job = { id: string; every: "minute" | "hour" | "day"; run(actor: Act
 
 ## 6. Seeds
 
-`npm run db:seed` runs the core seed (Demo University, people, courses, batches, enrolments), then each module's `seed(ctx)` in alphabetical order of module id, delivering pending events after each one. Module seeds may only write their own tables (or go through the core API).
+`npm run db:seed` runs the core seed (Demo University, people, courses, batches, enrolments), then each module's `seed(ctx)` in alphabetical order of module id, delivering pending events after each one. **Exception (wave 1 integration):** `gamification` seeds last, because its demo only fills in event types that no other module's seed produced. Module seeds may only write their own tables (or go through the core API).
 
 ```ts
 type SeedContext = {

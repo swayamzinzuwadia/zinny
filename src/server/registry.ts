@@ -89,9 +89,18 @@ export function eventHandlers(): EventHandler[] {
   return all.sort((a, b) => a.id.localeCompare(b.id));
 }
 
-/** Module seeds in alphabetical order of module id. Core's seed runs before these. */
+/**
+ * Seeds that run after every other module's. Gamification's demo fills in only the event
+ * types no other seed produced, so it must see them all first (otherwise live-classes'
+ * real attendance lands on top of gamification's made-up attendance).
+ */
+const SEED_LAST: readonly ModuleId[] = ["gamification"];
+
+/** Module seeds in alphabetical order of module id, then those in SEED_LAST. Core's seed runs before these. */
 export function seeds(): { id: ModuleId; seed: (ctx: SeedContext) => Promise<void> }[] {
-  return modules().flatMap((m) => (m.seed ? [{ id: m.id, seed: m.seed }] : []));
+  const all = modules().flatMap((m) => (m.seed ? [{ id: m.id, seed: m.seed }] : []));
+  const last = (id: ModuleId) => SEED_LAST.includes(id);
+  return [...all.filter((s) => !last(s.id)), ...all.filter((s) => last(s.id))];
 }
 
 /** The registered email transport, or null (core then uses the console transport). */
