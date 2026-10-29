@@ -16,6 +16,7 @@
 import { createHash } from "node:crypto";
 import { inArray } from "drizzle-orm";
 import type { SeedContext } from "@/contracts/module";
+import type { Tx } from "@/db/client";
 import { domainEvents } from "@/db/schema";
 import { audit, batchLite, emit, expandSessions, scheduledBatches, studentEnrolments, withTenant } from "@/server/core";
 import { createBadge } from "./badges";
@@ -47,9 +48,9 @@ const KEEN: Record<string, number> = {
   "kabir@demo.edu": 0.5,
 };
 
-function keenness(email: string, courseId: string) {
+function keenness(email: string, courseTitle: string) {
   const base = KEEN[email] ?? 0.45 + chance(email) * 0.4;
-  return Math.max(0.3, Math.min(0.97, base + (chance(`${email}|${courseId}`) - 0.5) * 0.16));
+  return Math.max(0.3, Math.min(0.97, base + (chance(`${email}|${courseTitle}`) - 0.5) * 0.16));
 }
 
 const RULES: RuleInput[] = [
@@ -69,7 +70,7 @@ async function emitDemoActivity(ctx: SeedContext) {
   const emailOf = new Map(Object.entries(ctx.ids.users).map(([email, id]) => [id, email]));
   const studentIds = [...new Set(Object.keys(ctx.ids.enrolments).map((k) => ctx.ids.users[k.split(" / ")[0]]).filter(Boolean))];
 
-  return withTenant(sys, async (tx) => {
+  const queue = await withTenant(sys, async (tx) => {
     // Real demo activity from other modules' seeds wins: only fill in what's missing.
     const seeded = new Set(
       (await tx.selectDistinct({ type: domainEvents.type }).from(domainEvents).where(inArray(domainEvents.type, [...SOURCE_EVENTS]))).map((r) => r.type),
@@ -79,72 +80,91 @@ async function emitDemoActivity(ctx: SeedContext) {
     const enrolments = (await Promise.all(studentIds.map(async (u) => (await studentEnrolments(tx, u)).map((e) => ({ ...e, userId: u })))))
       .flat()
       .filter((e) => e.status === "active");
-    const batches = (await scheduledBatches(tx, [...new Set(enrolments.map((e) => e.batchId))])).filter((b) => b.startDate <= yesterday);
-    let n = 0;
+    const batches = (await scheduledBatches(tx, [...new Set(enrolments.map((e) => e.batchId))]))
+      .filter((b) => b.startDate <= yesterday)
+      .sort((x, y) => `${x.courseTitle}/${x.batchName}`.localeCompare(`${y.courseTitle}/${y.batchName}`));
+
+    // Everything is queued with the time it happened and emitted in that order, the way
+    // events would really arrive (so a streak isn't judged on half a term's marks).
+    const queue: { at: string; send: (tx: Tx) => Promise<unknown> }[] = [];
+    let seq = 0;
+    const today = (what: string) => `${ctx.today} 99 ${String(seq++).padStart(5, "0")} ${what}`;
 
     for (const b of batches) {
-      const members = enrolments.filter((e) => e.batchId === b.batchId);
+      const members = enrolments.filter((e) => e.batchId === b.batchId).sort((x, y) => emailOf.get(x.userId)!.localeCompare(emailOf.get(y.userId)!));
       const weeksIn = Math.floor((Date.parse(yesterday) - Date.parse(b.startDate)) / (7 * 86_400_000)) + 1;
 
       // Live classes so far, marked by the faculty.
       if (want("attendance.marked")) {
         for (const s of expandSessions([b], b.startDate, yesterday)) {
           for (const m of members) {
-            const keen = keenness(emailOf.get(m.userId)!, b.courseId);
-            const roll = chance(`att|${m.userId}|${s.batchId}|${s.date}|${s.startTime}`);
+            const email = emailOf.get(m.userId)!;
+            const keen = keenness(email, b.courseTitle);
+            const roll = chance(`att|${email}|${b.batchName}|${s.date}|${s.startTime}`);
             const status = roll < Math.min(0.97, keen + 0.08) ? "present" : roll < Math.min(0.99, keen + 0.16) ? "late" : "absent";
-            await emit(tx, sys, "attendance.marked", { batchId: b.batchId, date: s.date, startTime: s.startTime.slice(0, 5), userId: m.userId, status });
-            n++;
+            queue.push({
+              at: `${s.date} ${s.startTime} ${b.batchName} ${email}`,
+              send: (tx) => emit(tx, sys, "attendance.marked", { batchId: b.batchId, date: s.date, startTime: s.startTime.slice(0, 5), userId: m.userId, status }),
+            });
           }
         }
       }
 
       for (const m of members) {
         const email = emailOf.get(m.userId)!;
-        const keen = keenness(email, b.courseId);
+        const keen = keenness(email, b.courseTitle);
         // Lessons: the course has 24; keen students are a third of the way in.
         if (want("lesson.completed")) {
           const done = Math.round(keen * 3 * weeksIn);
           for (let i = 0; i < Math.min(done, 24); i++) {
-            await emit(tx, sys, "lesson.completed", { userId: m.userId, courseId: b.courseId, lessonId: demoId(`lesson|${b.courseId}|${i}`) });
-            n++;
+            queue.push({
+              at: today("lesson"),
+              send: (tx) => emit(tx, sys, "lesson.completed", { userId: m.userId, courseId: b.courseId, lessonId: demoId(`lesson|${b.courseId}|${i}`) }),
+            });
           }
         }
         // A quiz per two weeks of teaching.
         if (want("test.submitted")) {
           for (let t = 0; t < Math.max(1, Math.floor(weeksIn / 2)); t++) {
-            const score = Math.max(20, Math.min(100, Math.round(42 + keen * 52 + (chance(`test|${m.userId}|${b.courseId}|${t}`) - 0.5) * 18)));
-            await emit(tx, sys, "test.submitted", {
-              attemptId: demoId(`attempt|${m.userId}|${b.courseId}|${t}`),
-              testId: demoId(`test|${b.courseId}|${t}`),
-              userId: m.userId,
-              courseId: b.courseId,
-              batchId: b.batchId,
-              scorePercent: score,
-              passed: score >= 50,
+            const score = Math.max(20, Math.min(100, Math.round(42 + keen * 52 + (chance(`test|${email}|${b.courseTitle}|${t}`) - 0.5) * 18)));
+            queue.push({
+              at: today("test"),
+              send: (tx) =>
+                emit(tx, sys, "test.submitted", {
+                  attemptId: demoId(`attempt|${m.userId}|${b.courseId}|${t}`),
+                  testId: demoId(`test|${b.courseId}|${t}`),
+                  userId: m.userId,
+                  courseId: b.courseId,
+                  batchId: b.batchId,
+                  scorePercent: score,
+                  passed: score >= 50,
+                }),
             });
-            n++;
           }
         }
         // Two assignments per batch, set by the faculty.
         for (let a = 0; a < Math.min(2, weeksIn); a++) {
           const assignmentId = demoId(`assignment|${b.batchId}|${a}`);
           const submissionId = demoId(`submission|${b.batchId}|${a}|${m.userId}`);
-          if (chance(`submit|${submissionId}`) > keen + 0.15) continue;
+          const key = `${email}|${b.courseTitle}|${b.batchName}|${a}`;
+          if (chance(`submit|${key}`) > keen + 0.15) continue;
           if (want("assignment.submitted")) {
-            await emit(tx, sys, "assignment.submitted", { submissionId, assignmentId, userId: m.userId, batchId: b.batchId, late: chance(`late|${submissionId}`) > keen });
-            n++;
+            const late = chance(`late|${key}`) > keen;
+            queue.push({ at: today("submitted"), send: (tx) => emit(tx, sys, "assignment.submitted", { submissionId, assignmentId, userId: m.userId, batchId: b.batchId, late }) });
           }
           if (want("assignment.graded")) {
-            const score = Math.max(30, Math.min(100, Math.round(55 + keen * 40 + (chance(`grade|${submissionId}`) - 0.5) * 16)));
-            await emit(tx, sys, "assignment.graded", { submissionId, assignmentId, userId: m.userId, batchId: b.batchId, scorePercent: score });
-            n++;
+            const scorePercent = Math.max(30, Math.min(100, Math.round(55 + keen * 40 + (chance(`grade|${key}`) - 0.5) * 16)));
+            queue.push({ at: today("graded"), send: (tx) => emit(tx, sys, "assignment.graded", { submissionId, assignmentId, userId: m.userId, batchId: b.batchId, scorePercent }) });
           }
         }
       }
     }
-    return n;
+
+    return queue.sort((x, y) => x.at.localeCompare(y.at));
   });
+  // One transaction per event, so each gets its own time and they're replayed in this order.
+  for (const q of queue) await withTenant(sys, (tx) => q.send(tx));
+  return queue.length;
 }
 
 export async function seed(ctx: SeedContext) {
