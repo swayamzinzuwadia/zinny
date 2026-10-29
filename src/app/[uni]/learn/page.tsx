@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { SlotList } from "@/components/slots";
 import { Card, CardTitle, Empty, buttonClass, cx } from "@/components/ui";
 import { WeekView } from "@/components/week-view";
 import { hasRole } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
+import { joinPath } from "@/server/lib/links";
+import { visibleSlots } from "@/server/registry";
 import { addDays, formatDate, formatTime, isoWeekday, minutesNowIn, toMinutes, weekStart, weekdayLabel } from "@/server/lib/dates";
 import { greetingFor } from "@/server/services/dashboard";
 import { myLearning } from "@/server/services/enrolment";
@@ -107,9 +110,9 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 {next.joinUrl && (next.date === today || isLive) ? (
-                  <a href={next.joinUrl} target="_blank" rel="noreferrer" className={buttonClass(isLive ? "primary" : "gold")}>
+                  <Link href={joinPath(uni, next.batchId, next.date)} className={buttonClass(isLive ? "primary" : "gold")}>
                     Join class
-                  </a>
+                  </Link>
                 ) : null}
                 <Link
                   href={`/${uni}/learn/timetable`}
@@ -222,6 +225,13 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
         </Card>
       </div>
 
+      <SlotList
+        slot="learnerHomeCards"
+        className="grid gap-6 lg:grid-cols-2"
+        entries={visibleSlots("learnerHomeCards", actor, { universityId: university.id, ownerUserId: actor.userId })}
+        props={{ uni, actor, university, today }}
+      />
+
       <section>
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-[17px] font-medium">My courses</h2>
@@ -240,7 +250,7 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
             {active.map((l) => (
               <Link
                 key={l.enrolmentId}
-                href={`/${uni}/learn/my`}
+                href={`/${uni}/learn/my/${l.enrolmentId}`}
                 className="group rounded-[22px] border border-line bg-surface p-5 hover:border-brand/40"
               >
                 <span className={cx("mb-4 block h-1.5 w-10 rounded-full", colorOf(l.course.id))} />

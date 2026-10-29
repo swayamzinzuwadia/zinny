@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { SlotList } from "@/components/slots";
 import { SwitchRequests } from "@/components/switch-requests";
 import { TodayBoard } from "@/components/today-board";
 import { Badge, Card, CardTitle, SeatMap, Stat, cx } from "@/components/ui";
 import { spaceContext } from "@/server/context";
+import { slotsInReach } from "@/server/registry";
 import { formatDate } from "@/server/lib/dates";
 import { dashboard } from "@/server/services/dashboard";
 import { listSwitchRequests } from "@/server/services/enrolment";
@@ -21,7 +23,7 @@ function ago(d: Date) {
 
 export default async function Dashboard({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
-  const { actor } = await spaceContext(uni);
+  const { actor, university } = await spaceContext(uni);
   const base = `/${uni}/admin`;
   const data = await dashboard(actor);
   const requests = data.canDecideSwitches ? await listSwitchRequests(actor) : [];
@@ -223,6 +225,13 @@ export default async function Dashboard({ params }: { params: Promise<{ uni: str
           )}
         </Card>
       </div>
+
+      <SlotList
+        slot="dashboardCards"
+        className="grid gap-6 xl:grid-cols-2"
+        entries={slotsInReach("dashboardCards", actor, university.id)}
+        props={{ uni, actor, university, today: data.today }}
+      />
     </div>
   );
 }

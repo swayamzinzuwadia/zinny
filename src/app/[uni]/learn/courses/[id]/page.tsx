@@ -32,7 +32,7 @@ export default async function CoursePage({ params }: { params: Promise<{ uni: st
       {myEnrolment?.status === "active" ? (
         <Notice>
           You&apos;re enrolled in {options.find((o) => o.mine)?.name ?? "this course"}.{" "}
-          <Link href={`/${uni}/learn/my`} className="font-medium underline">
+          <Link href={myEnrolment ? `/${uni}/learn/my/${myEnrolment.id}` : `/${uni}/learn/my`} className="font-medium underline">
             Switch batch
           </Link>
         </Notice>

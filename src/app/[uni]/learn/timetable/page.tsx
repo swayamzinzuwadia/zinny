@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Notice, buttonClass } from "@/components/ui";
 import { WeekView } from "@/components/week-view";
 import { spaceContext } from "@/server/context";
+import { joinPath } from "@/server/lib/links";
 import { addDays, formatDate, formatTime, weekStart } from "@/server/lib/dates";
 import { studentTimetable } from "@/server/services/timetable";
 
@@ -48,9 +49,9 @@ export default async function Timetable({ params, searchParams }: { params: Prom
               <span>
                 <b>{s.courseTitle}</b> · {s.date === t.today ? "Today" : formatDate(s.date, { weekday: true })}, {formatTime(s.startTime)}
               </span>
-              <a href={s.joinUrl!} target="_blank" rel="noreferrer" className={buttonClass("primary", "sm")}>
+              <Link href={joinPath(uni, s.batchId, s.date)} className={buttonClass("primary", "sm")}>
                 Join
-              </a>
+              </Link>
             </div>
           ))}
         </div>

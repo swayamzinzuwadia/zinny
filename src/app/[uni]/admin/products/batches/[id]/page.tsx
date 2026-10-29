@@ -2,10 +2,12 @@ import Link from "next/link";
 import { DayTimePicker } from "@/components/day-picker";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Table, Td } from "@/components/ui";
+import { SlotList } from "@/components/slots";
 import { WeekView } from "@/components/week-view";
 import { can } from "@/server/authz/engine";
 import { ROLE_LABELS } from "@/server/authz/roles";
 import { spaceContext } from "@/server/context";
+import { visibleSlots } from "@/server/registry";
 import { addDays, formatDate, formatTime, todayIn, weekStart } from "@/server/lib/dates";
 import { batchRoster, getBatchDetail } from "@/server/services/batches";
 import { describeSlots, expandSessions } from "@/server/services/schedule";
@@ -53,6 +55,38 @@ export default async function BatchPage({ params }: { params: Promise<{ uni: str
             <CardTitle hint={`Week of ${formatDate(from)}`}>Timetable</CardTitle>
             <WeekView from={from} today={today} sessions={sessions} compact />
           </Card>
+
+          <SlotList
+            slot="adminBatchSections"
+            entries={visibleSlots("adminBatchSections", actor, target)}
+            props={{
+              uni,
+              actor,
+              university,
+              batch: {
+                id: batch.id,
+                courseId: batch.courseId,
+                departmentId: batch.departmentId,
+                name: batch.name,
+                startDate: batch.startDate,
+                endDate: batch.endDate,
+                seatLimit: batch.seatLimit,
+                status: batch.status,
+                meetingUrl: batch.meetingUrl,
+                target,
+              },
+              course: {
+                id: course.id,
+                title: course.title,
+                departmentId: course.departmentId,
+                programId: course.programId,
+                status: course.status,
+                certificateEnabled: course.certificateEnabled,
+                pricePaise: course.pricePaise,
+              },
+              target,
+            }}
+          />
 
           {canRoster && (
             <div>

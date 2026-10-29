@@ -595,6 +595,30 @@ export async function myLearning(actor: Actor) {
   });
 }
 
+/**
+ * One of the student's own enrolments, for the course hub: course, batch, timings,
+ * faculty, switch state and the other batches they could switch to.
+ * Active and completed enrolments only; anyone else's is "not found".
+ */
+export async function myEnrolment(actor: Actor, enrolmentId: string) {
+  assertCan(actor, "self.view_learning", { universityId: uni(actor), ownerUserId: actor.userId });
+  const row = (await myLearning(actor)).find((l) => l.enrolmentId === enrolmentId && (l.status === "active" || l.status === "completed"));
+  if (!row) throw new NotFoundError("Course");
+  const details = await withTenant(actor, async (tx) => {
+    const [course] = await tx.select().from(courses).where(eq(courses.id, row.course.id));
+    const [batch] = await tx.select().from(batches).where(eq(batches.id, row.batch.id));
+    return { course, batch };
+  });
+  const switchOptions = row.status === "active" ? await batchOptions(actor, row.course.id).catch(() => null) : null;
+  return {
+    ...row,
+    course: details.course,
+    batchRecord: details.batch,
+    /** Every open batch of the course (the student's own is marked `mine`), for the switch picker. */
+    allOptions: switchOptions?.options ?? [],
+  };
+}
+
 export function isAppError(e: unknown): e is AppError {
   return e instanceof AppError;
 }
