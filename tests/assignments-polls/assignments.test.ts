@@ -119,8 +119,14 @@ describe("who sees what", () => {
     const view = await getStaffAssignment(board, onlyB.id);
     expect(view.canManage).toBe(false);
     expect(view.batches.every((b) => b.canView && !b.canGrade)).toBe(true);
+    await submitAssignment(c.zoya, { assignmentId: onlyB.id, text: "Private answer" }, at(T.before));
+    const boardQueue = await gradingQueue(board, onlyB.id, c.batchB.id);
+    expect(boardQueue.canGrade).toBe(false);
+    expect(boardQueue.rows[0]).toMatchObject({ status: "to_grade", versions: [] });
+    expect(JSON.stringify(boardQueue)).not.toContain("Private answer");
+    expect((await gradingQueue(c.omar, onlyB.id, c.batchB.id)).rows[0].versions[0].textAnswer).toBe("Private answer");
     const batchList = await listBatchAssignments(c.omar, c.batchB.id);
-    expect(batchList.find((a) => a.id === onlyB.id)?.students).toBe(1);
+    expect(batchList.find((a) => a.id === onlyB.id)).toMatchObject({ students: 1, submitted: 1, toGrade: 1 });
     await expect(listBatchAssignments(c.farah, c.batchB.id)).rejects.toThrow(/access/);
   });
 });

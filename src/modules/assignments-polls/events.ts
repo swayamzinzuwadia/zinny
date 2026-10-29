@@ -7,9 +7,9 @@ export const handlers: EventHandler[] = [
     // Ungraded work moves with a student who switches batch, so the new batch's faculty grade it.
     id: "assignments-polls.follow-batch-switch",
     on: ["enrolment.switched"],
-    handle: async ({ tx, event }) => {
+    handle: async ({ tx, actor, event }) => {
       if (!event.universityId) return;
-      await followBatchSwitch(tx, event.payload);
+      await followBatchSwitch(tx, actor, event.payload);
     },
   }),
 ];

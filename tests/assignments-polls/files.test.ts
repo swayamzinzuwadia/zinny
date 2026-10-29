@@ -137,3 +137,14 @@ describe("file access", () => {
     expect(await opens(c.riya, riyaFile)).toBe("riya's work");
   });
 });
+
+describe("upload limits", () => {
+  it("one person can't pile up unsaved uploads", async () => {
+    const fresh = await twoBatches("Upload Limit U");
+    const a = await createAssignment(fresh.hod, assignmentInput(fresh.course.id, { title: "Many uploads" }), { now: T.before });
+    const { MAX_STAGED_PER_PERSON } = await import("@/modules/assignments-polls/service/files");
+    for (let i = 0; i < MAX_STAGED_PER_PERSON; i++) await startUpload(fresh.riya, { purpose: "submission", assignmentId: a.id, fileName: `f${i}.pdf`, size: 10 });
+    await expect(startUpload(fresh.riya, { purpose: "submission", assignmentId: a.id, fileName: "one-more.pdf", size: 10 })).rejects.toThrow(/too many uploads/);
+    expect(await startUpload(fresh.kabir, { purpose: "submission", assignmentId: a.id, fileName: "kabir.pdf", size: 10 })).toBeTruthy();
+  });
+});

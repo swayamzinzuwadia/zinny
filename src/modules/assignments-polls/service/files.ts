@@ -26,6 +26,8 @@ export const PART_BYTES = 4 * 1024 * 1024;
 export const LINK_SECONDS = 120;
 /** Staged files older than this are removed. */
 export const STAGED_TTL_HOURS = 24;
+/** How many unsaved uploads one person may have at a time. */
+export const MAX_STAGED_PER_PERSON = 30;
 
 export type FilePurpose = "attachment" | "submission" | "returned";
 export type FileRow = typeof asgnFiles.$inferSelect;
@@ -72,6 +74,11 @@ export async function startUpload(actor: Actor, input: StartUpload): Promise<Sta
     const { maxMb, assignmentId } = await uploadLimit(tx, actor, input);
     const size = Math.floor(Number(input.size));
     const contentType = checkUpload(input.fileName, size, Math.min(maxMb, MAX_UPLOAD_MB));
+    const [{ staged }] = await tx
+      .select({ staged: sql<number>`count(*)::int` })
+      .from(asgnFiles)
+      .where(and(eq(asgnFiles.uploadedBy, actor.userId), isNull(asgnFiles.attachedAt)));
+    if (staged >= MAX_STAGED_PER_PERSON) throw new ValidationError("You have too many uploads that haven't been saved. Save your work, or try again tomorrow.");
     const fileId = crypto.randomUUID();
     const [f] = await tx
       .insert(asgnFiles)
@@ -87,6 +94,7 @@ export async function startUpload(actor: Actor, input: StartUpload): Promise<Sta
         uploadedBy: actor.userId,
       })
       .returning();
+    await audit(tx, actor, "assignment.file_upload", "asgn_file", f.id, { purpose: input.purpose, assignmentId, fileName: f.fileName, sizeBytes: size });
     return { fileId: f.id, partBytes: PART_BYTES, parts: partsFor(size) };
   });
 }
@@ -208,9 +216,11 @@ export async function fileLink(actor: Actor, fileId: string): Promise<{ url: str
 /** Daily: removes uploads nobody saved. */
 export async function cleanStagedFiles(actor: Actor, now = new Date()) {
   const cutoff = new Date(now.getTime() - STAGED_TTL_HOURS * 3_600_000);
-  const stale = await withTenant(actor, (tx) =>
-    tx.delete(asgnFiles).where(and(isNull(asgnFiles.attachedAt), lt(asgnFiles.createdAt, cutoff))).returning(),
-  );
+  const stale = await withTenant(actor, async (tx) => {
+    const rows = await tx.delete(asgnFiles).where(and(isNull(asgnFiles.attachedAt), lt(asgnFiles.createdAt, cutoff))).returning();
+    if (rows.length) await audit(tx, actor, "assignment.clean_uploads", "asgn_file", null, { removed: rows.length });
+    return rows;
+  });
   for (const f of stale) {
     await storage().delete(f.storageKey).catch(() => {});
     for (let i = 0; i < partsFor(f.sizeBytes); i++) await storage().delete(partKey(f.universityId, f.id, i)).catch(() => {});

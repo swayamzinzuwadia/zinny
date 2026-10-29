@@ -120,6 +120,11 @@ export function GradingView({ uni, q, selected, tz }: { uni: string; q: GradingQ
                 </details>
               )}
             </div>
+          ) : !q.canGrade ? (
+            <p className="rounded-2xl bg-canvas px-4 py-5 text-[14px] text-muted">
+              {current.submittedAt ? `Handed in ${formatWhen(current.submittedAt, tz)}. ` : "Nothing handed in yet. "}
+              Only the staff who grade this batch can read the work itself.
+            </p>
           ) : (
             <p className="rounded-2xl bg-canvas px-4 py-5 text-[14px] text-muted">
               {current.student.name.split(" ")[0]} hasn&apos;t handed anything in online. You can still record a grade, for example for work handed in on paper.

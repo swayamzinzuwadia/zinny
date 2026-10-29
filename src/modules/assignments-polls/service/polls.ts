@@ -83,6 +83,7 @@ async function announce(tx: Tx, actor: Actor, p: PollRow) {
     data: { pollId: p.id, href: `/${u.slug}/learn/polls` },
   });
   await tx.update(pollPolls).set({ announcedAt: new Date() }).where(eq(pollPolls.id, p.id));
+  await audit(tx, actor, "poll.announce", "poll", p.id, { students: students.length });
 }
 
 /* ───────────────────────────── Staff ───────────────────────────── */

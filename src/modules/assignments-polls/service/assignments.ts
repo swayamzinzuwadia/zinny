@@ -8,14 +8,16 @@
  */
 import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
-import { enrolments } from "@/db/schema";
+import { batches, enrolments } from "@/db/schema";
 import {
   assertCan,
   audit,
+  batchLite,
   batchStudentIds,
   can,
   emit,
   getCourseLite,
+  listCourseBatches,
   notify,
   peopleLite,
   reach,
@@ -47,7 +49,7 @@ import {
 import { MAX_TEXT_CHARS, MAX_UPLOAD_MB } from "../lib/files";
 import { applyPenalty, parseMarks } from "../lib/grading";
 import { MAX_INSTRUCTIONS_CHARS, plainText, sanitizeInstructions } from "../lib/sanitize";
-import { dueLabel, zonedToInstant } from "../lib/time";
+import { calendarDaysUntil, dueLabel, zonedToInstant } from "../lib/time";
 import { asgnAssignmentBatches, asgnAssignments, asgnFiles, asgnSubmissions, asgnSubmissionVersions } from "../schema";
 import { claimFiles, deleteStored, filesFor, fileView, type FileView } from "./files";
 
@@ -350,7 +352,6 @@ export async function listCourseAssignments(actor: Actor, courseId: string): Pro
 /** Assignments a batch has, with that batch's counts (admin batch page). */
 export async function listBatchAssignments(actor: Actor, batchId: string): Promise<StaffAssignmentSummary[]> {
   return withTenant(actor, async (tx) => {
-    const { batchLite } = await import("@/server/core");
     const b = await batchLite(tx, need(batchId, "Batch"));
     assertCan(actor, "assignment.view", b.target);
     const list = await assignmentsForBatches(tx, [{ courseId: b.courseId, batchId: b.id }]);
@@ -367,7 +368,6 @@ export async function listStaffAssignments(actor: Actor): Promise<StaffAssignmen
     if (r.all) list = await tx.select().from(asgnAssignments);
     else {
       const byDept = r.departmentIds.size ? await tx.select().from(asgnAssignments).where(inArray(asgnAssignments.departmentId, [...r.departmentIds])) : [];
-      const { batches } = await import("@/db/schema");
       const seats = r.batchIds.size
         ? (await tx.select({ batchId: batches.id, courseId: batches.courseId }).from(batches).where(inArray(batches.id, [...r.batchIds])))
         : [];
@@ -429,7 +429,6 @@ export async function getStaffAssignment(actor: Actor, assignmentId: string): Pr
 export async function assignmentFormOptions(actor: Actor, courseId: string) {
   return withTenant(actor, async (tx) => {
     const course = await getCourseLite(tx, need(courseId, "Course"));
-    const { listCourseBatches } = await import("@/server/core");
     const bs = await listCourseBatches(tx, courseId);
     const manageable = bs.filter((b) => can(actor, "assignment.manage", b.target));
     return {
@@ -511,6 +510,8 @@ export async function gradingQueue(actor: Actor, assignmentId: string, batchId: 
     const people = await peopleLite(tx, ids);
     const data = await versionsOf(tx, subs.map((s) => s.id));
     const activeIds = new Set(active.filter((e) => e.status === "active").map((e) => e.userId));
+    // Only graders read the work itself; view-only staff (the board) see status and marks.
+    const canGrade = access.gradeBatchIds.includes(batchId);
     const rows: QueueRow[] = people.map((p) => {
       const s = subs.find((x) => x.userId === p.id);
       return {
@@ -519,14 +520,14 @@ export async function gradingQueue(actor: Actor, assignmentId: string, batchId: 
         status: s?.gradedAt ? "graded" : s?.submittedAt ? "to_grade" : "missing",
         submittedAt: s?.submittedAt ?? null,
         late: s?.late ?? false,
-        versions: s ? toVersionViews(s.id, data) : [],
+        versions: s && canGrade ? toVersionViews(s.id, data) : [],
         marks: s?.marks ?? null,
         penaltyPct: s?.penaltyPct ?? null,
         finalMarks: s?.finalMarks ?? null,
         scorePercent: s?.scorePercent ?? null,
         feedback: s?.feedback ?? null,
         gradedAt: s?.gradedAt ?? null,
-        returned: s ? data.files.filter((f) => f.submissionId === s.id && f.purpose === "returned").map(fileView) : [],
+        returned: s && canGrade ? data.files.filter((f) => f.submissionId === s.id && f.purpose === "returned").map(fileView) : [],
         left: !activeIds.has(p.id) && !active.some((e) => e.userId === p.id),
       };
     });
@@ -540,7 +541,7 @@ export async function gradingQueue(actor: Actor, assignmentId: string, batchId: 
     return {
       assignment: { ...a, instructionsHtml: sanitizeInstructions(a.instructionsHtml) },
       batch: { id: batchId, name: n.batch.get(batchId) ?? "" },
-      canGrade: access.gradeBatchIds.includes(batchId),
+      canGrade,
       rows,
       counts: {
         students: rows.length,
@@ -913,7 +914,6 @@ export async function remindDueSoon(actor: Actor, now = new Date()) {
       .select()
       .from(asgnAssignments)
       .where(and(isNull(asgnAssignments.remindedAt), sql`${asgnAssignments.dueAt} > ${now.toISOString()}::timestamptz`, sql`${asgnAssignments.dueAt} <= ${horizon.toISOString()}::timestamptz`));
-    const { calendarDaysUntil } = await import("../lib/time");
     let reminded = 0;
     for (const a of list) {
       if (calendarDaysUntil(a.dueAt, u.timezone, now) > 1) continue;
@@ -933,7 +933,7 @@ export async function remindDueSoon(actor: Actor, now = new Date()) {
         data: { assignmentId: a.id, href: `/${u.slug}/learn/assignments/${a.id}` },
       });
       await tx.update(asgnAssignments).set({ remindedAt: now }).where(eq(asgnAssignments.id, a.id));
-      if (waiting.length) await audit(tx, actor, "assignment.remind", "assignment", a.id, { students: waiting.length });
+      await audit(tx, actor, "assignment.remind", "assignment", a.id, { students: waiting.length });
       reminded += waiting.length;
     }
     return reminded;
@@ -944,7 +944,7 @@ export async function remindDueSoon(actor: Actor, now = new Date()) {
  * enrolment.switched: work not graded yet moves with the student, so the new batch's
  * faculty grade it, as long as the assignment is set for the new batch too.
  */
-export async function followBatchSwitch(tx: Tx, p: { userId: string; courseId: string; fromBatchId: string; toBatchId: string }) {
+export async function followBatchSwitch(tx: Tx, actor: Actor, p: { userId: string; courseId: string; fromBatchId: string; toBatchId: string }) {
   const subs = await tx
     .select({ id: asgnSubmissions.id, assignmentId: asgnSubmissions.assignmentId })
     .from(asgnSubmissions)
@@ -954,7 +954,10 @@ export async function followBatchSwitch(tx: Tx, p: { userId: string; courseId: s
   const list = await tx.select().from(asgnAssignments).where(inArray(asgnAssignments.id, subs.map((s) => s.assignmentId)));
   const covered = await coveredBatchMap(tx, list);
   const move = subs.filter((s) => (covered.get(s.assignmentId) ?? []).includes(p.toBatchId)).map((s) => s.id);
-  if (move.length) await tx.update(asgnSubmissions).set({ batchId: p.toBatchId }).where(inArray(asgnSubmissions.id, move));
+  if (move.length) {
+    await tx.update(asgnSubmissions).set({ batchId: p.toBatchId }).where(inArray(asgnSubmissions.id, move));
+    await audit(tx, actor, "assignment.follow_switch", "user", p.userId, { fromBatchId: p.fromBatchId, toBatchId: p.toBatchId, submissions: move });
+  }
   return move.length;
 }
 

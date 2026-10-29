@@ -39,6 +39,31 @@ function sameOrigin(req: Request) {
   }
 }
 
+/** Reads the body, giving up (null) as soon as it is longer than `limit` bytes. */
+async function readLimited(req: Request, limit: number): Promise<Uint8Array | null> {
+  if (!req.body) return new Uint8Array();
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) {
+    out.set(c, at);
+    at += c.byteLength;
+  }
+  return out;
+}
+
 export async function uploadRoute(req: Request, { params }: UploadParams) {
   if (!sameOrigin(req)) return json({ error: "This upload came from another site." }, 403);
   const { uni } = await params;
@@ -50,7 +75,8 @@ export async function uploadRoute(req: Request, { params }: UploadParams) {
       const index = Number(url.searchParams.get("index"));
       const length = Number(req.headers.get("content-length") ?? "0");
       if (length > PART_BYTES) return json({ error: "That part of the file is too large. Upload the file again." }, 413);
-      const body = new Uint8Array(await req.arrayBuffer());
+      const body = await readLimited(req, PART_BYTES);
+      if (!body) return json({ error: "That part of the file is too large. Upload the file again." }, 413);
       await putPart(actor, fileId, index, body);
       return json({ ok: true });
     }
