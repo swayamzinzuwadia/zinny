@@ -206,9 +206,56 @@ export const SECURITY_KINDS_CATALOGUE: KindDefinition[] = [
   securityKind("security.otp", "Sign-in code", "The 6-digit code for signing in with a phone number."),
   securityKind("security.reset", "Password reset", "The link to set a new password."),
   securityKind("identity.invite", "Invitation", "The link a new person uses to set their password."),
+  securityKind("security.password_changed", "Password changed", "Tells a person their password was changed, with a reset link in case it wasn't them."),
 ];
 
-const BY_KIND = new Map([...CORE_KINDS, ...SECURITY_KINDS_CATALOGUE].map((k) => [k.kind, k]));
+/**
+ * Kinds the other wave 1 modules send through notify() (wave 1 integration). Each uses the
+ * notification's own title and details, like the generic entry, and has the same channel
+ * defaults; the catalogue adds a name, a description, the audience and where the button
+ * leads (the notification's own link first, then the page below).
+ */
+const moduleKind = (
+  kind: string,
+  label: string,
+  description: string,
+  audience: Audience,
+  roles: readonly RoleName[],
+  ctaLabel: string,
+  path: string,
+): KindDefinition => ({
+  ...genericKind(kind),
+  label,
+  description,
+  audience,
+  roles,
+  ctaLabel,
+  link: (uni, data) => dataLink(uni, data) ?? `/${uni}${path}`,
+  sample: { title: `${label}: an example`, body: "The details of the notification appear here." },
+});
+
+const LEARNERS: readonly RoleName[] = ["student", "alumni", "individual_learner"];
+export const MODULE_KINDS: KindDefinition[] = [
+  moduleKind("assess.test.published", "New test", "A test or quiz was published for the learner's batch.", "learners", LEARNERS, "Open my tests", "/learn/tests"),
+  moduleKind("assess.result.ready", "Test result ready", "A test with hand-graded answers has its final score.", "learners", LEARNERS, "See my result", "/learn/tests"),
+  moduleKind("assignment.new", "New assignment", "Work was set for the learner's batch.", "learners", ["student"], "Open the assignment", "/learn/assignments"),
+  moduleKind("assignment.due_soon", "Assignment due soon", "A reminder the day before work is due, for learners who haven't handed in.", "learners", ["student"], "Hand in my work", "/learn/assignments"),
+  moduleKind("assignment.graded", "Assignment graded", "A learner's work was graded.", "learners", ["student"], "See my grade", "/learn/assignments"),
+  moduleKind("poll.open", "Poll open", "A poll opened for the learner's course or batch.", "learners", ["student"], "Vote now", "/learn/polls"),
+  moduleKind("attendance.low", "Low attendance", "A learner's attendance in a batch fell below the institute's threshold (weekly).", "learners", ["student"], "See my attendance", "/learn/my"),
+  moduleKind("attendance.low_summary", "Low attendance summary", "Weekly list of learners below the attendance threshold in the department.", "staff", ["hod"], "Open the dashboard", "/admin"),
+  moduleKind("certificate.issued", "Certificate issued", "A learner received a certificate.", "learners", LEARNERS, "See my certificate", "/learn/certificates"),
+  moduleKind("certificate.revoked", "Certificate revoked", "A learner's certificate was revoked.", "learners", LEARNERS, "Open my certificates", "/learn/certificates"),
+  moduleKind("certificate.expiring", "Certificate expiring", "A learner's certificate expires soon and can be renewed.", "learners", LEARNERS, "Open my certificates", "/learn/certificates"),
+  moduleKind("certificate.expired", "Certificate expired", "A learner's certificate has expired.", "learners", LEARNERS, "Open my certificates", "/learn/certificates"),
+  moduleKind("gamification.badge", "Badge earned", "A learner earned a badge.", "learners", ["student"], "See my badges", "/learn/leaderboard"),
+  moduleKind("gamification.challenge_won", "Challenge won", "A learner finished a challenge among its winners.", "learners", ["student"], "Open the leaderboard", "/learn/leaderboard"),
+  moduleKind("payment.refunded", "Refund processed", "A refund for a learner's payment was processed.", "learners", LEARNERS, "Open my invoices", "/learn/invoices"),
+  moduleKind("payments.invoice", "GST invoice", "A learner's GST invoice is ready after payment.", "learners", LEARNERS, "Open my invoices", "/learn/invoices"),
+  moduleKind("finance.refund_failed", "Refund failed", "Razorpay couldn't process a refund. Goes to Accounts and the Institute Admin.", "staff", ["accounts_fees", "institute_admin"], "Open Sales", "/admin/finance/sales"),
+];
+
+const BY_KIND = new Map([...CORE_KINDS, ...SECURITY_KINDS_CATALOGUE, ...MODULE_KINDS].map((k) => [k.kind, k]));
 
 /** "assignment.graded" → "Assignment graded". */
 export function humanizeKind(kind: string): string {

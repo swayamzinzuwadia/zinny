@@ -20,6 +20,7 @@ import {
   KIND_PATTERN,
   kindDefinition,
   SECURITY_KINDS_CATALOGUE,
+  MODULE_KINDS,
   type Audience,
   type ChannelDefaults,
 } from "./kinds";
@@ -60,6 +61,7 @@ async function knownKinds(tx: Tx): Promise<string[]> {
   const all = new Set<string>([
     ...CORE_KINDS.map((k) => k.kind),
     ...SECURITY_KINDS_CATALOGUE.map((k) => k.kind),
+    ...MODULE_KINDS.map((k) => k.kind),
     ...configured.map((r) => r.kind),
     ...notified.map((r) => r.kind),
     ...direct.map((r) => r.kind),
