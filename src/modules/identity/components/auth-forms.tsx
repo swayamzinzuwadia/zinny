@@ -413,6 +413,7 @@ export function ResetRequestForm({ action, defaultEmail }: { action: Action; def
   }
   return (
     <form action={formAction} className="space-y-4">
+      <p className="-mt-3 text-[15px] text-muted">Enter the email you sign in with. We&apos;ll send you a link to choose a new password.</p>
       <TextField
         key={state?.at ?? 0}
         name="email"
@@ -425,6 +426,12 @@ export function ResetRequestForm({ action, defaultEmail }: { action: Action; def
       />
       {state?.error && <Alert tone={state.code === "rate_limited" ? "gold" : "danger"}>{state.error}</Alert>}
       <Submit pendingText="Sending link…">Send reset link</Submit>
+      <p className="pt-2 text-[14px] text-muted">
+        Remembered it?{" "}
+        <Link href="/login" className="text-brand hover:underline">
+          Back to sign in
+        </Link>
+      </p>
     </form>
   );
 }

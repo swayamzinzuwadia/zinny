@@ -1,6 +1,7 @@
 /**
  * identity demo data for the Demo University (runs after the core seed):
- *  - phone sign-in turned on, and mobile numbers for the demo accounts;
+ *  - phone sign-in turned on, and mobile numbers for the demo accounts (Riya and her
+ *    mother share one, as families often do);
  *  - three people who haven't joined yet (one pending invitation for a faculty member,
  *    one pending and one expired for students), and two who joined from their invitation;
  *  - earlier sign-ins on other devices for Riya and Asha, so their sessions list is real;
@@ -27,7 +28,9 @@ const PHONES: Record<string, string> = {
   "farah@demo.edu": "98200 11012",
   "riya@demo.edu": "98200 11001",
   "kabir@demo.edu": "98200 11002",
-  "pallavi@demo.edu": "98200 11003",
+  // A family phone: Riya's mother is registered with the same number, so phone sign-in
+  // with it asks which account is signing in.
+  "pallavi@demo.edu": "98200 11001",
 };
 
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1";
@@ -128,6 +131,8 @@ export async function seed(ctx: SeedContext) {
   const photo = await placeholderPhoto();
   await uploadPhoto(asha, asha.userId, { bytes: photo, type: "image/png", size: photo.length });
 
-  console.log(`  identity: phone sign-in is on; try 98200 11001 (Riya). Codes are printed in the server console.`);
+  console.log(
+    "  identity: phone sign-in is on. Try 98200 11002 (Kabir), or 98200 11001 (Riya and her mother share it, so you choose an account). Codes are printed in the server console.",
+  );
   console.log(`  identity: invitation links you can open now:\n${links.join("\n")}`);
 }

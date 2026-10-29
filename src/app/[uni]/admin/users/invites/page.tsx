@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Avatar, Badge, Card, CardTitle, Empty, PageHeader, Stat, Table, Td } from "@/components/ui";
+import { InviteActions } from "@/modules/identity/components/invite-actions";
+import { Avatar, Badge, Card, CardTitle, Empty, PageHeader, Stat, cx } from "@/components/ui";
 import { can } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { canSeeInvites, listInvites, type InviteRow } from "@/modules/identity/invites";
 import { getSignInSettings } from "@/modules/identity/settings";
 import { formatWhen } from "@/modules/identity/emails";
-import { ConfirmButton } from "@/modules/identity/components/profile-forms";
 import { phoneSignInAction, resendInviteAction, revokeInviteAction } from "./actions";
 
 export const metadata = { title: "Invitations" };
@@ -79,56 +79,57 @@ export default async function InvitesPage({ params }: { params: Promise<{ uni: s
               and they&apos;ll be invited automatically.
             </Empty>
           ) : (
-            <Table head={["Person", "Role", "Status", ""]}>
-              {open.map((r) => (
-                <tr key={r.userId} className={r.status === "expired" ? "bg-gold-soft/40" : undefined}>
-                  <Td>
-                    <div className="flex items-center gap-3">
+            <div className="overflow-hidden rounded-[22px] border border-line bg-surface">
+              <div className="hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.3fr)_auto] gap-4 border-b border-line px-5 py-3 text-[13px] text-muted lg:grid">
+                <span>Person</span>
+                <span>Role</span>
+                <span>Status</span>
+                <span className="sr-only">Actions</span>
+              </div>
+              <ul className="divide-y divide-line">
+                {open.map((r) => (
+                  <li
+                    key={r.userId}
+                    className={cx(
+                      "grid gap-3 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.3fr)_auto] lg:gap-4",
+                      r.status === "expired" && "bg-gold-soft/40",
+                    )}
+                  >
+                    <div className="flex min-w-0 items-center gap-3 self-start">
                       <Avatar name={r.name} size={34} />
                       <div className="min-w-0">
                         <div className="font-medium">{r.name}</div>
                         <div className="truncate text-[13px] text-muted">{r.email}</div>
+                        <div className="text-[13px] text-muted lg:hidden">{r.roleLabel}</div>
                       </div>
                     </div>
-                  </Td>
-                  <Td className="text-[14px]">{r.roleLabel}</Td>
-                  <Td>
-                    <Badge tone={STATUS[r.status].tone}>{STATUS[r.status].label}</Badge>
-                    <div className="mt-1 text-[12px] text-muted">
-                      {r.sentAt
-                        ? `Sent ${relative(r.sentAt, now)}${r.sends > 1 ? ` (${r.sends} times)` : ""}`
-                        : r.sends > 0
-                          ? "Previous link revoked"
-                          : "No email sent yet"}
-                      {r.status === "pending" && r.expiresAt && <span className="block">Works until {formatWhen(r.expiresAt, tz)}</span>}
-                      {r.status === "expired" && r.expiresAt && <span className="block text-gold-strong">Expired {formatWhen(r.expiresAt, tz)}</span>}
+                    <div className="hidden text-[14px] lg:block">{r.roleLabel}</div>
+                    <div className="sm:col-start-1 lg:col-start-auto">
+                      <Badge tone={STATUS[r.status].tone}>{STATUS[r.status].label}</Badge>
+                      <div className="mt-1 text-[12px] text-muted">
+                        {r.sentAt
+                          ? `Sent ${relative(r.sentAt, now)}${r.sends > 1 ? ` (${r.sends} times)` : ""}`
+                          : r.sends > 0
+                            ? "Previous link revoked"
+                            : "No email sent yet"}
+                        {r.status === "pending" && r.expiresAt && <span className="block">Works until {formatWhen(r.expiresAt, tz)}</span>}
+                        {r.status === "expired" && r.expiresAt && <span className="block text-gold-strong">Expired {formatWhen(r.expiresAt, tz)}</span>}
+                      </div>
                     </div>
-                  </Td>
-                  <Td className="text-right">
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <ActionForm action={resendInviteAction} className="text-left">
-                        <input type="hidden" name="uni" value={uni} />
-                        <input type="hidden" name="userId" value={r.userId} />
-                        <SubmitButton size="sm" variant={r.status === "pending" ? "secondary" : "primary"} pendingText="Sending…">
-                          {r.status === "not_sent" ? "Send invitation" : "Resend"}
-                        </SubmitButton>
-                      </ActionForm>
-                      {r.inviteId && (
-                        <ConfirmButton
-                          action={revokeInviteAction}
-                          fields={{ uni, inviteId: r.inviteId }}
-                          confirm={`Revoke the invitation for ${r.name}? The link stops working. They keep their role until you remove it under Users.`}
-                          pendingText="Revoking…"
-                          variant="danger"
-                        >
-                          Revoke
-                        </ConfirmButton>
-                      )}
-                    </div>
-                  </Td>
-                </tr>
-              ))}
-            </Table>
+                    <InviteActions
+                      uni={uni}
+                      userId={r.userId}
+                      inviteId={r.inviteId}
+                      name={r.name}
+                      primary={r.status !== "pending"}
+                      label={r.status === "not_sent" ? "Send invitation" : "Resend"}
+                      resend={resendInviteAction}
+                      revoke={revokeInviteAction}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {accepted.length > 0 && (
