@@ -240,7 +240,10 @@ export async function orderDetail(actor: Actor, orderId: string) {
       refundablePaise: refundable,
       timezone,
       can: {
+        /** Holds finance.refund and something is left to refund. */
         refund: can(actor, "finance.refund", { universityId: uni(actor) }) && refundable > 0,
+        /** Holds finance.refund at all (the refund box stays, so its last message stays visible). */
+        refundAccess: can(actor, "finance.refund", { universityId: uni(actor) }),
         manage: can(actor, "finance.manage", { universityId: uni(actor) }),
       },
     };

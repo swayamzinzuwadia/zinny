@@ -127,34 +127,43 @@ export function OrderPanel({ uni, d, closeHref }: { uni: string; d: Detail; clos
         )}
       </div>
 
-      {d.can.refund && (
+      {d.can.refundAccess && tookMoney && (
         <div className="rounded-2xl border border-line p-4">
           <h3 className="text-[14px] font-medium">Refund this order</h3>
-          {o.status === "refund_due" ? (
-            <p className="mt-1 text-[13px] text-muted">This student paid after the batch filled up and wasn&apos;t enrolled. Refund the full amount.</p>
-          ) : (
-            <p className="mt-1 text-[13px] text-muted">Refunding doesn&apos;t remove the student from the batch. Up to {inr(d.refundablePaise)} can be refunded.</p>
-          )}
+          {/* One form that stays mounted, so its result stays on screen after a full refund. */}
           <ActionForm
             action={refundAction}
-            className="mt-3 space-y-3"
+            className="mt-1 space-y-3"
             confirm={`Send this refund to ${o.studentName}? A refund can't be undone.`}
           >
             <input type="hidden" name="uni" value={uni} />
             <input type="hidden" name="orderId" value={o.id} />
-            <Field label="Amount in rupees" hint={`Full amount: ${decimal(d.refundablePaise)}`}>
-              <Input name="amount" inputMode="decimal" defaultValue={decimal(d.refundablePaise)} required />
-            </Field>
-            <Field label="Reason" hint="The student sees this in their notification.">
-              <Textarea name="reason" required minLength={5} maxLength={500} placeholder="Batch filled before payment finished" />
-            </Field>
-            <SubmitButton variant="danger" pendingText="Sending refund…">
-              Send refund
-            </SubmitButton>
+            {!d.can.refund ? (
+              <p className="text-[13px] text-muted">
+                {d.totals.inFlightPaise > 0 ? `${inr(d.totals.inFlightPaise)} is on its way back to the student. Nothing else can be refunded until Razorpay confirms it.` : "Refunded in full. Nothing is left to refund."}
+              </p>
+            ) : (
+              <>
+                <p className="text-[13px] text-muted">
+                  {o.status === "refund_due"
+                    ? "This student paid after the batch filled up and wasn't enrolled. Refund the full amount."
+                    : `Refunding doesn't remove the student from the batch. Up to ${inr(d.refundablePaise)} can be refunded.`}
+                </p>
+                <Field label="Amount in rupees" hint={`Full amount: ${decimal(d.refundablePaise)}`}>
+                  <Input name="amount" inputMode="decimal" defaultValue={decimal(d.refundablePaise)} required />
+                </Field>
+                <Field label="Reason" hint="The student sees this in their notification.">
+                  <Textarea name="reason" required minLength={5} maxLength={500} placeholder="Batch filled before payment finished" />
+                </Field>
+                <SubmitButton variant="danger" pendingText="Sending refund…">
+                  Send refund
+                </SubmitButton>
+              </>
+            )}
           </ActionForm>
         </div>
       )}
-      {!d.can.refund && tookMoney && d.refundablePaise > 0 && d.can.manage === false && (
+      {!d.can.refundAccess && tookMoney && d.refundablePaise > 0 && (
         <Notice tone="neutral">Only Accounts &amp; Fees and Institute Admins can send refunds.</Notice>
       )}
 

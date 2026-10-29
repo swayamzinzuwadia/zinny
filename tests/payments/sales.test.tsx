@@ -84,7 +84,7 @@ describe("Sales page access", () => {
     expect(page).toContain("Riya Sharma");
     expect(page).not.toContain("Send refund");
     const d = await orderDetail(w.board, w.orders["Riya Sharma"]);
-    expect(d.can).toEqual({ refund: false, manage: false });
+    expect(d.can).toEqual({ refund: false, refundAccess: false, manage: false });
   });
 });
 
@@ -138,7 +138,7 @@ describe("Sales data", () => {
     expect(d.can.refund).toBe(true);
     const done = await orderDetail(w.accounts, w.orders["Aditi Rao"]);
     expect(done.refundablePaise).toBe(0);
-    expect(done.can.refund).toBe(false);
+    expect(done.can).toMatchObject({ refund: false, refundAccess: true });
     const other = await paidCourse("Sales Other U");
     await expect(orderDetail(other.accounts, w.orders["Kabir Mehta"])).rejects.toThrow(/Order not found/);
   });
