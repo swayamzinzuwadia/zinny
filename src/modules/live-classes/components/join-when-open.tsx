@@ -28,8 +28,8 @@ export function JoinWhenOpen({ href, opensAt, label }: { href: string; opensAt: 
     );
   }
   return (
-    <button type="button" disabled className={buttonClass("gold")}>
+    <span className="inline-flex h-10 items-center rounded-full border border-gold/60 px-5 text-[14px] font-medium text-gold" aria-live="polite">
       {label}
-    </button>
+    </span>
   );
 }

@@ -110,6 +110,12 @@ export function relativeDay(date: string, today: string): string {
   return formatDay(date);
 }
 
+/** The same inside a sentence: "today", "tomorrow", "yesterday" or "on Sat, 7 Nov". */
+export function relativeDayInline(date: string, today: string): string {
+  const d = relativeDay(date, today);
+  return d === "Today" || d === "Tomorrow" || d === "Yesterday" ? d.toLowerCase() : `on ${d}`;
+}
+
 /* ─────────────── Instants in a time zone ─────────────── */
 
 const formatters = new Map<string, Intl.DateTimeFormat>();

@@ -87,22 +87,23 @@ export async function LearnerLiveTab({ uni, actor, enrolment }: LearnerCourseTab
         ) : (
           <ul className="divide-y divide-line rounded-[22px] border border-line bg-surface">
             {data.past.map((p) => (
-              <li key={`${p.batchId}${p.date}${p.startTime}`} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
+              <li key={`${p.batchId}${p.date}${p.startTime}`} className="flex items-start justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <div className="text-[14px] font-medium">
                     {relativeDay(p.date, data.today)}, {formatTime(p.startTime)}
+                    {p.batchId !== enrolment.batchId && <span className="font-normal text-muted"> ({p.batchName})</span>}
                   </div>
                   <div className="text-[13px] text-muted">
                     {p.joinedAt ? `Joined at ${clockIn(p.joinedAt, data.tz)}` : p.status === "absent" ? "You didn't join" : p.status ? "Marked by your faculty" : "Not recorded"}
                     {p.note && <span>. Note: {p.note}</span>}
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
                   {p.recordingUrl && (
-                    <a href={p.recordingUrl} target="_blank" rel="noreferrer" className="text-[13px] font-medium text-brand hover:underline">
+                    <a href={p.recordingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-[13px] font-medium text-brand hover:underline">
                       Watch recording
                     </a>
                   )}
+                </div>
+                <div className="shrink-0 pt-0.5">
                   <StatusBadge status={p.status} />
                 </div>
               </li>

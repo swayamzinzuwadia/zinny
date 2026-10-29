@@ -2,7 +2,7 @@
 import type { ReactNode } from "react";
 import { Badge, cx } from "@/components/ui";
 import type { ClassSession } from "../engine";
-import { formatTime, relativeDay, STATUS_LABEL, type AttendanceStatus } from "../time";
+import { formatTime, relativeDay, relativeDayInline, STATUS_LABEL, type AttendanceStatus } from "../time";
 
 export function StatusBadge({ status, auto = false }: { status: AttendanceStatus | null; auto?: boolean }) {
   if (!status) return <Badge>No status yet</Badge>;
@@ -18,6 +18,11 @@ export function StatusBadge({ status, auto = false }: { status: AttendanceStatus
 /** "Today, 9 am to 11 am" (with the date relative to today). */
 export function when(s: { date: string; startTime: string; endTime: string }, today: string) {
   return `${relativeDay(s.date, today)}, ${formatTime(s.startTime)} to ${formatTime(s.endTime)}`;
+}
+
+/** Inside a sentence: "today from 9 am to 11 am", "on Sat, 7 Nov from 9 am to 11 am". */
+export function whenInline(s: { date: string; startTime: string; endTime: string }, today: string) {
+  return `${relativeDayInline(s.date, today)} from ${formatTime(s.startTime)} to ${formatTime(s.endTime)}`;
 }
 
 export function KindNote({ s }: { s: Pick<ClassSession, "kind" | "note"> }) {

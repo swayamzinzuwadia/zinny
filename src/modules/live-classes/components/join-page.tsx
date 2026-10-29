@@ -8,8 +8,8 @@ import type { ReactNode } from "react";
 import { buttonClass, Card, cx } from "@/components/ui";
 import type { JoinOutcome } from "../join";
 import { joinHref } from "../links";
-import { clockIn, formatDay, formatTime, relativeDay } from "../time";
-import { when } from "./bits";
+import { clockIn, formatDay, formatTime, relativeDayInline } from "../time";
+import { whenInline } from "./bits";
 import { JoinWhenOpen } from "./join-when-open";
 import { WindowRail } from "./window-rail";
 
@@ -62,7 +62,7 @@ export function JoinStatePage({ uni, out, batchId, now }: { uni: string; out: Ex
   if (out.kind === "too_early") {
     const s = out.session;
     return (
-      <Shell tone="board" eyebrow={eyebrow} title={`Your class starts ${relativeDay(s.date, out.ctx.today).toLowerCase()} at ${formatTime(s.startTime)}`}>
+      <Shell tone="board" eyebrow={eyebrow} title={`Your class starts ${relativeDayInline(s.date, out.ctx.today)} at ${formatTime(s.startTime)}`}>
         <p>
           You can join from {clockIn(s.window.opensAt, out.ctx.tz)}
           {s.date !== out.ctx.today ? ` on ${formatDay(s.date)}` : ""}. Join by {clockIn(new Date(s.window.startsAt.getTime() + 10 * 60_000), out.ctx.tz)} to be
@@ -86,7 +86,7 @@ export function JoinStatePage({ uni, out, batchId, now }: { uni: string; out: Ex
     return (
       <Shell eyebrow={eyebrow} title={`This class ended at ${formatTime(s.endTime)}`}>
         <p>
-          It ran {when(s, out.ctx.today).replace(/^\w/, (c) => c.toLowerCase())}.{" "}
+          It ran {whenInline(s, out.ctx.today)}.{" "}
           {out.recordingUrl ? "The recording is ready." : "If your faculty adds a recording, it will be on the course page."}
         </p>
         <div className="flex flex-wrap items-center gap-4">
@@ -106,7 +106,7 @@ export function JoinStatePage({ uni, out, batchId, now }: { uni: string; out: Ex
     return (
       <Shell eyebrow={eyebrow} title="The class link isn't ready yet">
         <p>
-          Your class is {when(s, out.ctx.today).replace(/^\w/, (c) => c.toLowerCase())}, but your faculty hasn&apos;t added the meeting link. Try again in a minute; if it
+          Your class is {whenInline(s, out.ctx.today)}, but your faculty hasn&apos;t added the meeting link. Try again in a minute; if it
           still isn&apos;t there, message your faculty. Your attendance is recorded when you join.
         </p>
         <div className="flex flex-wrap items-center gap-4">
@@ -151,7 +151,7 @@ export function JoinStatePage({ uni, out, batchId, now }: { uni: string; out: Ex
     <Shell eyebrow={eyebrow} title={`No class on ${formatDay(out.date)}`}>
       <p>
         {out.next
-          ? `Your next class is ${when(out.next, out.ctx.today).replace(/^\w/, (c) => c.toLowerCase())}.`
+          ? `Your next class is ${whenInline(out.next, out.ctx.today)}.`
           : "There are no more classes on this batch's timetable."}
       </p>
       <div className="flex flex-wrap items-center gap-4">

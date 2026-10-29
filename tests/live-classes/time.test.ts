@@ -10,6 +10,7 @@ import {
   percent,
   pickSession,
   relativeDay,
+  relativeDayInline,
   safeMeetingUrl,
   sessionState,
   sessionWindow,
@@ -99,6 +100,8 @@ describe("live-classes time rules", () => {
     expect(addDays("2030-12-31", 1)).toBe("2031-01-01");
     expect(relativeDay("2030-11-04", "2030-11-04")).toBe("Today");
     expect(relativeDay("2030-11-05", "2030-11-04")).toBe("Tomorrow");
+    expect(relativeDayInline("2030-11-04", "2030-11-04")).toBe("today");
+    expect(relativeDayInline("2030-11-09", "2030-11-04")).toMatch(/^on Sat, 9 Nov$/);
     expect(formatDay("2030-11-09")).toMatch(/Sat.*9 Nov/);
     expect(startsIn(45 * 60_000)).toBe("in 45 min");
     expect(startsIn(80 * 60_000)).toBe("in 1 h 20 min");
