@@ -109,11 +109,11 @@ Core pages render whatever the registry provides, ordered by `order`, and only f
 | Slot | Shows up on | Keys and order reserved per module |
 |---|---|---|
 | `adminCourseTabs` | Admin course page tabs (core keeps Batches and Settings) | `curriculum` 100 content-progress · `live` 200 live-classes · `assignments` 300 assignments-polls · `polls` 310 assignments-polls · `tests` 400 assessments · `certificates` 500 certificates |
-| `adminBatchSections` | Admin batch page, under the timetable | `attendance` 200 live-classes · `assignments` 300 assignments-polls · `tests` 400 assessments |
+| `adminBatchSections` | Admin batch page, under the timetable | `progress` 100 content-progress (reserved, wave 1 integration) · `attendance` 200 live-classes · `assignments` 300 assignments-polls · `tests` 400 assessments |
 | `learnerCourseTabs` | `/[uni]/learn/my/[enrolmentId]` (course hub, built by foundation-lock) | `lessons` 100 · `live` 200 · `assignments` 300 · `tests` 400 · `certificate` 500 · `leaderboard` 600 |
-| `learnerHubSections` | `/[uni]/learn/my` below the course list | `assignment-grades` 300 · `test-results` 400 · `certificates` 500 · `xp` 600 |
+| `learnerHubSections` | `/[uni]/learn/my` below the course list | `assignment-grades` 300 · `test-results` 400 · `certificates` 500 · `xp` 600 · `invoices` 700 payments |
 | `learnerHomeCards` | Learner home, below "Today" | `continue-learning` 100 · `join-next` 200 · `due-soon` 300 · `upcoming-tests` 400 · `xp` 600 |
-| `dashboardCards` | Admin dashboard, below "Seats by batch" | `attendance-today` 200 · `to-grade-assignments` 300 · `to-grade-tests` 400 · `certificates-issued` 500 · `top-learners` 600 |
+| `dashboardCards` | Admin dashboard, below "Seats by batch" | `attendance-today` 200 · `to-grade-assignments` 300 · `to-grade-tests` 400 · `certificates-issued` 500 · `top-learners` 600 · `refunds-due` 700 payments |
 
 ## 4. Reports
 
@@ -207,6 +207,8 @@ storage(), sendEmail(), sendSms(), gateway()
 orderForCheckout(actor, orderId) → { order, course, batch, enrolment }   // the student's own order only
 confirmPayment(universityId, { orderId, gatewayPaymentId }) // enrols, issues the GST invoice, emits payment.confirmed
 failPayment(universityId, orderId)
+holdSeat(actor, { batchId, acknowledgeClash? }) → { status: "held", orderId } | { status: "enrolled" | "clash", … }
+                                                        // added in wave 1 integration (payments seed); the student's own seat hold, as on the course page
 markOrderRefunded(actor, orderId, gatewayRefundId) → { status: "refunded" | "already_refunded" }
                                                         // needs finance.refund; paid or refund_due orders only
 orderUniversity(gatewayOrderId) → universityId | null   // for webhooks, which arrive without a tenant

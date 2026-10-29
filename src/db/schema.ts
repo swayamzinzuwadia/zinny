@@ -115,13 +115,18 @@ export const users = pgTable("users", {
   createdAt: createdAt(),
 }, (t) => [uniqueIndex("users_email_lower_uq").on(sql`lower(${t.email})`)]);
 
-export const sessions = pgTable("sessions", {
-  id: id(),
-  tokenHash: text("token_hash").notNull().unique(),
-  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  createdAt: createdAt(),
-});
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: id(),
+    tokenHash: text("token_hash").notNull().unique(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  // Identity lists and ends a person's sessions by user (wave 1 integration).
+  (t) => [index("sessions_user_idx").on(t.userId)],
+);
 
 /** Zinny team entering a university's space. Always time-boxed and logged. */
 export const supportSessions = pgTable("support_sessions", {

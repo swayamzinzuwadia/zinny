@@ -9,10 +9,9 @@
 import { and, eq } from "drizzle-orm";
 import type { SeedContext } from "@/contracts/module";
 import { orders } from "@/db/schema";
-import { confirmPayment, gateway, withTenant } from "@/server/core";
+import { confirmPayment, gateway, holdSeat, withTenant } from "@/server/core";
 // Seeds need to hold a seat to create a refund_due order, and holding a seat isn't in the
 // core API (see "Requests for other owners" in docs/handoff/payments.md).
-import { holdSeat } from "@/server/services/enrolment";
 import { refundOrder } from "./refunds";
 import { payInvoiceDocuments } from "./schema";
 import { updateInvoiceSettings } from "./settings";

@@ -310,6 +310,7 @@ export async function confirmPayment(universityId: string, input: { orderId: str
 
     const holdValid = enrolment.status === "held" && enrolment.holdExpiresAt! > new Date();
     let canActivate = holdValid;
+    let alreadyEnrolled = false;
     if (!holdValid) {
       const [otherLive] = await tx
         .select({ id: enrolments.id })
@@ -322,6 +323,7 @@ export async function confirmPayment(universityId: string, input: { orderId: str
             sql`${enrolments.id} <> ${enrolment.id}`,
           ),
         );
+      alreadyEnrolled = !!otherLive;
       canActivate = !otherLive && (await seatsTaken(tx, batch.id, enrolment.id)) < batch.seatLimit;
     }
 
@@ -334,16 +336,21 @@ export async function confirmPayment(universityId: string, input: { orderId: str
         .select({ userId: roleAssignments.userId })
         .from(roleAssignments)
         .where(and(inArray(roleAssignments.role, ["accounts_fees", "institute_admin"]), isNull(roleAssignments.revokedAt)));
+      // Two causes: a second checkout for a course the student already has a seat in, or a full batch.
       await notify(tx, universityId, [order.userId], {
         kind: "payment.refund_due",
-        title: `${batch.name} filled up before your payment finished`,
-        body: "Your payment will be refunded in full. You can pick another batch.",
+        title: alreadyEnrolled ? `You already have a place in ${course.title}` : `${batch.name} filled up before your payment finished`,
+        body: alreadyEnrolled
+          ? "This payment was for a second seat in the same course, so it will be refunded in full. Your place stays as it is."
+          : "Your payment will be refunded in full. You can pick another batch.",
         data: { orderId: order.id },
       });
       await notify(tx, universityId, finance.map((f) => f.userId), {
         kind: "finance.refund_due",
         title: "Refund needed",
-        body: `${course.title} — ${batch.name}: paid after the seat hold ran out and the batch was full.`,
+        body: alreadyEnrolled
+          ? `${course.title} — ${batch.name}: the student paid twice for this course and already has a seat.`
+          : `${course.title} — ${batch.name}: paid after the seat hold ran out and the batch was full.`,
         data: { orderId: order.id },
       });
       await audit(tx, sys, "payment.refund_due", "order", order.id, { gatewayPaymentId: input.gatewayPaymentId });

@@ -36,6 +36,8 @@ export { gateway } from "../payments/gateway";
 // Money (payments uses these; nobody else writes orders)
 export { orderForCheckout, markOrderRefunded, orderUniversity } from "../services/core-api";
 export { confirmPayment, failPayment } from "../services/enrolment";
+// Wave 1 integration (payments request): seeds and modules start a checkout the way a student does.
+export { holdSeat } from "../services/enrolment";
 
 // Zinny team (platform context, no university)
 export { listUniversities, createUniversity, enterSupportMode, exitSupportMode, supportTrail } from "../services/support";
