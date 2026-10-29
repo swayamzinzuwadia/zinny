@@ -212,7 +212,7 @@ export async function dashboardSummary(actor: Actor, today: string): Promise<Das
         automatic: sql<number>`count(*) filter (where ${certCertificates.issuedOn} >= ${start} and ${certCertificates.source} = 'automatic')::int`,
         manual: sql<number>`count(*) filter (where ${certCertificates.issuedOn} >= ${start} and ${certCertificates.source} = 'manual')::int`,
         expiringSoon: sql<number>`count(*) filter (where ${certCertificates.status} = 'valid' and ${certCertificates.validUntil} between ${today} and ${addDays(today, EXPIRING_SOON_DAYS)}
-          and not exists (select 1 from ${certCertificates} as r where r.replaces_id = ${certCertificates.id}))::int`,
+          and not exists (select 1 from cert_certificates r where r.replaces_id = cert_certificates.id))::int`,
       })
       .from(certCertificates)
       .where(and(scope, or(gte(certCertificates.issuedOn, prevStart), and(isNotNull(certCertificates.validUntil), lte(certCertificates.validUntil, addDays(today, EXPIRING_SOON_DAYS))))));

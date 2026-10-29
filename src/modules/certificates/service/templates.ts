@@ -72,6 +72,11 @@ export async function defaultTemplate(tx: Tx, actor: Actor): Promise<Template> {
 
 export type TemplateListItem = Template & { courses: number; issued: number };
 
+// Written out in full: in a single-table select drizzle leaves columns unqualified, which
+// would make the correlated "id" refer to the inner table.
+const usedByCourses = sql<number>`(select count(*)::int from cert_rules r where r.template_id = cert_templates.id)`;
+const issuedWith = sql<number>`(select count(*)::int from cert_certificates c where c.template_id = cert_templates.id)`;
+
 export async function listTemplates(actor: Actor, opts: { includeArchived?: boolean } = {}): Promise<TemplateListItem[]> {
   assertSee(actor);
   return withTenant(actor, async (tx) => {
@@ -79,8 +84,8 @@ export async function listTemplates(actor: Actor, opts: { includeArchived?: bool
     const rows = await tx
       .select({
         t: certTemplates,
-        courses: sql<number>`(select count(*)::int from ${certRules} where ${certRules.templateId} = ${certTemplates.id})`,
-        issued: sql<number>`(select count(*)::int from ${certCertificates} where ${certCertificates.templateId} = ${certTemplates.id})`,
+        courses: usedByCourses,
+        issued: issuedWith,
       })
       .from(certTemplates)
       .where(opts.includeArchived ? undefined : isNull(certTemplates.archivedAt))
@@ -95,8 +100,8 @@ export async function getTemplate(actor: Actor, id: string): Promise<TemplateLis
     const [r] = await tx
       .select({
         t: certTemplates,
-        courses: sql<number>`(select count(*)::int from ${certRules} where ${certRules.templateId} = ${certTemplates.id})`,
-        issued: sql<number>`(select count(*)::int from ${certCertificates} where ${certCertificates.templateId} = ${certTemplates.id})`,
+        courses: usedByCourses,
+        issued: issuedWith,
       })
       .from(certTemplates)
       .where(eq(certTemplates.id, id));

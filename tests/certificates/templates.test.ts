@@ -119,6 +119,18 @@ describe("templates", () => {
     expect(audits.map((a) => a.action)).toEqual(expect.arrayContaining(["certificate.template_archive", "certificate.template_restore", "certificate.template_default"]));
   });
 
+  it("counts the courses using each template and the certificates issued with it", async () => {
+    const w = await certWorld("Counts U");
+    const [classic, modern] = await listTemplates(w.admin);
+    await saveCourseRule(w.admin, w.course.id, { templateId: modern.id, autoIssue: true, validityMonths: null, reminderDays: null });
+    const { enrolmentId } = await w.enrolled("Count Student");
+    await w.complete(enrolmentId);
+    const after = await listTemplates(w.admin);
+    expect(after.find((t) => t.id === modern.id)).toMatchObject({ courses: 1, issued: 1 });
+    expect(after.find((t) => t.id === classic.id)).toMatchObject({ courses: 0, issued: 0 });
+    expect(await getTemplate(w.admin, modern.id)).toMatchObject({ courses: 1, issued: 1 });
+  });
+
   it("new templates use one of the three designs", async () => {
     const w = await certWorld("New Template U");
     const t = await createTemplate(w.admin, { name: "Workshop", design: "minimal" });

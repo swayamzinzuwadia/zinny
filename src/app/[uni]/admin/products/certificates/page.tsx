@@ -134,14 +134,18 @@ export default async function CertificatesPage({ params, searchParams }: { param
               Issued certificates
             </h2>
             <form method="get" className="flex flex-wrap gap-2">
-              <Input name="q" defaultValue={q} placeholder="Student, course or code" aria-label="Search certificates" className="w-64" />
-              <Select name="status" defaultValue={status} aria-label="Status" className="w-36">
+              <div className="w-full sm:w-64">
+                <Input name="q" defaultValue={q} placeholder="Student, course or code" aria-label="Search certificates" />
+              </div>
+              <div className="w-40">
+                <Select name="status" defaultValue={status} aria-label="Status">
                 {STATUSES.map((s) => (
                   <option key={s.key} value={s.key}>
                     {s.label}
                   </option>
                 ))}
-              </Select>
+                </Select>
+              </div>
               <button type="submit" className="h-10 rounded-full border border-line bg-surface px-4 text-[14px] font-medium hover:border-brand/40">
                 Search
               </button>

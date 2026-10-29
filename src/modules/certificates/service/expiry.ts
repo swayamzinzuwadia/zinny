@@ -12,7 +12,7 @@ import { formatCode, shortDate } from "../lib";
 import { certCertificates, certRules } from "../schema";
 import { uni } from "./shared";
 
-const notRenewed = sql`not exists (select 1 from ${certCertificates} as r where r.replaces_id = ${certCertificates.id})`;
+const notRenewed = sql`not exists (select 1 from cert_certificates r where r.replaces_id = cert_certificates.id)`;
 
 export async function runExpiry(actor: Actor, opts: { today?: string } = {}): Promise<{ reminded: number; expired: number }> {
   assertCan(actor, "cert.issue", { universityId: uni(actor) });

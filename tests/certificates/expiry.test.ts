@@ -6,7 +6,9 @@ import { systemActorFor } from "@/server/core";
 import { runJobs } from "@/server/jobs-runner";
 import { addDays } from "@/modules/certificates/lib";
 import { certCertificates } from "@/modules/certificates/schema";
-import { issueCertificate, listTemplates, lookupCertificate, runExpiry, saveCourseRule } from "@/modules/certificates/service";
+import { dashboardSummary, issueCertificate, listTemplates, lookupCertificate, runExpiry, saveCourseRule } from "@/modules/certificates/service";
+
+const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
 import { certWorld, withTempStorage } from "./helpers";
 
 withTempStorage();
@@ -62,6 +64,10 @@ describe("daily expiry job", () => {
     const { w, actor, c, enrolmentId } = await expiringWorld("Renewed U");
     await systemDb().update(certCertificates).set({ issuedOn: "2020-01-01", completedOn: "2020-01-01", validUntil: "2020-12-31" }).where(eq(certCertificates.id, c.id));
     await issueCertificate(w.admin, { enrolmentId, reason: "Refresher completed" });
+    // Expiring soon on the dashboard leaves out renewed certificates.
+    await systemDb().update(certCertificates).set({ validUntil: addDays(today(), 5), status: "valid" }).where(eq(certCertificates.id, c.id));
+    expect((await dashboardSummary(w.admin, today())).expiringSoon).toBe(0);
+    await systemDb().update(certCertificates).set({ validUntil: "2020-12-31" }).where(eq(certCertificates.id, c.id));
     const r = await runExpiry(systemActorFor(w.uni.id));
     expect(r.expired).toBe(1);
     expect(await kinds(actor.userId, "certificate.expired")).toHaveLength(0);

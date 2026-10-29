@@ -69,12 +69,12 @@ export async function CertificatesCourseTab({ uni, actor, course, target }: Cour
               {data.rows.map((c) => (
                 <tr key={c.id}>
                   <Td>
-                    <Link href={`${base}/issued/${c.id}`} className="font-medium hover:text-brand">
+                    <Link href={`${base}/issued/${c.id}`} className="whitespace-nowrap font-medium hover:text-brand">
                       {c.studentName}
                     </Link>
-                    <div className="tabular font-mono text-[12px] text-muted">{c.displayCode}</div>
+                    <div className="tabular whitespace-nowrap font-mono text-[12px] text-muted">{c.displayCode}</div>
                   </Td>
-                  <Td className="text-muted">{c.batchName}</Td>
+                  <Td className="whitespace-nowrap text-muted">{c.batchName}</Td>
                   <Td className="tabular whitespace-nowrap">
                     {shortDate(c.issuedOn)}
                     {c.source === "manual" && <div className="text-[12px] text-muted">By hand</div>}
@@ -116,7 +116,9 @@ export async function CertificatesCourseTab({ uni, actor, course, target }: Cour
                   <Select name="templateId" defaultValue={rule.template.id}>
                     {templates.map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.name} ({DESIGNS[t.design].label.toLowerCase()} design){t.isDefault ? ", default" : ""}
+                        {t.name}
+                        {t.name.toLowerCase() === DESIGNS[t.design].label.toLowerCase() ? "" : ` (${DESIGNS[t.design].label} design)`}
+                        {t.isDefault ? ", the default" : ""}
                       </option>
                     ))}
                   </Select>
