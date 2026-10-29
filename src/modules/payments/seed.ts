@@ -14,6 +14,7 @@ import { confirmPayment, gateway, withTenant } from "@/server/core";
 // core API (see "Requests for other owners" in docs/handoff/payments.md).
 import { holdSeat } from "@/server/services/enrolment";
 import { refundOrder } from "./refunds";
+import { payInvoiceDocuments } from "./schema";
 import { updateInvoiceSettings } from "./settings";
 
 export async function seed(ctx: SeedContext) {
@@ -24,6 +25,11 @@ export async function seed(ctx: SeedContext) {
     invoiceFooter:
       "Course fees are refundable in full until the batch starts, and in part for 14 days after. For billing questions, write to accounts@demo.edu.",
   });
+
+  // The core seed's invoices were rendered (by the payment.confirmed handler) before these
+  // settings existed. Demo data only: forget those renders so they come out with the
+  // settings above on first download. Real invoices are never re-rendered.
+  await withTenant(ctx.systemActor, (tx) => tx.delete(payInvoiceDocuments).where(eq(payInvoiceDocuments.universityId, ctx.universityId)));
 
   // A partly refunded order.
   const riyaPython = ctx.ids.enrolments["riya@demo.edu / Python Basics"];
