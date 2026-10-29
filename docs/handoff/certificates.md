@@ -98,4 +98,4 @@ Branch `agent/certificates`, from `foundation-v1`. Screenshots are in `docs/hand
 - The rate limit is held in memory per instance (request 4). Codes carry 60 random bits, so guessing them is not practical anyway.
 - The logo is fetched when a certificate is issued, inside the handler's transaction (4 s timeout, cached for 10 minutes).
 - Month arithmetic: 12 months from 12 Oct 2026 is valid until 11 Oct 2027; 1 month from 31 Jan is valid until 27 Feb.
-- This container's OOM killer stopped Chromium repeatedly. Browser checks of issuing, download, revoke, rules, signature upload, template save, sample PDF and verify passed. The learner download route was not clicked through; it is the same code as the staff route that passed, and its service has tests.
+- Browser checks passed for: issue by hand, staff download, revoke, rules (save and the validation message), signature upload, template save, sample PDF, verify (revoked status, no reason shown, the code form) and learner download (own: yes; someone else's: 404). This container's OOM killer stopped Chromium several times, so the checks ran in small steps.
