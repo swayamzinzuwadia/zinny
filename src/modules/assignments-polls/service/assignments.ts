@@ -131,7 +131,7 @@ async function studentsOf(tx: Tx, batchIds: string[]) {
   return [...new Set(lists.flat())];
 }
 
-async function announceAssignment(tx: Tx, actor: Actor, a: AssignmentRow, batchIds: string[]) {
+async function announceAssignment(tx: Tx, actor: Actor, a: AssignmentRow, batchIds: string[], now = new Date()) {
   const students = await studentsOf(tx, batchIds);
   if (students.length === 0) return;
   const u = await universityLite(tx);
@@ -139,7 +139,7 @@ async function announceAssignment(tx: Tx, actor: Actor, a: AssignmentRow, batchI
   await notify(tx, uni(actor), students, {
     kind: "assignment.new",
     title: `New assignment: ${a.title}`,
-    body: `${course.title}. ${dueLabel(a.dueAt, u.timezone)}.`,
+    body: `${course.title}. ${dueLabel(a.dueAt, u.timezone, now)}.`,
     data: { assignmentId: a.id, href: `/${u.slug}/learn/assignments/${a.id}` },
   });
 }
@@ -163,7 +163,7 @@ export async function createAssignment(actor: Actor, input: AssignmentInput, opt
     if (!allBatches) await tx.insert(asgnAssignmentBatches).values(ids.map((batchId) => ({ universityId: uni(actor), assignmentId: a.id, batchId })));
     await claimFiles(tx, actor, input.attachmentIds ?? [], "attachment", { assignmentId: a.id });
     await audit(tx, actor, "assignment.create", "assignment", a.id, { courseId: course.id, title: a.title, batches: allBatches ? "all" : ids, dueAt: a.dueAt.toISOString() });
-    await announceAssignment(tx, actor, a, ids);
+    await announceAssignment(tx, actor, a, ids, now);
     return a;
   });
 }
