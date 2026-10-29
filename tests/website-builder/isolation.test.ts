@@ -33,7 +33,7 @@ async function media(uni: Uni) {
 
 /** CLAUDE.md rule 10: every site_ table keeps each university's rows to itself. */
 describe("website-builder: tenant isolation of every table", () => {
-  it("site_media", () => expectTenantIsolated(siteMedia, (u) => ({ universityId: u.id, key: `${u.id}/website-builder/media/x.webp`, kind: "logo", contentType: "image/webp", size: 1, width: 1, height: 1 })));
+  it("site_media", () => expectTenantIsolated(siteMedia, (u) => ({ universityId: u.id, key: `${u.id}/website-builder/media/x.webp`, kind: "logo" as const, contentType: "image/webp", size: 1, width: 1, height: 1 })));
   it("site_profiles", () => expectTenantIsolated(siteProfiles, (u) => ({ universityId: u.id, tagline: "Since 1998" })));
   it("site_pages", () => expectTenantIsolated(sitePages, (u) => ({ universityId: u.id, draft: defaultSections(), published: defaultSections() })));
   it("site_testimonials", () => expectTenantIsolated(siteTestimonials, (u) => ({ universityId: u.id, name: "Priya", quote: "Great teaching." })));
@@ -54,5 +54,5 @@ describe("website-builder: tenant isolation of every table", () => {
       userId: (await makeUser("Faculty Iso")).id,
       draft: { headline: "Lecturer", bio: "Teaches.", subjects: [], photoMediaId: null },
     })));
-  it("site_submissions", () => expectTenantIsolated(siteSubmissions, (u) => ({ universityId: u.id, kind: "enquiry", fingerprint: "abc" })));
+  it("site_submissions", () => expectTenantIsolated(siteSubmissions, (u) => ({ universityId: u.id, kind: "enquiry" as const, fingerprint: "abc" })));
 });

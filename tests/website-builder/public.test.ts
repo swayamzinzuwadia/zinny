@@ -163,7 +163,7 @@ describe("website-builder: drafts never appear on the public site", () => {
     const { uni, admin, hod, dept, course } = await siteFixture("Course Status U");
     await publishPage(admin);
     expect((await publicCourse(uni.id, uni.slug, course.id))?.title).toBe("Data Analytics");
-    const draftCourse = await createCourse(hod, { departmentId: dept.id, title: "Unreleased course" });
+    const draftCourse = await createCourse(hod, { departmentId: dept.id, title: "Unreleased course", pricePaise: 0 });
     expect(await publicCourse(uni.id, uni.slug, draftCourse.id)).toBeNull();
     expect((await publicHome(uni.id, uni.slug))?.courses.map((c) => c.title)).toEqual(["Data Analytics"]);
 

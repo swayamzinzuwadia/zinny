@@ -493,9 +493,9 @@ export function ComingSoon({ site }: { site: SiteInfo }) {
           )}
           <li>
             Students:{" "}
-            <a href="/login" className="font-medium underline underline-offset-4">
+            <Link href="/login" prefetch={false} className="font-medium underline underline-offset-4">
               sign in
-            </a>
+            </Link>
           </li>
         </ul>
       </div>
