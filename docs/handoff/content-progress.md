@@ -45,6 +45,19 @@ Branch `agent/content-progress`, from `foundation-v1`. Port 3104. Screenshots ar
 - Seed: full curricula for all four courses, written by Hema, Farah and Neel, using every lesson kind. It includes an uploaded MP4 (`seed-assets/welcome.mp4`, 190 KB, made with ffmpeg), PDFs generated in code, YouTube and Vimeo links, drip by days and by date, and optional lessons.
 - Seeded progress covers 24 enrolments. Neil finishes Python Basics, so his enrolment completes through the engine. Hema marks Rohan's Python Basics complete offline.
 
+**Checked in the browser** (Playwright against `npm run dev` on a freshly seeded database; scripts kept outside the repo)
+- Staff, as Hema:
+  - add a section; add a text lesson, which lands in the editor; write and save text; save settings (optional, 20 minutes, opens 28 days after start)
+  - change the type to PDF and upload a PDF through the file input; a fake PDF is refused
+  - move the section up; delete the lesson and the section; mark Ishaan complete from the batch view
+- Learner, at 1440 px and 390 px: home card, Lessons tab, and text, PDF (pdf.js), video, locked, live and not-enrolled lessons.
+- Mark complete moved Riya from 44% to 55% in Digital Marketing.
+- Zoya's uploaded video resumed at 50% and completed itself at 90% watched.
+- No page errors.
+- **Screenshots:** `docs/handoff/content-progress/` (desktop for staff; desktop and 390 px for learners).
+
+**Tests:** 91 in `tests/content-progress/` (6 files). The full suite has 234, all passing.
+
 ## Not built (and why)
 - Drag-and-drop reordering: the up and down buttons work without JavaScript and on tablets.
 - Direct-to-bucket uploads: `storage()` has no presigned PUT (see Requests).
