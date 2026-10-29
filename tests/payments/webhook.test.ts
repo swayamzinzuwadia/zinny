@@ -236,6 +236,25 @@ describe("Razorpay webhook", () => {
     expect((await orderRow(orderId)).status).toBe("paid");
   });
 
+  it("refuses oversized bodies, and takes over a claim left by a crashed request", async () => {
+    const { POST } = await import("@/app/api/payments/razorpay/route");
+    const big = await POST(new Request("http://localhost/api/payments/razorpay", { method: "POST", body: "x", headers: { "content-length": String(300 * 1024) } }));
+    expect(big.status).toBe(413);
+
+    const c = await paidCourse("Hook Stale U");
+    const s = await c.student("Hook Stale");
+    const { orderId, order } = await startCheckout(s, c.batch.id);
+    const body = paymentEvent("payment.captured", fake.pay(order.gatewayOrderId!));
+    const first = await postWebhook(body);
+    // Pretend the first request died half way: still "processing", claimed long ago.
+    await systemDb().update(payWebhookEvents).set({ status: "processing", claimedAt: new Date(Date.now() - 10 * 60_000) }).where(eq(payWebhookEvents.eventId, first.eventId));
+    expect((await postWebhook(body, { eventId: first.eventId })).body).toMatchObject({ status: "processed", outcome: "already_paid" });
+    // A fresh claim by another request is respected: 409 so Razorpay retries later.
+    await systemDb().update(payWebhookEvents).set({ status: "processing", claimedAt: new Date() }).where(eq(payWebhookEvents.eventId, first.eventId));
+    expect((await postWebhook(body, { eventId: first.eventId })).status).toBe(409);
+    expect((await orderRow(orderId)).status).toBe("paid");
+  });
+
   it("is refused while the mock gateway is active", async () => {
     undo();
     const body = paymentEvent("payment.captured", { id: "pay_x", order_id: "order_x", amount: 1, currency: "INR", status: "captured" });
