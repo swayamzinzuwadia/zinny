@@ -32,7 +32,7 @@ describe("refunds (mock gateway)", () => {
     expect((await orderRow(orderId)).status).toBe("refunded");
 
     // payment.refunded once per refund, with this refund's amount.
-    const events = (await eventsOfType("payment.refunded", c.uni.id)).map((e) => e.payload);
+    const events = (await eventsOfType("payment.refunded", c.uni.id)).map((e) => e.payload as { orderId: string; userId: string; amountPaise: number });
     expect(events.sort((a, b) => a.amountPaise - b.amountPaise)).toEqual([
       { orderId, userId: s.userId, amountPaise: 180_000 },
       { orderId, userId: s.userId, amountPaise: 1_000_000 },
