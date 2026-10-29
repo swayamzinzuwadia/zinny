@@ -121,6 +121,8 @@ Call these with `Authorization: Bearer $CRON_SECRET` (Vercel Cron or any schedul
 | `GET /api/jobs/run?every=day` | once a day | releases lapsed seat holds, warns HODs about visiting faculty whose access ends before their batch, plus daily module jobs |
 | `GET /api/jobs/events` | every minute | retries event deliveries that failed or were missed |
 
+`vercel.json` schedules all four on Vercel (the daily run at 18:45 UTC, 00:15 in India). Vercel adds the `Authorization` header itself when `CRON_SECRET` is set. Cron jobs that run every minute need a Vercel Pro plan; on Hobby, use an external scheduler for the two minute routes.
+
 ## Recommended hosting
 
 Vercel for the app, Neon or Supabase Postgres in the Mumbai region (ap-south-1). Use two database users exactly as above: the app user must not own the tables, or row-level security won't apply to it.
