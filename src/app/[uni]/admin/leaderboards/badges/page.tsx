@@ -51,7 +51,7 @@ export default async function BadgesPage({ params }: { params: Promise<{ uni: st
                   </div>
                   {b.canManage && (
                     <div className="mt-4 flex flex-wrap items-start gap-2 border-t border-line pt-4">
-                      <details className="w-full">
+                      <details className="w-full sm:w-auto sm:flex-1">
                         <summary className="inline-flex h-8 cursor-pointer list-none items-center rounded-full border border-line bg-surface px-3.5 text-[13px] font-medium hover:border-brand/40">
                           Edit badge
                         </summary>

@@ -181,12 +181,12 @@ export async function seed(ctx: SeedContext) {
   await createRule(hema, { name: "Computer Science test bonus", trigger: "test-passed", points: 20, departmentId: cs });
   await createRule(mehul, { name: "Campaign brief on time", trigger: "assignment-on-time", points: 10, departmentId: mkt });
 
-  await createBadge(asha, { name: "First test passed", description: "Passed your first test.", icon: "check", metric: "tests_passed", threshold: 1 });
-  await createBadge(asha, { name: "Bookworm", description: "Finished 10 lessons.", icon: "book", metric: "lessons_completed", threshold: 10 });
-  await createBadge(asha, { name: "Regular", description: "Attended every class for four weeks in a row.", icon: "flame", metric: "attendance_streak_weeks", threshold: 4 });
-  await createBadge(asha, { name: "500 XP club", description: "Earned 500 XP.", icon: "star", metric: "xp", threshold: 500 });
-  await createBadge(asha, { name: "Course finisher", description: "Completed a whole course.", icon: "trophy", metric: "courses_completed", threshold: 1 });
-  await createBadge(mehul, { name: "Campaign ready", description: "Submitted two marketing assignments on time.", icon: "target", metric: "assignments_on_time", threshold: 2, departmentId: mkt });
+  await createBadge(asha, { name: "First test passed", description: "The first of many.", icon: "check", metric: "tests_passed", threshold: 1 });
+  await createBadge(asha, { name: "Bookworm", description: "Ten lessons down, and still reading.", icon: "book", metric: "lessons_completed", threshold: 10 });
+  await createBadge(asha, { name: "Regular", description: "Four weeks without missing a class.", icon: "flame", metric: "attendance_streak_weeks", threshold: 4 });
+  await createBadge(asha, { name: "500 XP club", description: "Half a thousand XP and counting.", icon: "star", metric: "xp", threshold: 500 });
+  await createBadge(asha, { name: "Course finisher", description: "Saw a course through to the end.", icon: "trophy", metric: "courses_completed", threshold: 1 });
+  await createBadge(mehul, { name: "Campaign ready", description: "Marketing briefs in on time, twice.", icon: "target", metric: "assignments_on_time", threshold: 2, departmentId: mkt });
 
   // 2 and 3. Learning activity, then XP for everything that happened.
   const emitted = await emitDemoActivity(ctx);
