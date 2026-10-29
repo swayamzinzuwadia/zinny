@@ -57,7 +57,7 @@ Branch `agent/assignments-polls`, from `foundation-v1`. Everything is in `src/mo
 - PDFs are generated locally.
 - One closed course-wide poll with 7 votes, and one open anonymous poll.
 
-**Tests:** 69 in `tests/assignments-polls/` (6 files). Full suite: 218 passed in 20 files.
+**Tests:** 70 in `tests/assignments-polls/` (6 files). Full suite: 219 passed in 20 files.
 
 ## Not built (and why)
 - Plagiarism checks, peer review, rubrics and zip download: out of scope in the brief.
