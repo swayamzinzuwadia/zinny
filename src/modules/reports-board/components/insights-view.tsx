@@ -16,7 +16,7 @@ import { BarList, ColumnChart, type Datum } from "./charts";
 /** Long lists draw their top entries; the table under the chart lists everyone. */
 const CHART_LIMIT = 12;
 
-const FILL_LABEL_WIDTH = 210;
+const FILL_LABEL_WIDTH = 220;
 
 const limitHint = (base: string, total: number) => (total > CHART_LIMIT ? `${base} · top ${CHART_LIMIT} of ${total}` : base);
 
@@ -53,7 +53,7 @@ export function InsightsView({ data, reportsHref }: { data: Insights; reportsHre
     <>
       <PageHeader
         title="Insights"
-        subtitle={`Enrolment, completion, ${revenue ? "revenue " : ""}and faculty load for ${data.scopeLabel}.`}
+        subtitle={`${revenue ? "Enrolment, completion, revenue and faculty load" : "Enrolment, completion and faculty load"} for ${data.scopeLabel}.`}
         actions={reportsHref ? <ButtonLink href={reportsHref} variant="secondary">Open reports</ButtonLink> : undefined}
       />
 

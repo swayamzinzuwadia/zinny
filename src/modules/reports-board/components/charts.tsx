@@ -60,6 +60,19 @@ function ChartTooltip({ active, payload, format }: TooltipProps) {
   );
 }
 
+type CategoryTickProps = { x: number; y: number; payload: { value: string }; chars: number };
+
+/** One line per label, never wrapped; long labels are shortened and the full text is in a tooltip. */
+function CategoryTick({ x, y, payload, chars }: CategoryTickProps) {
+  const full = String(payload?.value ?? "");
+  return (
+    <text x={x - 4} y={y} dy={4} textAnchor="end" fill={CHART.ink} fontSize={12}>
+      <title>{full}</title>
+      {fitLabel(full, chars)}
+    </text>
+  );
+}
+
 /** Round ticks that always include zero, so bars grow from the axis and negatives show below it. */
 function scaleFor(data: Datum[], format: ValueFormat, max?: number) {
   const values = data.map((d) => d.value);
@@ -132,8 +145,7 @@ export function BarList({ data, format, max, labelWidth = 180 }: { data: Datum[]
             tickLine={false}
             axisLine={false}
             interval={0}
-            tick={{ ...AXIS_TICK, fill: CHART.ink }}
-            tickFormatter={(v: string) => fitLabel(v, chars)}
+            tick={(props: unknown) => <CategoryTick {...(props as CategoryTickProps)} chars={chars} />}
           />
           {lo < 0 && <ReferenceLine x={0} stroke={CHART.muted} />}
           <Tooltip cursor={{ fill: CHART.brandSoft, fillOpacity: 0.7 }} content={(p) => <ChartTooltip active={p.active} payload={p.payload} format={format} />} />
