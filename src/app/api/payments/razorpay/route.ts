@@ -1,4 +1,4 @@
-import { handleRazorpayWebhook } from "@/modules/payments/webhooks";
+import { handleRazorpayWebhook, MAX_WEBHOOK_BYTES } from "@/modules/payments/webhooks";
 
 /**
  * Razorpay webhook. In the Razorpay dashboard (Settings → Webhooks) point a webhook at
@@ -9,6 +9,9 @@ import { handleRazorpayWebhook } from "@/modules/payments/webhooks";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_WEBHOOK_BYTES) {
+    return Response.json({ error: "too_large" }, { status: 413 });
+  }
   const raw = await req.text();
   const res = await handleRazorpayWebhook(raw, {
     signature: req.headers.get("x-razorpay-signature"),
