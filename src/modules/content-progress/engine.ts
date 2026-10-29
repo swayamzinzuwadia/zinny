@@ -15,7 +15,7 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { enrolments } from "@/db/schema";
 import { audit, emit, markEnrolmentCompleted, systemActorFor, type Actor } from "@/server/core";
-import { AppError } from "@/server/errors";
+import { AppError, NotFoundError } from "@/server/errors";
 import { coursePercent } from "./lib/kinds";
 import { contentCourseProgress, contentLessonProgress, contentLessons } from "./schema";
 
@@ -40,8 +40,13 @@ export async function lockCourseProgress(tx: Tx, universityId: string, e: Enrolm
   return row;
 }
 
-/** The student's progress row for a lesson, created if missing, locked. Lock the course row first. */
+/**
+ * The student's progress row for a lesson, created if missing, locked. Lock the course row
+ * first. Checks the lesson again (it may have been deleted while the request waited).
+ */
 export async function lockLessonProgress(tx: Tx, universityId: string, userId: string, courseId: string, lessonId: string) {
+  const [lesson] = await tx.select({ id: contentLessons.id }).from(contentLessons).where(eq(contentLessons.id, lessonId));
+  if (!lesson) throw new NotFoundError("Lesson");
   const inserted = await tx
     .insert(contentLessonProgress)
     .values({ universityId, userId, courseId, lessonId })
@@ -131,17 +136,18 @@ export async function completeLessonTx(
 }
 
 /**
- * Recounts every enrolment of a course after its curriculum changed (a required lesson
- * added, removed, made optional, or its content published). Returns the active enrolments
- * that are now at 100%, to complete after the transaction commits.
+ * Locks the progress rows of every active or completed enrolment of a course (creating
+ * missing ones), in id order. Curriculum changes call this before they lock any lesson,
+ * so they take locks in the same order as learners (progress row, then lesson) and the
+ * two can never deadlock.
  */
-export async function resyncCourse(tx: Tx, actor: Actor, universityId: string, courseId: string): Promise<string[]> {
-  const es = await tx
+export async function lockCourseRows(tx: Tx, universityId: string, courseId: string) {
+  const es: EnrolmentRef[] = await tx
     .select({ enrolmentId: enrolments.id, userId: enrolments.userId, courseId: enrolments.courseId, batchId: enrolments.batchId, status: enrolments.status })
     .from(enrolments)
     .where(and(eq(enrolments.courseId, courseId), inArray(enrolments.status, ["active", "completed"])))
     .orderBy(asc(enrolments.id));
-  if (es.length === 0) return [];
+  if (es.length === 0) return { es, rows: new Map<string, CourseProgressRow>() };
   await tx
     .insert(contentCourseProgress)
     .values(es.map((e) => ({ universityId, enrolmentId: e.enrolmentId, userId: e.userId, courseId: e.courseId })))
@@ -152,10 +158,19 @@ export async function resyncCourse(tx: Tx, actor: Actor, universityId: string, c
     .where(inArray(contentCourseProgress.enrolmentId, es.map((e) => e.enrolmentId)))
     .orderBy(asc(contentCourseProgress.id))
     .for("update");
-  const byEnrolment = new Map(rows.map((r) => [r.enrolmentId, r]));
+  return { es, rows: new Map(rows.map((r) => [r.enrolmentId, r])) };
+}
+
+/**
+ * Recounts every enrolment of a course after its curriculum changed (a required lesson
+ * added, removed, made optional, or its content published). Returns the active enrolments
+ * that are now at 100%, to complete after the transaction commits.
+ */
+export async function resyncCourse(tx: Tx, actor: Actor, universityId: string, courseId: string): Promise<string[]> {
+  const { es, rows } = await lockCourseRows(tx, universityId, courseId);
   const finished: string[] = [];
   for (const e of es) {
-    const r = await syncCourseProgress(tx, actor, byEnrolment.get(e.enrolmentId)!, e);
+    const r = await syncCourseProgress(tx, actor, rows.get(e.enrolmentId)!, e);
     if (r.reached100) finished.push(e.enrolmentId);
   }
   return finished;

@@ -14,7 +14,7 @@ import { asc, eq, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { assertCan, audit, can, courseTarget, getCourseLite, storage, withTenant, type Actor, type Target } from "@/server/core";
 import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
-import { finishCompletions, resyncCourse } from "./engine";
+import { finishCompletions, lockCourseRows, resyncCourse } from "./engine";
 import { courseCurriculum, isUuid, loadLesson, loadSection, readyFor, uni, type LessonRow, type SectionRow } from "./internal";
 import { isDate } from "./lib/dates";
 import {
@@ -40,6 +40,18 @@ async function editTarget(tx: Tx, actor: Actor, courseId: string): Promise<Targe
   const target = await courseTarget(tx, uni(actor), courseId);
   assertCan(actor, "content.manage", target);
   return target;
+}
+
+/**
+ * Loads a lesson for a change that may move progress: checks content.manage, locks the
+ * course's progress rows first (the order learners use, so the two never deadlock),
+ * then locks the lesson.
+ */
+async function lessonForChange(tx: Tx, actor: Actor, lessonId: string) {
+  const peek = await loadLesson(tx, lessonId);
+  await editTarget(tx, actor, peek.courseId);
+  await lockCourseRows(tx, uni(actor), peek.courseId);
+  return loadLesson(tx, lessonId, { lock: true });
 }
 
 /** Can this person edit the course's curriculum? (For showing edit controls; services check again.) */
@@ -141,6 +153,19 @@ export async function getLessonForEdit(actor: Actor, lessonId: string) {
   });
 }
 
+/** A short-lived signed URL for staff to preview a lesson's uploaded file (course.view). */
+export async function staffLessonFileUrl(actor: Actor, lessonId: string, opts: { download?: boolean } = {}) {
+  const file = await withTenant(actor, async (tx) => {
+    const lesson = await loadLesson(tx, lessonId);
+    assertCan(actor, "course.view", await courseTarget(tx, uni(actor), lesson.courseId));
+    const c = readContent(lesson.kind, lesson.content);
+    if (c.kind === "pdf" && c.pdf) return { key: c.pdf.key, name: c.pdf.fileName };
+    if (c.kind === "video" && c.video?.source === "upload") return { key: c.video.key, name: c.video.fileName };
+    throw new NotFoundError("File");
+  });
+  return storage().signedUrl(file.key, 30 * 60, opts.download ? { downloadName: file.name } : undefined);
+}
+
 /* ───────────────────────────── Sections ───────────────────────────── */
 
 export async function addSection(actor: Actor, courseId: string, title: string) {
@@ -193,8 +218,10 @@ export async function moveSection(actor: Actor, sectionId: string, direction: "u
 /** Deletes a section with its lessons (and their files and progress). */
 export async function deleteSection(actor: Actor, sectionId: string) {
   return change(actor, async (tx, later) => {
+    const peek = await loadSection(tx, sectionId);
+    await editTarget(tx, actor, peek.courseId);
+    await lockCourseRows(tx, uni(actor), peek.courseId);
     const s = await loadSection(tx, sectionId, { lock: true });
-    await editTarget(tx, actor, s.courseId);
     const lessons = await tx.select().from(contentLessons).where(eq(contentLessons.sectionId, s.id)).for("update");
     await tx.delete(contentSections).where(eq(contentSections.id, s.id));
     for (const l of lessons) {
@@ -219,6 +246,7 @@ export async function addLesson(actor: Actor, courseId: string, sectionId: strin
   if (!isUuid(courseId)) throw new NotFoundError("Course");
   return change(actor, async (tx, later) => {
     await editTarget(tx, actor, courseId);
+    await lockCourseRows(tx, uni(actor), courseId);
     if (!isUuid(sectionId)) throw new NotFoundError("Section");
     const [section] = await tx.select().from(contentSections).where(eq(contentSections.id, sectionId));
     if (!section || section.courseId !== courseId) throw new NotFoundError("Section");
@@ -262,8 +290,7 @@ export async function updateLesson(actor: Actor, lessonId: string, patch: Lesson
   const durationMinutes = cleanDuration(patch.durationMinutes);
   const drip = cleanDrip(patch.drip);
   return change(actor, async (tx, later) => {
-    const l = await loadLesson(tx, lessonId, { lock: true });
-    await editTarget(tx, actor, l.courseId);
+    const l = await lessonForChange(tx, actor, lessonId);
     const set: Partial<typeof contentLessons.$inferInsert> = { updatedAt: new Date() };
     if (title !== undefined) set.title = title;
     if (durationMinutes !== undefined) set.durationMinutes = durationMinutes;
@@ -316,8 +343,7 @@ export async function moveLesson(actor: Actor, lessonId: string, direction: "up"
 
 export async function deleteLesson(actor: Actor, lessonId: string) {
   return change(actor, async (tx, later) => {
-    const l = await loadLesson(tx, lessonId, { lock: true });
-    await editTarget(tx, actor, l.courseId);
+    const l = await lessonForChange(tx, actor, lessonId);
     await tx.delete(contentLessons).where(eq(contentLessons.id, l.id));
     const key = storedFileKey(l.kind, l.content);
     if (key) later.deleteKeys.push(key);
@@ -371,8 +397,7 @@ export async function storeContent(
   input: { kind?: LessonKind; expect?: LessonKind; content: LessonContent; action: string; tx?: Tx; later?: AfterCommit },
 ) {
   const run = async (tx: Tx, later: AfterCommit) => {
-    const l = await loadLesson(tx, lessonId, { lock: true });
-    await editTarget(tx, actor, l.courseId);
+    const l = await lessonForChange(tx, actor, lessonId);
     if (input.expect && l.kind !== input.expect) {
       throw new ConflictError(`This is a ${l.kind} lesson. Change its type first if you want to add ${input.expect} content.`, "wrong_kind");
     }
