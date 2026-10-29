@@ -14,7 +14,7 @@ import { batchSlots, batches, courses, departments, enrolments, roleAssignments,
 import { peopleLite, systemActorFor, todayFor, withTenant, type Actor } from "@/server/core";
 import { universityBySlug } from "@/server/context";
 import { assertManage } from "./access";
-import { ensurePage } from "./builder";
+import { pageRow, pageState } from "./builder";
 import { sitePalette, type SitePalette } from "./branding";
 import { describeSlots } from "./format";
 import { mediaPath } from "./media";
@@ -391,7 +391,7 @@ export type PublicPostCard = {
   updatedAt: string;
   minutes: number;
 };
-export type PublicPost = PublicPostCard & { bodyHtml: string; authorProfileId: string | null; related: PublicPostCard[] };
+export type PublicPost = PublicPostCard & { bodyHtml: string; authorProfileId: string | null; related: PublicPostCard[]; isDraft: boolean };
 
 async function postCards(tx: Tx, slug: string, rows: (typeof sitePosts.$inferSelect)[]): Promise<PublicPostCard[]> {
   const people = await peopleLite(tx, rows.flatMap((r) => (r.authorUserId ? [r.authorUserId] : [])));
@@ -440,6 +440,7 @@ async function postWithExtras(tx: Tx, slug: string, post: typeof sitePosts.$infe
   return {
     ...card,
     bodyHtml: post.bodyHtml,
+    isDraft: post.status !== "published",
     authorProfileId: post.authorUserId ? (profiles.get(post.authorUserId)?.id ?? null) : null,
     related: await postCards(tx, slug, relatedRows),
   };
@@ -555,9 +556,9 @@ export async function publicHome(universityId: string, slug: string): Promise<Ho
 export async function previewHome(actor: Actor, slug: string): Promise<HomeData> {
   const universityId = assertManage(actor);
   return withTenant(actor, async (tx) => {
-    const page = await ensurePage(tx, universityId);
+    const page = pageState(await pageRow(tx, universityId));
     const [profile] = await tx.select({ cover: siteProfiles.coverMediaId }).from(siteProfiles).where(eq(siteProfiles.universityId, universityId));
-    return homeData(tx, slug, normaliseSections(page.draft), profile?.cover ?? null);
+    return homeData(tx, slug, page.draft, profile?.cover ?? null);
   });
 }
 

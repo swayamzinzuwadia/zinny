@@ -41,19 +41,42 @@ export type ProfileInput = {
   coverMediaId?: string | null;
 };
 
-/** The profile row, created empty the first time anyone asks for it. */
-export async function ensureProfile(tx: Tx, universityId: string): Promise<SiteProfile> {
-  const [existing] = await tx.select().from(siteProfiles).where(eq(siteProfiles.universityId, universityId));
-  if (existing) return existing;
-  const [created] = await tx.insert(siteProfiles).values({ universityId }).onConflictDoNothing().returning();
-  if (created) return created;
-  const [again] = await tx.select().from(siteProfiles).where(eq(siteProfiles.universityId, universityId));
-  return again;
+/** An empty profile, before the first save. */
+function blankProfile(universityId: string): SiteProfile {
+  return {
+    id: "",
+    universityId,
+    tagline: "",
+    about: "",
+    foundedYear: null,
+    address: "",
+    city: "",
+    mapUrl: "",
+    phone: "",
+    email: "",
+    whatsapp: "",
+    social: {},
+    primaryColor: null,
+    logoMediaId: null,
+    coverMediaId: null,
+    updatedBy: null,
+    updatedAt: new Date(0),
+  };
 }
 
 export async function getProfile(actor: Actor) {
   const universityId = assertManage(actor);
-  return withTenant(actor, async (tx) => ({ profile: await ensureProfile(tx, universityId), university: await universityLite(tx) }));
+  return withTenant(actor, async (tx) => {
+    const [row] = await tx.select().from(siteProfiles).where(eq(siteProfiles.universityId, universityId));
+    return { profile: row ?? blankProfile(universityId), university: await universityLite(tx) };
+  });
+}
+
+/** The stored profile, created empty on the first save. Locked for update. */
+async function profileForUpdate(tx: Tx, universityId: string): Promise<SiteProfile> {
+  await tx.insert(siteProfiles).values({ universityId }).onConflictDoNothing();
+  const [row] = await tx.select().from(siteProfiles).where(eq(siteProfiles.universityId, universityId)).for("update");
+  return row;
 }
 
 function cleanYear(v: ProfileInput["foundedYear"]): number | null {
@@ -95,7 +118,7 @@ export async function saveProfile(actor: Actor, input: ProfileInput): Promise<Si
     primaryColor: cleanColor(input.primaryColor),
   };
   return withTenant(actor, async (tx) => {
-    const current = await ensureProfile(tx, universityId);
+    const current = await profileForUpdate(tx, universityId);
     const logoMediaId = input.logoMediaId === undefined ? current.logoMediaId : input.logoMediaId || null;
     const coverMediaId = input.coverMediaId === undefined ? current.coverMediaId : input.coverMediaId || null;
     await assertMediaOf(tx, logoMediaId);

@@ -21,24 +21,36 @@ export type PageState = {
   hasChanges: boolean;
 };
 
-export async function ensurePage(tx: Tx, universityId: string) {
-  const [existing] = await tx.select().from(sitePages).where(eq(sitePages.universityId, universityId));
-  if (existing) return existing;
-  const [created] = await tx.insert(sitePages).values({ universityId, draft: defaultSections(), published: null }).onConflictDoNothing().returning();
-  if (created) return created;
-  const [again] = await tx.select().from(sitePages).where(eq(sitePages.universityId, universityId));
-  return again;
+type PageRow = typeof sitePages.$inferSelect;
+
+/** The stored page, or null before the first edit (the default sections apply). */
+export async function pageRow(tx: Tx, universityId: string): Promise<PageRow | null> {
+  const [row] = await tx.select().from(sitePages).where(eq(sitePages.universityId, universityId));
+  return row ?? null;
 }
 
-function stateOf(row: typeof sitePages.$inferSelect): PageState {
-  const draft = normaliseSections(row.draft);
-  const published = row.published ? normaliseSections(row.published) : null;
-  return { draft, published, publishedAt: row.publishedAt, draftUpdatedAt: row.draftUpdatedAt, hasChanges: !samePage(draft, published) };
+/** The stored page, created with the default sections if this is the first edit. Locked for update. */
+async function pageForUpdate(tx: Tx, universityId: string): Promise<PageRow> {
+  await tx.insert(sitePages).values({ universityId, draft: defaultSections(), published: null }).onConflictDoNothing();
+  const [row] = await tx.select().from(sitePages).where(eq(sitePages.universityId, universityId)).for("update");
+  return row;
+}
+
+export function pageState(row: PageRow | null): PageState {
+  const draft = normaliseSections(row?.draft ?? defaultSections());
+  const published = row?.published ? normaliseSections(row.published) : null;
+  return {
+    draft,
+    published,
+    publishedAt: row?.publishedAt ?? null,
+    draftUpdatedAt: row?.draftUpdatedAt ?? new Date(0),
+    hasChanges: !samePage(draft, published),
+  };
 }
 
 export async function getPage(actor: Actor): Promise<PageState> {
   const universityId = assertManage(actor);
-  return withTenant(actor, async (tx) => stateOf(await ensurePage(tx, universityId)));
+  return withTenant(actor, async (tx) => pageState(await pageRow(tx, universityId)));
 }
 
 function assertType(type: string): SectionType {
@@ -49,7 +61,7 @@ function assertType(type: string): SectionType {
 async function changeDraft(actor: Actor, action: string, data: Record<string, unknown>, fn: (draft: PageSection[], tx: Tx) => Promise<PageSection[]> | PageSection[]) {
   const universityId = assertManage(actor);
   return withTenant(actor, async (tx) => {
-    const row = await ensurePage(tx, universityId);
+    const row = await pageForUpdate(tx, universityId);
     const next = normaliseSections(await fn(normaliseSections(row.draft), tx));
     const [saved] = await tx
       .update(sitePages)
@@ -57,7 +69,7 @@ async function changeDraft(actor: Actor, action: string, data: Record<string, un
       .where(eq(sitePages.id, row.id))
       .returning();
     await audit(tx, actor, action, "site_page", row.id, data);
-    return stateOf(saved);
+    return pageState(saved);
   });
 }
 
@@ -115,7 +127,7 @@ export async function moveSection(actor: Actor, type: string, direction: "up" | 
 export async function publishPage(actor: Actor): Promise<PageState> {
   const universityId = assertManage(actor);
   return withTenant(actor, async (tx) => {
-    const row = await ensurePage(tx, universityId);
+    const row = await pageForUpdate(tx, universityId);
     const draft = normaliseSections(row.draft);
     if (!draft.some((s) => s.visible)) throw new ValidationError("Show at least one section before publishing.");
     const [saved] = await tx
@@ -124,7 +136,7 @@ export async function publishPage(actor: Actor): Promise<PageState> {
       .where(eq(sitePages.id, row.id))
       .returning();
     await audit(tx, actor, "site.publish_page", "site_page", row.id, { sections: draft.filter((s) => s.visible).map((s) => s.type) });
-    return stateOf(saved);
+    return pageState(saved);
   });
 }
 
@@ -132,14 +144,14 @@ export async function publishPage(actor: Actor): Promise<PageState> {
 export async function discardDraft(actor: Actor): Promise<PageState> {
   const universityId = assertManage(actor);
   return withTenant(actor, async (tx) => {
-    const row = await ensurePage(tx, universityId);
-    if (!row.published) throw new ConflictError("Nothing is published yet, so there are no changes to discard.");
+    const row = await pageRow(tx, universityId);
+    if (!row?.published) throw new ConflictError("Nothing is published yet, so there are no changes to discard.");
     const [saved] = await tx
       .update(sitePages)
       .set({ draft: normaliseSections(row.published), draftUpdatedAt: new Date(), draftUpdatedBy: actor.userId || null })
       .where(eq(sitePages.id, row.id))
       .returning();
     await audit(tx, actor, "site.discard_draft", "site_page", row.id, {});
-    return stateOf(saved);
+    return pageState(saved);
   });
 }
