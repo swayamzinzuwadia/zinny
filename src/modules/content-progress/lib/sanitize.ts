@@ -19,12 +19,12 @@ const OPTIONS: sanitizeHtml.IOptions = {
   // h1 is the page title; editors' h1 becomes h2.
   transformTags: {
     h1: "h2",
-    a: (tagName, attribs) => ({
-      tagName,
-      attribs: { ...(attribs.href ? { href: attribs.href } : {}), target: "_blank", rel: "noopener noreferrer nofollow" },
-    }),
+    // Links open in a new tab. A link to anything but http(s) or mailto keeps its text and loses the link.
+    a: (tagName, attribs) =>
+      /^(https?:\/\/|mailto:)/i.test((attribs.href ?? "").trim())
+        ? { tagName, attribs: { href: attribs.href.trim(), target: "_blank", rel: "noopener noreferrer nofollow" } }
+        : { tagName, attribs: {} },
   },
-  exclusiveFilter: (frame) => frame.tag === "a" && !frame.attribs.href,
 };
 
 /** At most this much HTML per lesson (about 100 pages of text). */

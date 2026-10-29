@@ -224,14 +224,14 @@ export async function progressOverview(actor: Actor, params: ReportParams = {}):
         batchId: enrolments.batchId,
         courseId: enrolments.courseId,
         status: enrolments.status,
-        done: sql<number>`(select count(*) from ${contentLessonProgress} p join ${contentLessons} l on l.id = p.lesson_id
-                           where p.user_id = ${enrolments.userId} and p.course_id = ${enrolments.courseId}
-                             and p.completed_at is not null and l.required and l.ready)::int`,
-        started: sql<number>`(select count(*) from ${contentLessonProgress} p join ${contentLessons} l on l.id = p.lesson_id
-                              where p.user_id = ${enrolments.userId} and p.course_id = ${enrolments.courseId} and l.ready)::int`,
+        done: sql<number>`count(*) filter (where ${contentLessonProgress.completedAt} is not null and ${contentLessons.required} and ${contentLessons.ready})::int`,
+        started: sql<number>`count(${contentLessonProgress.id}) filter (where ${contentLessons.ready})::int`,
       })
       .from(enrolments)
-      .where(and(inArray(enrolments.batchId, batchIds), inArray(enrolments.status, ["active", "completed"])));
+      .leftJoin(contentLessonProgress, and(eq(contentLessonProgress.userId, enrolments.userId), eq(contentLessonProgress.courseId, enrolments.courseId)))
+      .leftJoin(contentLessons, eq(contentLessons.id, contentLessonProgress.lessonId))
+      .where(and(inArray(enrolments.batchId, batchIds), inArray(enrolments.status, ["active", "completed"])))
+      .groupBy(enrolments.id);
 
     return rows.map((b) => {
       const total = requiredOf.get(b.courseId) ?? 0;

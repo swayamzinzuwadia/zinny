@@ -30,6 +30,7 @@ export function safeFileName(name: string, fallback: string) {
   const base = name.split(/[\\/]/).pop() ?? "";
   const cleaned = base
     .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^A-Za-z0-9._ ()+,=@-]+/g, "-")
     .replace(/-{2,}/g, "-")
     .replace(/^[-. ]+|[-. ]+$/g, "")
