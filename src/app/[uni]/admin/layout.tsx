@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin-nav";
-import { Avatar, Logo } from "@/components/ui";
+import { SidebarAccount, SidebarLink } from "@/components/sidebar-account";
+import { Logo } from "@/components/ui";
 import { signOut } from "@/server/auth/session";
 import { ACCESS_LABEL, menuFor } from "@/server/authz/menu";
 import { isActive } from "@/server/authz/engine";
@@ -34,43 +35,23 @@ export default async function AdminLayout({ children, params }: { children: Reac
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      <Link href={base} className="mb-7 block px-3 pt-1">
-        <Logo height={30} tone="cream" />
-        <div className="mt-2.5 truncate text-[13px] text-canvas/60">{university.name}</div>
+      <Link href={base} className="mb-6 block px-3 pt-1">
+        <Logo height={28} tone="cream" />
+        <div className="mt-2 truncate text-[13px] text-canvas/55">{university.name}</div>
       </Link>
-      <div className="flex-1 overflow-y-auto pb-6">
+      <div className="sidebar-scroll -mr-2 flex-1 overflow-y-auto py-2 pr-1">
         <AdminNav base={base} sections={sections} />
       </div>
-      <div className="mt-2 rounded-2xl bg-canvas/[0.07] p-3">
-        <div className="flex items-center gap-3">
-          <Avatar name={actor.name} size={34} />
-          <div className="min-w-0 text-[13px] leading-snug">
-            <div className="truncate font-medium text-canvas">{actor.name}</div>
-            <div className="truncate text-canvas/60">{roles.join(", ")}</div>
-          </div>
-        </div>
-        <div className="mt-3 flex items-center gap-3 text-[12.5px]">
-          <Link href={`/${uni}/profile`} className="text-canvas/75 hover:text-canvas hover:underline">
-            Your profile
-          </Link>
-          {/* Every staff member reaches their own "My notifications" here; admins also get the Settings item. */}
-          <Link href={`/${uni}/admin/settings/notifications`} className="text-canvas/75 hover:text-canvas hover:underline">
-            Notifications
-          </Link>
-        </div>
-        <div className="mt-2 flex items-center justify-between text-[12.5px]">
-          {isLearner ? (
-            <Link href={`/${uni}/learn`} className="text-gold hover:underline">
-              Learner app
-            </Link>
-          ) : (
-            <span />
-          )}
-          <form action={logout}>
-            <button className="text-canvas/60 hover:text-canvas">Sign out</button>
-          </form>
-        </div>
-      </div>
+      <SidebarAccount name={actor.name} roles={roles.join(", ")} logout={logout}>
+        <SidebarLink href={`/${uni}/profile`}>Your profile</SidebarLink>
+        {/* Every staff member reaches their own "My notifications" here; admins also get the Settings item. */}
+        <SidebarLink href={`/${uni}/admin/settings/notifications`}>Notifications</SidebarLink>
+        {isLearner && (
+          <SidebarLink href={`/${uni}/learn`} gold>
+            Learner app
+          </SidebarLink>
+        )}
+      </SidebarAccount>
     </div>
   );
 

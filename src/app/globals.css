@@ -61,6 +61,38 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * Sidebar scrolling: a thin cream thumb that only shows while the pointer is over the
+ * menu, and soft fades at the top and bottom edges so items don't cut off hard.
+ */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  scrollbar-gutter: stable;
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 22px), transparent 100%);
+  transition: scrollbar-color 0.2s;
+}
+.sidebar-scroll:hover,
+.sidebar-scroll:focus-within {
+  scrollbar-color: rgb(250 246 234 / 0.22) transparent;
+}
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: transparent;
+}
+.sidebar-scroll:hover::-webkit-scrollbar-thumb {
+  background: rgb(250 246 234 / 0.22);
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgb(250 246 234 / 0.38);
+}
+
 /* The one moving thing: the gold "now" line on the Today board pulses gently. */
 @keyframes now-pulse {
   0%,
