@@ -8,7 +8,7 @@ import { attempt, num, rupeesToPaise, str } from "@/server/action";
 import { spaceContext } from "@/server/context";
 import { ValidationError } from "@/server/errors";
 import { addSessionOverride, assignFaculty, createBatch, removeFaculty, updateBatch } from "@/server/services/batches";
-import { addLesson, addSection, createCourse, updateCourse } from "@/server/services/courses";
+import { createCourse, updateCourse } from "@/server/services/courses";
 import { createDepartment, setHod } from "@/server/services/departments";
 import { decideSwitch } from "@/server/services/enrolment";
 import type { Slot } from "@/server/services/schedule";
@@ -70,26 +70,6 @@ export async function setCourseStatusAction(_: ActionState, data: FormData): Pro
     await updateCourse(actor, courseId, { status });
     revalidatePath(`/${uni}/admin/products/courses/${courseId}`);
     return status === "published" ? "Published. Students can enrol now." : `Course is now ${status}.`;
-  });
-}
-
-export async function addSectionAction(_: ActionState, data: FormData): Promise<ActionState> {
-  const { uni, actor } = await ctx(data);
-  const courseId = str(data, "courseId");
-  return attempt(async () => {
-    await addSection(actor, courseId, str(data, "title"));
-    revalidatePath(`/${uni}/admin/products/courses/${courseId}`);
-    return "Section added.";
-  });
-}
-
-export async function addLessonAction(_: ActionState, data: FormData): Promise<ActionState> {
-  const { uni, actor } = await ctx(data);
-  const courseId = str(data, "courseId");
-  return attempt(async () => {
-    await addLesson(actor, courseId, str(data, "sectionId"), { title: str(data, "title"), kind: str(data, "kind") || "video" });
-    revalidatePath(`/${uni}/admin/products/courses/${courseId}`);
-    return "Lesson added.";
   });
 }
 

@@ -19,7 +19,7 @@ import { assertCan, reach, type Actor, type Target } from "../authz/engine";
 import { ConflictError, NotFoundError, ValidationError } from "../errors";
 import { earliestStart, formatDate, normaliseTime } from "../lib/dates";
 import { audit, withTenant } from "../tenant";
-import { courseTarget } from "./courses";
+import { loadCourse } from "./courses";
 import { hodsOf, notify } from "./notifications";
 import { describeSlots, validateSlots, type ScheduledBatch, type Slot } from "./schedule";
 
@@ -169,7 +169,7 @@ export async function createBatch(actor: Actor, input: BatchInput) {
   if (input.faculty.length === 0) throw new ValidationError("Assign at least one faculty member.");
 
   return withTenant(actor, async (tx) => {
-    const { course } = await courseTarget(tx, uni(actor), input.courseId);
+    const { course } = await loadCourse(tx, uni(actor), input.courseId);
     assertCan(actor, "batch.create", { universityId: uni(actor), departmentIds: [course.departmentId] });
     const [batch] = await tx
       .insert(batches)
@@ -329,7 +329,7 @@ export async function removeFaculty(actor: Actor, batchId: string, userId: strin
 /** Batches of one course for the admin panel: timings, seats left and faculty. */
 export async function listBatches(actor: Actor, courseId: string) {
   return withTenant(actor, async (tx) => {
-    const { target } = await courseTarget(tx, uni(actor), courseId);
+    const { target } = await loadCourse(tx, uni(actor), courseId);
     const r = reach(actor, "batch.view", uni(actor));
     const all = await tx.select({ id: batches.id }).from(batches).where(eq(batches.courseId, courseId)).orderBy(asc(batches.startDate));
     // Faculty only see their own batches; HOD and admin see all of them.

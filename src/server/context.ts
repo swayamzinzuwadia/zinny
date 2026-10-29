@@ -4,14 +4,24 @@ import { notFound, redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { systemDb } from "@/db/client";
 import { universities } from "@/db/schema";
+import type { UniversityLite } from "@/contracts/core";
 import { loadActor } from "./actor";
 import { currentUserId } from "./auth/session";
 import { ADMIN_PANEL_ROLES } from "./authz/roles";
 import { isActive } from "./authz/engine";
 
-export const universityBySlug = cache(async (slug: string) => {
+/** The university for a URL slug, shaped as UniversityLite (what slot components receive). */
+export const universityBySlug = cache(async (slug: string): Promise<UniversityLite | null> => {
   const [u] = await systemDb()
-    .select({ id: universities.id, slug: universities.slug, name: universities.name, branding: universities.branding, timezone: universities.timezone })
+    .select({
+      id: universities.id,
+      slug: universities.slug,
+      name: universities.name,
+      branding: universities.branding,
+      timezone: universities.timezone,
+      legalName: universities.legalName,
+      gstin: universities.gstin,
+    })
     .from(universities)
     .where(eq(universities.slug, slug));
   return u ?? null;

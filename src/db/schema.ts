@@ -220,25 +220,6 @@ export const courses = pgTable("courses", {
   createdAt: createdAt(),
 }, (t) => [check("course_price", sql`${t.pricePaise} >= 0`), index("courses_dept_idx").on(t.departmentId)]);
 
-export const courseSections = pgTable("course_sections", {
-  id: id(),
-  universityId: universityId(),
-  courseId: uuid("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
-  title: text("title").notNull(),
-  position: integer("position").notNull().default(0),
-});
-
-export const lessons = pgTable("lessons", {
-  id: id(),
-  universityId: universityId(),
-  courseId: uuid("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
-  sectionId: uuid("section_id").notNull().references(() => courseSections.id, { onDelete: "cascade" }),
-  title: text("title").notNull(),
-  kind: text("kind").notNull().default("video"), // video | text | pdf | live
-  content: jsonb("content").notNull().default({}),
-  position: integer("position").notNull().default(0),
-});
-
 /** Weekly timings. weekday is ISO: 1 = Monday … 7 = Sunday. Times are in the university's time zone. */
 export const batchSlots = pgTable("batch_slots", {
   id: id(),

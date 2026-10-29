@@ -5,6 +5,9 @@ import { loadActor } from "@/server/actor";
 
 const tag = () => randomUUID().slice(0, 6);
 
+/** A short unique code like "D3F9A1", for unique columns (department codes, slugs) in test data. */
+export const uniqueCode = (prefix = "D") => `${prefix}${randomUUID().slice(0, 6).toUpperCase()}`;
+
 export async function makeUniversity(name = "Test University") {
   const slug = `t-${tag()}`;
   const [u] = await systemDb()

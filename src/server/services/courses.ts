@@ -1,7 +1,7 @@
 /** Products → Courses (PRD pages 5 and 7). HOD creates courses inside their own department. */
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
-import { batches, courseSections, courses, departments, enrolments, lessons } from "@/db/schema";
+import { batches, courses, departments, enrolments } from "@/db/schema";
 import { assertCan, reach, type Actor, type Target } from "../authz/engine";
 import { ConflictError, NotFoundError, ValidationError } from "../errors";
 import { audit, withTenant } from "../tenant";
@@ -10,11 +10,17 @@ function uni(actor: Actor) {
   return actor.universityId!;
 }
 
-export async function courseTarget(tx: Tx, universityId: string, courseId: string): Promise<{ course: typeof courses.$inferSelect; target: Target }> {
+/** The course and its permission target: its department and every one of its batches. */
+export async function loadCourse(tx: Tx, universityId: string, courseId: string): Promise<{ course: typeof courses.$inferSelect; target: Target }> {
   const [course] = await tx.select().from(courses).where(eq(courses.id, courseId));
   if (!course) throw new NotFoundError("Course");
   const bs = await tx.select({ id: batches.id }).from(batches).where(eq(batches.courseId, courseId));
   return { course, target: { universityId, departmentIds: [course.departmentId], batchIds: bs.map((b) => b.id) } };
+}
+
+/** Core API: the permission target of a course (its department and every batch). */
+export async function courseTarget(tx: Tx, universityId: string, courseId: string): Promise<Target> {
+  return (await loadCourse(tx, universityId, courseId)).target;
 }
 
 export async function listCourses(actor: Actor) {
@@ -101,7 +107,7 @@ export async function updateCourse(
 ) {
   validateCourse(patch);
   return withTenant(actor, async (tx) => {
-    const { target } = await courseTarget(tx, uni(actor), courseId);
+    const { target } = await loadCourse(tx, uni(actor), courseId);
     assertCan(actor, "course.update", target);
     if (patch.status === "published") {
       const open = await tx.select({ id: batches.id }).from(batches).where(and(eq(batches.courseId, courseId), eq(batches.status, "open")));
@@ -127,7 +133,7 @@ export async function updateCourse(
 
 export async function deleteCourse(actor: Actor, courseId: string) {
   return withTenant(actor, async (tx) => {
-    const { target } = await courseTarget(tx, uni(actor), courseId);
+    const { target } = await loadCourse(tx, uni(actor), courseId);
     assertCan(actor, "course.delete", target);
     const [e] = await tx.select({ id: enrolments.id }).from(enrolments).where(eq(enrolments.courseId, courseId)).limit(1);
     if (e) throw new ConflictError("Students have enrolled in this course. Archive it instead.");
@@ -138,40 +144,9 @@ export async function deleteCourse(actor: Actor, courseId: string) {
 
 export async function getCourse(actor: Actor, courseId: string) {
   return withTenant(actor, async (tx) => {
-    const { course, target } = await courseTarget(tx, uni(actor), courseId);
+    const { course, target } = await loadCourse(tx, uni(actor), courseId);
     assertCan(actor, "course.view", target);
     const [dept] = await tx.select().from(departments).where(eq(departments.id, course.departmentId));
-    const sections = await tx.select().from(courseSections).where(eq(courseSections.courseId, courseId)).orderBy(asc(courseSections.position));
-    const lessonRows = await tx.select().from(lessons).where(eq(lessons.courseId, courseId)).orderBy(asc(lessons.position));
-    return {
-      course,
-      department: dept,
-      curriculum: sections.map((s) => ({ ...s, lessons: lessonRows.filter((l) => l.sectionId === s.id) })),
-    };
-  });
-}
-
-export async function addSection(actor: Actor, courseId: string, title: string) {
-  return withTenant(actor, async (tx) => {
-    const { target } = await courseTarget(tx, uni(actor), courseId);
-    assertCan(actor, "course.update", target);
-    const [{ n }] = await tx.select({ n: sql<number>`count(*)::int` }).from(courseSections).where(eq(courseSections.courseId, courseId));
-    const [s] = await tx.insert(courseSections).values({ universityId: uni(actor), courseId, title: title.trim(), position: n }).returning();
-    await audit(tx, actor, "course.add_section", "course", courseId, { title: s.title });
-    return s;
-  });
-}
-
-export async function addLesson(actor: Actor, courseId: string, sectionId: string, input: { title: string; kind: string }) {
-  return withTenant(actor, async (tx) => {
-    const { target } = await courseTarget(tx, uni(actor), courseId);
-    assertCan(actor, "course.update", target);
-    const [{ n }] = await tx.select({ n: sql<number>`count(*)::int` }).from(lessons).where(eq(lessons.sectionId, sectionId));
-    const [l] = await tx
-      .insert(lessons)
-      .values({ universityId: uni(actor), courseId, sectionId, title: input.title.trim(), kind: input.kind, position: n })
-      .returning();
-    await audit(tx, actor, "course.add_lesson", "course", courseId, { title: l.title });
-    return l;
+    return { course, department: dept, target };
   });
 }
