@@ -124,3 +124,10 @@ export function relative(at: Date, now = new Date()): string {
     mins < 60 ? `${Math.max(1, mins)} minute${mins === 1 ? "" : "s"}` : hours < 36 ? `${hours} hour${hours === 1 ? "" : "s"}` : `${days} day${days === 1 ? "" : "s"}`;
   return diff >= 0 ? `in ${text}` : `${text} ago`;
 }
+
+/** "2026-11-14" plus n days. */
+export function addDaysTo(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
