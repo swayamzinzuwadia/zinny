@@ -192,7 +192,7 @@ export async function mySeries(actor: Actor, seriesId: string) {
 }
 
 /** Graded results across the student's courses, newest first (the hub's "Test results"). */
-export async function myResults(actor: Actor, limit = 20) {
+export async function myResults(actor: Actor, limit = 20, opts: { courseId?: string } = {}) {
   assertCan(actor, "self.take_test", { universityId: uni(actor), ownerUserId: actor.userId });
   return withTenant(actor, async (tx) => {
     const rows = await tx
@@ -213,7 +213,13 @@ export async function myResults(actor: Actor, limit = 20) {
       .innerJoin(assessTests, eq(assessTests.id, assessAttempts.testId))
       .innerJoin(courses, eq(courses.id, assessAttempts.courseId))
       .innerJoin(batches, eq(batches.id, assessAttempts.batchId))
-      .where(and(eq(assessAttempts.userId, actor.userId), sql`${assessAttempts.status} <> 'in_progress'`))
+      .where(
+        and(
+          eq(assessAttempts.userId, actor.userId),
+          sql`${assessAttempts.status} <> 'in_progress'`,
+          opts.courseId ? eq(assessAttempts.courseId, opts.courseId) : undefined,
+        ),
+      )
       .orderBy(desc(assessAttempts.submittedAt))
       .limit(limit);
     const { timezone } = await universityLite(tx);
