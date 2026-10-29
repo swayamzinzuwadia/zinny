@@ -156,7 +156,7 @@ export function razorpayGateway(cfg: RazorpayConfig): RazorpayGateway {
         res.status === 401
           ? "Razorpay rejected the API keys. Check RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET."
           : description
-            ? `Razorpay: ${description}`
+            ? `Razorpay: ${/[.!?]$/.test(description) ? description : `${description}.`}`
             : `Razorpay answered with an error (${res.status}).`,
         res.status,
         err?.code ?? null,

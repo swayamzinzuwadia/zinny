@@ -91,8 +91,7 @@ export function fakeRazorpay() {
     return json(404, { error: { code: "NOT_FOUND", description: "No route" } });
   });
 
-  return {
-    ...state,
+  return Object.assign(state, {
     fetch: fetchImpl,
     /** The student pays a Razorpay order: a payment appears on Razorpay's side. */
     pay(orderId: string, o: { status?: string; amount?: number; currency?: string; notes?: Record<string, string> } = {}): RazorpayPayment {
@@ -113,7 +112,7 @@ export function fakeRazorpay() {
     failNext(match: RegExp, failure: Failure) {
       state.failures.push({ match, failure });
     },
-  };
+  });
 }
 
 export type FakeRazorpay = ReturnType<typeof fakeRazorpay>;
