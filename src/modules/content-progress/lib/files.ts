@@ -48,7 +48,7 @@ export function sniffType(kind: UploadKind, head: Uint8Array): string | null {
 }
 
 export function formatBytes(n: number) {
-  if (n >= MB) return `${(n / MB).toFixed(n >= 100 * MB ? 0 : 1)} MB`;
+  if (n >= MB) return `${(n / MB).toFixed(n >= 100 * MB ? 0 : 1).replace(/\.0$/, "")} MB`;
   if (n >= 1024) return `${Math.round(n / 1024)} KB`;
   return `${n} bytes`;
 }
