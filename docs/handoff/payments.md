@@ -48,6 +48,15 @@ Branch `agent/payments`, from `foundation-v1`. Port 3106. Everything lives in `s
 
 **Seed**: invoice settings for the Demo University, Riya's Python Basics order partly refunded (₹1,000, by Arun), and Neil's `refund_due` order (two checkouts for Digital Marketing, both paid). Neil's order shows on Arun's dashboard and in Sales.
 
+**Tests:** 88 in `tests/payments/`. The full suite has 237 tests, all passing.
+- Coverage: the gateway against a fake Razorpay with real HMAC (plus openssl reference values), checkout, webhooks, refunds, invoice PDF text, Sales, settings, isolation for all 4 tables, slots, the reconcile job and the seed.
+
+**Click-throughs** (in `tests/payments/e2e/`, both ended with `FAILED: 0`):
+- `mock_flow.py`: test-mode checkout, the failure path, invoices, Sales, refunds, CSV, settings, and access for HOD, faculty and Board.
+- `rzp_flow.py`: Razorpay mode against a local fake API, with a stand-in Checkout widget. It covers a signed success, a late webhook, a refused bad signature, decline then close, dismiss, and a refund through the API.
+
+**Screenshots:** `docs/handoff/payments/`, desktop for all screens; learner screens also at 390 px. Sales also at tablet width, plus `invoice-pdf.png` and `invoice-sample.pdf`.
+
 ## Not built (and why)
 - Coupons, bundles, subscriptions, wallets, referrals, affiliates, EMI and offline fee receipts are out of scope (brief). Offline receipts need a core API; see requests.
 - GST credit notes for refunds aren't generated. They aren't in the brief, and they need a numbering series and a core change.
