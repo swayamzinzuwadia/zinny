@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/ui";
@@ -6,11 +7,23 @@ import { currentUserId, signOut, spacesFor } from "@/server/auth/session";
 import { canPlatform } from "@/server/authz/engine";
 import { ADMIN_PANEL_ROLES, ROLE_LABELS } from "@/server/authz/roles";
 import type { RoleName } from "@/db/schema";
+import { LandingPage } from "@/modules/marketing/LandingPage";
 
-/** After sign-in: go straight to the only space, or pick one. */
+export const metadata: Metadata = {
+  title: { absolute: "Zinny · The whole institute, in order" },
+  description:
+    "Courses, batches, classes, fees and certificates in one private space for every institute, with exactly the right view for every person in it.",
+  openGraph: {
+    title: "Zinny · The whole institute, in order",
+    description: "One private space for every institute: courses, batches, live classes, tests, GST invoices and certificates.",
+    type: "website",
+  },
+};
+
+/** Signed out: the landing page. After sign-in: go straight to the only space, or pick one. */
 export default async function Home() {
   const userId = await currentUserId();
-  if (!userId) redirect("/login");
+  if (!userId) return <LandingPage />;
   const [spaces, platform] = await Promise.all([spacesFor(userId), loadActor(userId, null)]);
   const isStaff = canPlatform(platform, "platform.support_mode") || canPlatform(platform, "platform.manage_universities");
 
