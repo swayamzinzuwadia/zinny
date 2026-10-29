@@ -4,6 +4,7 @@ import { Facts } from "./components/Facts";
 import { Hero } from "./components/Hero";
 import { MotionRoot } from "./components/MotionRoot";
 import { Nav } from "./components/Nav";
+import { Story } from "./components/Story";
 
 /** The public landing page, shown at "/" to anyone who isn't signed in. */
 export function LandingPage() {
@@ -15,6 +16,7 @@ export function LandingPage() {
           <Hero />
           <Facts />
           <Campus />
+          <Story />
         </main>
       </div>
     </MotionRoot>
