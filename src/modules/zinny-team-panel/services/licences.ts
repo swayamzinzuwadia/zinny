@@ -182,7 +182,7 @@ export type Condition = { kind: AlertKind; level: "warning" | "critical"; title:
  * before and is critical once it has passed.
  */
 export function licenceConditions(
-  licence: Pick<Licence, "plan" | "studentCap" | "staffCap" | "endDate">,
+  licence: { plan: string; studentCap: number; staffCap: number; endDate: string },
   usage: Usage,
   today: string,
   universityName: string,
