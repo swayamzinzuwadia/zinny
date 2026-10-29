@@ -47,7 +47,15 @@ function cleanContent(input: FacultyProfileInput, current: FacultyProfileContent
   return content;
 }
 
-const same = (a: FacultyProfileContent | null, b: FacultyProfileContent | null) => JSON.stringify(a) === JSON.stringify(b);
+/** Same content, field by field (jsonb doesn't keep key order, so JSON text can't be compared). */
+const same = (a: FacultyProfileContent | null, b: FacultyProfileContent | null) =>
+  !!a &&
+  !!b &&
+  a.headline === b.headline &&
+  a.bio === b.bio &&
+  (a.photoMediaId ?? null) === (b.photoMediaId ?? null) &&
+  a.subjects.length === b.subjects.length &&
+  a.subjects.every((s, i) => s === b.subjects[i]);
 
 async function courseTitles(tx: Tx, universityId: string, userIds: string[]) {
   const taught = await coursesTaughtBy(tx, universityId, userIds);
@@ -80,7 +88,8 @@ export async function saveFacultyProfile(actor: Actor, userId: string, input: Fa
     const content = cleanContent(input, row?.draft ?? EMPTY, opts.submit);
     if (content.photoMediaId) await assertMediaOf(tx, content.photoMediaId);
     const unchangedFromLive = !!row?.published && same(content, row.published);
-    const status: ProfileStatus = opts.submit ? (unchangedFromLive && row?.status === "approved" ? "approved" : "pending") : unchangedFromLive ? "approved" : "draft";
+    // Back to exactly what is live: nothing to approve.
+    const status: ProfileStatus = unchangedFromLive ? "approved" : opts.submit ? "pending" : "draft";
     const values = {
       draft: content,
       status,
