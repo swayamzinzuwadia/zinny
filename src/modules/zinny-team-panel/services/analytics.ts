@@ -4,7 +4,7 @@
  * Weeks start on Monday and months follow India time, so every university is counted
  * on the same calendar.
  */
-import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
 import { enrolments, orders, universities } from "@/db/schema";
 import { assertPlatform, type Actor } from "@/server/core";
 import { addDays, addMonths, monthOf, todayIST, weekStart, ZINNY_TZ } from "../lib/format";
@@ -63,7 +63,7 @@ export async function analytics(actor: Actor, opts: { universityId?: string; wee
         n: sql<number>`count(*)`.mapWith(Number),
       })
       .from(enrolments)
-      .where(and(isNotNull(enrolments.enrolledAt), sql`${enrolments.enrolledAt} >= ${istStart(firstWeek)}`))
+      .where(and(isNotNull(enrolments.enrolledAt), gte(enrolments.enrolledAt, istStart(firstWeek))))
       .groupBy(enrolments.universityId, sql`2`),
     conn
       .select({
@@ -73,7 +73,7 @@ export async function analytics(actor: Actor, opts: { universityId?: string; wee
         n: sql<number>`count(*)`.mapWith(Number),
       })
       .from(orders)
-      .where(and(isNotNull(orders.paidAt), inArray(orders.status, [...COLLECTED]), sql`${orders.paidAt} >= ${istStart(firstMonth)}`))
+      .where(and(isNotNull(orders.paidAt), inArray(orders.status, [...COLLECTED]), gte(orders.paidAt, istStart(firstMonth))))
       .groupBy(orders.universityId, sql`2`),
   ]);
 

@@ -7,7 +7,7 @@
  * log `support.enter` and `support.exit` in the university's audit log. Everything a
  * team member does inside carries the support session id.
  */
-import { and, asc, desc, eq, gt, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { auditLog, roleAssignments, supportSessions, universities, users } from "@/db/schema";
 import { assertPlatform, enterSupportMode, exitSupportMode, type Actor } from "@/server/core";
 import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
@@ -244,8 +244,8 @@ function whereFor(f: LogFilters): SQL {
     f.universityId ? sql`(${auditLog.universityId} = ${f.universityId} or ${auditLog.data}->>'universityId' = ${f.universityId})` : undefined,
     f.personId ? eq(auditLog.actorUserId, f.personId) : undefined,
     f.action ? eq(auditLog.action, f.action) : undefined,
-    f.from ? sql`${auditLog.at} >= ${istStart(f.from)}` : undefined,
-    f.to ? sql`${auditLog.at} < ${new Date(istStart(f.to).getTime() + 86_400_000)}` : undefined,
+    f.from ? gte(auditLog.at, istStart(f.from)) : undefined,
+    f.to ? lt(auditLog.at, new Date(istStart(f.to).getTime() + 86_400_000)) : undefined,
   ];
   return and(...conds)!;
 }
