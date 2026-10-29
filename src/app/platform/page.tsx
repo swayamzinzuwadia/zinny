@@ -3,7 +3,7 @@ import { ActionForm, SubmitButton } from "@/components/forms";
 import { Badge, Card, CardTitle, Field, Input, PageHeader, Select, Stat, cx } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
-import { acknowledgeAlertAction, forceEndSupportAction, startSupportAction } from "@/modules/zinny-team-panel/actions";
+import { acknowledgeAlertAction, startSupportAction } from "@/modules/zinny-team-panel/actions";
 import { canSeeContentFlags } from "@/modules/zinny-team-panel/lib/access";
 import { PARTNER_STATUS_LABELS, PARTNER_STATUSES } from "@/modules/zinny-team-panel/lib/constants";
 import { formatCount, formatDate, formatINR, formatINRShort, timeAgo, timeUntil, todayIST, ZINNY_TZ } from "@/modules/zinny-team-panel/lib/format";

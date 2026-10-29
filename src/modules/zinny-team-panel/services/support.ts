@@ -205,14 +205,25 @@ export function parseLogFilters(q: Record<string, string | string[] | undefined>
   const problems: string[] = [];
   const filters: LogFilters = { scope: one("scope") === "all" ? "all" : "support" };
   const uni = one("university");
-  if (uni) (isUuid(uni) ? (filters.universityId = uni) : problems.push("university"));
+  if (uni) {
+    if (isUuid(uni)) filters.universityId = uni;
+    else problems.push("university");
+  }
   const person = one("person");
-  if (person) (isUuid(person) ? (filters.personId = person) : problems.push("person"));
+  if (person) {
+    if (isUuid(person)) filters.personId = person;
+    else problems.push("person");
+  }
   const action = one("action");
-  if (action) (/^[a-z0-9_.]{2,80}$/.test(action) ? (filters.action = action) : problems.push("action"));
+  if (action) {
+    if (/^[a-z0-9_.]{2,80}$/.test(action)) filters.action = action;
+    else problems.push("action");
+  }
   for (const k of ["from", "to"] as const) {
     const v = one(k);
-    if (v) (isDate(v) ? (filters[k] = v) : problems.push(k === "from" ? "from date" : "to date"));
+    if (!v) continue;
+    if (isDate(v)) filters[k] = v;
+    else problems.push(k === "from" ? "from date" : "to date");
   }
   if (filters.from && filters.to && filters.to < filters.from) {
     problems.push("date range");

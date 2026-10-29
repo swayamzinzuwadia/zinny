@@ -112,7 +112,7 @@ export async function acknowledgeAlertAction(_: ActionState, data: FormData): Pr
   });
 }
 
-export async function checkLicencesAction(_: ActionState): Promise<ActionState> {
+export async function checkLicencesAction(): Promise<ActionState> {
   const actor = await platformContext();
   return attempt(async () => {
     const r = await syncAllAlerts(actor);
