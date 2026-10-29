@@ -5,7 +5,7 @@
  */
 import { and, desc, eq, gte, ilike, inArray, isNotNull, lt, lte, or, sql, type SQL } from "drizzle-orm";
 import { enrolments } from "@/db/schema";
-import { assertCan, can, courseTarget, listCourseBatches, peopleLite, storage, todayFor, universityLite, withTenant, type Actor } from "@/server/core";
+import { assertCan, can, courseTarget, getCourseLite, listCourseBatches, peopleLite, storage, todayFor, universityLite, withTenant, type Actor } from "@/server/core";
 import { ForbiddenError, NotFoundError } from "@/server/errors";
 import { addDays, downloadName, effectiveStatus, formatCode, monthStart, normalizeCode, verifyPath, verifyUrl, type EffectiveStatus } from "../lib";
 import { renderCertificateSvg } from "../render";
@@ -285,4 +285,54 @@ export function safeVerifyUrl(code: string): string {
   } catch {
     return verifyPath(code);
   }
+}
+
+/* ─────────────────────────── Detail and learner info ─────────────────────────── */
+
+export type CertificateDetail = {
+  certificate: CertificateView & { batchName: string; departmentId: string };
+  chain: CertificateView[];
+  issuedByName: string | null;
+  revokedByName: string | null;
+  revokedAt: Date | null;
+  pdfBytes: number;
+  pdfSha256: string;
+  canIssue: boolean;
+};
+
+/** One certificate for staff (cert.view on its department or batch), with its renewals and who acted. */
+export async function certificateDetail(actor: Actor, id: string): Promise<CertificateDetail> {
+  return withTenant(actor, async (tx) => {
+    const [c] = await tx.select().from(certCertificates).where(eq(certCertificates.id, id));
+    if (!c || !can(actor, "cert.view", certificateTarget(c))) throw new NotFoundError("Certificate");
+    const today = await todayFor(tx);
+    const chain = await tx.select().from(certCertificates).where(eq(certCertificates.enrolmentId, c.enrolmentId)).orderBy(certCertificates.createdAt);
+    const replaced = replacements(chain);
+    const people = new Map((await peopleLite(tx, [c.issuedBy, c.revokedBy].filter((x): x is string => !!x))).map((p) => [p.id, p.name]));
+    const batches = new Map((await listCourseBatches(tx, c.courseId).catch(() => [])).map((b) => [b.id, b.name]));
+    return {
+      certificate: { ...view(c, today, replaced), batchName: batches.get(c.batchId) ?? "Removed batch", departmentId: c.departmentId },
+      chain: chain.map((x) => view(x, today, replaced)),
+      issuedByName: c.issuedBy ? (people.get(c.issuedBy) ?? "A former staff member") : null,
+      revokedByName: c.revokedBy ? (people.get(c.revokedBy) ?? "A former staff member") : c.revokedAt ? "Zinny system" : null,
+      revokedAt: c.revokedAt,
+      pdfBytes: c.pdfBytes,
+      pdfSha256: c.pdfSha256,
+      canIssue: can(actor, "cert.issue", certificateTarget(c)),
+    };
+  });
+}
+
+export type LearnerCourseInfo = { certificateEnabled: boolean; autoIssue: boolean; validityMonths: number | null };
+
+/** What a learner is told about a course's certificate before they have one. Their own enrolment only. */
+export async function learnerCourseInfo(actor: Actor, enrolmentId: string): Promise<LearnerCourseInfo> {
+  assertSelf(actor);
+  return withTenant(actor, async (tx) => {
+    const [e] = await tx.select({ userId: enrolments.userId, courseId: enrolments.courseId }).from(enrolments).where(eq(enrolments.id, enrolmentId));
+    if (!e || e.userId !== actor.userId) throw new NotFoundError("Enrolment");
+    const course = await getCourseLite(tx, e.courseId);
+    const rule = await effectiveRule(tx, actor, e.courseId);
+    return { certificateEnabled: course.certificateEnabled, autoIssue: rule.autoIssue, validityMonths: rule.validityMonths };
+  });
 }
