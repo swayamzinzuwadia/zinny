@@ -27,6 +27,12 @@ export const universityBySlug = cache(async (slug: string): Promise<UniversityLi
   return u ?? null;
 });
 
+/** "active" or "suspended" (set by the Zinny team panel). */
+export const universityStatus = cache(async (universityId: string): Promise<string | null> => {
+  const [u] = await systemDb().select({ status: universities.status }).from(universities).where(eq(universities.id, universityId));
+  return u?.status ?? null;
+});
+
 /** Signed-in person working inside one university. Redirects to sign-in if needed. */
 export const spaceContext = cache(async (slug: string) => {
   const userId = await currentUserId();
@@ -34,6 +40,8 @@ export const spaceContext = cache(async (slug: string) => {
   const university = await universityBySlug(slug);
   if (!university) notFound();
   const actor = await loadActor(userId, university.id);
+  // A suspended university is closed to its own people; the Zinny team still gets in through support mode.
+  if (!actor.supportSessionId && (await universityStatus(university.id)) === "suspended") redirect(`/suspended?uni=${encodeURIComponent(slug)}`);
   const now = new Date();
   const active = actor.assignments.filter((a) => isActive(a, now) && a.universityId === university.id);
   return {
