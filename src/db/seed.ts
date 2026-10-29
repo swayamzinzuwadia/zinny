@@ -4,12 +4,18 @@
  * Everything is created through the real services, as the real roles.
  *
  *   npm run db:seed        (password for every demo account: zinny123)
+ *
+ * Order (contracts.md section 6): the core seed below, then every module's
+ * `seed(ctx)` in alphabetical order of module id, then pending events are delivered.
  */
 import "./load-env";
 import bcrypt from "bcryptjs";
-import { eq, like, or } from "drizzle-orm";
+import { and, eq, inArray, like, or } from "drizzle-orm";
+import type { SeedContext, SeedIds } from "../contracts/module";
 import { closeDb, systemDb } from "./client";
-import { roleAssignments, universities, users } from "./schema";
+import { batches, courses, departments, enrolments, roleAssignments, universities, users } from "./schema";
+import { drainEvents } from "../server/events-drain";
+import { seeds } from "../server/registry";
 import { loadActor, systemActorFor } from "../server/actor";
 import type { Actor } from "../server/authz/engine";
 import { addDays, todayIn, weekStart } from "../server/lib/dates";
@@ -32,7 +38,8 @@ async function upsertStaff(email: string, name: string, role: "super_admin" | "s
   return u;
 }
 
-async function main() {
+/** Seeds the Demo University (replacing it), then runs every module seed. Returns the context modules got. */
+export async function seedDemo(): Promise<SeedContext> {
   const db = systemDb();
   const today = todayIn("Asia/Kolkata");
   const nextMonday = addDays(weekStart(today), 7);
@@ -211,12 +218,62 @@ async function main() {
     .set({ passwordHash: hash })
     .where(or(like(users.email, "%@demo.edu"), like(users.email, "%@zinny.demo")));
 
-  console.log(`\nDone. Open http://localhost:3000/login — every demo account uses the password "${PASSWORD}".`);
+  // Core's own events (invites, enrolments) have no handlers until modules register them.
+  await drainEvents({ retryNow: true });
+
+  const ctx: SeedContext = {
+    universityId: uni.id,
+    universitySlug: SLUG,
+    today,
+    actorFor,
+    systemActor: systemActorFor(uni.id),
+    ids: await seedIds(uni.id),
+  };
+  for (const { id, seed } of seeds()) {
+    console.log(`Module seed: ${id}…`);
+    await seed(ctx);
+    await drainEvents({ retryNow: true });
+  }
+
+  return ctx;
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exitCode = 1;
-  })
-  .finally(closeDb);
+/** The core seed's records by name, for module seeds (contracts.md section 6). */
+async function seedIds(universityId: string): Promise<SeedIds> {
+  const db = systemDb();
+  const depts = await db.select().from(departments).where(eq(departments.universityId, universityId));
+  const cs = await db.select().from(courses).where(eq(courses.universityId, universityId));
+  const bs = await db.select().from(batches).where(eq(batches.universityId, universityId));
+  const people = await db
+    .selectDistinct({ id: users.id, email: users.email })
+    .from(users)
+    .innerJoin(roleAssignments, eq(roleAssignments.userId, users.id))
+    .where(eq(roleAssignments.universityId, universityId));
+  const staff = await db.select({ id: users.id, email: users.email }).from(users).where(like(users.email, "%@zinny.demo"));
+  const active = await db
+    .select({ id: enrolments.id, userId: enrolments.userId, courseId: enrolments.courseId })
+    .from(enrolments)
+    .where(and(eq(enrolments.universityId, universityId), inArray(enrolments.status, ["active", "completed"])));
+  const titleOf = new Map(cs.map((c) => [c.id, c.title]));
+  const emailOf = new Map([...people, ...staff].map((p) => [p.id, p.email]));
+  return {
+    departments: Object.fromEntries(depts.map((d) => [d.code, d.id])),
+    courses: Object.fromEntries(cs.map((c) => [c.title, c.id])),
+    batches: Object.fromEntries(bs.map((b) => [`${titleOf.get(b.courseId)} / ${b.name}`, b.id])),
+    users: Object.fromEntries([...people, ...staff].map((p) => [p.email, p.id])),
+    enrolments: Object.fromEntries(active.map((e) => [`${emailOf.get(e.userId)} / ${titleOf.get(e.courseId)}`, e.id])),
+  };
+}
+
+if (process.argv[1]?.endsWith("seed.ts")) {
+  seedDemo()
+    .then(() => {
+      const port = process.env.PORT ?? "3000";
+      console.log(`\nDone. Open http://localhost:${port}/login — every demo account uses the password "${PASSWORD}".`);
+    })
+    .catch((e) => {
+      console.error(e);
+      process.exitCode = 1;
+    })
+    .finally(closeDb);
+}
