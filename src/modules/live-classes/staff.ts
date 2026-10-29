@@ -73,7 +73,7 @@ export type RegisterEntry = {
   markedBy: string | null;
   /** Still active in the batch (false for someone who switched out after this class). */
   current: boolean;
-  /** Joined the batch after this class started. */
+  /** Joined the batch after this ended class started, so it doesn't count for them. */
   lateEnrolment: boolean;
 };
 
@@ -128,7 +128,8 @@ export async function register(actor: Actor, ref: SessionRef, now = new Date()):
             markedAt: e.row && e.row.source !== "join" ? e.row.markedAt : null,
             markedBy: e.row?.markedBy && e.row.source === "staff" ? (names.get(e.row.markedBy)?.name ?? null) : null,
             current: e.current,
-            lateEnrolment: !e.expected,
+            // Only matters once the class is over: until then they can still join.
+            lateEnrolment: !e.expected && session.state === "ended",
           },
         ];
       })

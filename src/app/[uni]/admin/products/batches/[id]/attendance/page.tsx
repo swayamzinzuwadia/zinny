@@ -63,7 +63,7 @@ export default async function AttendancePage({ params }: { params: Promise<{ uni
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Attendance" value={<Pct value={data.overall} threshold={data.threshold} />} hint="Present and late, all recorded classes" />
-        <Stat label="Classes recorded" value={data.recordedClasses} hint={data.past.length > data.recordedClasses ? `${data.past.length - data.recordedClasses} held without Zinny` : "Every class so far"} />
+        <Stat label="Classes recorded" value={data.recordedClasses} hint={data.unrecordedClasses ? `${data.unrecordedClasses} not recorded in Zinny` : "Every class so far"} />
         <Stat label={`Below ${data.threshold}%`} value={below.length} hint={below.length ? "Highlighted below" : "Nobody right now"} />
         <Stat label="Students" value={data.students.filter((s) => s.current).length} hint="Active in this batch" />
       </div>
@@ -168,6 +168,10 @@ export default async function AttendancePage({ params }: { params: Promise<{ uni
                         <PctBar value={s.percent} threshold={data.threshold} />
                       </div>
                     </div>
+                  ) : s.state === "live" ? (
+                    <span className="text-[13px] text-muted">
+                      {s.present + s.late} of {s.total} joined so far
+                    </span>
                   ) : (
                     <span className="text-[13px] text-faint">Not recorded in Zinny</span>
                   )}
@@ -178,7 +182,7 @@ export default async function AttendancePage({ params }: { params: Promise<{ uni
                   ) : s.live?.lockedAt ? (
                     <Badge>Locked</Badge>
                   ) : s.counts ? (
-                    <Badge tone="warn">Open</Badge>
+                    <Badge>Not locked</Badge>
                   ) : (
                     <Link href={registerHref(uni, id, s.date, s.startTime)} className="text-[13px] text-brand hover:underline">
                       {data.canMark ? "Take attendance" : "View"}

@@ -243,7 +243,7 @@ export type EvaluatedSession = ClassSession & {
   present: number;
   late: number;
   absent: number;
-  /** Students with no status yet while the class is on. */
+  /** Students with no status yet who still count: expected at the start, or able to join now. */
   pending: number;
   /** Everyone this class is out of: rows plus expected students. */
   total: number;
@@ -277,7 +277,10 @@ export function evaluateSession(
   const present = count("present");
   const late = count("late");
   const absent = count("absent");
-  const pending = list.filter((e) => e.status === null && e.expected).length;
+  // While a class is open or on, anyone in the batch can still join, including someone who
+  // enrolled after it started; once it ends, only those expected at the start count.
+  const joinable = s.state === "open" || s.state === "live";
+  const pending = list.filter((e) => e.status === null && (e.expected || (joinable && e.current))).length;
   const total = present + late + absent + pending;
   return {
     ...s,

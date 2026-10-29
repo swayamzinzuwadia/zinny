@@ -69,6 +69,8 @@ export async function BatchAttendanceSection({ uni, actor, batch }: BatchSection
                   <span className="w-28 shrink-0">
                     {s.counts ? (
                       <PctBar value={s.percent} threshold={data.threshold} />
+                    ) : s.state === "live" ? (
+                      <span className="text-[12px] text-gold-strong">On now</span>
                     ) : (
                       <span className="text-[12px] text-faint">Not recorded</span>
                     )}
@@ -178,34 +180,43 @@ export async function AttendanceTodayCard({ uni, actor }: DashboardCardProps) {
       ) : (
         <ul className="divide-y divide-line">
           {classes.map((s) => (
-            <li key={s.key} className={cx("flex flex-wrap items-center gap-x-4 gap-y-2 py-3", s.state === "ended" && "opacity-70")}>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="tabular text-[13px] text-muted">{formatTime(s.startTime)}</span>
-                  {(s.state === "live" || s.state === "open") && <StateBadge state={s.state} />}
-                </div>
-                <Link href={registerHref(uni, s.batchId, s.date, s.startTime)} className="block truncate text-[14px] font-medium hover:text-brand">
-                  {s.courseTitle}, {s.batchName}
-                </Link>
-              </div>
-              <div className="tabular w-24 text-right text-[14px]">
-                {s.state === "upcoming" ? (
-                  <span className="text-faint">{s.total} expected</span>
-                ) : (
-                  <span>
-                    <span className="font-semibold">{s.present + s.late}</span>
-                    <span className="text-muted">/{s.total} present</span>
-                  </span>
-                )}
-              </div>
-              <div className="flex w-full justify-end gap-2 sm:w-auto">
-                {s.canStart && s.link && s.state !== "ended" && <StartClassButton action={startHref(uni, s.batchId, s.date)} startTime={s.startTime} />}
-                {s.canMark && s.state !== "upcoming" && (
-                  <Link href={registerHref(uni, s.batchId, s.date, s.startTime)} className={buttonClass("secondary", "sm")}>
-                    {s.live?.lockedAt ? "View register" : "Take attendance"}
+            <li key={s.key} className={cx("py-3", s.state === "ended" && "opacity-70")}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="tabular text-[13px] text-muted">
+                      {formatTime(s.startTime)} to {formatTime(s.endTime)}
+                    </span>
+                    {(s.state === "live" || s.state === "open") && <StateBadge state={s.state} />}
+                    {s.live?.lockedAt && <Badge>Locked</Badge>}
+                  </div>
+                  <Link href={registerHref(uni, s.batchId, s.date, s.startTime)} className="text-[14px] font-medium hover:text-brand">
+                    {s.courseTitle}, {s.batchName}
                   </Link>
-                )}
+                </div>
+                <div className="tabular shrink-0 text-right text-[14px]">
+                  {s.state === "upcoming" ? (
+                    <span className="text-muted">{s.total} expected</span>
+                  ) : s.state === "ended" && !s.recorded ? (
+                    <span className="text-faint">Not recorded</span>
+                  ) : (
+                    <>
+                      <span className="font-semibold">{s.present + s.late}</span>
+                      <span className="text-muted"> of {s.total} {s.state === "ended" ? "attended" : "joined"}</span>
+                    </>
+                  )}
+                </div>
               </div>
+              {((s.canStart && s.link) || (s.canMark && s.state !== "upcoming")) && (
+                <div className="mt-2 flex flex-wrap justify-end gap-2">
+                  {s.canStart && s.link && <StartClassButton action={startHref(uni, s.batchId, s.date)} startTime={s.startTime} />}
+                  {s.canMark && s.state !== "upcoming" && (
+                    <Link href={registerHref(uni, s.batchId, s.date, s.startTime)} className={buttonClass("secondary", "sm")}>
+                      {s.live?.lockedAt ? "View register" : "Take attendance"}
+                    </Link>
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </ul>

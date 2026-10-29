@@ -26,6 +26,8 @@ export type BatchAttendance = {
   /** Present and late over everything recorded, across the batch. */
   overall: number | null;
   recordedClasses: number;
+  /** Classes that have ended without anyone starting, joining or marking them in Zinny. */
+  unrecordedClasses: number;
   canMark: boolean;
   canUnlock: boolean;
   canManage: boolean;
@@ -71,6 +73,7 @@ export async function batchAttendance(actor: Actor, batchId: string, now = new D
       students,
       overall: marked ? Math.round((attended / marked) * 100) : null,
       recordedClasses: counted.length,
+      unrecordedClasses: past.filter((s) => s.state === "ended" && !s.recorded).length,
       canMark: can(actor, "attendance.mark", batch.target),
       canUnlock: reachesAboveBatch(actor, "attendance.mark", batch.departmentId),
       canManage: can(actor, "live.manage", batch.target),
