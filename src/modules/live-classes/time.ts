@@ -6,6 +6,8 @@
  * so a class near midnight or in a zone with daylight saving behaves correctly.
  */
 
+/** Faculty may start a class this many minutes before it begins. */
+export const START_OPENS_MINUTES = 60;
 /** Students can join from this many minutes before the start… */
 export const JOIN_OPENS_MINUTES = 15;
 /** …and are late when they join more than this many minutes after it. */
@@ -204,6 +206,11 @@ export function sessionState(w: SessionWindow, now: Date): SessionState {
 export function canJoinAt(w: SessionWindow, now: Date): boolean {
   const s = sessionState(w, now);
   return s === "open" || s === "live";
+}
+
+/** Faculty can start a class from an hour before it begins until it ends. */
+export function startable(s: { state: SessionState; window: SessionWindow }, now = new Date()): boolean {
+  return s.state !== "ended" && s.window.startsAt.getTime() - now.getTime() <= START_OPENS_MINUTES * 60_000;
 }
 
 /** Present, or late when joining more than 10 minutes after the start. */

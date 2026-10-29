@@ -28,10 +28,9 @@ import {
 } from "./engine";
 import { liveAttendance, liveSessions, liveSettings } from "./schema";
 import { reachesAboveBatch, uniOf } from "./scope";
-import { ATTENDANCE_STATUSES, formatDay, formatTime, isIsoDate, safeMeetingUrl, type AttendanceStatus } from "./time";
+import { ATTENDANCE_STATUSES, formatDay, formatTime, isIsoDate, safeMeetingUrl, startable, type AttendanceStatus } from "./time";
 
-/** Faculty may open a class this long before it starts (students: 15 minutes). */
-export const START_OPENS_MINUTES = 60;
+export { START_OPENS_MINUTES, startable } from "./time";
 const NOTE_MAX = 300;
 
 export type SessionRef = { batchId: string; date: string; startTime?: string | null };
@@ -311,7 +310,7 @@ export async function startClass(actor: Actor, ref: SessionRef, now = new Date()
   return withTenant(actor, async (tx) => {
     const { batch, session } = await authorisedSession(tx, actor, "live.manage", ref, now);
     if (session.state === "ended") throw new ConflictError("This class has already ended.", "ended");
-    if (session.window.startsAt.getTime() - now.getTime() > START_OPENS_MINUTES * 60_000) {
+    if (!startable(session, now)) {
       throw new ConflictError(`You can start this class from an hour before it begins, at ${formatTime(session.startTime)}.`, "too_early");
     }
     const live = await ensureLiveSession(tx, uniOf(actor), session, "share");

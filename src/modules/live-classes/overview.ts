@@ -7,7 +7,7 @@ import { assertCan, batchLite, can, courseTarget, getCourseLite, peopleLite, sch
 import { NotFoundError } from "@/server/errors";
 import { clockFor, evaluateBatches, liveRowFor, meetingLinkFor, sessionKey, tallyStudents, thresholdFor, rowsFor, type EvaluatedSession, type StudentTally } from "./engine";
 import { batchesInReach, reachesAboveBatch, uniOf, type ScopedBatch } from "./scope";
-import { addDays, isUuid, minDate } from "./time";
+import { addDays, isUuid, minDate, startable } from "./time";
 
 /* ─────────────── One batch ─────────────── */
 
@@ -162,7 +162,7 @@ export async function todaysClasses(actor: Actor, now = new Date()): Promise<{ t
         courseTitle: b.courseTitle,
         departmentId: b.departmentId,
         link: meetingLinkFor(live, scheds.find((x) => x.batchId === b.id)?.joinUrl ?? null),
-        canStart: can(actor, "live.manage", target) && s.state !== "ended",
+        canStart: can(actor, "live.manage", target) && startable(s, now),
         canMark: can(actor, "attendance.mark", target),
       });
     }

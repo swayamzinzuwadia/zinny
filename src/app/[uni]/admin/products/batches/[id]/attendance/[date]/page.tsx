@@ -10,7 +10,7 @@ import { RefreshEvery, StartClassButton } from "@/modules/live-classes/component
 import { RegisterForm, type RegisterRow } from "@/modules/live-classes/components/register-form";
 import { WindowRail } from "@/modules/live-classes/components/window-rail";
 import { attendanceHref, registerHref, startHref } from "@/modules/live-classes/links";
-import { register, START_OPENS_MINUTES, type Register } from "@/modules/live-classes/staff";
+import { register, START_OPENS_MINUTES, startable, type Register } from "@/modules/live-classes/staff";
 import { clockIn, formatDay, formatTime } from "@/modules/live-classes/time";
 
 export const metadata = { title: "Attendance register" };
@@ -85,7 +85,7 @@ export default async function RegisterPage({
     lateEnrolment: e.lateEnrolment,
   }));
   const ref = { uni, batchId: id, date: s.date, start: s.startTime };
-  const canStartNow = r.canManage && s.state !== "ended" && s.window.startsAt.getTime() - now.getTime() <= START_OPENS_MINUTES * 60_000;
+  const canStartNow = r.canManage && startable(s, now);
 
   return (
     <>

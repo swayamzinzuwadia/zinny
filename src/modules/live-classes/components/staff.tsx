@@ -7,7 +7,7 @@ import type { BatchSectionProps, CourseTabProps, DashboardCardProps } from "@/co
 import { Badge, buttonClass, Card, CardTitle, cx, Empty } from "@/components/ui";
 import { attendanceHref, registerHref, startHref } from "../links";
 import { batchAttendance, courseLive, todaysClasses } from "../overview";
-import { formatTime, relativeDay } from "../time";
+import { formatTime, relativeDay, startable } from "../time";
 import { KindNote, LinkText, Pct, PctBar, StateBadge, when } from "./bits";
 import { StartClassButton } from "./client";
 
@@ -50,7 +50,7 @@ export async function BatchAttendanceSection({ uni, actor, batch }: BatchSection
                 <span className="text-gold-strong">{today.state === "live" ? `On now. ${today.present + today.late} of ${today.total} joined.` : "Coming up."}</span>
               </span>
               <span className="flex items-center gap-2">
-                {data.canManage && today.state !== "ended" && <StartClassButton action={startHref(uni, batch.id, today.date)} startTime={today.startTime} />}
+                {data.canManage && startable(today) && <StartClassButton action={startHref(uni, batch.id, today.date)} startTime={today.startTime} />}
                 <Link className={buttonClass("secondary", "sm")} href={registerHref(uni, batch.id, today.date, today.startTime)}>
                   Open register
                 </Link>

@@ -9,7 +9,7 @@ import { KindNote, Pct, PctBar, StateBadge } from "@/modules/live-classes/compon
 import { RefreshEvery, StartClassButton } from "@/modules/live-classes/components/client";
 import { registerHref, startHref } from "@/modules/live-classes/links";
 import { batchAttendance } from "@/modules/live-classes/overview";
-import { canSetThreshold } from "@/modules/live-classes/staff";
+import { canSetThreshold, startable } from "@/modules/live-classes/staff";
 import { formatDay, formatTime, relativeDay } from "@/modules/live-classes/time";
 
 export const metadata = { title: "Attendance" };
@@ -53,7 +53,7 @@ export default async function AttendancePage({ params }: { params: Promise<{ uni
             </span>
           </div>
           <div className="flex gap-2">
-            {data.canManage && <StartClassButton action={startHref(uni, id, onNow.date)} startTime={onNow.startTime} />}
+            {data.canManage && startable(onNow) && <StartClassButton action={startHref(uni, id, onNow.date)} startTime={onNow.startTime} />}
             <Link href={registerHref(uni, id, onNow.date, onNow.startTime)} className="inline-flex h-8 items-center rounded-full border border-line bg-surface px-3.5 text-[13px] font-medium hover:border-brand/40">
               {data.canMark ? "Take attendance" : "Open register"}
             </Link>

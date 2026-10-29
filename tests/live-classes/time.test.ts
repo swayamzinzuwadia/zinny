@@ -14,6 +14,7 @@ import {
   safeMeetingUrl,
   sessionState,
   sessionWindow,
+  startable,
   startsIn,
   statusForJoin,
   weekStart,
@@ -43,6 +44,15 @@ describe("live-classes time rules", () => {
     expect(canJoinAt(w, at("2030-11-04T03:14:59Z"))).toBe(false);
     expect(canJoinAt(w, at("2030-11-04T03:15:00Z"))).toBe(true);
     expect(canJoinAt(w, at("2030-11-04T05:30:00Z"))).toBe(false);
+  });
+
+  it("faculty can start a class from an hour before it begins until it ends", () => {
+    const w = sessionWindow({ date: "2030-11-04", startTime: "09:00", endTime: "11:00" }, IST);
+    const at2 = (iso: string) => ({ window: w, state: sessionState(w, at(iso)) });
+    expect(startable(at2("2030-11-04T02:29:00Z"), at("2030-11-04T02:29:00Z"))).toBe(false); // 7:59 am
+    expect(startable(at2("2030-11-04T02:30:00Z"), at("2030-11-04T02:30:00Z"))).toBe(true); // 8:00 am
+    expect(startable(at2("2030-11-04T05:29:00Z"), at("2030-11-04T05:29:00Z"))).toBe(true); // 10:59 am
+    expect(startable(at2("2030-11-04T05:30:00Z"), at("2030-11-04T05:30:00Z"))).toBe(false); // ended
   });
 
   it("joining up to 10 minutes after the start is present; later is late", () => {

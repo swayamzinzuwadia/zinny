@@ -7,7 +7,7 @@ import { joinClass } from "@/modules/live-classes/join";
 import { batchAttendance, courseLive, todaysClasses } from "@/modules/live-classes/overview";
 import { closeEndedSessions, sendWeeklyAlerts } from "@/modules/live-classes/jobs";
 import { attendanceReport } from "@/modules/live-classes/reports";
-import { lockRegister, markAttendance, setAttendanceThreshold, startClass } from "@/modules/live-classes/staff";
+import { lockRegister, setAttendanceThreshold, startClass } from "@/modules/live-classes/staff";
 import { systemActorFor } from "@/server/actor";
 import { addSessionOverride, createBatch } from "@/server/services/batches";
 import { eventsOfType } from "../helpers/events";
