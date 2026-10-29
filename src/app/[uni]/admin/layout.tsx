@@ -85,7 +85,10 @@ export default async function AdminLayout({ children, params }: { children: Reac
         </div>
       )}
       <div className="flex">
-        <aside className="sticky top-0 hidden h-dvh w-[264px] shrink-0 bg-brand-deep px-3 py-6 md:block">{sidebar}</aside>
+        {/* The aside is the full-height green column (flex stretch makes it as tall as the page); only its contents stick. */}
+        <aside className="hidden w-[264px] shrink-0 bg-brand-deep md:block">
+          <div className="sticky top-0 h-dvh px-3 py-6">{sidebar}</div>
+        </aside>
         <div className="min-w-0 flex-1">
           <details className="group border-b border-line bg-brand-deep md:hidden">
             <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3">
