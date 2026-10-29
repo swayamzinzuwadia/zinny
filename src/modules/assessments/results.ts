@@ -230,3 +230,8 @@ export async function testScoresReport(actor: Actor, params: ReportParams): Prom
     };
   });
 }
+
+/** The university's time zone, for pages that format times. */
+export async function timezoneOf(actor: Actor): Promise<string> {
+  return withTenant(actor, async (tx) => (await universityLite(tx)).timezone);
+}
