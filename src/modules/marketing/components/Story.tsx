@@ -178,8 +178,8 @@ function ChapterText({ chapter, index, onActive }: { chapter: Chapter; index: nu
         <p className={`mt-5 max-w-lg text-[16px] leading-relaxed text-muted ${css.pretty}`}>{chapter.body}</p>
         <ul className="mt-7 space-y-2.5">
           {chapter.points.map((p) => (
-            <li key={p} className="flex items-center gap-3 text-[15px]">
-              <span aria-hidden className="h-px w-5 bg-brand/40" />
+            <li key={p} className="flex items-start gap-3 text-[15px]">
+              <span aria-hidden className="mt-[0.75em] h-px w-5 shrink-0 bg-brand/40" />
               {p}
             </li>
           ))}

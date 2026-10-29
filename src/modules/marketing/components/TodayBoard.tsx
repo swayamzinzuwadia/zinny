@@ -77,8 +77,8 @@ export function TodayBoard() {
           </motion.ul>
         </div>
 
-        {/* Bell schedule (tablet and up) */}
-        <div className="mt-8 hidden pb-6 md:block">
+        {/* Bell schedule (laptops and up) */}
+        <div className="mt-8 hidden pb-6 lg:block">
           <div className="grid grid-cols-[72px_1fr] gap-3">
             <div />
             <div className="relative h-5 text-[11px] text-canvas/45">
@@ -94,8 +94,8 @@ export function TodayBoard() {
           </div>
         </div>
 
-        {/* Agenda (phones) */}
-        <motion.ol variants={board} className="mt-6 space-y-2 md:hidden">
+        {/* Agenda (phones and tablets) */}
+        <motion.ol variants={board} className="mt-6 space-y-2 lg:hidden">
           {[...SLOTS].sort((a, b) => a.from - b.from).map((s) => {
             const live = s.from <= NOW && NOW < s.to;
             return (
@@ -123,7 +123,7 @@ export function TodayBoard() {
         initial={{ opacity: 0, y: motionTokens.distance.lg }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ...springs.gentle, delay: 1.3 }}
-        className={`relative z-10 mx-3 -mt-6 rounded-3xl p-5 text-ink sm:mx-auto sm:max-w-md md:absolute md:right-[-12px] md:-bottom-14 md:mx-0 md:mt-0 md:w-[340px] lg:right-[-36px] ${css.glass}`}
+        className={`relative z-10 mx-3 -mt-6 rounded-3xl p-5 text-ink sm:mx-auto sm:max-w-md lg:absolute lg:right-6 lg:-bottom-14 lg:mx-0 lg:mt-0 lg:w-[340px] xl:right-[-36px] ${css.glass}`}
       >
         <div className="flex items-center justify-between">
           <p className="text-[13px] font-medium">Needs you</p>

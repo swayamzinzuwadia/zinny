@@ -155,7 +155,6 @@ const ROSTER = [
   { name: "Kabir Mehta", status: "Present" },
   { name: "Tara Iyer", status: "Late" },
   { name: "Arjun Nair", status: "Present" },
-  { name: "Meera Joshi", status: "Present" },
 ];
 const BOARD = [
   { name: "Riya Sharma", xp: 1240, w: 1 },
