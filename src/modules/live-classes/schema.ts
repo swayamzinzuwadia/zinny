@@ -10,7 +10,7 @@
  */
 import { sql } from "drizzle-orm";
 import { check, date, index, integer, pgEnum, pgTable, primaryKey, smallint, text, time, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
-import { batches, departments, universities, users } from "@/db/schema";
+import { batches, universities, users } from "@/db/schema";
 
 const universityId = () =>
   uuid("university_id")
@@ -41,6 +41,8 @@ export const liveSessions = pgTable(
     startedBy: uuid("started_by").references(() => users.id, { onDelete: "set null" }),
     lockedAt: timestamp("locked_at", { withTimezone: true }),
     lockedBy: uuid("locked_by").references(() => users.id, { onDelete: "set null" }),
+    /** When no-shows were marked absent (by the hourly job or at lock). */
+    closedAt: timestamp("closed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -85,6 +87,8 @@ export const liveSettings = pgTable(
       .primaryKey()
       .references(() => universities.id, { onDelete: "cascade" }),
     thresholdPercent: smallint("threshold_percent").notNull().default(75),
+    /** Monday of the last week the weekly alerts went out, so they go out once a week. */
+    alertsWeek: date("alerts_week"),
     updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -92,8 +96,8 @@ export const liveSettings = pgTable(
 );
 
 /**
- * Weekly low-attendance alerts already sent: one per recipient per week, so the job can run
- * daily (or twice) and still alert each person once. `departmentId` is set for HOD summaries.
+ * Weekly low-attendance alerts already sent, so the daily job alerts each person once a
+ * week even if it runs twice: one row per student per batch, and per HOD per department.
  */
 export const liveAlerts = pgTable(
   "live_alerts",
@@ -101,13 +105,12 @@ export const liveAlerts = pgTable(
     universityId: universityId(),
     /** Monday of the week the alert belongs to. */
     week: date("week").notNull(),
+    /** "student" (scope = batch id) or "hod" (scope = department id). */
     kind: text("kind").notNull(),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    departmentId: uuid("department_id").references(() => departments.id, { onDelete: "cascade" }),
-    /** Department id for HOD summaries, empty for student alerts (part of the key). */
-    scope: text("scope").notNull().default(""),
+    scope: uuid("scope").notNull(),
     sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

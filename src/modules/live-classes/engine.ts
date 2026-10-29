@@ -13,9 +13,10 @@
  *   - otherwise, once a recorded class has ended and they were in the batch when it
  *     started: absent (the hourly job writes these rows; until then they count anyway);
  *   - otherwise none (the class is still on, or they joined the batch afterwards).
- * A session is "recorded" when it has a live_sessions row, i.e. someone joined, started
- * it, took attendance, or the hourly job closed it. Only recorded classes that have
- * started count towards percentages, so batches that never use attendance don't show 0%.
+ * A session is "recorded" when its class was started from Zinny, a student joined
+ * through Zinny, staff took attendance, or its register was locked. Only recorded classes
+ * that have started count towards percentages, so a batch that doesn't use live classes
+ * (or a class held elsewhere, with only a recording link added) never shows 0%.
  */
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import type { Tx } from "@/db/client";
@@ -227,9 +228,15 @@ export type Entry = {
   current: boolean;
 };
 
+/** Started from Zinny, joined through Zinny, attendance taken, or locked. */
+export function isRecorded(live: LiveSessionRow | undefined | null, rows: Map<string, AttendanceRow> | undefined): boolean {
+  return !!live && (live.startedAt !== null || live.lockedAt !== null || (rows?.size ?? 0) > 0);
+}
+
 export type EvaluatedSession = ClassSession & {
   key: string;
   live: LiveSessionRow | null;
+  recorded: boolean;
   /** Recorded and started: counts towards percentages. */
   counts: boolean;
   entries: Entry[];
@@ -252,6 +259,7 @@ export function evaluateSession(
 ): EvaluatedSession {
   const key = sessionKey(s.batchId, s.date, s.startTime);
   const started = s.state === "live" || s.state === "ended";
+  const recorded = isRecorded(live, rows);
   const entries = new Map<string, Entry>();
   for (const [userId, row] of rows ?? []) entries.set(userId, { userId, status: row.status, row, expected: true, current: false });
   for (const m of roster) {
@@ -261,7 +269,7 @@ export function evaluateSession(
       e.current = true;
       continue;
     }
-    const status: AttendanceStatus | null = expected && live && s.state === "ended" ? "absent" : null;
+    const status: AttendanceStatus | null = expected && recorded && s.state === "ended" ? "absent" : null;
     entries.set(m.userId, { userId: m.userId, status, row: null, expected, current: true });
   }
   const list = [...entries.values()];
@@ -275,14 +283,15 @@ export function evaluateSession(
     ...s,
     key,
     live: live ?? null,
-    counts: !!live && started,
+    recorded,
+    counts: recorded && started,
     entries: list,
     present,
     late,
     absent,
     pending,
     total,
-    percent: live && started ? percent(present + late, total) : null,
+    percent: recorded && started ? percent(present + late, total) : null,
   };
 }
 
