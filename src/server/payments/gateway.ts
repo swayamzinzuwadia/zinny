@@ -26,3 +26,12 @@ export const mockGateway: PaymentGateway = {
 export function gateway(): PaymentGateway {
   return paymentGateway() ?? mockGateway;
 }
+
+/**
+ * Test-mode payments confirm an order without any money moving. They are allowed only while
+ * the mock gateway is active, and only in development or a demo deployment (ZINNY_DEMO=1),
+ * so a live space without Razorpay keys can never hand out free enrolments.
+ */
+export function testPaymentsAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+  return gateway().name === "mock" && (env.NODE_ENV !== "production" || env.ZINNY_DEMO === "1");
+}
