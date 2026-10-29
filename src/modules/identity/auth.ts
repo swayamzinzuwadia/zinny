@@ -40,15 +40,21 @@ export type LoginUniversity = { id: string; slug: string; name: string; phoneSig
 /** Paths that are app routes, not university slugs. */
 const RESERVED = new Set(["login", "invite", "reset", "platform", "api", "verify", "site", "_next", "brand", "favicon.ico"]);
 
-/** The university a sign-in screen is for: `?uni=demo`, or the first part of `next=/demo/learn`. */
-export async function loginUniversity(o: { uni?: string | null; next?: string | null }): Promise<LoginUniversity | null> {
-  const fromNext = o.next && safeNext(o.next) ? o.next.split(/[/?#]/)[1] : undefined;
-  const slug = (o.uni || fromNext || "").toLowerCase();
-  if (!slug || RESERVED.has(slug) || !/^[a-z0-9-]{2,40}$/.test(slug)) return null;
+/** The university slug at the start of a `next` path ("/demo/learn" → "demo"), if any. */
+export function slugFromNext(next: string | null | undefined): string | null {
+  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return null;
+  const first = next.split(/[/?#]/)[1]?.toLowerCase();
+  return first && /^[a-z0-9-]{2,40}$/.test(first) && !RESERVED.has(first) ? first : null;
+}
+
+/** The university a sign-in screen is for, by slug. Null for unknown or reserved slugs. */
+export async function loginUniversity(slug: string | null | undefined): Promise<LoginUniversity | null> {
+  const s = (slug ?? "").toLowerCase();
+  if (!s || RESERVED.has(s) || !/^[a-z0-9-]{2,40}$/.test(s)) return null;
   const [u] = await systemDb()
     .select({ id: universities.id, slug: universities.slug, name: universities.name })
     .from(universities)
-    .where(eq(universities.slug, slug));
+    .where(eq(universities.slug, s));
   if (!u) return null;
   return { ...u, phoneSignIn: await phoneSignInEnabled(u.id) };
 }
@@ -639,9 +645,10 @@ async function loadChallenge(tx: Tx, r: Ref, lock: boolean): Promise<Challenge |
 
 const stale = (c: Challenge, now: Date) => !!c.consumedAt || c.createdAt.getTime() + AUTH.otp.challengeMs <= now.getTime();
 
-export type PhoneView =
+export type PhoneView = { universityId: string } & (
   | { step: "code"; masked: string; resendAt: Date; expiresAt: Date; attemptsLeft: number; sendsLeft: number }
-  | { step: "choose"; masked: string; accounts: { id: string; name: string; email: string }[] };
+  | { step: "choose"; masked: string; accounts: { id: string; name: string; email: string }[] }
+);
 
 /** What the phone tab shows for a sign-in in progress, or null to start again. */
 export async function phoneSignInView(ref: string | null | undefined, now = new Date()): Promise<PhoneView | null> {
@@ -652,9 +659,10 @@ export async function phoneSignInView(ref: string | null | undefined, now = new 
     if (!c || stale(c, now)) return null;
     if (c.verifiedAt) {
       const accounts = (await membersByPhone(tx, c.phone, now)).map((a) => ({ ...a, email: maskEmail(a.email) }));
-      return { step: "choose", masked: maskPhone(c.phone), accounts };
+      return { universityId: r.universityId, step: "choose", masked: maskPhone(c.phone), accounts };
     }
     return {
+      universityId: r.universityId,
       step: "code",
       masked: maskPhone(c.phone),
       resendAt: new Date(c.sentAt.getTime() + AUTH.otp.resendAfterMs),
@@ -814,6 +822,11 @@ export async function seedSetPhone(userId: string, phone: string) {
 /** Seed only: a person who hasn't accepted their invitation yet has no password. */
 export async function seedWithoutPassword(userId: string) {
   await systemDb().update(users).set({ passwordHash: null }).where(eq(users.id, userId));
+  await systemDb().delete(sessions).where(eq(sessions.userId, userId));
+}
+
+/** Seed only: forget a demo person's earlier sessions, so re-seeding doesn't pile them up. */
+export async function seedClearSessions(userId: string) {
   await systemDb().delete(sessions).where(eq(sessions.userId, userId));
 }
 

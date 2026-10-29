@@ -3,11 +3,11 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { demoEnabled } from "@/server/auth/config";
 import { currentUserId } from "@/server/auth/session";
-import { DEMO_ACCOUNTS, loginUniversity, phoneSignInView, safeNext } from "@/modules/identity/auth";
+import { DEMO_ACCOUNTS, loginUniversity, phoneSignInView, safeNext, slugFromNext } from "@/modules/identity/auth";
 import { AuthShell, AuthTabs } from "@/modules/identity/components/auth-shell";
 import { PasswordSignInForm, PhoneChooseForm, PhoneCodeForm, PhoneNumberForm } from "@/modules/identity/components/auth-forms";
+import { PHONE_COOKIE, UNI_COOKIE } from "@/modules/identity/cookies";
 import {
-  UNI_COOKIE,
   demoSignInAction,
   forgetUniversityAction,
   passwordSignInAction,
@@ -28,8 +28,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   if (await currentUserId()) redirect(next);
 
   const jar = await cookies();
-  // ?uni= (empty) means "not your institute": ignore the remembered one.
-  const university = await loginUniversity({ uni: sp.uni ?? jar.get(UNI_COOKIE)?.value ?? null, next: sp.next });
+  // Which institute: ?uni= first (empty means "not your institute"), then the place
+  // you were going to, then the institute this device last signed in to.
+  const slug = sp.uni !== undefined ? sp.uni : (slugFromNext(sp.next) ?? jar.get(UNI_COOKIE)?.value ?? null);
+  const university = await loginUniversity(slug);
   const phoneOn = !!university?.phoneSignIn;
   const tab = phoneOn && sp.tab === "phone" ? "phone" : "email";
   const query = (extra: Record<string, string>) => {
@@ -37,7 +39,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     const s = q.toString();
     return `/login${s ? `?${s}` : ""}`;
   };
-  const phone = tab === "phone" ? await phoneSignInView(jar.get("zinny_phone_signin")?.value) : null;
+  const view = tab === "phone" ? await phoneSignInView(jar.get(PHONE_COOKIE)?.value) : null;
+  // A phone sign-in started at another institute isn't continued here.
+  const phone = view && view.universityId === university?.id ? view : null;
 
   const title = phone?.step === "code" ? "Enter your code" : phone?.step === "choose" ? "Choose your account" : "Sign in to your institute";
   const subtitle = university ? (

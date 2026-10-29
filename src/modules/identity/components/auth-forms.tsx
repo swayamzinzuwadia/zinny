@@ -310,9 +310,11 @@ export function PhoneCodeForm({
             aria-describedby={`${id}-left`}
             className={cx(inputClass, "tabular h-14 text-center text-[26px] font-semibold tracking-[0.4em]")}
           />
-          <p id={`${id}-left`} className="mt-1 text-[12px] text-muted">
-            {attemptsLeft < 5 && !state ? `${attemptsLeft} tries left for this code.` : "You have 5 tries for each code."}
-          </p>
+          {!state?.error && (
+            <p id={`${id}-left`} className="mt-1 text-[12px] text-muted">
+              {attemptsLeft < 5 ? `${attemptsLeft} ${attemptsLeft === 1 ? "try" : "tries"} left for this code.` : "You have 5 tries for each code."}
+            </p>
+          )}
         </div>
         {state?.error && (
           <Alert

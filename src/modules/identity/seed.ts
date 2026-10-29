@@ -8,12 +8,12 @@
  * Prints a working invitation link so the invite page can be tried straight away.
  */
 import sharp from "sharp";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { SeedContext } from "@/contracts/module";
 import { audit, withTenant } from "@/server/core";
 import { appUrl } from "@/server/auth/config";
 import { sha256 } from "@/server/auth/tokens";
-import { makeInviteToken, seedSession, seedSetPhone, seedWithoutPassword } from "./auth";
+import { makeInviteToken, seedClearSessions, seedSession, seedSetPhone, seedWithoutPassword } from "./auth";
 import { uploadPhoto } from "./profile";
 import { idnInvites } from "./schema";
 import { setPhoneSignIn } from "./settings";
@@ -73,6 +73,11 @@ export async function seed(ctx: SeedContext) {
     for (const p of pending) {
       const userId = id(p.email);
       await seedWithoutPassword(userId);
+      // One live link per person, as in the app.
+      await tx
+        .update(idnInvites)
+        .set({ revokedAt: now, revokeReason: "replaced" })
+        .where(and(eq(idnInvites.userId, userId), isNull(idnInvites.acceptedAt), isNull(idnInvites.revokedAt)));
       const token = makeInviteToken(ctx.universityId);
       const sentAt = new Date(now.getTime() - p.sentAgo);
       const [row] = await tx
@@ -114,6 +119,7 @@ export async function seed(ctx: SeedContext) {
   });
 
   // Earlier sign-ins on other devices.
+  for (const email of ["riya@demo.edu", "asha@demo.edu"]) await seedClearSessions(id(email));
   await seedSession(id("riya@demo.edu"), { method: "phone", ip: "49.36.112.20", userAgent: ANDROID, createdAt: new Date(now.getTime() - 3 * DAY), lastSeenAt: new Date(now.getTime() - 2 * HOUR) });
   await seedSession(id("riya@demo.edu"), { method: "password", ip: "103.21.58.7", userAgent: WINDOWS, createdAt: new Date(now.getTime() - 9 * DAY), lastSeenAt: new Date(now.getTime() - 4 * DAY) });
   await seedSession(id("asha@demo.edu"), { method: "password", ip: "103.21.58.40", userAgent: MAC, createdAt: new Date(now.getTime() - 6 * DAY), lastSeenAt: new Date(now.getTime() - 20 * HOUR) });

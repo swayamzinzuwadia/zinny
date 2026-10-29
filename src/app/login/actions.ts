@@ -24,10 +24,8 @@ import {
   verifyPhoneCode,
   loginUniversity,
 } from "@/modules/identity/auth";
+import { PHONE_COOKIE, UNI_COOKIE } from "@/modules/identity/cookies";
 
-const PHONE_COOKIE = "zinny_phone_signin";
-/** The institute this device last signed in to, so /login can offer its phone tab. */
-export const UNI_COOKIE = "zinny_uni";
 
 /** Signs in and remembers the institute when the person belongs to exactly one. */
 async function signInAs(userId: string, method: SessionMethod) {
@@ -105,7 +103,7 @@ export async function phoneSendAction(_: AuthState, data: FormData): Promise<Aut
   const slug = str(data, "uni");
   const next = safeNext(str(data, "next"));
   try {
-    const uni = await loginUniversity({ uni: slug });
+    const uni = await loginUniversity(slug);
     if (!uni) throw new ValidationError("We couldn't find your institute. Sign in with your email instead.");
     const { ip } = await clientInfo();
     const s = await startPhoneSignIn({ universityId: uni.id, phone: str(data, "phone"), ip });
