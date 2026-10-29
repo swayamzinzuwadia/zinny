@@ -104,7 +104,6 @@ export async function planDeliveries(actor: Actor, opts: RunOptions = {}): Promi
       .where(
         and(
           gte(notifications.createdAt, from),
-          lte(notifications.createdAt, now),
           sql`not exists (select 1 from ${notifDispatches} d where d.notification_id = ${notifications.id})`,
         ),
       )
@@ -287,7 +286,7 @@ export async function claim(actor: Actor, id: string, providerName: string, ctx:
       .set({
         status: "sending",
         attempts: sql`${notifDeliveries.attempts} + 1`,
-        lockedUntil: new Date(ctx.now.getTime() + CLAIM_MS),
+        lockedUntil: new Date(Math.max(ctx.now.getTime(), Date.now()) + CLAIM_MS),
         provider: providerName,
         updatedAt: ctx.now,
       })
@@ -311,9 +310,10 @@ async function recoverInterrupted(tx: Tx, now: Date): Promise<number> {
       .update(notifDeliveries)
       .set(
         repeat
-          ? { status: "queued", nextAttemptAt: now, lockedUntil: null, lastError: "The previous send was interrupted. Trying again.", updatedAt: now }
+          ? { status: "queued", interrupted: true, nextAttemptAt: now, lockedUntil: null, lastError: "The previous send was interrupted. Trying again.", updatedAt: now }
           : {
               status: "failed",
+              interrupted: true,
               nextAttemptAt: null,
               lockedUntil: null,
               lastError: "The send was interrupted and its outcome is unknown. It wasn't tried again, so it can't arrive twice.",
@@ -643,7 +643,7 @@ export function toView(r: DeliveryRow): DeliveryView {
     sentAt: r.sentAt,
     userId: r.userId,
     subject: r.payload?.subject ?? (r.channel === "email" ? null : (r.payload?.text ?? null)),
-    retryable: r.status === "failed" && !r.payload?.redacted && !!r.recipient && !!(r.channel === "email" ? r.payload?.html : r.payload?.text),
+    retryable: r.status === "failed" && !r.interrupted && !r.payload?.redacted && !!r.recipient && !!(r.channel === "email" ? r.payload?.html : r.payload?.text),
   };
 }
 

@@ -140,6 +140,8 @@ export const notifDeliveries = pgTable(
      * if the first one went through, while a known failure is retried with a fresh key.
      */
     failures: integer("failures").notNull().default(0),
+    /** A send was interrupted and its outcome is unknown: never offered for a manual retry, so it can't arrive twice. */
+    interrupted: boolean("interrupted").notNull().default(false),
     nextAttemptAt: ts("next_attempt_at"),
     /** While status = sending: when this claim expires (a crashed run). */
     lockedUntil: ts("locked_until"),

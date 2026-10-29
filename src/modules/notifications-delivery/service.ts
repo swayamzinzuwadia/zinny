@@ -122,6 +122,7 @@ export type KindEditor = KindSummary & {
   template: KindConfig["template"];
   defaults: { channels: ChannelDefaults; template: KindConfig["template"] };
   customizedFields: KindConfig["customized"];
+  saved: boolean;
   updatedAt: Date | null;
   preview: { subject: string; html: string; text: string; sms: string };
 };
@@ -141,6 +142,7 @@ export async function getKindEditor(actor: Actor, kind: string): Promise<KindEdi
       template: cfg.template,
       defaults: { channels: cfg.def.defaults, template: cfg.def.template },
       customizedFields: cfg.customized,
+      saved: cfg.saved,
       updatedAt: cfg.updatedAt,
       preview: { subject: email.subject, html: email.html, text: email.text, sms: renderText(sample, cfg).text },
     };
@@ -407,14 +409,14 @@ export async function retryDelivery(actor: Actor, deliveryId: string) {
     const [row] = await tx.select().from(notifDeliveries).where(eq(notifDeliveries.id, deliveryId)).for("update");
     if (!row) throw new NotFoundError("Delivery");
     const view = toView(row);
-    if (!view.retryable) throw new ValidationError("Only failed messages with their content saved can be sent again.");
-    if (row.attempts !== row.failures) {
+    if (row.interrupted) {
       throw new ValidationError("This send was interrupted, so it may have arrived already. It can't be sent again, so nobody gets it twice.");
     }
+    if (!view.retryable) throw new ValidationError("Only failed messages with their content saved can be sent again.");
     const now = new Date();
     await tx
       .update(notifDeliveries)
-      .set({ status: "queued", attempts: 0, failures: row.failures, nextAttemptAt: now, lastError: null, lockedUntil: null, updatedAt: now })
+      .set({ status: "queued", attempts: 0, nextAttemptAt: now, lastError: null, lockedUntil: null, updatedAt: now })
       .where(eq(notifDeliveries.id, deliveryId));
     await audit(tx, actor, "notifications.retry", "notif_delivery", deliveryId, { kind: row.kind, channel: row.channel });
     return { id: deliveryId };
@@ -433,8 +435,6 @@ export type PreferenceCell = {
 };
 export type PreferenceRow = { kind: string; label: string; description: string; channels: PreferenceCell[] };
 
-const LEARNER_ROLES = new Set(["student", "alumni", "parent", "individual_learner"]);
-
 /** What a person can choose, per kind and channel, within the institute's settings. */
 export async function getPreferences(actor: Actor, userId: string) {
   const universityId = uni(actor);
@@ -444,7 +444,7 @@ export async function getPreferences(actor: Actor, userId: string) {
       .select({ role: roleAssignments.role })
       .from(roleAssignments)
       .where(and(eq(roleAssignments.userId, userId), eq(roleAssignments.universityId, universityId), sql`${roleAssignments.revokedAt} is null`));
-    const audiences = new Set<Audience>(roles.map((r) => (LEARNER_ROLES.has(r.role) ? "learners" : "staff")));
+    const held = new Set(roles.map((r) => r.role));
     const received = await tx
       .selectDistinct({ kind: notifications.kind })
       .from(notifications)
@@ -455,7 +455,7 @@ export async function getPreferences(actor: Actor, userId: string) {
       .where(and(eq(notifDeliveries.userId, userId), eq(notifDeliveries.source, "direct")));
     const kinds = [
       ...new Set([
-        ...CORE_KINDS.filter((k) => audiences.has(k.audience)).map((k) => k.kind),
+        ...CORE_KINDS.filter((k) => k.roles.some((r) => held.has(r))).map((k) => k.kind),
         ...received.map((r) => r.kind),
         ...direct.map((r) => r.kind),
       ]),

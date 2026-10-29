@@ -4,6 +4,7 @@
  * entry; any other kind (another module's) falls back to the generic entry, which uses
  * the notification's own title and body.
  */
+import type { RoleName } from "@/db/schema";
 import type { Channel, ChannelState } from "./schema";
 
 export const CHANNELS: readonly Channel[] = ["email", "sms", "whatsapp"] as const;
@@ -25,6 +26,8 @@ export type KindDefinition = {
   label: string;
   description: string;
   audience: Audience;
+  /** Roles that receive this kind (for the personal settings page). Empty = whoever has received one. */
+  roles: readonly RoleName[];
   defaults: ChannelDefaults;
   template: KindTemplate;
   /** The email button. */
@@ -57,6 +60,7 @@ export const CORE_KINDS: KindDefinition[] = [
     label: "Enrolment confirmed",
     description: "A learner's seat in a batch is confirmed, free or paid.",
     audience: "learners",
+    roles: ["student", "alumni", "individual_learner"],
     defaults: { email: "on", sms: "optional", whatsapp: "optional" },
     template: {
       emailSubject: "{{title}}",
@@ -72,6 +76,7 @@ export const CORE_KINDS: KindDefinition[] = [
     label: "Timetable changed",
     description: "A batch's timings or dates changed, or a class was cancelled, moved or added.",
     audience: "learners",
+    roles: ["student"],
     defaults: { email: "on", sms: "on", whatsapp: "optional" },
     template: {
       emailSubject: "{{title}}",
@@ -87,6 +92,7 @@ export const CORE_KINDS: KindDefinition[] = [
     label: "Batch switch approved",
     description: "A learner's request to move to another batch was approved.",
     audience: "learners",
+    roles: ["student"],
     defaults: { email: "on", sms: "optional", whatsapp: "optional" },
     template: {
       emailSubject: "{{title}}",
@@ -102,6 +108,7 @@ export const CORE_KINDS: KindDefinition[] = [
     label: "Batch switch not approved",
     description: "A learner's request to move to another batch was not approved.",
     audience: "learners",
+    roles: ["student"],
     defaults: { email: "on", sms: "optional", whatsapp: "optional" },
     template: {
       emailSubject: "{{title}}",
@@ -117,6 +124,7 @@ export const CORE_KINDS: KindDefinition[] = [
     label: "Payment to be refunded",
     description: "A learner paid after their seat hold ran out and the batch had filled.",
     audience: "learners",
+    roles: ["student", "alumni", "individual_learner"],
     defaults: { email: "on", sms: "on", whatsapp: "off" },
     template: {
       emailSubject: "{{title}}",
@@ -132,6 +140,7 @@ export const CORE_KINDS: KindDefinition[] = [
     label: "Batch switch requested",
     description: "A learner asked to move to another batch. Goes to the department's heads.",
     audience: "staff",
+    roles: ["hod"],
     defaults: { email: "on", sms: "off", whatsapp: "off" },
     template: {
       emailSubject: "{{title}}",
@@ -147,6 +156,7 @@ export const CORE_KINDS: KindDefinition[] = [
     label: "Refund needed",
     description: "A payment arrived after the batch filled and must be refunded. Goes to admins and accounts.",
     audience: "staff",
+    roles: ["institute_admin", "accounts_fees"],
     defaults: { email: "on", sms: "off", whatsapp: "off" },
     template: {
       emailSubject: "{{title}}",
@@ -162,6 +172,7 @@ export const CORE_KINDS: KindDefinition[] = [
     label: "Faculty access ending",
     description: "Visiting faculty lose access before their batch ends. Goes to the department's heads.",
     audience: "staff",
+    roles: ["hod"],
     defaults: { email: "on", sms: "off", whatsapp: "off" },
     template: {
       emailSubject: "{{title}}",
@@ -179,6 +190,7 @@ const securityKind = (kind: string, label: string, description: string): KindDef
   label,
   description,
   audience: "learners",
+  roles: [],
   defaults: { email: "on", sms: "on", whatsapp: "off" },
   template: { emailSubject: "{{title}}", emailBody: "{{body}}", smsText: "{{body}}" },
   ctaLabel: "Open Zinny",
@@ -220,6 +232,7 @@ export function genericKind(kind: string): KindDefinition {
     label: humanizeKind(kind),
     description: "Sent by another part of Zinny. The message uses the notification's own title and details.",
     audience: "learners",
+    roles: [],
     defaults: { email: "on", sms: "off", whatsapp: "off" },
     template: { emailSubject: "{{title}}", emailBody: "Hi {{firstName}},\n\n{{body}}", smsText: "{{university}}: {{title}}" },
     ctaLabel: "Open Zinny",
@@ -245,17 +258,12 @@ export const KIND_PATTERN = /^[a-z0-9][a-z0-9_.-]{0,79}$/;
 /**
  * Security messages (sign-in codes, password resets, invitations) always go out: no
  * quiet hours, no unsubscribe link, no opting out, and their text is never stored.
- * Modules mark them with a "security." kind; identity's own names are recognised too.
+ * Modules should use a "security." kind ("security.otp", "security.reset"); kinds whose
+ * last part names a code, reset, password, invitation or verification are treated the same,
+ * so a security message is never held back or unsubscribed by mistake.
  */
-const SECURITY_KINDS = new Set([
-  "identity.invite",
-  "identity.otp",
-  "identity.login_code",
-  "identity.reset",
-  "identity.password_reset",
-  "identity.verify",
-]);
+const SECURITY_WORD = /(^|[._-])(otp|login[_-]?code|sign[_-]?in[_-]?code|reset|password[_-]?reset|password|invite|invited|invitation|verify|verification|2fa|mfa)$/;
 export function isSecurityKind(kind: string | undefined | null): boolean {
   if (!kind) return false;
-  return kind.startsWith("security.") || SECURITY_KINDS.has(kind);
+  return kind.startsWith("security.") || SECURITY_WORD.test(kind);
 }
