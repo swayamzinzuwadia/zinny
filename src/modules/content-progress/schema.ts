@@ -80,15 +80,12 @@ export const contentLessonProgress = pgTable("content_lesson_progress", {
   mediaSeconds: integer("media_seconds"),
   positionSeconds: integer("position_seconds").notNull().default(0),
   completedAt: timestamp("completed_at", { withTimezone: true }),
-  /** "manual" (Mark complete), "video" (90% watched) or "attendance" (live class attended). */
+  /** "manual" (Mark complete) or "video" (90% watched). */
   completedVia: text("completed_via"),
-  /** The attendance.marked event that completed it, so a redelivered event does nothing. */
-  sourceEventId: uuid("source_event_id"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [
   uniqueIndex("content_lesson_progress_uq").on(t.lessonId, t.userId),
-  index("content_lesson_progress_event_idx").on(t.sourceEventId),
   index("content_lesson_progress_user_course_idx").on(t.userId, t.courseId),
   check("content_lesson_progress_percent", sql`${t.percent} between 0 and 100`),
 ]);
