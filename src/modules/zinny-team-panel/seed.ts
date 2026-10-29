@@ -96,7 +96,8 @@ export async function seed(ctx: SeedContext) {
   const fy = financialYear(today);
   await db()
     .update(platInvoiceCounters)
-    .set({ lastSeq: sql`coalesce((select max(split_part(${platInvoices.number}, '/', 3)::int) from ${platInvoices} where ${platInvoices.financialYear} = ${fy}), 0)` })
+    // Only numbers shaped <prefix>/<year>/<seq> count (other rows, e.g. test fixtures, are skipped).
+    .set({ lastSeq: sql`coalesce((select max(split_part(${platInvoices.number}, '/', 3)::int) from ${platInvoices} where ${platInvoices.financialYear} = ${fy} and split_part(${platInvoices.number}, '/', 3) ~ '^[0-9]+$'), 0)` })
     .where(eq(platInvoiceCounters.financialYear, fy));
   const pilot = await createInvoice(farida, {
     universityId: ctx.universityId,
