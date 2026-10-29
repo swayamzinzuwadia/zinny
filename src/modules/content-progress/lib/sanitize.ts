@@ -1,0 +1,40 @@
+/**
+ * Rich text for text lessons. Staff write it in the editor; it is sanitised when saved and
+ * again when shown, so a stored script, event handler or javascript: link never reaches a
+ * student's browser. Server only (sanitize-html runs on Node).
+ */
+import "server-only";
+import sanitizeHtml from "sanitize-html";
+
+const OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: [
+    "p", "br", "h2", "h3", "h4", "strong", "b", "em", "i", "u", "s", "a",
+    "ul", "ol", "li", "blockquote", "code", "pre", "hr",
+  ],
+  allowedAttributes: { a: ["href", "target", "rel"], ol: ["start"] },
+  allowedSchemes: ["http", "https", "mailto"],
+  allowedSchemesAppliedToAttributes: ["href"],
+  allowProtocolRelative: false,
+  disallowedTagsMode: "discard",
+  // h1 is the page title; editors' h1 becomes h2.
+  transformTags: {
+    h1: "h2",
+    a: (tagName, attribs) => ({
+      tagName,
+      attribs: { ...(attribs.href ? { href: attribs.href } : {}), target: "_blank", rel: "noopener noreferrer nofollow" },
+    }),
+  },
+  exclusiveFilter: (frame) => frame.tag === "a" && !frame.attribs.href,
+};
+
+/** At most this much HTML per lesson (about 100 pages of text). */
+export const MAX_TEXT_HTML = 200_000;
+
+export function sanitizeLessonHtml(html: string): string {
+  return sanitizeHtml(html ?? "", OPTIONS).trim();
+}
+
+/** Plain text length, for "the lesson is empty" checks. */
+export function textLength(html: string): number {
+  return sanitizeHtml(html ?? "", { allowedTags: [], allowedAttributes: {} }).replace(/\s+/g, " ").trim().length;
+}
