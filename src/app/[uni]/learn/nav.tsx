@@ -17,7 +17,7 @@ export function LearnNav({ base, parentOnly }: { base: string; parentOnly: boole
       ];
   const active = (href: string) => (href === base ? path === base : path.startsWith(href));
   return (
-    <nav className="fixed inset-x-3 bottom-3 z-20 rounded-full bg-brand-deep p-1.5 shadow-[0_8px_30px_rgb(6_58_47/0.25)] sm:static sm:inset-auto sm:mb-8 sm:inline-flex sm:shadow-none">
+    <nav data-learn-chrome className="fixed inset-x-3 bottom-3 z-20 rounded-full bg-brand-deep p-1.5 shadow-[0_8px_30px_rgb(6_58_47/0.25)] sm:static sm:inset-auto sm:mb-8 sm:inline-flex sm:shadow-none">
       <ul className="flex justify-between gap-1">
         {items.map((i) => (
           <li key={i.href} className="flex-1 sm:flex-none">

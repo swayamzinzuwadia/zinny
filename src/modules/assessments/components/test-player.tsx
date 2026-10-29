@@ -211,7 +211,7 @@ export function TestPlayer({ uni, paper }: { uni: string; paper: PaperView }) {
 
   return (
     // The test takes the whole screen, above the app's header and tab bar: nothing to tap away to.
-    <div className="fixed inset-0 z-40 overflow-y-auto bg-canvas">
+    <div data-learner-focus className="fixed inset-0 z-40 overflow-y-auto bg-canvas">
       <div className="mx-auto max-w-3xl px-4 pb-28 sm:px-6">
         {/* Sticky bar: title, timer, progress, save state */}
         <div className="sticky top-0 z-20 -mx-4 mb-4 border-b border-line bg-canvas/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">

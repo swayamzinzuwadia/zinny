@@ -20,7 +20,7 @@ export default async function LearnLayout({ children, params }: { children: Reac
 
   return (
     <div className="mx-auto min-h-dvh max-w-5xl px-4 pb-28 sm:px-6 sm:pb-12">
-      <header className="flex items-center justify-between py-5">
+      <header data-learn-chrome className="flex items-center justify-between py-5">
         <Link href={`/${uni}/learn`} className="flex items-center gap-3">
           <Logo height={28} />
           <span className="hidden border-l border-line pl-3 text-[13px] text-muted sm:inline">{university.name}</span>

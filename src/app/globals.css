@@ -79,3 +79,11 @@ h3 {
     animation: none;
   }
 }
+
+/*
+ * Learner focus mode: a page that renders an element with `data-learner-focus` (the test
+ * player) hides the learner app's header and tab bar, so nothing can be tapped mid-task.
+ */
+body:has([data-learner-focus]) [data-learn-chrome] {
+  display: none;
+}
