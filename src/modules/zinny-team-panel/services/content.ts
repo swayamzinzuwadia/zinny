@@ -284,3 +284,9 @@ export async function listOpenFlags(actor: Actor, opts: { universityId?: string;
     .orderBy(desc(platContentFlags.createdAt))
     .limit(Math.min(opts.limit ?? 50, 200));
 }
+
+/** Universities to filter the queue by. */
+export async function reviewUniversityOptions(actor: Actor) {
+  assertSeeContentFlags(actor);
+  return db().select({ id: universities.id, name: universities.name }).from(universities).orderBy(asc(universities.name));
+}
