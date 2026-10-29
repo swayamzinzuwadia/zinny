@@ -161,7 +161,11 @@ export function TestPlayer({ uni, paper }: { uni: string; paper: PaperView }) {
       if (res.submitted) finish("You left the test too many times, so it was submitted.");
       else if (kind === "tab_hidden" && res.limit !== null) {
         const left = res.limit - res.tabSwitches;
-        setNotice(left > 0 ? `You left the test. ${left} more time${left === 1 ? "" : "s"} and it will be submitted.` : "You left the test. Once more and it will be submitted.");
+        setNotice(
+          left > 0
+            ? `You left the test. ${left} more time${left === 1 ? "" : "s"} and it will be submitted.`
+            : "You left the test. Once more and it will be submitted.",
+        );
       } else if (kind === "fullscreen_exit") setNotice("You left full screen. This has been recorded.");
     },
     [finish, paper.attemptId, uni],
@@ -206,120 +210,140 @@ export function TestPlayer({ uni, paper }: { uni: string; paper: PaperView }) {
   const anyError = Object.values(saveState).includes("error");
 
   return (
-    <div className="pb-24">
-      {/* Sticky bar: title, timer, progress, save state */}
-      <div className="sticky top-0 z-20 -mx-4 mb-4 border-b border-line bg-canvas/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="truncate text-[15px] font-medium">{paper.title}</div>
-            <div className="text-[12px] text-muted">
-              {answered} of {items.length} answered ·{" "}
-              <span className={cx(anyError && "text-danger")} aria-live="polite">
-                {anyError ? "Not saved, retrying" : unsaved ? "Saving…" : "All answers saved"}
-              </span>
+    // The test takes the whole screen, above the app's header and tab bar: nothing to tap away to.
+    <div className="fixed inset-0 z-40 overflow-y-auto bg-canvas">
+      <div className="mx-auto max-w-3xl px-4 pb-28 sm:px-6">
+        {/* Sticky bar: title, timer, progress, save state */}
+        <div className="sticky top-0 z-20 -mx-4 mb-4 border-b border-line bg-canvas/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate text-[15px] font-medium">{paper.title}</div>
+              <div className="text-[12px] text-muted">
+                {answered} of {items.length} answered ·{" "}
+                <span className={cx(anyError && "text-danger")} aria-live="polite">
+                  {anyError ? "Not saved, retrying" : unsaved ? "Saving…" : "All answers saved"}
+                </span>
+              </div>
             </div>
+            {remaining !== null && (
+              <div
+                className={cx(
+                  "tabular shrink-0 rounded-full px-3.5 py-1.5 text-[16px] font-semibold",
+                  low ? "bg-gold text-brand-deep" : "bg-brand-deep text-canvas",
+                )}
+                role="timer"
+                aria-label={`Time left ${clock(remaining)}`}
+              >
+                {clock(remaining)}
+              </div>
+            )}
           </div>
-          {remaining !== null && (
-            <div
-              className={cx("tabular shrink-0 rounded-full px-3.5 py-1.5 text-[16px] font-semibold", low ? "bg-gold text-brand-deep" : "bg-brand-deep text-canvas")}
-              role="timer"
-              aria-label={`Time left ${clock(remaining)}`}
-            >
-              {clock(remaining)}
-            </div>
-          )}
+          <div className="mt-2 flex h-1 gap-0.5" aria-hidden>
+            {items.map((i, k) => (
+              <button
+                key={i.id}
+                type="button"
+                tabIndex={-1}
+                onClick={() => paper.onePerPage && setPage(k)}
+                className={cx(
+                  "flex-1 rounded-full",
+                  isAnswered(responses[i.id]) ? "bg-brand" : "bg-line",
+                  paper.onePerPage && k === page && "ring-2 ring-gold",
+                )}
+              />
+            ))}
+          </div>
         </div>
-        <div className="mt-2 flex h-1 gap-0.5" aria-hidden>
-          {items.map((i, k) => (
+
+        {notice && (
+          <div className="mb-4 flex items-start justify-between gap-3 rounded-2xl bg-gold-soft px-4 py-3 text-[14px] text-ink" role="status">
+            <span>{notice}</span>
+            <button type="button" onClick={() => setNotice(null)} className="text-[13px] text-gold-strong">
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {paper.fullscreenRequired && !isFull && !done.current && (
+          <div className="mb-4 rounded-2xl border border-gold bg-surface p-4 text-[14px]">
+            <p className="mb-3">This test runs in full screen. Leaving full screen is recorded.</p>
             <button
-              key={i.id}
               type="button"
-              tabIndex={-1}
-              onClick={() => paper.onePerPage && setPage(k)}
-              className={cx("flex-1 rounded-full", isAnswered(responses[i.id]) ? "bg-brand" : "bg-line", paper.onePerPage && k === page && "ring-2 ring-gold")}
+              className={buttonClass("gold", "sm")}
+              onClick={() => document.documentElement.requestFullscreen().catch(() => setIsFull(true))}
+            >
+              Go back to full screen
+            </button>
+          </div>
+        )}
+
+        {paper.tabSwitchLimit !== null && tabSwitches > 0 && (
+          <p className="mb-4 text-[13px] text-muted">
+            You&apos;ve left the test {tabSwitches} time{tabSwitches === 1 ? "" : "s"}. Limit: {paper.tabSwitchLimit}.
+          </p>
+        )}
+
+        <ol className="space-y-4">
+          {shown.map((item) => (
+            <QuestionCard
+              key={item.id}
+              item={item}
+              index={item.position}
+              total={items.length}
+              value={responses[item.id] ?? null}
+              state={saveState[item.id] ?? "saved"}
+              onChange={(v, debounce) => answer(item, v, { debounce })}
             />
           ))}
-        </div>
-      </div>
+        </ol>
 
-      {notice && (
-        <div className="mb-4 flex items-start justify-between gap-3 rounded-2xl bg-gold-soft px-4 py-3 text-[14px] text-ink" role="status">
-          <span>{notice}</span>
-          <button type="button" onClick={() => setNotice(null)} className="text-[13px] text-gold-strong">
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {paper.fullscreenRequired && !isFull && !done.current && (
-        <div className="mb-4 rounded-2xl border border-gold bg-surface p-4 text-[14px]">
-          <p className="mb-3">This test runs in full screen. Leaving full screen is recorded.</p>
-          <button type="button" className={buttonClass("gold", "sm")} onClick={() => document.documentElement.requestFullscreen().catch(() => setIsFull(true))}>
-            Go back to full screen
-          </button>
-        </div>
-      )}
-
-      {paper.tabSwitchLimit !== null && tabSwitches > 0 && (
-        <p className="mb-4 text-[13px] text-muted">
-          You&apos;ve left the test {tabSwitches} time{tabSwitches === 1 ? "" : "s"}. Limit: {paper.tabSwitchLimit}.
-        </p>
-      )}
-
-      <ol className="space-y-4">
-        {shown.map((item) => (
-          <QuestionCard
-            key={item.id}
-            item={item}
-            index={item.position}
-            total={items.length}
-            value={responses[item.id] ?? null}
-            state={saveState[item.id] ?? "saved"}
-            onChange={(v, debounce) => answer(item, v, { debounce })}
-          />
-        ))}
-      </ol>
-
-      {/* Bottom bar: navigation and submit, within thumb reach on phones */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface px-4 py-3">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
-          {paper.onePerPage ? (
-            <div className="flex gap-2">
-              <button type="button" className={buttonClass("secondary")} disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-                Previous
-              </button>
-              {page < items.length - 1 && (
-                <button type="button" className={buttonClass("secondary")} onClick={() => setPage((p) => p + 1)}>
-                  Next
+        {/* Bottom bar: navigation and submit, within thumb reach on phones */}
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-surface px-4 py-3">
+          <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
+            {paper.onePerPage ? (
+              <div className="flex gap-2">
+                <button type="button" className={buttonClass("secondary")} disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                  Previous
                 </button>
-              )}
-            </div>
-          ) : (
-            <span className="text-[13px] text-muted">
-              {answered} of {items.length} answered
-            </span>
-          )}
-          {confirming ? (
-            <div className="flex items-center gap-2">
-              <span className="hidden text-[13px] text-muted sm:inline">
-                {items.length - answered ? `${items.length - answered} unanswered. ` : ""}Submit now?
+                {page < items.length - 1 && (
+                  <button type="button" className={buttonClass("secondary")} onClick={() => setPage((p) => p + 1)}>
+                    Next
+                  </button>
+                )}
+              </div>
+            ) : (
+              <span className="text-[13px] text-muted">
+                {answered} of {items.length} answered
               </span>
-              <button type="button" className={buttonClass("secondary")} onClick={() => setConfirming(false)} disabled={submitting}>
-                Keep going
+            )}
+            {confirming ? (
+              <div className="flex items-center gap-2">
+                <span className="hidden text-[13px] text-muted sm:inline">
+                  {items.length - answered ? `${items.length - answered} unanswered. ` : ""}Submit now?
+                </span>
+                <button type="button" className={buttonClass("secondary")} onClick={() => setConfirming(false)} disabled={submitting}>
+                  Keep going
+                </button>
+                <button type="button" className={buttonClass("primary")} onClick={submit} disabled={submitting}>
+                  {submitting ? "Submitting…" : "Submit test"}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className={buttonClass(paper.onePerPage && page < items.length - 1 ? "secondary" : "primary")}
+                onClick={() => setConfirming(true)}
+              >
+                Submit test
               </button>
-              <button type="button" className={buttonClass("primary")} onClick={submit} disabled={submitting}>
-                {submitting ? "Submitting…" : "Submit test"}
-              </button>
-            </div>
-          ) : (
-            <button type="button" className={buttonClass(paper.onePerPage && page < items.length - 1 ? "secondary" : "primary")} onClick={() => setConfirming(true)}>
-              Submit test
-            </button>
+            )}
+          </div>
+          {confirming && items.length - answered > 0 && (
+            <p className="mx-auto mt-1 max-w-3xl text-[12px] text-muted sm:hidden">
+              {items.length - answered} unanswered. You can&apos;t change answers after submitting.
+            </p>
           )}
         </div>
-        {confirming && items.length - answered > 0 && (
-          <p className="mx-auto mt-1 max-w-5xl text-[12px] text-muted sm:hidden">{items.length - answered} unanswered. You can&apos;t change answers after submitting.</p>
-        )}
       </div>
     </div>
   );
@@ -368,7 +392,14 @@ function QuestionCard({
                 picked === o.id ? "border-brand bg-brand-soft" : "border-line hover:border-brand/40",
               )}
             >
-              <input type="radio" name={name} value={o.id} checked={picked === o.id} onChange={() => onChange({ option: o.id })} className="h-4 w-4 accent-brand" />
+              <input
+                type="radio"
+                name={name}
+                value={o.id}
+                checked={picked === o.id}
+                onChange={() => onChange({ option: o.id })}
+                className="h-4 w-4 accent-brand"
+              />
               {item.type === "single" && <span className="text-[13px] text-muted">{String.fromCharCode(65 + k)}</span>}
               <span className="flex-1">{o.text}</span>
             </label>
@@ -389,7 +420,10 @@ function QuestionCard({
             return (
               <label
                 key={o.id}
-                className={cx("flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 text-[15px]", on ? "border-brand bg-brand-soft" : "border-line hover:border-brand/40")}
+                className={cx(
+                  "flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 text-[15px]",
+                  on ? "border-brand bg-brand-soft" : "border-line hover:border-brand/40",
+                )}
               >
                 <input
                   type="checkbox"
@@ -430,7 +464,15 @@ function QuestionCard({
   );
 }
 
-function NumericInput({ value, onChange, labelledBy }: { value: number | null; onChange: (v: QuestionResponse | null, debounce?: boolean) => void; labelledBy: string }) {
+function NumericInput({
+  value,
+  onChange,
+  labelledBy,
+}: {
+  value: number | null;
+  onChange: (v: QuestionResponse | null, debounce?: boolean) => void;
+  labelledBy: string;
+}) {
   const [text, setText] = useState(value === null ? "" : String(value));
   const [bad, setBad] = useState(false);
   return (
