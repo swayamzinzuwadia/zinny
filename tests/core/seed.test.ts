@@ -13,7 +13,7 @@ describe("contracts section 6: seeds", () => {
   it("runs the core seed, then each module's seed in alphabetical order with the core seed's ids", async () => {
     const calls: { id: string; ctx: SeedContext }[] = [];
     const mod = (id: ZinnyModule["id"]): ZinnyModule => ({ id, seed: async (ctx) => void calls.push({ id, ctx }) });
-    setTestModules([mod("website-builder"), mod("assessments"), mod("gamification")]);
+    setTestModules([mod("website-builder"), mod("assessments"), mod("gamification")], { only: true });
     const quiet = console.log;
     console.log = () => {};
     try {

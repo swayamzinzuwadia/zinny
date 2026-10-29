@@ -20,19 +20,24 @@ import { generatedModules } from "@/generated/registry";
 import { can, reach, type Actor, type Target } from "./authz/engine";
 
 let testModules: ZinnyModule[] = [];
+let replaceGenerated = false;
 
 /**
- * Tests only: add modules on top of the generated ones (e.g. a fake module that fills
- * every slot). Pass [] to remove them again. Refused in production.
+ * Tests only: register extra modules (e.g. a fake module that fills every slot).
+ * With `{ only: true }` they replace the generated modules entirely, so a test doesn't
+ * depend on what other modules register. Call `setTestModules([])` to go back to normal.
+ * Refused in production.
  */
-export function setTestModules(mods: ZinnyModule[]) {
+export function setTestModules(mods: ZinnyModule[], opts: { only?: boolean } = {}) {
   if (process.env.NODE_ENV === "production") throw new Error("setTestModules is for tests only.");
   testModules = mods;
+  replaceGenerated = !!opts.only;
 }
 
 /** Every registered module, sorted by id. */
 export function modules(): ZinnyModule[] {
-  return [...Object.values(generatedModules), ...testModules].sort((a, b) => a.id.localeCompare(b.id));
+  const base = replaceGenerated ? [] : Object.values(generatedModules);
+  return [...base, ...testModules].sort((a, b) => a.id.localeCompare(b.id));
 }
 
 const byOrder = (a: { order: number; key: string }, b: { order: number; key: string }) =>

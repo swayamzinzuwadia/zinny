@@ -26,7 +26,11 @@ export type ZinnyModule = {
 };
 ```
 
-`npm run gen` scans `src/modules/*/index.ts` and writes `src/generated/registry.ts`. It runs automatically before `dev`, `build` and `test`. Nobody edits a shared list by hand, so modules never conflict.
+`index.ts` **default-exports** the module (`const m: ZinnyModule = { id: "assessments", … }; export default m;`). `npm run gen` scans `src/modules/*/index.ts` and writes `src/generated/registry.ts` (gitignored). It runs automatically before `dev`, `build`, `test`, `typecheck` and `db:seed`. Nobody edits a shared list by hand, so modules never conflict.
+
+Core reads the registry through `@/server/registry`: `slot(name)`, `visibleSlots(name, actor, target)`, `reports()`, `jobs()`, `eventHandlers()`, `seeds()`, `mailTransport()`, `smsTransport()`, `paymentGateway()`. Tests can add a module with `setTestModules([…])`.
+
+The slot, report, job, seed and transport types are in `src/contracts/module.ts`; event types in `src/contracts/events.ts`; the shapes the core API returns in `src/contracts/core.ts`.
 
 Inside your folder, use this layout:
 
@@ -49,24 +53,29 @@ One table, `domain_events`, written in the same transaction as the change that c
 
 ```ts
 import { emit } from "@/server/core";
-await emit(tx, actor, "lesson.completed", { userId, courseId, lessonId });
+await emit(tx, actor, "lesson.completed", { userId, courseId, lessonId });   // returns the event id
 
 // src/modules/<module>/events.ts
+import { defineHandler, type EventHandler } from "@/contracts/events";
 export const handlers: EventHandler[] = [
-  { id: "gamification.award-xp", on: ["lesson.completed", "test.submitted"], handle: async ({ tx, actor, event }) => { … } },
+  defineHandler({ id: "gamification.award-xp", on: ["lesson.completed", "test.submitted"], handle: async ({ tx, actor, event }) => { … } }),
 ];
 ```
 
-Handlers run inside `withTenant` for the event's university, as that university's system actor. Tests call `drainEvents()` from `tests/helpers/events.ts` to deliver everything synchronously.
+- `emit` refuses types that aren't in the catalogue. The payload is typed by `EventMap` in `src/contracts/events.ts`; `defineHandler` narrows `event.payload` to the types in `on`.
+- Handlers run inside `withTenant` for the event's university, as that university's system actor, inside a savepoint: if `handle` throws, its own writes are rolled back, the failure is recorded, and it is retried later with backoff (30 s doubling, capped at 1 hour), up to 10 attempts. A failing handler never blocks other handlers.
+- `event` is `{ id, universityId, type, payload, actorUserId, occurredAt }`. `universityId` is null only for Zinny team events (a team member's `user.invited`); those run with a platform system actor outside any tenant, so handlers that write tenant tables should skip them.
+- Handler `id`s must be unique across all modules (`<module>.<name>`); deliveries are recorded per id in `domain_event_deliveries`.
+- Delivery happens right after the response that emitted the event, and `GET /api/jobs/events` (cron, every minute) retries anything left. Tests call `drainEvents()` from `tests/helpers/events.ts` to deliver everything synchronously (it ignores the backoff wait); `eventsOfType(type, universityId?)` lists emitted events.
 
 ### Event catalogue (frozen)
 
 | Event | Emitted by | Payload |
 |---|---|---|
-| `user.invited` | core (add person, CSV import), zinny-team-panel | `{ userId, email, name, role }` |
-| `enrolment.confirmed` | core | `{ enrolmentId, userId, courseId, batchId }` |
+| `user.invited` | core (add person, CSV import, parent link, `createUniversity`, `grantPlatformRole`) — only when the person has no password yet | `{ userId, email, name, role }` |
+| `enrolment.confirmed` | core (free enrolment, and paid on `confirmPayment`) | `{ enrolmentId, userId, courseId, batchId }` |
 | `enrolment.switched` | core | `{ enrolmentId, userId, courseId, fromBatchId, toBatchId }` |
-| `enrolment.ended` | core (graduation, cancel) | `{ enrolmentId, userId, courseId, reason }` |
+| `enrolment.ended` | core (graduation; a seat that was only held never emits) | `{ enrolmentId, userId, courseId, reason: "graduated" \| "cancelled" }` |
 | `enrolment.completed` | core (`markEnrolmentCompleted`) | `{ enrolmentId, userId, courseId, batchId }` |
 | `payment.confirmed` | core | `{ orderId, userId, courseId, batchId, totalPaise, invoiceNumber }` |
 | `payment.refunded` | payments | `{ orderId, userId, amountPaise }` |
@@ -78,7 +87,7 @@ Handlers run inside `withTenant` for the event's university, as that university'
 | `attendance.marked` | live-classes | `{ batchId, date, startTime, userId, status: "present" \| "late" \| "absent" }` |
 | `certificate.issued` | certificates | `{ certificateId, userId, courseId, code }` |
 | `xp.awarded` | gamification | `{ userId, points, reason, sourceEventId }` |
-| `enquiry.received` | website-builder | `{ enquiryId, name, email, phone }` |
+| `enquiry.received` | website-builder | `{ enquiryId, name, email, phone }` (`phone` may be null) |
 
 `payment.confirmed` and `enrolment.ended` have no consumer in this wave; they exist for later modules.
 
@@ -86,7 +95,16 @@ Course completion: content-progress decides when a course is complete and calls 
 
 ## 3. Slots (where module UI appears inside core pages)
 
-Core pages render whatever the registry provides, ordered by `order`, and only for people who pass the slot's `action` check. Each slot gets `{ uni, actor, … }` and is a server component.
+Core pages render whatever the registry provides, ordered by `order`, and only for people who pass the slot's `action` check against the page's target. Each entry is `{ key, order, action, component }` (tabs also have a `label`), and `component` is a server component (it may be async and call your own services). Every component gets `{ uni, actor, university }` (`university` is `UniversityLite`) plus the slot's own props below. A component may return `null` to show nothing. If it throws, only its own area shows a short error notice.
+
+| Slot | Extra props | Target the `action` is checked against |
+|---|---|---|
+| `adminCourseTabs` | `course: CourseLite, target, searchParams` | the course: its department and all its batches. Tab URL: `?tab=<key>` |
+| `adminBatchSections` | `batch: BatchLite, course: CourseLite, target` | the batch |
+| `learnerCourseTabs` | `enrolment: StudentEnrolment, course, batch, target, searchParams` | the batch, with `ownerUserId` = the learner (so `self.*` actions work). Tab URL: `?tab=<key>` |
+| `learnerHubSections` | `enrolments: StudentEnrolment[]` (active and completed) | `{ universityId, ownerUserId }` |
+| `learnerHomeCards` | `today` | `{ universityId, ownerUserId }` |
+| `dashboardCards` | `today` | shown when the viewer holds `action` in any scope (`reach`); narrow what you show with `reach` |
 
 | Slot | Shows up on | Keys and order reserved per module |
 |---|---|---|
@@ -120,11 +138,26 @@ Required reports (PRD page 8) and their owners: enrolments and transactions (rep
 export type Job = { id: string; every: "minute" | "hour" | "day"; run(actor: Actor): Promise<void> };
 ```
 
-`/api/jobs/run?every=day` (cron, `CRON_SECRET`) runs each job once per university as that university's system actor, under row-level security.
+`GET /api/jobs/run?every=minute|hour|day` (cron, `Authorization: Bearer $CRON_SECRET`) runs each job of that frequency once per university as that university's system actor, under row-level security. A failing job is logged and doesn't stop the others. Core's own daily job is `core.daily-housekeeping` (seat-hold release, visiting-faculty expiry alerts; formerly `/api/jobs/daily`).
 
 ## 6. Seeds
 
-`npm run db:seed` runs the core seed (Demo University, people, courses, batches, enrolments), then each module's `seed(ctx)`. `ctx` gives the demo university id, `actorFor(email)` and the core seed's ids by name. Module seeds may only write their own tables (or go through the core API).
+`npm run db:seed` runs the core seed (Demo University, people, courses, batches, enrolments), then each module's `seed(ctx)` in alphabetical order of module id, delivering pending events after each one. Module seeds may only write their own tables (or go through the core API).
+
+```ts
+type SeedContext = {
+  universityId: string; universitySlug: "demo"; today: string;
+  actorFor(email: string): Promise<Actor>;     // e.g. actorFor("hema@demo.edu")
+  systemActor: Actor;                          // the Demo University's system actor
+  ids: {
+    departments: Record<string, string>;       // by code: "CS", "MKT"
+    courses: Record<string, string>;           // by title: "Python Basics"
+    batches: Record<string, string>;           // "Data Analytics / Weekday morning"
+    users: Record<string, string>;             // by email, including the Zinny team
+    enrolments: Record<string, string>;        // active ones: "riya@demo.edu / Python Basics"
+  };
+};
+```
 
 ## 7. Storage, email and SMS
 
@@ -136,52 +169,60 @@ await sendEmail({ to, subject, html, text });
 await sendSms({ to, text });
 ```
 
-- Storage keys must start with `<universityId>/<module>/`. Dev writes to `./.storage`; production uses any S3-compatible bucket (Cloudflare R2) via env.
-- `sendEmail` and `sendSms` print to the console until notifications-delivery registers real transports. Everyone else just calls them.
-- `gateway()` returns the mock payment gateway until payments registers Razorpay through `paymentGateway`. The `PaymentGateway` interface (`createOrder`, `verifyPayment`, `verifyWebhook`, plus `refund`) lives in `src/contracts/payments.ts`. Core's seat hold calls `gateway().createOrder`, so it never imports the payments module.
+- `storage()` returns `{ put, get, delete, signedUrl(key, seconds, { downloadName? }) }` (`src/contracts/storage.ts`). Keys must be `<universityId>/<module>/<path>` with plain characters, or `put` throws. Dev writes to `./.storage` and signed URLs are served by `/api/storage/...` with an HMAC signature; production uses any S3-compatible bucket (Cloudflare R2) with `STORAGE_DRIVER=s3`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` and optionally `S3_REGION` (default `auto`). Local signatures use `STORAGE_SIGNING_SECRET`.
+- `sendEmail({ to, subject, html, text, kind?, universityId?, replyTo? })` and `sendSms({ to, text, kind?, universityId? })` (`src/contracts/mail.ts`, `sms.ts`) print to the console until notifications-delivery registers real transports. Everyone else just calls them. Pass `kind` (e.g. `"security.otp"`) so delivery can pick templates and quiet-hours rules.
+- `gateway()` returns the mock payment gateway until payments registers Razorpay through `paymentGateway`. The `PaymentGateway` interface (`name`, `createOrder`, `verifyPayment`, `verifyWebhook`, plus `refund`) lives in `src/contracts/payments.ts`. Core's seat hold calls `gateway().createOrder`, so it never imports the payments module. The Razorpay draft is `src/modules/payments/razorpay.ts`, not registered yet.
 
 ## 8. Core API — `@/server/core`
 
-Stable functions every module may use. Nothing else from `src/server/**` is public.
+Stable functions every module may use. Nothing else from `src/server/**` is public, except `@/server/registry` for reading other modules' reports (reports-board), `@/server/errors` (`NotFoundError`, `ValidationError`, `ConflictError`, `ForbiddenError`), `@/server/action` (`attempt`, `str`, `num` for server actions) and `@/server/context` (`spaceContext(uni)`, `platformContext()` for pages). Functions that take `tx` expect a `withTenant` transaction; they don't check permissions, so check first. Lookups of a record outside the tenant throw `NotFoundError`.
 
 ```ts
 // Tenancy, permissions, audit, events
 withTenant, audit, emit, systemActorFor
 assertCan, can, reach, hasRole                         // types Actor, Target, Action
 // Context
-universityLite(tx) → { id, slug, name, timezone, legalName, gstin, branding }
+universityLite(tx) → { id, slug, name, timezone, legalName, gstin, branding }   // the tenant's university
 todayFor(tx) → "YYYY-MM-DD" in the university's time zone
-peopleLite(tx, userIds) → { id, name, email }[]
+peopleLite(tx, userIds) → { id, name, email }[]          // in the order asked; people outside the university are left out
 // Courses and batches
 getCourseLite(tx, courseId) → { id, title, departmentId, programId, status, certificateEnabled, pricePaise }
-courseTarget(tx, universityId, courseId) → Target
+courseTarget(tx, universityId, courseId) → Target        // the course's department and all its batches
 batchLite(tx, batchId) → { id, courseId, departmentId, name, startDate, endDate, seatLimit, status, meetingUrl, target }
 listCourseBatches(tx, courseId) → batchLite[]
-facultyBatchIds(actor) → string[]
+facultyBatchIds(actor) → string[]                        // batches the actor teaches now (no tx: from the actor's roles)
 // Students
 batchStudentIds(tx, batchId) → string[]                 // active enrolments
-studentEnrolments(tx, userId) → { enrolmentId, courseId, batchId, status }[]
-enrolmentById(tx, enrolmentId)
-markEnrolmentCompleted(actor, enrolmentId)              // emits enrolment.completed
+studentEnrolments(tx, userId) → { enrolmentId, courseId, batchId, status }[]   // every status; filter for "active"
+enrolmentById(tx, enrolmentId) → { enrolmentId, userId, courseId, batchId, status, enrolledAt }
+markEnrolmentCompleted(actor, enrolmentId) → { status: "completed" | "already_completed" }
+                                                        // needs enrolment.complete (Admin, HOD, or systemActorFor);
+                                                        // emits enrolment.completed once; idempotent, safe under races
 // Calendar
 scheduledBatches(tx, batchIds), expandSessions(batches, from, to), studentTimetable(actor, range?)
 // Messages and files
 notify(tx, universityId, userIds, { kind, title, body, data }), hodsOf(tx, departmentId)
 storage(), sendEmail(), sendSms(), gateway()
 // Money (payments uses these; nobody else writes orders)
-orderForCheckout(actor, orderId)                         // the student's own order, course, batch, hold expiry
+orderForCheckout(actor, orderId) → { order, course, batch, enrolment }   // the student's own order only
 confirmPayment(universityId, { orderId, gatewayPaymentId }) // enrols, issues the GST invoice, emits payment.confirmed
 failPayment(universityId, orderId)
-markOrderRefunded(actor, orderId, gatewayRefundId)     // needs finance.refund
+markOrderRefunded(actor, orderId, gatewayRefundId) → { status: "refunded" | "already_refunded" }
+                                                        // needs finance.refund; paid or refund_due orders only
 orderUniversity(gatewayOrderId) → universityId | null   // for webhooks, which arrive without a tenant
 // Zinny team (platform context, no university)
 listUniversities, createUniversity, updateUniversity, enterSupportMode, exitSupportMode, supportTrail,
 grantPlatformRole, revokePlatformRole, assertPlatform, canPlatform
+// updateUniversity(actor, universityId, { name, slug, timezone, gstin, legalName, address, stateCode, invoicePrefix, branding, status })
+//   needs platform.manage_universities; logged in that university's audit log
+// grantPlatformRole(actor, { email, name, role }) / revokePlatformRole(actor, assignmentId): Super Admin only
 ```
+
+Types: `Actor`, `Target`, `Action`, and `UniversityLite`, `PersonLite`, `CourseLite`, `BatchLite`, `StudentEnrolment`, `EnrolmentLite`, `CheckoutOrder` are exported from `@/server/core` too.
 
 ## 9. Permissions
 
-All actions for every module are registered up front in `src/server/authz/roles.ts` by foundation-lock. Use exactly these names. Faculty powers always come from batch assignments (scope = batch).
+All actions for every module are registered up front in `src/server/authz/roles.ts` by foundation-lock. Use exactly these names. Faculty powers always come from batch assignments (scope = batch). Every `self.*` action needs `ownerUserId: actor.userId` in the target, and passes for any active role in the university that grants it, whatever that role's scope.
 
 | Module | Actions | Granted to |
 |---|---|---|
@@ -201,11 +242,11 @@ All actions for every module are registered up front in `src/server/authz/roles.
 | payments | `finance.refund` (plus existing `finance.view`, `finance.manage`) | Admin, Accounts & Fees |
 | | `self.view_invoices` | student, alumni, individual learner |
 | reports-board | uses `finance.view`, `insights.view` and each report's own action | |
-| gamification | uses existing `leaderboard.manage`, `leaderboard.view` | as in PRD page 3 |
+| gamification | uses existing `leaderboard.manage`, `leaderboard.view` | as in PRD page 3: Admin; HOD (own dept); permanent faculty view |
 | | `self.view_xp` | student |
-| website-builder | uses existing `website.manage` | Admin |
+| website-builder | uses existing `website.manage`; faculty profiles use `self.profile` | Admin |
 | notifications-delivery | uses existing `settings.manage`; `self.profile` for preferences | every university role |
-| identity | `self.profile`, uses `user.manage_roles` for resending invites | |
+| identity | `self.profile`, uses `user.manage_roles` for resending invites | every university role |
 | zinny-team-panel | `platform.manage_universities`, `platform.support_mode`, `platform.licences`, `platform.content_review`, `platform.partners`, `platform.finance`, `platform.view_analytics` | Super Admin (all); Account Manager (universities, licences, analytics); Support Agent (support mode, analytics); Content QA (content review); Finance Admin (finance, licences); Partnerships (partners) |
 
 ## 10. Table prefixes

@@ -33,15 +33,20 @@ Needs Node 20+ and Postgres 14+.
 
 ```bash
 npm install
-cp .env.example .env            # fill in the two database URLs
-# once, in psql as a superuser:
-#   CREATE ROLE zinny_owner LOGIN PASSWORD '...' ;  -- owns the tables
-#   CREATE ROLE zinny_app   LOGIN PASSWORD '...' ;  -- what the app uses; row-level security applies
-#   CREATE DATABASE zinny_dev OWNER zinny_owner;
-npm run db:migrate              # tables + row-level security policies
-npm run db:seed                 # Demo University, matching the PRD examples
-npm run dev                     # http://localhost:3000/login
+npm run agent:setup -- dev 3000   # creates roles, zinny_dev + zinny_dev_test, .env.local; pushes schema; seeds
+npm run dev                       # http://localhost:3000/login
 ```
+
+`agent:setup` connects as a Postgres superuser through `DATABASE_ADMIN_URL` (default `postgres://zinny_owner:zinny@localhost:5432/postgres`) and creates the two roles if missing: `zinny_owner` owns the tables, `zinny_app` is what the app uses, so row-level security always applies to it. Or fill in `.env` by hand from `.env.example` and run `npm run db:push && npm run db:seed`.
+
+| Command | What it does |
+|---|---|
+| `npm run gen` | Rebuilds `src/generated/registry.ts` from `src/modules/*/index.ts` (runs before dev, build, test, typecheck, db:seed) |
+| `npm run db:push` | Applies the schema (core + every module) and row-level security to the dev database |
+| `npm run db:reset` | Drops everything in the dev database, then pushes. Use when push needs to ask about a rename |
+| `npm run db:seed` | Demo University, then every module's seed |
+| `npm run db:migrate` | Production: applies `drizzle/` migrations, then row-level security |
+| `npm run check:ownership` | For module agents: fails on changes outside their ownership since `foundation-v1` |
 
 The login page lists one-click demo accounts (password for all: `zinny123`). Demo accounts are shown in development only, or when `ZINNY_DEMO=1`. They sign in without a password, so never set `ZINNY_DEMO` on a deployment with real data.
 
@@ -59,7 +64,7 @@ The login page lists one-click demo accounts (password for all: `zinny123`). Dem
 ## Tests
 
 ```bash
-npm test          # 67 tests against a separate zinny_test database
+npm test          # against a separate test database (TEST_DATABASE_URL*, default zinny_test), reset on every run
 ```
 
 Covers the page 3 matrix, scope checks, row-level security (cross-university reads and writes are refused by the database itself), support-mode logging, the seat race (five students, one seat, exactly one wins), hold expiry and late payments, clash detection, timetable building with cancelled and moved classes, batch switching, CSV import, graduation and parent access.
@@ -74,7 +79,11 @@ The dashboard opens on the **Today board**: the day's classes laid out like a be
 
 ```
 src/db/schema.ts            Data model. Every university table has university_id.
-src/db/policies.sql         Row-level security and grants. Applied by db:migrate.
+src/db/policies.sql         Row-level security and grants, found by column: every table with university_id is isolated.
+src/contracts/*             The module contracts: module, events, storage, mail, sms, payments, core shapes.
+src/modules/<module>/       Twelve modules, each registering into core through its index.ts.
+src/server/core/index.ts    The core API modules may use (contracts.md section 8).
+src/server/registry.ts      What modules registered: slots, reports, jobs, handlers, seeds, transports.
 src/server/authz/roles.ts   Roles → actions. Add a role here; nothing else changes.
 src/server/authz/engine.ts  can(actor, action, target): role grants it AND scope contains target.
 src/server/authz/menu.ts    The admin menu and the page 3 matrix.
@@ -92,7 +101,7 @@ tests/                      Vitest, against a real Postgres.
 2. Every service function calls `assertCan` (or `reach` for lists) before touching data, and runs inside `withTenant`.
 3. Every change calls `audit(...)`.
 4. `systemDb()` bypasses row-level security. Only sign-in, the Zinny team panel, webhook lookups and migrations may use it.
-5. New table holding university data → add `university_id` and list it in `policies.sql`.
+5. New table holding university data → add `university_id`; row-level security applies automatically.
 6. New rule → new test.
 
 ## Payments
@@ -101,9 +110,16 @@ Without Razorpay keys the app uses a mock gateway with a "Pay (test mode)" butto
 
 Invoice numbers look like `DEMO/26-27/00001`: a prefix of up to 4 characters, the Indian financial year, and a running number, which keeps them within GST's 16-character limit.
 
-## Daily job
+## Scheduled jobs
 
-`GET /api/jobs/daily` with `Authorization: Bearer $CRON_SECRET` releases lapsed seat holds and warns HODs about visiting faculty whose access ends before their batch does. Schedule it once a day (Vercel Cron or any scheduler).
+Call these with `Authorization: Bearer $CRON_SECRET` (Vercel Cron or any scheduler):
+
+| Route | When | What |
+|---|---|---|
+| `GET /api/jobs/run?every=minute` | every minute | module jobs that run every minute |
+| `GET /api/jobs/run?every=hour` | every hour | module jobs that run hourly |
+| `GET /api/jobs/run?every=day` | once a day | releases lapsed seat holds, warns HODs about visiting faculty whose access ends before their batch, plus daily module jobs |
+| `GET /api/jobs/events` | every minute | retries event deliveries that failed or were missed |
 
 ## Recommended hosting
 

@@ -8,6 +8,7 @@ import { loadActor } from "@/server/actor";
 import type { Actor } from "@/server/authz/engine";
 import { universityLite, withTenant } from "@/server/core";
 import { generatedModules } from "@/generated/registry";
+import { MODULE_IDS, SLOT_NAMES } from "@/contracts/module";
 import {
   eventHandlers,
   jobs,
@@ -107,12 +108,14 @@ const courseLite = () => ({
 const courseTarget = () => ({ universityId: ctx.uni.id, departmentIds: [ctx.dept.id], batchIds: [ctx.batch.id] });
 
 describe("contracts section 3: slots", () => {
-  it("the generated registry holds the twelve modules, and only content-progress registers anything", () => {
-    expect(Object.keys(generatedModules)).toHaveLength(12);
-    expect(slot("adminCourseTabs").map((t) => t.key)).toEqual(["curriculum"]);
-    for (const name of ["adminBatchSections", "learnerCourseTabs", "learnerHubSections", "learnerHomeCards", "dashboardCards"] as const) {
-      expect(slot(name)).toEqual([]);
-    }
+  it("the generated registry holds the twelve modules, each under its own id", () => {
+    expect(Object.keys(generatedModules).sort()).toEqual([...MODULE_IDS].sort());
+    for (const [folder, m] of Object.entries(generatedModules)) expect(m.id).toBe(folder);
+  });
+
+  it("with no modules registered, every list is empty and core falls back to its own transports", () => {
+    setTestModules([], { only: true });
+    for (const name of SLOT_NAMES) expect(slot(name)).toEqual([]);
     expect(reports()).toEqual([]);
     expect(jobs()).toEqual([]);
     expect(eventHandlers()).toEqual([]);
@@ -124,6 +127,7 @@ describe("contracts section 3: slots", () => {
   });
 
   it("every slot area renders nothing when nothing is registered", async () => {
+    setTestModules([], { only: true });
     const university = await withTenant(ctx.admin, (tx) => universityLite(tx));
     const out = await html(
       <>
@@ -135,13 +139,14 @@ describe("contracts section 3: slots", () => {
   });
 
   it("a test-only module's entries are merged, sorted by order and filtered by permission", async () => {
-    setTestModules([fake]);
-    expect(modules().map((m) => m.id)).toContain("assessments");
-    expect(slot("adminCourseTabs").map((t) => t.key)).toEqual(["curriculum", "zz-tests", "zz-broken", "zz-late"]);
+    setTestModules([fake], { only: true });
+    expect(modules().map((m) => m.id)).toEqual(["assessments"]);
+    expect(slot("adminCourseTabs").map((t) => t.key)).toEqual(["zz-tests", "zz-broken", "zz-late"]);
     // Faculty of the batch hold assess.manage there; a student doesn't hold course.view at all.
-    expect(visibleSlots("adminCourseTabs", faculty, courseTarget()).map((t) => t.key)).toEqual(["curriculum", "zz-tests", "zz-broken", "zz-late"]);
+    expect(visibleSlots("adminCourseTabs", faculty, courseTarget()).map((t) => t.key)).toEqual(["zz-tests", "zz-broken", "zz-late"]);
+    // Faculty of another batch see neither the course tabs nor the batch section.
+    expect(visibleSlots("adminCourseTabs", faculty, { universityId: ctx.uni.id, departmentIds: [ctx.dept.id], batchIds: ["other-batch"] })).toEqual([]);
     expect(visibleSlots("adminCourseTabs", ctx.admin, { universityId: ctx.uni.id, departmentIds: ["other"], batchIds: [] }).map((t) => t.key)).toEqual([
-      "curriculum",
       "zz-tests",
       "zz-broken",
       "zz-late",
@@ -159,7 +164,7 @@ describe("contracts section 3: slots", () => {
   });
 
   it("renders admin course tabs, batch sections, learner tabs, hub sections, home cards and dashboard cards", async () => {
-    setTestModules([fake]);
+    setTestModules([fake], { only: true });
     const university = await withTenant(ctx.admin, (tx) => universityLite(tx));
     const base = { uni: ctx.uni.slug, university };
     const own = { universityId: ctx.uni.id, ownerUserId: student.userId };
@@ -214,7 +219,7 @@ describe("contracts section 3: slots", () => {
   });
 
   it("a failing module shows a short notice instead of breaking the page", async () => {
-    setTestModules([fake]);
+    setTestModules([fake], { only: true });
     const university = await withTenant(ctx.admin, (tx) => universityLite(tx));
     const broken = slot("adminCourseTabs").find((t) => t.key === "zz-broken")!;
     const errors: unknown[] = [];
@@ -235,24 +240,11 @@ describe("contracts section 3: slots", () => {
     }
     expect(errors.length).toBeGreaterThan(0);
   });
-
-  it("the moved Curriculum tab is a registered adminCourseTabs entry and renders for staff", async () => {
-    const university = await withTenant(ctx.admin, (tx) => universityLite(tx));
-    const { addSection } = await import("@/modules/content-progress/service");
-    await addSection(ctx.hod, ctx.course.id, "Week 1: Spreadsheets");
-    const curriculum = visibleSlots("adminCourseTabs", ctx.hod, courseTarget()).find((t) => t.key === "curriculum")!;
-    expect(curriculum).toMatchObject({ label: "Curriculum", order: 100 });
-    const out = await html(
-      <SlotOutlet slot="adminCourseTabs" entry={curriculum} props={{ uni: ctx.uni.slug, actor: ctx.hod, university, course: courseLite(), target: courseTarget(), searchParams: {} }} />,
-    );
-    expect(out).toContain("Week 1: Spreadsheets");
-    expect(out).toContain("Add a section");
-  });
 });
 
 describe("contracts section 5: jobs", () => {
   it("runs each job once per university as its system actor", async () => {
-    setTestModules([fake]);
+    setTestModules([fake], { only: true });
     jobRuns.length = 0;
     const report = await runJobs("hour", { universityId: ctx.uni.id });
     expect(report.map((r) => [r.jobId, r.ok])).toEqual([["assessments.fake-job", true]]);
@@ -278,7 +270,7 @@ describe("contracts section 5: jobs", () => {
           { id: "gamification.b", every: "minute", run: async () => void order.push("b") },
         ],
       },
-    ]);
+    ], { only: true });
     const errors = console.error;
     console.error = () => {};
     try {

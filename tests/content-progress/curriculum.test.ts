@@ -58,3 +58,39 @@ describe("content-progress: curriculum (moved from core)", () => {
       return { universityId: uni.id, courseId: c.id, sectionId: s.id, title: "Lesson" };
     }));
 });
+
+describe("content-progress: the Curriculum tab slot", () => {
+  it("is registered as adminCourseTabs.curriculum and renders the course's sections for staff", async () => {
+    const { prerenderToNodeStream } = await import("react-dom/static.node");
+    const { createElement } = await import("react");
+    const { SlotOutlet } = await import("@/components/slots");
+    const { visibleSlots } = await import("@/server/registry");
+    const { universityLite, withTenant } = await import("@/server/core");
+    const ctx = await setupCourse({ name: "Curriculum Tab U" });
+    await addSection(ctx.hod, ctx.course.id, "Week 1: Spreadsheets");
+    const target = { universityId: ctx.uni.id, departmentIds: [ctx.dept.id], batchIds: [ctx.batch.id] };
+    const tab = visibleSlots("adminCourseTabs", ctx.hod, target).find((t) => t.key === "curriculum")!;
+    expect(tab).toMatchObject({ label: "Curriculum", order: 100 });
+    const university = await withTenant(ctx.admin, (tx) => universityLite(tx));
+    const course = {
+      id: ctx.course.id,
+      title: ctx.course.title,
+      departmentId: ctx.dept.id,
+      programId: null,
+      status: "published" as const,
+      certificateEnabled: true,
+      pricePaise: 0,
+    };
+    const { prelude } = await prerenderToNodeStream(
+      createElement(SlotOutlet<Parameters<typeof tab.component>[0]>, {
+        slot: "adminCourseTabs",
+        entry: tab,
+        props: { uni: ctx.uni.slug, actor: ctx.hod, university, course, target, searchParams: {} },
+      }),
+    );
+    let html = "";
+    for await (const chunk of prelude) html += chunk.toString();
+    expect(html).toContain("Week 1: Spreadsheets");
+    expect(html).toContain("Add a section");
+  });
+});

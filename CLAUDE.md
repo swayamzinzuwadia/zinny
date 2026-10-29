@@ -21,6 +21,7 @@ npm install
 npm run agent:setup -- <agent> <port>   # once per worktree: creates your own dev + test databases and .env.local
 npm run gen                             # rebuilds src/generated/registry.ts from src/modules/*/index.ts
 npm run db:push                         # applies the current schema + row-level security to your dev database
+npm run db:reset                        # wipes your dev database and pushes again (when push asks about a rename); then db:seed
 npm run db:seed                         # core demo university, then every module's seed
 npm run dev                             # uses the PORT from .env.local
 npm test                                # all tests; npm test -- tests/<module> for yours
