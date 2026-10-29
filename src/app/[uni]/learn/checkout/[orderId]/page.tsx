@@ -2,8 +2,7 @@ import { redirect } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Card, Notice } from "@/components/ui";
 import { spaceContext } from "@/server/context";
-import { gateway } from "@/server/payments/gateway";
-import { myOrder } from "@/server/services/enrolment";
+import { gateway, orderForCheckout } from "@/server/core";
 import { formatINR } from "@/server/services/finance";
 import { cancelHoldAction, payTestAction } from "../../actions";
 import { Countdown } from "./countdown";
@@ -13,7 +12,7 @@ export const metadata = { title: "Checkout" };
 export default async function Checkout({ params }: { params: Promise<{ uni: string; orderId: string }> }) {
   const { uni, orderId } = await params;
   const { actor } = await spaceContext(uni);
-  const { order, course, batch, enrolment } = await myOrder(actor, orderId);
+  const { order, course, batch, enrolment } = await orderForCheckout(actor, orderId);
   if (order.status === "paid") redirect(`/${uni}/learn/timetable?enrolled=1`);
   const isMock = gateway().name === "mock";
 
@@ -21,8 +20,8 @@ export default async function Checkout({ params }: { params: Promise<{ uni: stri
     <div className="mx-auto max-w-md">
       <h1 className="mb-5 text-[26px] font-semibold tracking-tight">Checkout</h1>
       <Card>
-        <div className="font-semibold">{course}</div>
-        <div className="text-sm text-muted">{batch}</div>
+        <div className="font-semibold">{course.title}</div>
+        <div className="text-sm text-muted">{batch.name}</div>
         <dl className="mt-4 space-y-1.5 text-sm">
           <div className="flex justify-between">
             <dt className="text-muted">Course fee</dt>
@@ -37,7 +36,7 @@ export default async function Checkout({ params }: { params: Promise<{ uni: stri
             <dd className="tabular-nums">{formatINR(order.totalPaise)}</dd>
           </div>
         </dl>
-        {enrolment.holdExpiresAt && order.status === "pending" && (
+        {enrolment?.holdExpiresAt && order.status === "pending" && (
           <div className="mt-4 text-sm text-muted">
             <Countdown until={enrolment.holdExpiresAt.toISOString()} />
           </div>
@@ -57,7 +56,7 @@ export default async function Checkout({ params }: { params: Promise<{ uni: stri
             )}
             <ActionForm action={cancelHoldAction}>
               <input type="hidden" name="uni" value={uni} />
-              <input type="hidden" name="enrolmentId" value={enrolment.id} />
+              <input type="hidden" name="enrolmentId" value={enrolment?.id ?? ""} />
               <SubmitButton variant="ghost" size="sm">
                 Cancel and pick another batch
               </SubmitButton>

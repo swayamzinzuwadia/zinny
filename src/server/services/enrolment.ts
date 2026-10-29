@@ -595,21 +595,6 @@ export async function myLearning(actor: Actor) {
   });
 }
 
-/** Pending order for the student's own checkout page. */
-export async function myOrder(actor: Actor, orderId: string) {
-  return withTenant(actor, async (tx) => {
-    const [row] = await tx
-      .select({ order: orders, course: courses.title, batch: batches.name, enrolment: enrolments })
-      .from(orders)
-      .innerJoin(courses, eq(courses.id, orders.courseId))
-      .innerJoin(batches, eq(batches.id, orders.batchId))
-      .innerJoin(enrolments, eq(enrolments.id, orders.enrolmentId))
-      .where(eq(orders.id, orderId));
-    if (!row || row.order.userId !== actor.userId) throw new NotFoundError("Order");
-    return row;
-  });
-}
-
 export function isAppError(e: unknown): e is AppError {
   return e instanceof AppError;
 }

@@ -1,12 +1,11 @@
-import { eq } from "drizzle-orm";
-import { systemDb } from "@/db/client";
+import { confirmPayment, failPayment, gateway, orderUniversity, systemActorFor, withTenant } from "@/server/core";
 import { orders } from "@/db/schema";
-import { gateway } from "@/server/payments/gateway";
-import { confirmPayment, failPayment } from "@/server/services/enrolment";
+import { eq } from "drizzle-orm";
 
 /**
- * Razorpay webhook. Configure in the Razorpay dashboard with events
- * payment.captured and payment.failed, pointing at /api/payments/razorpay.
+ * Razorpay webhook (owned by payments, which finishes it: replay protection, refunds).
+ * Configure in the Razorpay dashboard with events payment.captured and payment.failed,
+ * pointing at /api/payments/razorpay.
  */
 export async function POST(req: Request) {
   const raw = await req.text();
@@ -22,18 +21,19 @@ export async function POST(req: Request) {
   if (!payment) return Response.json({ ignored: true });
 
   // Find which university the order belongs to, then work inside that university only.
-  const [order] = await systemDb()
-    .select({ id: orders.id, universityId: orders.universityId })
-    .from(orders)
-    .where(eq(orders.gatewayOrderId, payment.order_id));
+  const universityId = await orderUniversity(payment.order_id);
+  if (!universityId) return Response.json({ ignored: true });
+  const [order] = await withTenant(systemActorFor(universityId), (tx) =>
+    tx.select({ id: orders.id }).from(orders).where(eq(orders.gatewayOrderId, payment.order_id)),
+  );
   if (!order) return Response.json({ ignored: true });
 
   if (event.event === "payment.captured") {
-    const out = await confirmPayment(order.universityId, { orderId: order.id, gatewayPaymentId: payment.id });
+    const out = await confirmPayment(universityId, { orderId: order.id, gatewayPaymentId: payment.id });
     return Response.json(out);
   }
   if (event.event === "payment.failed") {
-    await failPayment(order.universityId, order.id);
+    await failPayment(universityId, order.id);
     return Response.json({ status: "failed" });
   }
   return Response.json({ ignored: true });

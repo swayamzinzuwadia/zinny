@@ -6,8 +6,8 @@ import type { ActionState } from "@/components/forms";
 import { attempt, str } from "@/server/action";
 import { spaceContext } from "@/server/context";
 import { ValidationError } from "@/server/errors";
-import { gateway } from "@/server/payments/gateway";
-import { cancelHold, cancelSwitch, confirmPayment, holdSeat, myOrder, requestSwitch } from "@/server/services/enrolment";
+import { confirmPayment, gateway, orderForCheckout } from "@/server/core";
+import { cancelHold, cancelSwitch, holdSeat, requestSwitch } from "@/server/services/enrolment";
 import type { Clash } from "@/server/services/schedule";
 
 export type EnrolState = (NonNullable<ActionState> & { clashes?: Clash[]; batchId?: string }) | null;
@@ -44,7 +44,7 @@ export async function payTestAction(_: ActionState, data: FormData): Promise<Act
   let done = false;
   const res = await attempt(async () => {
     if (gateway().name !== "mock") throw new ValidationError("Test payments are off. Use the real checkout.");
-    const { order } = await myOrder(actor, orderId);
+    const { order } = await orderForCheckout(actor, orderId);
     const out = await confirmPayment(order.universityId, { orderId, gatewayPaymentId: `mock_pay_${Date.now()}` });
     if (out.status === "refund_due") throw new ValidationError("The batch filled up before payment finished. Your money will be refunded.");
     done = true;
