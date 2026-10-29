@@ -22,6 +22,7 @@ import { systemActorFor } from "../actor";
 import { assertCan, reach, type Actor } from "../authz/engine";
 import { AppError, ConflictError, NotFoundError, ValidationError } from "../errors";
 import { earliestStart, formatDate, todayIn } from "../lib/dates";
+import { emit } from "../events";
 import { gateway } from "../payments/gateway";
 import { audit, withTenant } from "../tenant";
 import { loadBatch, scheduledBatches, seatsTaken } from "./batches";
@@ -244,6 +245,7 @@ export async function holdSeat(actor: Actor, input: { batchId: string; acknowled
         data: { courseId: course.id, batchId: batch.id },
       });
       await audit(tx, actor, "enrolment.create", "enrolment", e.id, { batchId: batch.id, free: true, clashAcknowledged: clashes.length > 0 });
+      await emit(tx, actor, "enrolment.confirmed", { enrolmentId: e.id, userId: actor.userId, courseId: course.id, batchId: batch.id });
       return { status: "enrolled", enrolmentId: e.id };
     }
 
@@ -361,6 +363,15 @@ export async function confirmPayment(universityId: string, input: { orderId: str
       data: { courseId: course.id, batchId: batch.id, invoiceId: invoice.id },
     });
     await audit(tx, sys, "payment.confirmed", "order", order.id, { gatewayPaymentId: input.gatewayPaymentId, invoice: invoice.number });
+    await emit(tx, sys, "payment.confirmed", {
+      orderId: order.id,
+      userId: order.userId,
+      courseId: order.courseId,
+      batchId: order.batchId,
+      totalPaise: order.totalPaise,
+      invoiceNumber: invoice.number,
+    });
+    await emit(tx, sys, "enrolment.confirmed", { enrolmentId: enrolment.id, userId: order.userId, courseId: order.courseId, batchId: order.batchId });
     return { status: "enrolled", enrolmentId: enrolment.id, invoiceNumber: invoice.number };
   });
 }
@@ -481,6 +492,7 @@ export async function decideSwitch(actor: Actor, requestId: string, input: { app
     } else {
       await tx.update(enrolments).set({ batchId: to.id }).where(eq(enrolments.id, e.id));
       await close("approved", input.note?.trim() || null);
+      await emit(tx, actor, "enrolment.switched", { enrolmentId: e.id, userId: e.userId, courseId: e.courseId, fromBatchId: e.batchId, toBatchId: to.id });
       result = { status: "approved" };
     }
 

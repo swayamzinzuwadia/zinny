@@ -4,6 +4,7 @@ import { systemDb } from "@/db/client";
 import { auditLog, roleAssignments, supportSessions, universities, users } from "@/db/schema";
 import { assertPlatform, type Actor } from "../authz/engine";
 import { ValidationError } from "../errors";
+import { emitFor } from "../events";
 
 const SUPPORT_SESSION_MINUTES = 120;
 
@@ -101,6 +102,9 @@ export async function createUniversity(
       entityId: uni.id,
       data: { name: uni.name, slug: uni.slug, admin: admin.email },
     });
+    if (!admin.passwordHash) {
+      await emitFor(tx, uni.id, actor.userId, "user.invited", { userId: admin.id, email: admin.email, name: admin.name, role: "institute_admin" });
+    }
     return uni;
   });
 }

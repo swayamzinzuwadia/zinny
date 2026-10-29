@@ -18,6 +18,7 @@ import {
 import { assertCan, can, reach, type Actor } from "../authz/engine";
 import { ALLOWED_SCOPES, ROLE_LABELS, USER_GROUPS } from "../authz/roles";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors";
+import { emit } from "../events";
 import { audit, withTenant } from "../tenant";
 
 const UNIVERSITY_ROLES = Object.keys(ALLOWED_SCOPES) as RoleName[];
@@ -131,6 +132,10 @@ export type RoleInput = {
  * A HOD can only give faculty roles inside their own department.
  */
 async function assignRoleTx(tx: Tx, actor: Actor, input: RoleInput) {
+  return (await assignRoleTxFlagged(tx, actor, input)).assignment;
+}
+
+async function assignRoleTxFlagged(tx: Tx, actor: Actor, input: RoleInput) {
   const allowed = ALLOWED_SCOPES[input.role];
   if (!allowed) throw new ValidationError("That role can't be given inside a university.");
 
@@ -175,7 +180,7 @@ async function assignRoleTx(tx: Tx, actor: Actor, input: RoleInput) {
         scopeType === "department" ? eq(roleAssignments.departmentId, departmentId!) : isNull(roleAssignments.departmentId),
       ),
     );
-  if (dup) return dup;
+  if (dup) return { assignment: dup, created: false };
 
   const [a] = await tx
     .insert(roleAssignments)
@@ -197,7 +202,19 @@ async function assignRoleTx(tx: Tx, actor: Actor, input: RoleInput) {
     departmentId,
     batchId: input.batchId ?? null,
   });
-  return a;
+  return { assignment: a, created: true };
+}
+
+/**
+ * Emits user.invited when someone was just given a role and can't sign in yet
+ * (no password). Identity turns it into an invitation email.
+ */
+async function inviteIfNoPassword(tx: Tx, actor: Actor, userId: string, role: RoleName) {
+  const [u] = await tx
+    .select({ id: users.id, email: users.email, name: users.name, passwordHash: users.passwordHash })
+    .from(users)
+    .where(eq(users.id, userId));
+  if (u && !u.passwordHash) await emit(tx, actor, "user.invited", { userId: u.id, email: u.email, name: u.name, role });
 }
 
 export async function assignRole(actor: Actor, input: RoleInput) {
@@ -248,13 +265,14 @@ export async function addPerson(actor: Actor, input: NewPerson) {
   if (input.name.trim().length < 2) throw new ValidationError("Enter the person's name.");
   return withTenant(actor, async (tx) => {
     const userId = await upsertPerson(tx, input.email, input.name, input.phone);
-    await assignRoleTx(tx, actor, {
+    const { created } = await assignRoleTxFlagged(tx, actor, {
       userId,
       role: input.role,
       departmentId: input.departmentId ?? null,
       endsAt: input.endsAt ?? null,
     });
     await audit(tx, actor, "user.add", "user", userId, { email: input.email.toLowerCase(), role: input.role });
+    if (created) await inviteIfNoPassword(tx, actor, userId, input.role);
     return userId;
   });
 }
@@ -327,12 +345,13 @@ export async function importPeople(actor: Actor, csv: string, opts: { commit: bo
     if (opts.commit && errors === 0) {
       for (const r of rows) {
         const userId = await upsertPerson(tx, r.input!.email, r.input!.name, r.input!.phone);
-        await assignRoleTx(tx, actor, {
+        const { created } = await assignRoleTxFlagged(tx, actor, {
           userId,
           role: r.input!.role,
           departmentId: r.input!.departmentId,
           endsAt: r.input!.endsAt,
         });
+        if (created) await inviteIfNoPassword(tx, actor, userId, r.input!.role);
         saved++;
       }
       await audit(tx, actor, "user.import", "user", null, { rows: saved });
@@ -369,9 +388,9 @@ export async function graduate(actor: Actor, userId: string) {
       .select({ id: courses.id })
       .from(courses)
       .where(sql`${courses.programId} is not null`);
-    const ended = await tx
-      .update(enrolments)
-      .set({ status: "ended" })
+    const toEnd = await tx
+      .select({ id: enrolments.id, status: enrolments.status, courseId: enrolments.courseId })
+      .from(enrolments)
       .where(
         and(
           eq(enrolments.userId, userId),
@@ -379,8 +398,19 @@ export async function graduate(actor: Actor, userId: string) {
           inArray(enrolments.courseId, programCourses),
         ),
       )
-      .returning({ id: enrolments.id });
+      .for("update");
+    const ended = toEnd.length
+      ? await tx
+          .update(enrolments)
+          .set({ status: "ended" })
+          .where(inArray(enrolments.id, toEnd.map((e) => e.id)))
+          .returning({ id: enrolments.id })
+      : [];
     await audit(tx, actor, "user.graduate", "user", userId, { endedEnrolments: ended.length });
+    // A seat that was only held (never paid) isn't an enrolment that ended.
+    for (const e of toEnd.filter((x) => x.status === "active")) {
+      await emit(tx, actor, "enrolment.ended", { enrolmentId: e.id, userId, courseId: e.courseId, reason: "graduated" });
+    }
     return { endedEnrolments: ended.length };
   });
 }
@@ -396,7 +426,8 @@ export async function linkParent(actor: Actor, input: { studentUserId: string; p
       .where(and(eq(roleAssignments.userId, input.studentUserId), inArray(roleAssignments.role, ["student", "alumni"]), isNull(roleAssignments.revokedAt)));
     if (!student) throw new NotFoundError("Student");
     const parentId = await upsertPerson(tx, input.parentEmail, input.parentName, input.phone);
-    await assignRoleTx(tx, actor, { userId: parentId, role: "parent" });
+    const { created } = await assignRoleTxFlagged(tx, actor, { userId: parentId, role: "parent" });
+    if (created) await inviteIfNoPassword(tx, actor, parentId, "parent");
     await tx
       .insert(parentLinks)
       .values({ universityId: uni(actor), parentUserId: parentId, studentUserId: input.studentUserId })

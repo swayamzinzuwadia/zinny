@@ -390,5 +390,38 @@ export const notifications = pgTable("notifications", {
   createdAt: createdAt(),
 }, (t) => [index("notifications_user_idx").on(t.userId, t.createdAt)]);
 
+/* ─────────────────────── Events (contracts.md section 2) ─────────────────────── */
+
+/**
+ * Transactional outbox: written in the same transaction as the change that caused it.
+ * Append-only for the app. university_id is null only for Zinny team (platform) events.
+ */
+export const domainEvents = pgTable("domain_events", {
+  id: id(),
+  universityId: uuid("university_id").references(() => universities.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  payload: jsonb("payload").notNull().$type<Record<string, unknown>>(),
+  actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("domain_events_type_at_idx").on(t.type, t.occurredAt),
+  index("domain_events_uni_at_idx").on(t.universityId, t.occurredAt),
+]);
+
+/**
+ * One row per (event, handler): attempts, the last error and when it was delivered.
+ * university_id is copied from the event so the record is written in the same
+ * tenant transaction as the handler's own work.
+ */
+export const domainEventDeliveries = pgTable("domain_event_deliveries", {
+  eventId: uuid("event_id").notNull().references(() => domainEvents.id, { onDelete: "cascade" }),
+  handlerId: text("handler_id").notNull(),
+  universityId: uuid("university_id").references(() => universities.id, { onDelete: "cascade" }),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("last_error"),
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+}, (t) => [uniqueIndex("domain_event_deliveries_uq").on(t.eventId, t.handlerId)]);
+
 export type RoleName = (typeof roleName.enumValues)[number];
 export type ScopeType = (typeof scopeType.enumValues)[number];
