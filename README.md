@@ -121,7 +121,7 @@ Call these with `Authorization: Bearer $CRON_SECRET` (Vercel Cron or any schedul
 | `GET /api/jobs/run?every=day` | once a day | releases lapsed seat holds, warns HODs about visiting faculty whose access ends before their batch, plus daily module jobs |
 | `GET /api/jobs/events` | every minute | retries event deliveries that failed or were missed |
 
-`vercel.json` schedules all four on Vercel (the daily run at 18:45 UTC, 00:15 in India). Vercel adds the `Authorization` header itself when `CRON_SECRET` is set. Cron jobs that run every minute need a Vercel Pro plan; on Hobby, use an external scheduler for the two minute routes.
+`vercel.json` schedules only the daily run (18:45 UTC, 00:15 in India), because Vercel's free Hobby plan refuses crons that run more than once a day; Vercel adds the `Authorization` header itself when `CRON_SECRET` is set. Schedule the minute and hour runs and `/api/jobs/events` with the production host's scheduler (or an external one). Events are still delivered right after each request; the minute route is only the safety net, but notification emails and texts go out only from the minute run.
 
 ## Recommended hosting
 
