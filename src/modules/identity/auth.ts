@@ -10,7 +10,7 @@ import "server-only";
  * university can never be found, or used, from another.
  */
 import { randomUUID } from "node:crypto";
-import { and, eq, gt, isNull, lte, or, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { systemDb, type Tx } from "@/db/client";
 import { roleAssignments, sessions, universities, users } from "@/db/schema";
@@ -335,7 +335,6 @@ async function activeRoleInTenant(tx: Tx, userId: string, now: Date) {
         eq(roleAssignments.userId, userId),
         sql`${roleAssignments.universityId} = zinny_current_university()`,
         isNull(roleAssignments.revokedAt),
-        lte(roleAssignments.startsAt, now),
         or(isNull(roleAssignments.endsAt), gt(roleAssignments.endsAt, now)),
       ),
     )
@@ -559,7 +558,7 @@ async function membersByPhone(tx: Tx, e164: string, now: Date): Promise<PhoneAcc
         sql`exists (
           select 1 from ${roleAssignments} ra
           where ra.user_id = ${users.id} and ra.university_id = zinny_current_university()
-            and ra.revoked_at is null and ra.starts_at <= ${now.toISOString()}::timestamptz
+            and ra.revoked_at is null
             and (ra.ends_at is null or ra.ends_at > ${now.toISOString()}::timestamptz))`,
       ),
     )

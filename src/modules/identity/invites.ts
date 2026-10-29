@@ -5,7 +5,7 @@
  * Who may manage an invitation follows core's role rules: an Institute Admin manages
  * everyone's; a HOD manages those of faculty in their own department.
  */
-import { and, desc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { batches, roleAssignments, users, type RoleName } from "@/db/schema";
 import type { DomainEvent } from "@/contracts/events";
@@ -175,8 +175,7 @@ export async function listInvites(actor: Actor, opts: { now?: Date } = {}): Prom
           sql`${roleAssignments.universityId} = zinny_current_university()`,
           isNull(roleAssignments.revokedAt),
           isNull(users.passwordHash),
-          lte(roleAssignments.startsAt, now),
-          or(isNull(roleAssignments.endsAt), gt(roleAssignments.endsAt, now)),
+            or(isNull(roleAssignments.endsAt), gt(roleAssignments.endsAt, now)),
         ),
       )
       .orderBy(roleAssignments.startsAt);
@@ -235,7 +234,6 @@ async function currentRole(tx: Tx, userId: string, now: Date): Promise<RoleName 
         eq(roleAssignments.userId, userId),
         sql`${roleAssignments.universityId} = zinny_current_university()`,
         isNull(roleAssignments.revokedAt),
-        lte(roleAssignments.startsAt, now),
         or(isNull(roleAssignments.endsAt), gt(roleAssignments.endsAt, now)),
       ),
     )
