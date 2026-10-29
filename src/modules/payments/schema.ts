@@ -114,6 +114,8 @@ export const payInvoiceDocuments = pgTable(
     sha256: text("sha256").notNull(),
     sizeBytes: integer("size_bytes").notNull(),
     renderedAt: timestamp("rendered_at", { withTimezone: true }).notNull().defaultNow(),
+    /** When the "your invoice is ready" email went to the student (sent once). */
+    emailedAt: timestamp("emailed_at", { withTimezone: true }),
   },
   (t) => [uniqueIndex("pay_invoice_documents_invoice_uq").on(t.invoiceId)],
 );
