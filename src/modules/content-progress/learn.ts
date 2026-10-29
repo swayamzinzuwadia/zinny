@@ -73,7 +73,7 @@ export type Outline = {
   percent: number;
   done: number;
   total: number;
-  /** The next unfinished lesson: the first open lesson not completed that is required or not yet opened. */
+  /** The next unfinished lesson: the first open required lesson not completed, else the first optional one not yet opened. */
   next: OutlineLesson | null;
   /** The next lesson that will unlock, if any is locked. */
   nextUnlock: OutlineLesson | null;
@@ -117,7 +117,7 @@ async function buildOutline(tx: Tx, e: EnrolmentRef, batchStart: string, today: 
     percent: coursePercent(done, required.length),
     done,
     total: required.length,
-    next: items.find((l) => l.state === "open" && (l.required || !l.started)) ?? null,
+    next: items.find((l) => l.state === "open" && l.required) ?? items.find((l) => l.state === "open" && !l.started) ?? null,
     nextUnlock: locked[0] ?? null,
     totalMinutes: items.reduce((n, l) => n + l.durationMinutes, 0),
   };

@@ -319,6 +319,18 @@ describe("continue learning", () => {
     expect(items[0]).toMatchObject({ next: null, nextUnlock: { id: ctx.lessons[2].id } });
   });
 
+  it("next is the first unfinished required lesson; optional lessons come after the required ones", async () => {
+    const ctx = await setupLearning({
+      name: "Next Rule U",
+      lessons: [{ title: "Required A", kind: "text" }, { title: "Optional B", kind: "text", optional: true }, { title: "Required C", kind: "text" }],
+    });
+    const s = await ctx.enrolled("Student Next");
+    await markLessonComplete(s.actor, ctx.lessons[0].id);
+    expect((await learnerOutline(s.actor, s.enrolmentId)).outline.next?.id).toBe(ctx.lessons[2].id);
+    await markLessonComplete(s.actor, ctx.lessons[2].id);
+    expect((await learnerOutline(s.actor, s.enrolmentId)).outline.next?.id).toBe(ctx.lessons[1].id);
+  });
+
   it("a locked lesson opened by URL isn't recorded as the current lesson", async () => {
     const ctx = await setupLearning({ name: "Opened U", lessons: [{ title: "Lesson A", kind: "text", drip: { mode: "after_start", days: 400 } }] });
     const s = await ctx.enrolled("Student Peek");
