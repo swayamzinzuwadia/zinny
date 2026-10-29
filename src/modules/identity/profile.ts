@@ -210,6 +210,22 @@ export async function verifyPhoneChange(actor: Actor, userId: string, input: { c
   }
 }
 
+/** A new code for the number waiting to be confirmed (after the 30-second wait). */
+export async function resendPhoneChange(actor: Actor, userId: string, input: { ip?: string | null; now?: Date; defer?: Defer } = {}) {
+  assertSelf(actor, userId);
+  const now = input.now ?? new Date();
+  const [pending] = await withTenant(actor, (tx) =>
+    tx
+      .select({ phone: idnOtpChallenges.phone })
+      .from(idnOtpChallenges)
+      .where(and(eq(idnOtpChallenges.userId, userId), eq(idnOtpChallenges.purpose, "verify_phone"), sql`${idnOtpChallenges.consumedAt} is null`))
+      .orderBy(sql`${idnOtpChallenges.createdAt} desc`)
+      .limit(1),
+  );
+  if (!pending) throw new ValidationError("There's no number waiting to be confirmed. Enter your new number first.");
+  return startPhoneChange(actor, userId, { phone: pending.phone, ip: input.ip, now, defer: input.defer });
+}
+
 export async function cancelPhoneChange(actor: Actor, userId: string, now = new Date()) {
   assertSelf(actor, userId);
   await withTenant(actor, (tx) =>
