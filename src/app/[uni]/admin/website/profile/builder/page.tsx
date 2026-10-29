@@ -68,20 +68,21 @@ export default async function BuilderPage({ params }: { params: Promise<{ uni: s
           </p>
         </div>
         <div className="flex flex-wrap items-start gap-2">
-          {page.published && page.hasChanges && (
-            <ActionForm action={discardDraftAction} confirm="Discard every change since the last publish? This can't be undone.">
+          {page.published && (
+            <ActionForm action={discardDraftAction} confirm="Discard every change since the last publish? This can't be undone." className="flex max-w-xs flex-col items-end">
               <input type="hidden" name="uni" value={uni} />
-              <SubmitButton variant="secondary" pendingText="Discarding…">
-                Discard changes
-              </SubmitButton>
+              {page.hasChanges && (
+                <SubmitButton variant="secondary" pendingText="Discarding…">
+                  Discard changes
+                </SubmitButton>
+              )}
             </ActionForm>
           )}
-          {(page.hasChanges || !page.published) && (
-            <ActionForm action={publishPageAction}>
-              <input type="hidden" name="uni" value={uni} />
-              <SubmitButton pendingText="Publishing…">{page.published ? "Publish changes" : "Publish website"}</SubmitButton>
-            </ActionForm>
-          )}
+          {/* Always mounted, so "Published" stays on screen after the button goes away. */}
+          <ActionForm action={publishPageAction} className="flex max-w-xs flex-col items-end">
+            <input type="hidden" name="uni" value={uni} />
+            {(page.hasChanges || !page.published) && <SubmitButton pendingText="Publishing…">{page.published ? "Publish changes" : "Publish website"}</SubmitButton>}
+          </ActionForm>
         </div>
       </Card>
 

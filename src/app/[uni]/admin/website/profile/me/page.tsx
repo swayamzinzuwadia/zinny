@@ -4,7 +4,7 @@ import { spaceContext } from "@/server/context";
 import { saveMyProfileAction } from "@/modules/website-builder/actions";
 import { ProfileTabs, Thumb } from "@/modules/website-builder/components/admin";
 import { ImageField } from "@/modules/website-builder/components/image-field";
-import { IntentButton } from "@/modules/website-builder/components/intent-button";
+import { IntentButton, IntentField } from "@/modules/website-builder/components/intent-button";
 import { getMyProfile, PROFILE_STATUS_LABEL } from "@/modules/website-builder/faculty";
 import { formatMoment } from "@/modules/website-builder/format";
 import { mediaPath } from "@/modules/website-builder/media";
@@ -68,6 +68,7 @@ export default async function MyProfilePage({ params }: { params: Promise<{ uni:
         <Card>
           <ActionForm action={saveMyProfileAction} resetOnSuccess={false} className="space-y-5">
             <input type="hidden" name="uni" value={uni} />
+        <IntentField initial="draft" />
             <ImageField
               key={draft.photoMediaId ?? "none"}
               uni={uni}

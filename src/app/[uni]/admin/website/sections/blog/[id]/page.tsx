@@ -10,7 +10,7 @@ import { getPost } from "@/modules/website-builder/blog";
 import { ActionButton } from "@/modules/website-builder/components/action-button";
 import { NoAccess } from "@/modules/website-builder/components/admin";
 import { ImageField } from "@/modules/website-builder/components/image-field";
-import { IntentButton } from "@/modules/website-builder/components/intent-button";
+import { IntentButton, IntentField } from "@/modules/website-builder/components/intent-button";
 import { RichTextEditor } from "@/modules/website-builder/components/rich-text-editor";
 import { formatMoment } from "@/modules/website-builder/format";
 import { mediaPath } from "@/modules/website-builder/media";
@@ -56,6 +56,7 @@ export default async function EditPostPage({ params }: { params: Promise<{ uni: 
       <ActionForm action={savePostAction} resetOnSuccess={false}>
         <input type="hidden" name="uni" value={uni} />
         <input type="hidden" name="id" value={post.id} />
+        <IntentField initial="save" />
         <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
           <div className="space-y-5">
             <Field label="Title">
