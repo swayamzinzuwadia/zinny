@@ -88,8 +88,10 @@ export function safeFileName(name: string): string {
   const ext = extensionOf(shown);
   const stem = (ext ? shown.slice(0, -(ext.length + 1)) : shown)
     .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^A-Za-z0-9._ ()+,=@-]+/g, "-")
-    .replace(/-{2,}/g, "-")
+    .replace(/\s*-[\s-]*/g, "-")
+    .replace(/\s{2,}/g, " ")
     .replace(/^[\s.-]+|[\s.-]+$/g, "")
     .slice(0, 100);
   return `${stem || "file"}${ext ? `.${ext}` : ""}`;
