@@ -1,7 +1,7 @@
 import { ButtonLink, PageHeader, Stat } from "@/components/ui";
 import type { Insights } from "../insights";
 import { formatDay, formatDayShort, formatMonth, formatWeek } from "../lib/dates";
-import { formatHours, formatMoney, formatNumber, formatPercent } from "../lib/format";
+import { fitBatchLabel, formatHours, formatMoney, formatNumber, formatPercent, labelChars } from "../lib/format";
 import {
   batchFillTakeaway,
   completionTakeaway,
@@ -15,6 +15,8 @@ import { BarList, ColumnChart, type Datum } from "./charts";
 
 /** Long lists draw their top entries; the table under the chart lists everyone. */
 const CHART_LIMIT = 12;
+
+const FILL_LABEL_WIDTH = 210;
 
 const limitHint = (base: string, total: number) => (total > CHART_LIMIT ? `${base} · top ${CHART_LIMIT} of ${total}` : base);
 
@@ -35,7 +37,7 @@ export function InsightsView({ data, reportsHref }: { data: Insights; reportsHre
   }));
 
   const fill: Datum[] = data.batchFill.slice(0, CHART_LIMIT).map((b) => ({
-    label: `${b.course} · ${b.batch}`,
+    label: fitBatchLabel(b.course, b.batch, labelChars(FILL_LABEL_WIDTH)),
     value: b.fill,
     note: `${b.taken} of ${b.limit} seats taken${b.held ? `, ${b.held} being paid for` : ""}${b.startsOn ? `. Starts ${formatDay(b.startsOn)}` : ""}`,
   }));
@@ -109,7 +111,7 @@ export function InsightsView({ data, reportsHref }: { data: Insights; reportsHre
         <ChartCard
           title="Batch fill"
           hint={limitHint("Seats taken out of the limit", data.batchFill.length)}
-          chart={fill.length ? <BarList data={fill} format="percent" max={100} labelWidth={200} /> : <ChartEmpty>No batches running or open.</ChartEmpty>}
+          chart={fill.length ? <BarList data={fill} format="percent" max={100} labelWidth={FILL_LABEL_WIDTH} /> : <ChartEmpty>No batches running or open.</ChartEmpty>}
           takeaway={batchFillTakeaway(data.batchFill)}
           table={{
             caption: "Batch fill: seats taken against the seat limit",

@@ -16,7 +16,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { formatHours, formatMoney, formatMoneyShort, formatNumber, formatPercent } from "../lib/format";
+import { fitLabel, formatHours, formatMoney, formatMoneyShort, formatNumber, formatPercent, labelChars, niceScale } from "../lib/format";
 import { CHART } from "./chart-theme";
 
 export type ValueFormat = "count" | "money" | "percent" | "hours";
@@ -44,8 +44,6 @@ function shortValue(v: number, f: ValueFormat): string {
   return formatNumber(v);
 }
 
-const truncate = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
-
 const AXIS_TICK = { fill: CHART.muted, fontSize: 12 };
 
 type TooltipProps = { active?: boolean; payload?: ReadonlyArray<{ payload?: unknown }>; format: ValueFormat };
@@ -62,18 +60,18 @@ function ChartTooltip({ active, payload, format }: TooltipProps) {
   );
 }
 
-/** Domain that always includes zero, so bars grow from the axis and negatives show below it. */
-function domainFor(data: Datum[], format: ValueFormat, max?: number): [number, number] {
+/** Round ticks that always include zero, so bars grow from the axis and negatives show below it. */
+function scaleFor(data: Datum[], format: ValueFormat, max?: number) {
   const values = data.map((d) => d.value);
-  const lo = Math.min(0, ...values);
-  const hi = Math.max(0, max ?? 0, ...values);
-  // An all-zero chart still needs a visible scale.
-  return [lo, hi === lo ? (format === "percent" ? 100 : 1) : hi];
+  return niceScale(Math.min(0, ...values), Math.max(0, max ?? 0, ...values), {
+    integer: format === "count",
+    empty: format === "percent" ? 100 : 1,
+  });
 }
 
 /** Vertical columns along a time axis: weeks or months. */
 export function ColumnChart({ data, format, height = 240 }: { data: Datum[]; format: ValueFormat; height?: number }) {
-  const [lo, hi] = domainFor(data, format);
+  const { lo, hi, ticks } = scaleFor(data, format);
   return (
     <div aria-hidden="true" style={{ height }}>
       <ResponsiveContainer width="100%" height={height}>
@@ -85,8 +83,9 @@ export function ColumnChart({ data, format, height = 240 }: { data: Datum[]; for
             tickLine={false}
             axisLine={false}
             tick={AXIS_TICK}
-            allowDecimals={format !== "count"}
             domain={[lo, hi]}
+            ticks={ticks}
+            interval={0}
             tickFormatter={(v: number) => shortValue(v, format)}
           />
           {lo < 0 && <ReferenceLine y={0} stroke={CHART.muted} />}
@@ -104,24 +103,26 @@ export function ColumnChart({ data, format, height = 240 }: { data: Datum[]; for
 
 /**
  * Horizontal bars, one per course, batch or person. With `max` (e.g. 100 for a fill rate)
- * each bar sits on a cream track that shows how far it could go.
+ * each bar sits on a track that shows how far it could go, even when the value is zero.
  */
 export function BarList({ data, format, max, labelWidth = 180 }: { data: Datum[]; format: ValueFormat; max?: number; labelWidth?: number }) {
-  const [lo, hi] = domainFor(data, format, max);
+  const { lo, hi, ticks } = scaleFor(data, format, max);
   const height = Math.max(96, data.length * 34 + 36);
-  const chars = Math.floor(labelWidth / 7);
+  const chars = labelChars(labelWidth);
+  const rows = data.map((d) => ({ ...d, rest: max === undefined ? 0 : Math.max(0, max - Math.max(0, d.value)) }));
   return (
     <div aria-hidden="true" style={{ height }}>
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={data} layout="vertical" margin={{ top: 4, right: 16, bottom: 0, left: 0 }} accessibilityLayer={false}>
+        <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 16, bottom: 0, left: 0 }} accessibilityLayer={false}>
           <CartesianGrid horizontal={false} stroke={CHART.line} />
           <XAxis
             type="number"
             domain={[lo, hi]}
+            ticks={ticks}
+            interval={0}
             tickLine={false}
             axisLine={{ stroke: CHART.line }}
             tick={AXIS_TICK}
-            allowDecimals={format !== "count"}
             tickFormatter={(v: number) => shortValue(v, format)}
           />
           <YAxis
@@ -132,21 +133,16 @@ export function BarList({ data, format, max, labelWidth = 180 }: { data: Datum[]
             axisLine={false}
             interval={0}
             tick={{ ...AXIS_TICK, fill: CHART.ink }}
-            tickFormatter={(v: string) => truncate(v, chars)}
+            tickFormatter={(v: string) => fitLabel(v, chars)}
           />
           {lo < 0 && <ReferenceLine x={0} stroke={CHART.muted} />}
           <Tooltip cursor={{ fill: CHART.brandSoft, fillOpacity: 0.7 }} content={(p) => <ChartTooltip active={p.active} payload={p.payload} format={format} />} />
-          <Bar
-            dataKey="value"
-            radius={[0, 6, 6, 0]}
-            barSize={18}
-            isAnimationActive={false}
-            background={max !== undefined ? { fill: CHART.line, radius: 6 } : undefined}
-          >
-            {data.map((d, i) => (
+          <Bar dataKey="value" stackId="bar" radius={max === undefined ? [0, 6, 6, 0] : [6, 0, 0, 6]} barSize={18} isAnimationActive={false}>
+            {rows.map((d, i) => (
               <Cell key={i} fill={d.highlight ? CHART.gold : CHART.brand} />
             ))}
           </Bar>
+          {max !== undefined && <Bar dataKey="rest" stackId="bar" fill={CHART.line} radius={[0, 6, 6, 0]} barSize={18} isAnimationActive={false} />}
         </BarChart>
       </ResponsiveContainer>
     </div>

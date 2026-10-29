@@ -2,7 +2,16 @@ import { describe, expect, it } from "vitest";
 import { strFromU8, unzipSync } from "fflate";
 import type { ReportColumn } from "@/contracts/module";
 import { csvHeader, csvValue, guardFormula, toCsv } from "@/modules/reports-board/lib/csv";
-import { columnTotal, formatCell, formatHours, formatMoney, formatMoneyShort } from "@/modules/reports-board/lib/format";
+import {
+  columnTotal,
+  fitBatchLabel,
+  fitLabel,
+  formatCell,
+  formatHours,
+  formatMoney,
+  formatMoneyShort,
+  niceScale,
+} from "@/modules/reports-board/lib/format";
 import { columnLetter, escapeXml, excelDate, sheetName, toXlsx, xlsxParts } from "@/modules/reports-board/lib/xlsx";
 
 const COLS: ReportColumn[] = [
@@ -88,6 +97,23 @@ describe("cell formatting", () => {
   it("totals a column, skipping blanks, with negatives", () => {
     expect(columnTotal([{ a: 100 }, { a: null }, { a: -30 }, { a: "5" }], "a")).toBe(75);
     expect(columnTotal([{ a: null }], "a")).toBeNull();
+  });
+
+  it("picks round chart ticks that include zero, negatives too", () => {
+    expect(niceScale(0, 29, { integer: true }).ticks).toEqual([0, 10, 20, 30]);
+    expect(niceScale(0, 3, { integer: true }).ticks).toEqual([0, 1, 2, 3]);
+    expect(niceScale(0, 0, { integer: true }).ticks).toEqual([0, 1]);
+    expect(niceScale(0, 100).ticks).toEqual([0, 25, 50, 75, 100]);
+    expect(niceScale(-2.5, 10).ticks).toEqual([-5, 0, 5, 10]);
+    expect(niceScale(-12, 0).ticks).toEqual([-15, -10, -5, 0]);
+    expect(niceScale(0, 29_200_000).ticks).toEqual([0, 10_000_000, 20_000_000, 30_000_000]);
+  });
+
+  it("shortens chart labels, keeping the batch name", () => {
+    expect(fitLabel("Machine Learning Foundations", 12)).toBe("Machine Lea…");
+    expect(fitBatchLabel("Data Analytics", "Weekday evening", 40)).toBe("Data Analytics · Weekday evening");
+    expect(fitBatchLabel("Machine Learning Foundations", "Weekday evening", 26)).toBe("Machine… · Weekday evening");
+    expect(fitBatchLabel("Machine Learning Foundations", "A very long batch name here", 26)).toBe("Machine Learning Foundati…");
   });
 
   it("says hours in plain words", () => {

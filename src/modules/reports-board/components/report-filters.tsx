@@ -144,7 +144,13 @@ export function ReportFilters({
             value={reportId}
             required
             onChange={(e) => {
+              const next = reports.find((r) => r.id === e.target.value);
               setReportId(e.target.value);
+              // Another report may cover a different scope: drop choices it doesn't offer.
+              const o = next ? options[next.action] : undefined;
+              if (!o?.departments.some((d) => d.id === departmentId)) setDepartmentId("");
+              if (!o?.courses.some((c) => c.id === courseId)) setCourseId("");
+              if (!o?.batches.some((b) => b.id === batchId)) setBatchId("");
             }}
           >
             {!reportId && (

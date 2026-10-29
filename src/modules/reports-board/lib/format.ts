@@ -44,7 +44,7 @@ export function formatMoneyShort(paise: number): string {
   const r = paise / 100;
   const sign = r < 0 ? "-" : "";
   const a = Math.abs(r);
-  const trim = (n: number) => (Math.round(n * 10) / 10).toString();
+  const trim = (n: number) => (Math.round(n * 100) / 100).toString();
   if (a >= 1e7) return `${sign}₹${trim(a / 1e7)}Cr`;
   if (a >= 1e5) return `${sign}₹${trim(a / 1e5)}L`;
   if (a >= 1e3) return `${sign}₹${trim(a / 1e3)}K`;
@@ -105,4 +105,42 @@ export function columnTotal(rows: Record<string, unknown>[], key: string): numbe
     }
   }
   return any ? total : null;
+}
+
+/** A step of 1, 2, 2.5 or 5 times a power of ten, at least `raw`. */
+function niceStep(raw: number, integer: boolean): number {
+  if (raw <= 0) return 1;
+  const exp = 10 ** Math.floor(Math.log10(raw));
+  const f = raw / exp;
+  const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * exp;
+  return integer ? Math.max(1, Math.ceil(step)) : step;
+}
+
+/**
+ * Round axis ticks from `lo` to `hi` (about four steps), always including zero:
+ * 0 to 29 becomes 0, 10, 20, 30; -2.5 to 10 becomes -5, 0, 5, 10.
+ */
+export function niceScale(lo: number, hi: number, opts: { integer?: boolean; empty?: number } = {}) {
+  if (lo === 0 && hi === 0) hi = opts.empty ?? 1;
+  const step = niceStep((hi - lo) / 4, !!opts.integer);
+  const bottom = Math.floor(lo / step) * step;
+  const top = Math.ceil(hi / step) * step;
+  const ticks: number[] = [];
+  for (let t = bottom; t <= top + step / 1e6; t += step) ticks.push(Math.round(t * 1e6) / 1e6);
+  return { lo: bottom, hi: top, ticks };
+}
+
+/** How many characters of a label fit in an axis this wide (Lexend at 12px). */
+export const labelChars = (width: number) => Math.max(8, Math.floor((width - 14) / 7.2));
+
+export function fitLabel(text: string, chars: number): string {
+  return text.length > chars ? `${text.slice(0, chars - 1).trimEnd()}…` : text;
+}
+
+/** "Course · Batch", shortening the course first so the batch name stays readable. */
+export function fitBatchLabel(course: string, batch: string, chars: number): string {
+  const full = `${course} · ${batch}`;
+  if (full.length <= chars) return full;
+  const room = chars - batch.length - 3;
+  return room >= 6 ? `${fitLabel(course, room)} · ${batch}` : fitLabel(full, chars);
 }
