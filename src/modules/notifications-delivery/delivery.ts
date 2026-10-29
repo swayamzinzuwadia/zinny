@@ -30,7 +30,7 @@ import { absoluteUrl } from "./config";
 import { CHANNELS, isCoreKind, isSecurityKind, kindDefinition } from "./kinds";
 import { emailFooter, renderEmail, renderText, unsubscribeHeaders } from "./messages";
 import { toE164 } from "./phone";
-import { activeProviders, ProviderError, safeToRepeat, type OutboundEmail, type OutboundText, type Providers } from "./providers";
+import { activeProviders, pace, ProviderError, safeToRepeat, type OutboundEmail, type OutboundText, type Providers } from "./providers";
 import { decorateDirectEmail, oneLine } from "./render";
 import { notifDeliveries, notifDispatches, notifSuppressions, type Channel, type DeliveryPayload } from "./schema";
 import {
@@ -233,6 +233,7 @@ export async function sendClaimed(actor: Actor, row: DeliveryRow, ctx: SendConte
   let error: unknown = null;
   try {
     const m = content ?? contentFromRow(row, ctx);
+    await pace(ctx.providers[row.channel].name);
     if (m.email) result = await ctx.providers.email.send(m.email);
     else if (row.channel === "sms") result = await ctx.providers.sms.send(m.text!);
     else result = await ctx.providers.whatsapp.send(m.text!);
@@ -370,6 +371,7 @@ export async function sendDueDeliveries(actor: Actor, opts: RunOptions = {}): Pr
   const queue = [...prep.due];
   const worker = async () => {
     for (let next = queue.shift(); next; next = queue.shift()) {
+      // Stop when the time is up; the rest waits for the next run. Sends are paced to the provider's rate.
       if (Date.now() > deadline) return;
       const row = await claim(actor, next.id, providers[next.channel].name, ctx);
       if (!row) continue; // another run has it

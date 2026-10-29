@@ -10,6 +10,8 @@ console transports), so development and tests never reach a real provider.
 | `APP_URL` | `https://app.zinny.in` | Public base URL. Every link in an email or text (buttons, unsubscribe, settings) starts with it. Falls back to `https://$VERCEL_PROJECT_PRODUCTION_URL`, then `http://localhost:$PORT`. **Set it in production.** |
 | `NOTIFICATIONS_SIGNING_SECRET` | 32+ random characters | Signs unsubscribe links. Falls back to `CRON_SECRET`. Required in production (one of the two); changing it makes every unsubscribe link already sent stop working. |
 | `NOTIFICATIONS_SEND_CONCURRENCY` | `2` | Messages sent at the same time per university during a job run (1 to 8). |
+| `NOTIFICATIONS_EMAIL_PER_SECOND` | `2` | Most Resend requests per second from one server process (Resend's default account limit is 2). Raise it when Resend raises yours. |
+| `NOTIFICATIONS_TEXT_PER_SECOND` | `10` | Most MSG91 requests per second from one server process. |
 
 ## Email: Resend
 

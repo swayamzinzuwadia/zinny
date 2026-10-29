@@ -270,6 +270,36 @@ export function activeProviders(): Providers {
   };
 }
 
+/* ───────────────────────────── Pacing ───────────────────────────── */
+
+const nextSlot = new Map<string, number>();
+
+/** Requests per second a real provider accepts (Resend's default account limit is 2). Console and test providers aren't paced. */
+function rateFor(providerName: string): number | null {
+  const read = (name: string, fallback: number) => {
+    const v = Number(process.env[name]);
+    return Number.isFinite(v) && v > 0 ? v : fallback;
+  };
+  if (providerName === "resend") return read("NOTIFICATIONS_EMAIL_PER_SECOND", 2);
+  if (providerName === "msg91" || providerName === "msg91-whatsapp") return read("NOTIFICATIONS_TEXT_PER_SECOND", 10);
+  return null;
+}
+
+/**
+ * Waits for this process's next free slot with a provider, so a big batch doesn't run into
+ * the provider's rate limit. Returns false (without waiting) when the slot is after `deadline`.
+ */
+export async function pace(providerName: string, deadline = Number.POSITIVE_INFINITY): Promise<boolean> {
+  const rate = rateFor(providerName);
+  if (!rate) return true;
+  const now = Date.now();
+  const slot = Math.max(now, nextSlot.get(providerName) ?? 0);
+  if (slot > deadline) return false;
+  nextSlot.set(providerName, slot + 1000 / rate);
+  if (slot > now) await new Promise((r) => setTimeout(r, slot - now));
+  return true;
+}
+
 /** Email can be retried after an interrupted send: Resend drops a repeated idempotency key. */
 export const safeToRepeat = (channel: Channel, providerName: string) => channel === "email" && providerName === "resend";
 

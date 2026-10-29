@@ -8,12 +8,15 @@ import { closeDb, systemDb } from "@/db/client";
 import { notifDeliveries } from "@/modules/notifications-delivery/schema";
 import {
   CLAIM_MS,
+  cleanupDeliveries,
   MAX_ATTEMPTS,
   planDeliveries,
   retryDelayMs,
   runDeliveryJob,
   sendDueDeliveries,
 } from "@/modules/notifications-delivery/delivery";
+import { pace } from "@/modules/notifications-delivery/providers";
+import { notifDispatches } from "@/modules/notifications-delivery/schema";
 import { saveKindSettings, savePreferences } from "@/modules/notifications-delivery/service";
 import { deliveriesOf, later, minutes, notifyUsers, permanent, quiet, recordingProviders, retryable, setupUni, zoneWithLocalHour } from "./helpers";
 
@@ -307,5 +310,34 @@ describe("notifications-delivery: retries", () => {
       .from(notifDeliveries)
       .where(and(eq(notifDeliveries.universityId, t.uni.id), eq(notifDeliveries.status, "failed")));
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe("notifications-delivery: housekeeping and pacing", () => {
+  it("the daily cleanup drops old records and keeps recent and pending ones", async () => {
+    const t = await setupUni({ timezone: zoneWithLocalHour(12) });
+    await notifyUsers(t.uni.id, [t.riya.userId, t.kabir.userId], { kind: "enrolment.confirmed", title: "Enrolled" });
+    const { providers } = recordingProviders();
+    await runDeliveryJob(t.system, { providers });
+    const rows = await deliveriesOf(t.uni.id);
+    const old = new Date(Date.now() - 200 * 86_400_000);
+    await systemDb().update(notifDeliveries).set({ createdAt: old }).where(eq(notifDeliveries.id, rows[0].id));
+    await systemDb().update(notifDeliveries).set({ createdAt: old, status: "queued" }).where(eq(notifDeliveries.id, rows[1].id));
+    await systemDb().update(notifDispatches).set({ createdAt: old }).where(eq(notifDispatches.universityId, t.uni.id));
+    expect(await cleanupDeliveries(t.system)).toEqual({ dispatches: 2, deliveries: 1 });
+    expect((await deliveriesOf(t.uni.id)).map((d) => d.id)).toEqual([rows[1].id]);
+    await expect(cleanupDeliveries(t.hod)).rejects.toThrow(/access/);
+  });
+
+  it("paces real providers to their rate and leaves console and test providers alone", async () => {
+    const started = Date.now();
+    for (let i = 0; i < 3; i++) await pace("resend");
+    // Three requests at 2 per second: the third waits about a second.
+    expect(Date.now() - started).toBeGreaterThanOrEqual(900);
+    const quick = Date.now();
+    for (let i = 0; i < 20; i++) await pace("console");
+    expect(Date.now() - quick).toBeLessThan(100);
+    // A slot past the deadline is refused without waiting.
+    expect(await pace("resend", Date.now())).toBe(false);
   });
 });
