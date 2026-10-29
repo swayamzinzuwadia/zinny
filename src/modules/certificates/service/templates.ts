@@ -12,7 +12,7 @@ import { assertCan, audit, storage, todayFor, universityLite, withTenant, type A
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
 import { formatCode, verifyBaseUrl } from "../lib";
 import { DESIGNS, accentFrom, imageInfo, renderCertificatePdf, renderCertificateSvg, type DesignKey } from "../render";
-import { certCertificates, certRules, certTemplates, type CertDesign, type Signatory, type TemplateSnapshot } from "../schema";
+import { certRules, certTemplates, type CertDesign, type Signatory, type TemplateSnapshot } from "../schema";
 import { SAMPLE, buildContent } from "./content";
 import { canManageTemplates, canSeeTemplates, trimmed, uni } from "./shared";
 
