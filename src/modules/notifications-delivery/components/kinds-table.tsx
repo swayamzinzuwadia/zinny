@@ -37,9 +37,17 @@ export function KindsTable({ kinds, hrefFor }: { kinds: KindSummary[]; hrefFor: 
                   </Link>
                   <div className="mt-0.5 max-w-md text-[12.5px] leading-snug text-muted">{k.description}</div>
                 </Td>
-                {CHANNELS.map((c) => (
-                  <Td key={c}>{k.security ? <span className="whitespace-nowrap text-[13px] text-muted">When sent</span> : <State state={k.channels[c]} />}</Td>
-                ))}
+                {k.security ? (
+                  <td colSpan={CHANNELS.length} className="px-5 py-3.5 align-top text-[13px] text-muted">
+                    Always sent, at any hour, on the channel the sender uses
+                  </td>
+                ) : (
+                  CHANNELS.map((c) => (
+                    <Td key={c}>
+                      <State state={k.channels[c]} />
+                    </Td>
+                  ))
+                )}
                 <Td className="text-right">
                   <span className="inline-flex items-center gap-2">
                     {k.customized && <Badge tone="brand">Custom text</Badge>}

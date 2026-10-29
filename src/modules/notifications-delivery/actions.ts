@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/forms";
 import { attempt, str } from "@/server/action";
 import { spaceContext } from "@/server/context";
@@ -77,13 +78,19 @@ export async function testSendAction(_: ActionState, data: FormData): Promise<Ac
   });
 }
 
+/** Re-queues a failed delivery, then shows the log with a notice (the row itself leaves the "Failed" filter). */
 export async function retryDeliveryAction(_: ActionState, data: FormData): Promise<ActionState> {
   const { uni, actor } = await ctx(data);
-  return attempt(async () => {
+  let queued = false;
+  const res = await attempt(async () => {
     await retryDelivery(actor, str(data, "deliveryId"));
-    revalidatePath(adminPath(uni));
-    return "Queued. It goes out within a minute.";
+    queued = true;
   });
+  if (queued) {
+    revalidatePath(adminPath(uni));
+    redirect(`${adminPath(uni)}?tab=log&notice=requeued`);
+  }
+  return res;
 }
 
 /**

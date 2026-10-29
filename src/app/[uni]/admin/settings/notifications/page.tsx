@@ -15,7 +15,7 @@ import { safeTimezone } from "@/modules/notifications-delivery/time";
 
 export const metadata = { title: "Notification settings" };
 
-type Search = { tab?: string; kind?: string; status?: string; channel?: string };
+type Search = { tab?: string; kind?: string; status?: string; channel?: string; notice?: string };
 const STATUSES: DeliveryStatus[] = ["queued", "sending", "sent", "failed", "skipped"];
 
 export default async function NotificationSettingsPage({ params, searchParams }: { params: Promise<{ uni: string }>; searchParams: Promise<Search> }) {
@@ -52,6 +52,11 @@ export default async function NotificationSettingsPage({ params, searchParams }:
       />
       {tabs.length > 1 && <Tabs tabs={tabs} active={tab} />}
       {tab === "kinds" && <KindsTab uni={uni} kind={search.kind} base={base} />}
+      {tab === "log" && search.notice === "requeued" && (
+        <div className="mb-5">
+          <Notice>Queued again. It goes out within a minute.</Notice>
+        </div>
+      )}
       {tab === "log" && <LogTab uni={uni} base={base} timezone={safeTimezone(university.timezone)} status={search.status} channel={search.channel} />}
       {tab === "setup" && <SetupTab uni={uni} />}
       {tab === "mine" && <MineTab uni={uni} />}

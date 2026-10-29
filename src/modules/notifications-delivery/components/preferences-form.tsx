@@ -6,11 +6,22 @@ import { CHANNEL_LABEL } from "../kinds";
 import type { PreferenceRow } from "../service";
 
 /** A checkbox drawn as a switch. Works without JavaScript; the form saves all of them at once. */
-function Switch({ name, value, checked, disabled, label }: { name: string; value: string; checked: boolean; disabled: boolean; label: string }) {
+function Switch({ name, value, checked, disabled, label, note }: { name: string; value: string; checked: boolean; disabled: boolean; label: string; note?: string }) {
   return (
-    <label className={cx("flex min-w-0 flex-1 flex-col items-center gap-1.5 sm:flex-row sm:justify-end", disabled ? "cursor-not-allowed" : "cursor-pointer")}>
-      <span className={cx("text-[12.5px]", disabled ? "text-faint" : "text-muted")}>{label}</span>
-      <input type="checkbox" name={name} value={value} defaultChecked={checked} disabled={disabled} className="peer sr-only" aria-label={label} />
+    <label
+      title={note}
+      className={cx("flex min-w-0 flex-1 flex-col items-center gap-1.5 sm:flex-row sm:justify-end", disabled ? "cursor-not-allowed" : "cursor-pointer")}
+    >
+      <span className={cx("whitespace-nowrap text-[12.5px]", disabled ? "text-faint" : "text-muted")}>{label}</span>
+      <input
+        type="checkbox"
+        name={name}
+        value={value}
+        defaultChecked={checked}
+        disabled={disabled}
+        className="peer sr-only"
+        aria-label={note ? `${label}: ${note}` : label}
+      />
       <span
         aria-hidden
         className={cx(
@@ -77,7 +88,8 @@ export function PreferencesForm({
                           value={id}
                           checked={c.enabled}
                           disabled={!c.editable}
-                          label={c.editable ? CHANNEL_LABEL[c.channel] : `${CHANNEL_LABEL[c.channel]} (off)`}
+                          label={CHANNEL_LABEL[c.channel]}
+                          note={c.editable ? undefined : "turned off by your institute"}
                         />
                       </div>
                     );
@@ -89,12 +101,10 @@ export function PreferencesForm({
         ))}
       </ul>
       <p className="text-[12.5px] leading-relaxed text-muted">
-        Switches marked off are turned off by your institute. Texts aren&apos;t sent between 9 pm and 8 am; they arrive in the morning. Sign-in codes and password
+        Faded switches are turned off by your institute. Texts aren&apos;t sent between 9 pm and 8 am; they arrive in the morning. Sign-in codes and password
         reset messages are always sent.
       </p>
-      <div className="sticky bottom-20 z-10 sm:static">
-        <SubmitButton pendingText="Saving…">Save settings</SubmitButton>
-      </div>
+      <SubmitButton pendingText="Saving…">Save settings</SubmitButton>
     </ActionForm>
   );
 }

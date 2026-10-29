@@ -50,12 +50,15 @@ export function KindEditor({ uni, editor, providers, backHref }: { uni: string; 
                 <p className="mb-3 text-[13px] text-muted">In-app notifications always appear. Choose what else goes out, and whether people can change it.</p>
                 <div className="grid gap-3 sm:grid-cols-3">
                   {CHANNELS.map((c) => (
-                    <Field key={c} label={CHANNEL_LABEL[c]} hint={STATE_HINT[editor.channels[c]]}>
+                    <Field
+                      key={c}
+                      label={CHANNEL_LABEL[c]}
+                      hint={`${STATE_HINT[editor.channels[c]]}${editor.channels[c] === editor.defaults.channels[c] ? "" : ` Zinny's default is ${STATE_LABEL[editor.defaults.channels[c]].toLowerCase()}.`}`}
+                    >
                       <Select name={`channel_${c}`} defaultValue={editor.channels[c]}>
                         {(["on", "optional", "off"] as const).map((s) => (
                           <option key={s} value={s}>
                             {STATE_LABEL[s]}
-                            {s === editor.defaults.channels[c] ? " (default)" : ""}
                           </option>
                         ))}
                       </Select>
