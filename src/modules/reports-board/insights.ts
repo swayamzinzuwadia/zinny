@@ -51,17 +51,21 @@ export type Insights = {
 
 const TEACHING_ROLES = ["permanent_faculty", "visiting_faculty"] as const;
 
-export async function loadInsights(actor: Actor, now = new Date()): Promise<Insights> {
+/**
+ * Everything the Insights page shows, limited to the viewer's scope. `asOf` sets which day
+ * counts as today for the calendar (tests pin it); permissions are always checked now.
+ */
+export async function loadInsights(actor: Actor, asOf = new Date()): Promise<Insights> {
   if (!canOpenInsights(actor)) throw new ForbiddenError(NO_INSIGHTS_ACCESS);
   const uni = actor.universityId!;
-  const scope = reach(actor, "insights.view", uni, now);
-  const money = reach(actor, "finance.view", uni, now);
+  const scope = reach(actor, "insights.view", uni);
+  const money = reach(actor, "finance.view", uni);
   const showMoney = hasReach(money);
 
   return withTenant(actor, async (tx) => {
     const university = await universityLite(tx);
     const tz = university.timezone;
-    const today = todayIn(tz, now);
+    const today = todayIn(tz, asOf);
     const thisWeek = weekStart(today);
     const inScope = batchInReach(scope, batches.id, batches.departmentId);
 
@@ -207,7 +211,7 @@ export async function loadInsights(actor: Actor, now = new Date()): Promise<Insi
       .sort((a, b) => b.fill - a.fill || a.course.localeCompare(b.course) || a.batch.localeCompare(b.batch));
 
     // ── Faculty load: scheduled teaching hours per faculty member, last, this and next week
-    const facultyLoad = await facultyHours(tx, liveIds, tz, thisWeek, now);
+    const facultyLoad = await facultyHours(tx, liveIds, tz, thisWeek);
 
     return {
       universityName: university.name,
@@ -237,13 +241,33 @@ function assignmentEnd(a: { endsAt: Date | null; revokedAt: Date | null }): Date
   return a.endsAt ?? a.revokedAt;
 }
 
+type Assigned = { userId: string; batchId: string | null; startsAt: Date; endsAt: Date | null; revokedAt: Date | null };
+
+/**
+ * Who teaches a session: whoever was assigned to the batch when it starts. A batch set up
+ * after it began has nobody on record for its early classes; those go to the first people
+ * assigned afterwards (who haven't already left).
+ */
+export function teachersAt(forBatch: Assigned[], at: Date): Assigned[] {
+  const ended = (a: Assigned, t: Date) => {
+    const end = assignmentEnd(a);
+    return !!end && end <= t;
+  };
+  const then = forBatch.filter((a) => a.startsAt <= at && !ended(a, at));
+  if (then.length) return then;
+  const later = forBatch.filter((a) => a.startsAt > at && !ended(a, a.startsAt));
+  if (later.length === 0) return [];
+  const first = Math.min(...later.map((a) => a.startsAt.getTime()));
+  return later.filter((a) => a.startsAt.getTime() === first);
+}
+
 /**
  * Hours each faculty member is scheduled to teach in the week before, this week and the
  * week after. Sessions come from the core calendar (timings, holidays, moved and extra
- * classes). A session counts for whoever was assigned to the batch when it starts, so a
- * visiting faculty member's hours stop when their access ends.
+ * classes) and count for whoever teaches them (teachersAt), so a visiting faculty
+ * member's hours stop when their access ends.
  */
-async function facultyHours(tx: Tx, batchIds: string[], tz: string, thisWeek: string, now: Date): Promise<FacultyLoad[]> {
+async function facultyHours(tx: Tx, batchIds: string[], tz: string, thisWeek: string): Promise<FacultyLoad[]> {
   if (batchIds.length === 0) return [];
   const from = addDays(thisWeek, -7);
   const to = addDays(thisWeek, 13);
@@ -267,18 +291,18 @@ async function facultyHours(tx: Tx, batchIds: string[], tz: string, thisWeek: st
     return e;
   };
   // Everyone currently assigned shows up, even with no classes in these three weeks.
+  const now = new Date();
   for (const a of assigned) {
     const end = assignmentEnd(a);
     if (a.startsAt <= now && (!end || end > now)) entry(a.userId);
   }
+  const byBatch = new Map<string, Assigned[]>();
+  for (const a of assigned) byBatch.set(a.batchId!, [...(byBatch.get(a.batchId!) ?? []), a]);
   for (const s of sessions) {
     const at = zonedInstant(s.date, s.startTime, tz);
     const hours = (toMinutes(s.endTime) - toMinutes(s.startTime)) / 60;
     const bucket = s.date < thisWeek ? "lastWeek" : s.date < addDays(thisWeek, 7) ? "thisWeek" : "nextWeek";
-    for (const a of assigned) {
-      if (a.batchId !== s.batchId) continue;
-      const end = assignmentEnd(a);
-      if (a.startsAt > at || (end && end <= at)) continue;
+    for (const a of teachersAt(byBatch.get(s.batchId) ?? [], at)) {
       const e = entry(a.userId);
       e[bucket] += hours;
       if (bucket === "thisWeek") e.batches.add(s.batchId);

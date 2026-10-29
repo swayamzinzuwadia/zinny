@@ -9,8 +9,8 @@
 import type { ReportColumn } from "@/contracts/module";
 import { isBlank, toDateString, toNumber } from "./format";
 
-// Also full-width ＝＋－＠, which some spreadsheet apps normalise before parsing.
-const DANGEROUS_START = /^[=+\-@\t\r＝＋－＠]/;
+// Also the full-width equals, plus, minus and at signs, which some spreadsheet apps normalise before parsing.
+const DANGEROUS_START = /^[=+\-@\t\r\uFF1D\uFF0B\uFF0D\uFF20]/;
 
 /** Prefix a text value with an apostrophe when a spreadsheet would read it as a formula. */
 export function guardFormula(text: string): string {

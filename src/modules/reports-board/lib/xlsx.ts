@@ -20,8 +20,7 @@ const STYLE = { text: 0, header: 1, money: 2, date: 3, percent: 4 } as const;
 /** Excel's limit for one cell. */
 const MAX_CELL_TEXT = 32_767;
 
-// eslint-disable-next-line no-control-regex
-const MAYBE_INVALID_XML = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF￾￿]/;
+const MAYBE_INVALID_XML = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF\uFFFE\uFFFF]/;
 
 /** Drops what XML 1.0 forbids: control characters, lone surrogates, U+FFFE and U+FFFF. Keeps emoji (surrogate pairs). */
 export function stripInvalidXml(text: string): string {
