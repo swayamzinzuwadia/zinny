@@ -142,10 +142,11 @@ export function VideoPlayer({
 
   // Report every 10 s while playing, and when leaving the page.
   useEffect(() => {
+    const t = tracker.current;
     const every = setInterval(() => void report(), 10_000);
     const hide = () => {
       if (document.visibilityState === "hidden") {
-        tracker.current.close();
+        t.close();
         void report({ beacon: true });
       }
     };
@@ -153,7 +154,7 @@ export function VideoPlayer({
     return () => {
       clearInterval(every);
       document.removeEventListener("visibilitychange", hide);
-      tracker.current.close();
+      t.close();
       void report({ beacon: true });
     };
   }, [report]);

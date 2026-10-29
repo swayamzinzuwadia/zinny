@@ -20,10 +20,11 @@ const OPTIONS: sanitizeHtml.IOptions = {
   transformTags: {
     h1: "h2",
     // Links open in a new tab. A link to anything but http(s) or mailto keeps its text and loses the link.
-    a: (tagName, attribs) =>
-      /^(https?:\/\/|mailto:)/i.test((attribs.href ?? "").trim())
-        ? { tagName, attribs: { href: attribs.href.trim(), target: "_blank", rel: "noopener noreferrer nofollow" } }
-        : { tagName, attribs: {} },
+    a: (tagName, attribs) => {
+      const href = (attribs.href ?? "").trim();
+      const out: sanitizeHtml.Attributes = /^(https?:\/\/|mailto:)/i.test(href) ? { href, target: "_blank", rel: "noopener noreferrer nofollow" } : {};
+      return { tagName, attribs: out };
+    },
   },
 };
 

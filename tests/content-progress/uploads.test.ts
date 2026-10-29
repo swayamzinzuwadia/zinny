@@ -105,7 +105,7 @@ describe("lesson file uploads", () => {
     const start = await startUploadResponse(ctx.hod, new Request(base, { method: "POST", headers, body: JSON.stringify({ lessonId: ctx.lessons[0].id, fileName: "n.pdf", size: pdf.length }) }));
     expect(start.status).toBe(200);
     const { uploadId } = (await start.json()) as { uploadId: string };
-    const part = await uploadPartResponse(ctx.hod, uploadId, new Request(`${base}/${uploadId}?part=0`, { method: "PUT", headers, body: pdf }));
+    const part = await uploadPartResponse(ctx.hod, uploadId, new Request(`${base}/${uploadId}?part=0`, { method: "PUT", headers, body: new Uint8Array(pdf) }));
     expect(part.status).toBe(200);
     const fin = await finishUploadResponse(ctx.hod, uploadId, new Request(`${base}/${uploadId}`, { method: "POST", headers }));
     expect(fin.status).toBe(200);
