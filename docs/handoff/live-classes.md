@@ -49,7 +49,7 @@ A class counts towards percentages only once it has been run through Zinny: star
     - There are recordings, and every week before this one is locked.
     - Below 75%: Zoya (50%) and Rohan (61%) in ML, and Neil (67%) in Python. This week's alerts are sent.
 
-**Tests:** 73 in `tests/live-classes/`; the full suite has 227. They cover:
+**Tests:** 73 in `tests/live-classes/`; the full suite has 222. They cover:
 - the time rules (window edges, late cut-off, midnight, daylight saving);
 - join allow and deny;
 - joining twice, including concurrent joins;
