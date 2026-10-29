@@ -76,7 +76,6 @@ export function contentTypeFor(name: string): string | null {
 
 /** The name people see: trimmed, without control characters or path parts, at most 200 characters. */
 export function displayName(name: string): string {
-  // eslint-disable-next-line no-control-regex
   const base = (name ?? "").split(/[\\/]/).pop()!.replace(/[\u0000-\u001f\u007f]/g, "").trim();
   if (base.length <= 200) return base || "file";
   const ext = extensionOf(base);
