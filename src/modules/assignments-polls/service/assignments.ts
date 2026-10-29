@@ -6,7 +6,7 @@
  * everywhere (access.ts). Students hand in text and files until the due date, late if the
  * assignment allows it (with an automatic penalty), and keep every version.
  */
-import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { enrolments } from "@/db/schema";
 import {
@@ -384,7 +384,7 @@ export type StaffAssignmentDetail = {
   assignment: AssignmentRow;
   courseTitle: string;
   attachments: FileView[];
-  batches: { id: string; name: string; canView: boolean; canGrade: boolean }[];
+  batches: { id: string; name: string; canView: boolean; canGrade: boolean; students: number; submitted: number; toGrade: number; graded: number }[];
   canManage: boolean;
   gradedCount: number;
   timezone: string;
@@ -399,11 +399,25 @@ export async function getStaffAssignment(actor: Actor, assignmentId: string): Pr
       .select({ graded: sql<number>`count(*)::int` })
       .from(asgnSubmissions)
       .where(and(eq(asgnSubmissions.assignmentId, a.id), isNotNull(asgnSubmissions.gradedAt)));
+    const roster = await rosterByBatch(tx, access.viewBatchIds);
+    const subs = await tx
+      .select({ batchId: asgnSubmissions.batchId, submittedAt: asgnSubmissions.submittedAt, gradedAt: asgnSubmissions.gradedAt })
+      .from(asgnSubmissions)
+      .where(eq(asgnSubmissions.assignmentId, a.id));
+    const countsFor = (b: string) => {
+      const mine = access.viewBatchIds.includes(b) ? subs.filter((x) => x.batchId === b) : [];
+      return {
+        students: access.viewBatchIds.includes(b) ? (roster.get(b) ?? []).length : 0,
+        submitted: mine.filter((x) => x.submittedAt).length,
+        toGrade: mine.filter((x) => x.submittedAt && !x.gradedAt).length,
+        graded: mine.filter((x) => x.gradedAt).length,
+      };
+    };
     return {
       assignment: { ...a, instructionsHtml: sanitizeInstructions(a.instructionsHtml) },
       courseTitle: n.course.get(a.courseId) ?? "",
       attachments,
-      batches: access.covered.map((id) => ({ id, name: n.batch.get(id) ?? "", canView: access.viewBatchIds.includes(id), canGrade: access.gradeBatchIds.includes(id) })),
+      batches: access.covered.map((id) => ({ id, name: n.batch.get(id) ?? "", canView: access.viewBatchIds.includes(id), canGrade: access.gradeBatchIds.includes(id), ...countsFor(id) })),
       canManage: access.manage,
       gradedCount: graded,
       timezone: (await universityLite(tx)).timezone,
@@ -995,5 +1009,3 @@ export async function myGrades(actor: Actor) {
 
 export { MAX_UPLOAD_MB };
 export type { FileView };
-// Re-exported for pages that order assignments the same way.
-export { asc };
