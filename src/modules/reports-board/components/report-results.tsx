@@ -146,17 +146,20 @@ function Cell({ column, value }: { column: ReportColumn; value: unknown }) {
   const text = formatCell(value, column.type);
   const numeric = isNumericType(column.type);
   const negative = numeric && typeof value === "number" && value < 0;
+  // One line per row, so wide reports scroll sideways instead of wrapping into tall rows.
+  // Very long text is cut with an ellipsis; the full value is in the tooltip and the downloads.
+  const long = !numeric && text.length > 48;
   return (
     <td
       className={cx(
-        "px-4 py-3 align-top",
-        numeric && "tabular whitespace-nowrap text-right",
-        column.type === "date" && "whitespace-nowrap",
+        "whitespace-nowrap px-4 py-2.5 align-top",
+        numeric && "tabular text-right",
         negative && "text-danger",
         text === "—" && "text-faint",
       )}
+      title={long ? text : undefined}
     >
-      {text}
+      {long ? <span className="block max-w-[24rem] truncate">{text}</span> : text}
     </td>
   );
 }
