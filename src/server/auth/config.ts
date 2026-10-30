@@ -46,6 +46,8 @@ export const LIMITS = {
   resetPerEmail: { limit: 3, windowMs: HOUR } satisfies Rule,
   /** Reset requests from one network. */
   resetPerIp: { limit: 20, windowMs: HOUR } satisfies Rule,
+  /** New accounts from one network (a whole class may sign up together, so this is generous). */
+  signupPerIp: { limit: 30, windowMs: HOUR } satisfies Rule,
   /** Wrong current passwords on the profile page, per person. */
   currentPasswordPerUser: { limit: 5, windowMs: 15 * MIN, lockMs: 15 * MIN } satisfies Rule,
 } as const;

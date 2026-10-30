@@ -4,7 +4,7 @@ import type { ActionState } from "@/components/forms";
 import { attempt, str } from "@/server/action";
 import { spaceContext } from "@/server/context";
 import { resendInvite, revokeInvite } from "@/modules/identity/invites";
-import { setPhoneSignIn } from "@/modules/identity/settings";
+import { setPhoneSignIn, setSelfSignup } from "@/modules/identity/settings";
 import { formatWhen } from "@/modules/identity/emails";
 
 async function ctx(data: FormData) {
@@ -38,5 +38,15 @@ export async function phoneSignInAction(_: ActionState, data: FormData): Promise
     await setPhoneSignIn(actor, on);
     revalidatePath(path);
     return on ? "Phone sign-in is on. People can sign in with a code sent to their mobile." : "Phone sign-in is off.";
+  });
+}
+
+export async function selfSignupAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const { actor, path } = await ctx(data);
+  return attempt(async () => {
+    const on = str(data, "on") === "1";
+    await setSelfSignup(actor, on);
+    revalidatePath(path);
+    return on ? "Student sign-up is on. Students can create their own account." : "Student sign-up is off. Students now need an invitation.";
   });
 }

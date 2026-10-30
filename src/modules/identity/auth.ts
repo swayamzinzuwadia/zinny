@@ -35,10 +35,10 @@ const resetUrl = () => `${appUrl()}/reset`;
 
 /* ───────────────────────────── Universities on the sign-in screens ───────────────────────────── */
 
-export type LoginUniversity = { id: string; slug: string; name: string; phoneSignIn: boolean };
+export type LoginUniversity = { id: string; slug: string; name: string; phoneSignIn: boolean; signupOpen: boolean };
 
 /** Paths that are app routes, not university slugs. */
-const RESERVED = new Set(["login", "invite", "reset", "platform", "api", "verify", "site", "_next", "brand", "favicon.ico"]);
+const RESERVED = new Set(["login", "signup", "invite", "reset", "platform", "api", "verify", "site", "_next", "brand", "favicon.ico"]);
 
 /** The university slug at the start of a `next` path ("/demo/learn" → "demo"), if any. */
 export function slugFromNext(next: string | null | undefined): string | null {
@@ -52,11 +52,20 @@ export async function loginUniversity(slug: string | null | undefined): Promise<
   const s = (slug ?? "").toLowerCase();
   if (!s || RESERVED.has(s) || !/^[a-z0-9-]{2,40}$/.test(s)) return null;
   const [u] = await systemDb()
-    .select({ id: universities.id, slug: universities.slug, name: universities.name })
+    .select({ id: universities.id, slug: universities.slug, name: universities.name, status: universities.status })
     .from(universities)
     .where(eq(universities.slug, s));
   if (!u) return null;
-  return { ...u, phoneSignIn: await phoneSignInEnabled(u.id) };
+  const [settings] = await withTenant(systemActorFor(u.id), (tx) =>
+    tx.select({ phoneSignIn: idnSettings.phoneSignIn, selfSignup: idnSettings.selfSignup }).from(idnSettings).where(eq(idnSettings.universityId, u.id)),
+  );
+  return {
+    id: u.id,
+    slug: u.slug,
+    name: u.name,
+    phoneSignIn: settings?.phoneSignIn ?? false,
+    signupOpen: u.status === "active" && (settings?.selfSignup ?? true),
+  };
 }
 
 export async function phoneSignInEnabled(universityId: string): Promise<boolean> {
@@ -93,6 +102,56 @@ export async function landingAfterSignIn(userId: string, next: string | null | u
   const space = spaces.find((s) => s.slug === wanted) ?? (spaces.length === 1 ? spaces[0] : null);
   if (!space) return "/";
   return `/${space.slug}/${space.roles.some((r) => ADMIN_PANEL.has(r as RoleName)) ? "admin" : "learn"}`;
+}
+
+/* ───────────────────────────── Student sign-up ───────────────────────────── */
+
+export type SignUpResult = { status: "created"; userId: string; landing: string } | { status: "network_limited"; retryAt: Date };
+
+/**
+ * Creates a student account at one institute, for /signup. It only ever creates a new
+ * person: an email already in Zinny is refused, so nobody can take over an account or a
+ * pending invitation by signing up with its address. The caller starts the session.
+ * The answer does show that an email is taken, so attempts are capped per network.
+ */
+export async function signUpStudent(input: {
+  slug: string;
+  name: string;
+  email: string;
+  password: string;
+  confirm: string;
+  ip: string | null;
+  now?: Date;
+}): Promise<SignUpResult> {
+  const now = input.now ?? new Date();
+  const university = await loginUniversity(input.slug);
+  if (!university) throw new ValidationError("We can't find that institute. Check the code and try again.", "unknown_institute");
+  if (!university.signupOpen) throw new ValidationError(`${university.name} doesn't take sign-ups here. Ask them to send you an invitation.`, "signup_closed");
+
+  const name = input.name.trim().replace(/\s+/g, " ");
+  const email = normEmail(input.email);
+  if (name.length < 2 || name.length > 100) throw new ValidationError("Enter your full name.");
+  if (!emailLike.test(email)) throw new ValidationError("Enter a valid email address, like name@example.com.");
+  checkNewPassword(input.password, { email, name, confirm: input.confirm });
+
+  const byIp = await consume(throttleKey("signup-ip", input.ip ?? "unknown"), LIMITS.signupPerIp, now);
+  if (!byIp.ok) return { status: "network_limited", retryAt: byIp.retryAt };
+
+  const passwordHash = await hashPassword(input.password);
+  return withTenant(systemActorFor(university.id), async (tx) => {
+    // The unique index on the email settles two sign-ups racing for the same address.
+    const [created] = await tx.insert(users).values({ email, name, passwordHash }).onConflictDoNothing().returning({ id: users.id });
+    if (!created) throw new ValidationError("This email already has a Zinny account. Sign in, or reset your password if you've forgotten it.", "email_taken");
+    await tx.insert(roleAssignments).values({
+      userId: created.id,
+      role: "student",
+      scopeType: "university",
+      universityId: university.id,
+      createdBy: created.id,
+    });
+    await audit(tx, personActor(university.id, created.id), "user.self_signup", "user", created.id, { role: "student" });
+    return { status: "created" as const, userId: created.id, landing: landingFor(university.slug, "student") };
+  });
 }
 
 /* ───────────────────────────── Password sign-in ───────────────────────────── */

@@ -7,7 +7,7 @@ import { spaceContext } from "@/server/context";
 import { canSeeInvites, listInvites, type InviteRow } from "@/modules/identity/invites";
 import { getSignInSettings } from "@/modules/identity/settings";
 import { formatWhen } from "@/modules/identity/emails";
-import { phoneSignInAction, resendInviteAction, revokeInviteAction } from "./actions";
+import { phoneSignInAction, resendInviteAction, revokeInviteAction, selfSignupAction } from "./actions";
 
 export const metadata = { title: "Invitations" };
 
@@ -167,6 +167,22 @@ export default async function InvitesPage({ params }: { params: Promise<{ uni: s
                 <input type="hidden" name="on" value={settings.phoneSignIn ? "0" : "1"} />
                 <SubmitButton size="sm" variant="secondary" pendingText="Saving…">
                   {settings.phoneSignIn ? "Turn off phone sign-in" : "Turn on phone sign-in"}
+                </SubmitButton>
+              </ActionForm>
+              <div className="mt-6 flex items-start justify-between gap-3 border-t border-line pt-5">
+                <div>
+                  <div className="font-medium">Student sign-up</div>
+                  <p className="mt-1 text-[13px] text-muted">
+                    Lets students create their own account at <span className="break-all text-ink">/signup?uni={uni}</span>. Turn it off if you only want students you add yourself.
+                  </p>
+                </div>
+                <Badge tone={settings.selfSignup ? "brand" : "neutral"}>{settings.selfSignup ? "On" : "Off"}</Badge>
+              </div>
+              <ActionForm action={selfSignupAction} className="mt-4" resetOnSuccess={false}>
+                <input type="hidden" name="uni" value={uni} />
+                <input type="hidden" name="on" value={settings.selfSignup ? "0" : "1"} />
+                <SubmitButton size="sm" variant="secondary" pendingText="Saving…">
+                  {settings.selfSignup ? "Turn off student sign-up" : "Turn on student sign-up"}
                 </SubmitButton>
               </ActionForm>
             </Card>

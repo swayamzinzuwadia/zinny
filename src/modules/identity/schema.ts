@@ -63,6 +63,8 @@ export const idnSettings = pgTable("idn_settings", {
     .primaryKey()
     .references(() => universities.id, { onDelete: "cascade" }),
   phoneSignIn: boolean("phone_sign_in").notNull().default(false),
+  /** Students can create their own account at /signup. Institutes with a fixed list turn this off. */
+  selfSignup: boolean("self_signup").notNull().default(true),
   updatedAt: at("updated_at").notNull().defaultNow(),
   updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
 });

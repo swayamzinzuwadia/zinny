@@ -8,6 +8,7 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import type { ActionState } from "@/components/forms";
 import { str } from "@/server/action";
 import { AppError, ValidationError } from "@/server/errors";
+import { humanDuration } from "@/server/auth/config";
 import { clientInfo, cookieOptions, spacesFor, startSession, type SessionMethod } from "@/server/auth/session";
 import {
   PHONE_COOKIE_MS,
@@ -21,6 +22,7 @@ import {
   safeNext,
   signInMessage,
   signInWithPassword,
+  signUpStudent,
   startPhoneSignIn,
   verifyPhoneCode,
   loginUniversity,
@@ -47,7 +49,7 @@ export async function forgetUniversityAction(data: FormData) {
 }
 
 /** Codes the screens use to pick a state (locked, expired link …). */
-export type AuthState = (ActionState & { code?: string; email?: string }) | null;
+export type AuthState = (ActionState & { code?: string; email?: string; name?: string }) | null;
 
 function fail(e: unknown): AuthState {
   unstable_rethrow(e);
@@ -75,6 +77,36 @@ export async function passwordSignInAction(_: AuthState, data: FormData): Promis
 export async function demoSignInAction(data: FormData) {
   const userId = await demoSignIn(str(data, "email"));
   redirect(await signInAs(userId, "demo"));
+}
+
+/* ───────────────────────────── Student sign-up ───────────────────────────── */
+
+export async function signUpAction(_: AuthState, data: FormData): Promise<AuthState> {
+  const email = str(data, "email");
+  const name = str(data, "name");
+  // Only bots fill in this hidden field.
+  if (str(data, "website")) return { error: "We couldn't create your account. Please try again.", email, name, at: Date.now() };
+  let dest: string | null = null;
+  try {
+    const { ip } = await clientInfo();
+    const r = await signUpStudent({
+      slug: str(data, "uni"),
+      name,
+      email,
+      password: String(data.get("password") ?? ""),
+      confirm: String(data.get("confirm") ?? ""),
+      ip,
+    });
+    if (r.status === "network_limited") {
+      const wait = humanDuration(r.retryAt.getTime() - Date.now());
+      return { error: `Too many new accounts from your network. Try again in ${wait}.`, code: "network_limited", email, name, at: Date.now() };
+    }
+    await signInAs(r.userId, "password");
+    dest = r.landing;
+  } catch (e) {
+    return { ...fail(e), email, name };
+  }
+  redirect(dest);
 }
 
 /* ───────────────────────────── Phone ───────────────────────────── */

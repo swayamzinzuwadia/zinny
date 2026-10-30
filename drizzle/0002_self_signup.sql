@@ -1,0 +1,1 @@
+ALTER TABLE "idn_settings" ADD COLUMN "self_signup" boolean DEFAULT true NOT NULL;
