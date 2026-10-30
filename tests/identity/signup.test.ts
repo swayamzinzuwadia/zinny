@@ -82,7 +82,9 @@ describe("student sign-up", () => {
 
   it("refuses at a suspended institute and an unknown one", async () => {
     const { uni } = await setupCourse({ name: "Paused Academy" });
+    expect((await loginUniversity(uni.slug))?.signupOpen).toBe(true);
     await systemDb().update(universities).set({ status: "suspended" }).where(eq(universities.id, uni.id));
+    expect((await loginUniversity(uni.slug))?.signupOpen).toBe(false);
     await expect(signUpStudent(form(uni.slug))).rejects.toMatchObject({ code: "signup_closed" });
     await expect(signUpStudent(form("no-such-institute"))).rejects.toMatchObject({ code: "unknown_institute" });
   });

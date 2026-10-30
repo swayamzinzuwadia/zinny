@@ -4,7 +4,8 @@ import "server-only";
  * (signing in, invitation links, password reset, phone codes).
  *
  * Brief exception: this file and src/server/auth/ may use systemDb(), and the only core
- * data they write is users.password_hash and the sessions table. University tables
+ * data they write is users.password_hash, the sessions table, and the new user, student
+ * role and audit entry of a sign-up (signUpStudent). Other university tables
  * (invitations, phone challenges, settings) are still read and written under row-level
  * security with withTenant(systemActorFor(universityId)), so an invitation for one
  * university can never be found, or used, from another.
@@ -126,7 +127,7 @@ export async function signUpStudent(input: {
   const now = input.now ?? new Date();
   const university = await loginUniversity(input.slug);
   if (!university) throw new ValidationError("We can't find that institute. Check the code and try again.", "unknown_institute");
-  if (!university.signupOpen) throw new ValidationError(`${university.name} doesn't take sign-ups here. Ask them to send you an invitation.`, "signup_closed");
+  if (!university.signupOpen) throw new ValidationError(`${university.name} isn't taking new students here. Please contact the institute.`, "signup_closed");
 
   const name = input.name.trim().replace(/\s+/g, " ");
   const email = normEmail(input.email);
@@ -138,7 +139,8 @@ export async function signUpStudent(input: {
   if (!byIp.ok) return { status: "network_limited", retryAt: byIp.retryAt };
 
   const passwordHash = await hashPassword(input.password);
-  return withTenant(systemActorFor(university.id), async (tx) => {
+  // The owner connection: the app role can't insert users, and zinny_upsert_user would reuse an existing one.
+  return systemDb().transaction(async (tx) => {
     // The unique index on the email settles two sign-ups racing for the same address.
     const [created] = await tx.insert(users).values({ email, name, passwordHash }).onConflictDoNothing().returning({ id: users.id });
     if (!created) throw new ValidationError("This email already has a Zinny account. Sign in, or reset your password if you've forgotten it.", "email_taken");

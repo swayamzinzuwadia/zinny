@@ -40,13 +40,7 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
 
   if (!university.signupOpen) {
     return (
-      <AuthShell title="Ask your institute to add you" subtitle={`${university.name} adds its own students and sends each one an invitation email.`}>
-        <p className="text-[14px] text-muted">
-          Waiting for yours?{" "}
-          <Link href="/reset" className="text-brand hover:underline">
-            Get a new link
-          </Link>
-        </p>
+      <AuthShell title="Sign-up isn't open right now" subtitle={`${university.name} isn't taking new students here. Please contact the institute.`}>
         {signIn}
       </AuthShell>
     );
