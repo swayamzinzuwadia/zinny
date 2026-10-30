@@ -117,7 +117,16 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
 
       {!phone && (
         <p className="mt-6 text-[14px] text-muted">
-          New here? Your institute sends you an invitation email.{" "}
+          New here?{" "}
+          {(!university || university.signupOpen) && (
+            <>
+              <Link href={university ? `/signup?uni=${university.slug}` : "/signup"} className="font-medium text-brand hover:underline">
+                Create a student account
+              </Link>
+              . Staff get{" "}
+            </>
+          )}
+          {university && !university.signupOpen ? "Your institute sends you an invitation email." : "an invitation email."}{" "}
           <Link href="/reset" className="text-brand hover:underline">
             Didn&apos;t get it?
           </Link>

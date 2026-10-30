@@ -10,7 +10,7 @@ import { useActionState, useEffect, useId, useRef, useState, type ReactNode } fr
 import { useFormStatus } from "react-dom";
 import { buttonClass, cx, inputClass } from "@/components/ui";
 
-export type AuthState = { ok?: string; error?: string; code?: string; email?: string; at?: number } | null;
+export type AuthState = { ok?: string; error?: string; code?: string; email?: string; name?: string; at?: number } | null;
 type Action = (prev: AuthState, data: FormData) => Promise<AuthState>;
 
 /* ───────────────────────────── Pieces ───────────────────────────── */
@@ -209,6 +209,55 @@ export function PasswordSignInForm({ action, next, defaultEmail, resetHref }: { 
       )}
       {state?.error && state.code !== "locked" && state.code !== "network_locked" && <Alert tone="danger">{state.error}</Alert>}
       <Submit pendingText="Signing in…">Sign in</Submit>
+    </form>
+  );
+}
+
+/* ───────────────────────────── Student sign-up ───────────────────────────── */
+
+export function SignUpForm({ action, uni, signInHref }: { action: Action; uni: string; signInHref: string }) {
+  const [state, formAction] = useActionState(action, null);
+  const email = state?.email ?? "";
+  return (
+    <form action={formAction} className="space-y-4">
+      <input type="hidden" name="uni" value={uni} />
+      {/* People never see this field; bots that fill in every box do. */}
+      <div aria-hidden className="absolute -left-[9999px]">
+        <label>
+          Website
+          <input type="text" name="website" tabIndex={-1} autoComplete="off" />
+        </label>
+      </div>
+      <TextField key={`f-${state?.at ?? 0}`} name="name" label="Your full name" autoComplete="name" defaultValue={state?.name ?? ""} autoFocus />
+      <TextField key={`e-${state?.at ?? 0}`} name="email" label="Email" type="email" inputMode="email" autoComplete="username" defaultValue={email} />
+      <PasswordField key={`p-${state?.at ?? 0}`} name="password" label="Create a password" autoComplete="new-password" hint="At least 8 characters. A short sentence works well." />
+      <PasswordField key={`c-${state?.at ?? 0}`} name="confirm" label="Type it again" autoComplete="new-password" />
+      {state?.error && state.code === "email_taken" && (
+        <Alert tone="gold" title="You may already have an account">
+          <p>{state.error}</p>
+          <Link href={signInHref} className="mt-2 inline-block font-medium text-brand-strong underline underline-offset-2">
+            Sign in
+          </Link>
+        </Alert>
+      )}
+      {state?.error && state.code === "network_limited" && (
+        <Alert tone="gold" title="Too many new accounts">
+          {state.error}
+        </Alert>
+      )}
+      {state?.error && state.code !== "email_taken" && state.code !== "network_limited" && <Alert tone="danger">{state.error}</Alert>}
+      <Submit pendingText="Creating your account…">Create my account</Submit>
+    </form>
+  );
+}
+
+/** Asks which institute, as a plain link-style form, so sign-up never lists who uses Zinny. */
+export function InstituteCodeForm({ code, notFound }: { code: string; notFound: boolean }) {
+  return (
+    <form action="/signup" method="get" className="space-y-4">
+      <TextField name="uni" label="Institute code" defaultValue={code} autoFocus placeholder="demo" hint="The short name in your institute's Zinny address. Ask them if you're not sure." />
+      {notFound && <Alert tone="danger">We can&apos;t find that institute. Check the code and try again.</Alert>}
+      <Submit pendingText="Finding it…">Continue</Submit>
     </form>
   );
 }

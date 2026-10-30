@@ -22,7 +22,7 @@ export function SiteHeader({ site }: { site: SiteInfo }) {
               {n.label}
             </Link>
           ))}
-          <Link href="/login" prefetch={false} className="rounded-full px-3 py-2 text-[14px] text-ink/80 hover:bg-[var(--site-soft)] hover:text-ink">
+          <Link href={`/login?uni=${site.slug}`} prefetch={false} className="rounded-full px-3 py-2 text-[14px] text-ink/80 hover:bg-[var(--site-soft)] hover:text-ink">
               Sign in
             </Link>
           {enquire && (
@@ -45,7 +45,7 @@ export function SiteHeader({ site }: { site: SiteInfo }) {
                 {n.label}
               </Link>
             ))}
-            <Link href="/login" prefetch={false} className="block rounded-2xl px-4 py-3 text-[15px] hover:bg-[var(--site-soft)]">
+            <Link href={`/login?uni=${site.slug}`} prefetch={false} className="block rounded-2xl px-4 py-3 text-[15px] hover:bg-[var(--site-soft)]">
               Sign in
             </Link>
             {enquire && (
@@ -107,7 +107,7 @@ export function SiteFooter({ site }: { site: SiteInfo }) {
                 </li>
               ))}
             <li>
-              <Link href="/login" prefetch={false} className="hover:underline">
+              <Link href={`/login?uni=${site.slug}`} prefetch={false} className="hover:underline">
               Student sign in
             </Link>
             </li>
