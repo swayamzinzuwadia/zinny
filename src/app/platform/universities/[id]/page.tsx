@@ -7,10 +7,12 @@ import { platformContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { setStatusAction, updateBasicsAction } from "@/modules/zinny-team-panel/actions";
 import { BackLink, Fact, NoAccess, PlanBadge, RenewalText, StatusBadge, UsageMeter } from "@/modules/zinny-team-panel/components/bits";
-import { canSeeContentFlags } from "@/modules/zinny-team-panel/lib/access";
+import { OpenInstitute } from "@/modules/zinny-team-panel/components/open-institute";
+import { canSeeContentFlags, isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
 import { COMMON_TIMEZONES, FLAG_LABEL, GST_STATES, MODULE_LABEL, STATE_NAME } from "@/modules/zinny-team-panel/lib/constants";
 import { formatCount, formatDate, formatINR, timeAgo } from "@/modules/zinny-team-panel/lib/format";
 import { invoicesForUniversity } from "@/modules/zinny-team-panel/services/billing";
+import { activeSessions } from "@/modules/zinny-team-panel/services/support";
 import { getUniversity } from "@/modules/zinny-team-panel/services/universities";
 
 export const metadata = { title: "University" };
@@ -33,6 +35,8 @@ export default async function UniversityPage({ params, searchParams }: { params:
   };
   const invoices = can.finance ? await invoicesForUniversity(actor, u.id) : [];
   const suspended = u.status === "suspended";
+  const superAdmin = isSuperAdmin(actor);
+  const inside = superAdmin && (await activeSessions(actor)).some((s) => s.staffUserId === actor.userId && s.universityId === u.id);
 
   return (
     <>
@@ -49,6 +53,12 @@ export default async function UniversityPage({ params, searchParams }: { params:
         }
         actions={
           <>
+            {superAdmin && <OpenInstitute universityId={u.id} slug={u.slug} inside={inside} />}
+            {superAdmin && (
+              <Link href={`/platform/people?university=${u.id}`} className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
+                People
+              </Link>
+            )}
             {can.support && (
               <Link href={`/platform/support/log?scope=all&university=${u.id}`} className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
                 Activity log

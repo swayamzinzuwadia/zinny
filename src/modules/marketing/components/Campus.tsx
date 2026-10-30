@@ -20,7 +20,7 @@ const ROOMS = [
 const POINTS = [
   {
     title: "Walled off by the database",
-    body: "Each institute's records sit behind row-level security. No query, from any screen, can reach another institute.",
+    body: "Each institute's records sit behind row-level security. Nobody at one institute can reach another's, from any screen.",
   },
   {
     title: "Roles decide every view",
@@ -28,7 +28,7 @@ const POINTS = [
   },
   {
     title: "Support access, on the record",
-    body: "The Zinny team can enter only in support mode, with a stated reason. Sessions end on their own, and every action is logged.",
+    body: "Only Zinny Super Admins can look across institutes, and the team works inside one only in support mode. Sessions end on their own, and every view and action is logged.",
   },
 ];
 

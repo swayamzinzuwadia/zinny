@@ -163,6 +163,8 @@ export const ACTION_LABELS: Record<string, string> = {
   "support.enter": "Entered support mode",
   "support.exit": "Left support mode",
   "support.force_end": "Force-ended a support session",
+  "plat.people.view": "Viewed the people list",
+  "plat.person.view": "Viewed a person's details",
   "university.create": "Created the university",
   "university.update": "Changed the university's details",
   "platform.role_grant": "Gave a Zinny team role",

@@ -3,7 +3,10 @@ import { Badge, ButtonLink, Empty, PageHeader, Table, Td } from "@/components/ui
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { NoAccess, PlanBadge, RenewalText, StatusBadge, UsageMeter } from "@/modules/zinny-team-panel/components/bits";
+import { OpenInstitute } from "@/modules/zinny-team-panel/components/open-institute";
+import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
 import { formatCount, formatDate } from "@/modules/zinny-team-panel/lib/format";
+import { activeSessions } from "@/modules/zinny-team-panel/services/support";
 import { listUniversities } from "@/modules/zinny-team-panel/services/universities";
 
 export const metadata = { title: "Universities" };
@@ -42,6 +45,8 @@ export default async function UniversitiesPage({ searchParams }: { searchParams:
           key === "active" ? u.status === "active" : key === "suspended" ? u.status === "suspended" : key === "renewing" ? u.daysLeft !== null && u.daysLeft <= 30 : !u.plan,
         ).length;
   const canLicence = canPlatform(actor, "platform.licences");
+  const canPeople = isSuperAdmin(actor);
+  const inside = new Set(canPeople ? (await activeSessions(actor)).filter((s) => s.staffUserId === actor.userId).map((s) => s.universityId) : []);
 
   return (
     <>
@@ -91,6 +96,11 @@ export default async function UniversitiesPage({ searchParams }: { searchParams:
                   {u.name}
                 </Link>
                 <div className="text-[12.5px] text-muted">zinny.app/{u.slug}</div>
+                {canPeople && (
+                  <div className="mt-2">
+                    <OpenInstitute universityId={u.id} slug={u.slug} inside={inside.has(u.id)} />
+                  </div>
+                )}
               </Td>
               <Td>
                 <StatusBadge status={u.status} />
@@ -121,6 +131,11 @@ export default async function UniversitiesPage({ searchParams }: { searchParams:
                   <span className="mr-3">
                     <Badge tone="gold">{formatCount(u.openAlerts)} warning{u.openAlerts === 1 ? "" : "s"}</Badge>
                   </span>
+                )}
+                {canPeople && (
+                  <Link href={`/platform/people?university=${u.id}`} className="mr-3 text-[13px] font-medium text-brand hover:underline">
+                    People
+                  </Link>
                 )}
                 {canLicence && (
                   <Link href={`/platform/licences/${u.id}`} className="text-[13px] font-medium text-brand hover:underline">

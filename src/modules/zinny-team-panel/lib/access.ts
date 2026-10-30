@@ -66,6 +66,7 @@ const SECTIONS: Section[] = [
       { label: "Licences", href: "/licences", allowed: can("platform.licences") },
     ],
   },
+  { key: "people", label: "People", entries: [{ label: "People", href: "/people", allowed: isSuperAdmin }] },
   {
     key: "support",
     label: "Support",

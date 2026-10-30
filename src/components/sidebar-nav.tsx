@@ -159,6 +159,7 @@ const PATHS: Record<string, React.ReactNode> = {
   content: <path d="M5 2.5h7l3.5 3.5v11.5H5zM12 2.5V6h3.5M7.5 11l2 2 3.5-3.5" />,
   partners: <path d="M7.5 9.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 17a5 5 0 0 1 10 0M14.5 6.5v5M12 9h5" />,
   team: <path d="M7.5 9.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 17a5 5 0 0 1 10 0M13 3.8a3 3 0 0 1 0 5.4M15 12.5a5 5 0 0 1 2.5 4.5" />,
+  people: <path d="M7.5 9.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 17a5 5 0 0 1 10 0M13 3.8a3 3 0 0 1 0 5.4M15 12.5a5 5 0 0 1 2.5 4.5" />,
 };
 
 function Icon({ name, active }: { name: string; active: boolean }) {

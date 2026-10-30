@@ -17,6 +17,7 @@ import { acknowledgeAlert, saveLicence, syncAllAlerts, type LicenceInput } from 
 import { addContact, addNote, createPartner, makePrimaryContact, removeContact, updatePartner } from "./services/partners";
 import { forceEndSupport, leaveSupport, startSupport } from "./services/support";
 import { createUniversityWithLicence, setUniversityStatus, updateBasics } from "./services/universities";
+import { assertSuperAdmin } from "./lib/access";
 import { PLATFORM_ROLE_LABELS, isPlatformRole } from "./lib/constants";
 import { ValidationError } from "@/server/errors";
 
@@ -129,6 +130,18 @@ export async function startSupportAction(_: ActionState, data: FormData): Promis
   let slug = "";
   const res = await attempt(async () => {
     ({ slug } = await startSupport(actor, str(data, "universityId"), str(data, "reason")));
+  });
+  if (slug) redirect(`/${slug}/admin`);
+  return res;
+}
+
+/** One-click entry for Super Admins. It's still a support session, so it's time-boxed and logged. */
+export async function openInstituteAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  let slug = "";
+  const res = await attempt(async () => {
+    assertSuperAdmin(actor);
+    ({ slug } = await startSupport(actor, str(data, "universityId"), "Opened by a Super Admin from the Zinny team panel"));
   });
   if (slug) redirect(`/${slug}/admin`);
   return res;
