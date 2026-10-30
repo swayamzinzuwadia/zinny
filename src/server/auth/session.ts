@@ -172,6 +172,23 @@ export async function pruneSessions(now = new Date()): Promise<number> {
   return gone.length;
 }
 
+/** This token's session, if it is this person's and was made in the last moments. */
+async function freshSession(token: string, userId: string, now: Date): Promise<NewSession | null> {
+  const [s] = await systemDb()
+    .select({ id: sessions.id, expiresAt: sessions.expiresAt, createdAt: sessions.createdAt })
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.tokenHash, sha256(token)),
+        eq(sessions.userId, userId),
+        gt(sessions.expiresAt, now),
+        gt(sessions.createdAt, new Date(now.getTime() - AUTH.session.repeatSignInMs)),
+      ),
+    );
+  if (!s) return null;
+  return { token, sessionId: s.id, expiresAt: s.expiresAt, cookieExpires: new Date(s.createdAt.getTime() + AUTH.session.absoluteMs) };
+}
+
 /* ───────────────────────────── Cookies ───────────────────────────── */
 
 /**
@@ -181,12 +198,18 @@ export async function pruneSessions(now = new Date()): Promise<number> {
 export async function startSession(
   userId: string,
   method: SessionMethod = "password",
-  opts: { jar?: CookieJar; client?: ClientInfo; now?: Date } = {},
+  opts: { jar?: CookieJar; client?: ClientInfo; now?: Date; keepFresh?: boolean } = {},
 ): Promise<NewSession> {
   const jar = await jarOf(opts.jar);
   const name = sessionCookieName();
   const previous = jar.get(name)?.value;
-  if (previous) await destroySessionByToken(previous);
+  if (previous) {
+    // A double click signs in twice. Ending the session the first click just made would
+    // leave the browser on a dead session, and the next page would send it to sign-in.
+    const fresh = opts.keepFresh ? await freshSession(previous, userId, opts.now ?? new Date()) : null;
+    if (fresh) return fresh;
+    await destroySessionByToken(previous);
+  }
   const s = await createSession(userId, method, opts.client ?? (await clientInfo()), opts.now);
   jar.set(name, s.token, cookieOptions(s.cookieExpires));
   return s;

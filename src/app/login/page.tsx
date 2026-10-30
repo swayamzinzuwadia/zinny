@@ -5,7 +5,7 @@ import { demoEnabled } from "@/server/auth/config";
 import { currentUserId } from "@/server/auth/session";
 import { DEMO_ACCOUNTS, loginUniversity, phoneSignInView, safeNext, slugFromNext } from "@/modules/identity/auth";
 import { AuthShell, AuthTabs } from "@/modules/identity/components/auth-shell";
-import { PasswordSignInForm, PhoneChooseForm, PhoneCodeForm, PhoneNumberForm } from "@/modules/identity/components/auth-forms";
+import { DemoButton, PasswordSignInForm, PhoneChooseForm, PhoneCodeForm, PhoneNumberForm } from "@/modules/identity/components/auth-forms";
 import { PHONE_COOKIE, UNI_COOKIE } from "@/modules/identity/cookies";
 import {
   demoSignInAction,
@@ -67,14 +67,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <div className="rounded-[22px] border border-line bg-surface p-5">
             <h2 className="font-medium">Try a demo account</h2>
             <p className="mb-3 text-[13px] text-muted">Each one shows Zinny as that role sees it. Password for all: zinny123</p>
-            <div className="grid gap-1">
+            {/* While one account signs in, the others can't be clicked. */}
+            <div className="grid gap-1 has-[button:disabled]:pointer-events-none">
               {DEMO_ACCOUNTS.map(([group, email, label]) => (
                 <form key={email} action={demoSignInAction}>
                   <input type="hidden" name="email" value={email} />
-                  <button className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-[14px] hover:bg-canvas">
-                    <span>{label}</span>
-                    <span className="text-[12px] text-faint">{group}</span>
-                  </button>
+                  <DemoButton label={label} group={group} />
                 </form>
               ))}
             </div>

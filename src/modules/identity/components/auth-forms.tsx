@@ -213,6 +213,17 @@ export function PasswordSignInForm({ action, next, defaultEmail, resetHref }: { 
   );
 }
 
+/** A one-click demo account. It shows that it's working, so nobody clicks it twice. */
+export function DemoButton({ label, group }: { label: string; group: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button disabled={pending} className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-[14px] hover:bg-canvas disabled:bg-canvas">
+      <span>{pending ? "Signing in…" : label}</span>
+      <span className="text-[12px] text-faint">{group}</span>
+    </button>
+  );
+}
+
 /* ───────────────────────────── Student sign-up ───────────────────────────── */
 
 export function SignUpForm({ action, uni, signInHref }: { action: Action; uni: string; signInHref: string }) {

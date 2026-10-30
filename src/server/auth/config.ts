@@ -16,6 +16,8 @@ export const AUTH = {
     absoluteMs: 30 * DAY,
     /** Extend the expiry at most this often, so each request doesn't write to the database. */
     touchEveryMs: 10 * MIN,
+    /** A repeat sign-in by the same person this soon keeps the session (see startSession). */
+    repeatSignInMs: MIN,
   },
   invite: { validMs: 7 * DAY, resendGapMs: MIN },
   reset: { validMs: 30 * MIN },

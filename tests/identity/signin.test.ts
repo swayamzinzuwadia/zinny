@@ -279,6 +279,33 @@ describe("sessions", () => {
     expect(row.tokenHash).toBe(sha256(second.token));
   });
 
+  it("a double click on sign-in keeps the session the first click made", async () => {
+    const u = await account("Double Click Dev");
+    const jar = cookieJar();
+    const now = new Date();
+    const first = await startSession(u.id, "password", { jar, client, keepFresh: true, now });
+    const token = jar.values.get(sessionCookieName())!;
+    const second = await startSession(u.id, "password", { jar, client, keepFresh: true, now: new Date(now.getTime() + 2000) });
+    expect(second.sessionId).toBe(first.sessionId);
+    expect(jar.values.get(sessionCookieName())).toBe(token);
+    expect(await resolveSession(token)).toMatchObject({ userId: u.id, sessionId: first.sessionId });
+  });
+
+  it("a later sign-in, or a different person, still gets a new session", async () => {
+    const u = await account("Later Lata");
+    const other = await account("Other Omar");
+    const jar = cookieJar();
+    const now = new Date();
+    const first = await startSession(u.id, "password", { jar, client, keepFresh: true, now });
+
+    const later = await startSession(u.id, "password", { jar, client, keepFresh: true, now: new Date(now.getTime() + 120_000) });
+    expect(later.sessionId).not.toBe(first.sessionId);
+
+    const switched = await startSession(other.id, "password", { jar, client, keepFresh: true, now: new Date(now.getTime() + 121_000) });
+    expect(switched.sessionId).not.toBe(later.sessionId);
+    expect(await resolveSession(later.token, new Date(now.getTime() + 122_000))).toBeNull();
+  });
+
   it("sets httpOnly, SameSite=Lax cookies; Secure and __Host- in production", async () => {
     const u = await account("Cookie Kim");
     const jar = cookieJar();

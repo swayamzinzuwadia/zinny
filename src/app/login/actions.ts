@@ -35,7 +35,7 @@ import { PHONE_COOKIE, UNI_COOKIE } from "@/modules/identity/cookies";
  * where to go next.
  */
 async function signInAs(userId: string, method: SessionMethod, next?: string | null): Promise<string> {
-  await startSession(userId, method);
+  await startSession(userId, method, { keepFresh: true });
   const spaces = await spacesFor(userId);
   if (spaces.length === 1) (await cookies()).set(UNI_COOKIE, spaces[0].slug, { ...cookieOptions(), maxAge: 400 * 86_400 });
   return landingAfterSignIn(userId, next);
