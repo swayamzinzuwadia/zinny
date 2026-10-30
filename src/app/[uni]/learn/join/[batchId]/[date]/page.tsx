@@ -23,6 +23,8 @@ export default async function JoinPage({
   const { uni, batchId, date } = await params;
   const { start } = await searchParams;
   const { actor } = await spaceContext(uni);
+  // Viewing as a student must never put a Super Admin in a real class under their name.
+  if (actor.viewedBy) redirect(`/${uni}/learn/timetable`);
   if (!hasRole(actor, ["student"])) return <NotAStudentPage uni={uni} />;
 
   const now = new Date();

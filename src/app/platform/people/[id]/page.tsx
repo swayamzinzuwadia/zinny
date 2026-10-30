@@ -6,12 +6,17 @@ import { platformContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { Fact, NoAccess } from "@/modules/zinny-team-panel/components/bits";
 import { OpenInstitute } from "@/modules/zinny-team-panel/components/open-institute";
+import { ViewAsButton } from "@/modules/zinny-team-panel/components/view-as-button";
 import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
 import { formatDate, formatDateTime, formatINR, timeAgo } from "@/modules/zinny-team-panel/lib/format";
 import { personDetail } from "@/modules/zinny-team-panel/services/people";
 import { actionLabel, activeSessions } from "@/modules/zinny-team-panel/services/support";
+import { LEARNER_ROLES } from "@/modules/zinny-team-panel/services/view-as";
+import type { RoleName } from "@/db/schema";
 
 export const metadata = { title: "Person" };
+
+const LEARNER = new Set<RoleName>(LEARNER_ROLES);
 
 export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await platformContext();
@@ -51,7 +56,12 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                       <Link href={`/platform/universities/${u.universityId}`} className="font-medium hover:text-brand">
                         {u.universityName}
                       </Link>
-                      <OpenInstitute universityId={u.universityId!} slug={u.universitySlug!} inside={inside.has(u.universityId!)} variant="secondary" />
+                      <span className="flex flex-wrap gap-2">
+                        {roles.some((r) => r.universityId === u.universityId && !r.revokedAt && LEARNER.has(r.role)) && (
+                          <ViewAsButton universityId={u.universityId!} userId={p.id} label={roles.some((r) => r.universityId === u.universityId && r.role === "parent") ? "View as parent" : "View as student"} />
+                        )}
+                        <OpenInstitute universityId={u.universityId!} slug={u.universitySlug!} inside={inside.has(u.universityId!)} variant="secondary" />
+                      </span>
                     </div>
                     <ul className="mt-3 space-y-1.5 text-[14px]">
                       {roles

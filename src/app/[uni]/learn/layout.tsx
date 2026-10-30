@@ -4,8 +4,10 @@ import { PageTrail } from "@/components/page-trail";
 import { Logo } from "@/components/ui";
 import { signOut } from "@/server/auth/session";
 import { spaceContext } from "@/server/context";
+import { stopViewAsAction } from "@/modules/zinny-team-panel/actions";
 import { AccountMenu, type AccountLink } from "./account-menu";
 import { LEARN_PARENTS, LearnBottomBar, LearnTabs } from "./nav";
+import { ViewAsBar } from "./view-as-bar";
 
 export default async function LearnLayout({ children, params }: { children: React.ReactNode; params: Promise<{ uni: string }> }) {
   const { uni } = await params;
@@ -38,7 +40,8 @@ export default async function LearnLayout({ children, params }: { children: Reac
 
   return (
     <div className="min-h-dvh pb-28 sm:pb-12">
-      <header data-learn-chrome className="sticky top-0 z-30 border-b border-line/70 bg-canvas/85 backdrop-blur-md">
+      {actor.viewedBy && <ViewAsBar name={actor.name} stop={stopViewAsAction} />}
+      <header data-learn-chrome className={`sticky z-30 border-b border-line/70 bg-canvas/85 backdrop-blur-md ${actor.viewedBy ? "top-9" : "top-0"}`}>
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3 sm:px-6">
           <Link href={base} className="flex shrink-0 items-center gap-3">
             <Logo height={26} />

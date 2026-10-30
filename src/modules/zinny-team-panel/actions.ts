@@ -16,6 +16,8 @@ import { flagCourse, markReviewed, resolveFlag } from "./services/content";
 import { acknowledgeAlert, saveLicence, syncAllAlerts, type LicenceInput } from "./services/licences";
 import { addContact, addNote, createPartner, makePrimaryContact, removeContact, updatePartner } from "./services/partners";
 import { forceEndSupport, leaveSupport, startSupport } from "./services/support";
+import { startViewAs, stopViewAs } from "./services/view-as";
+import { clearViewAs, readViewAs, writeViewAs } from "@/server/auth/view-as";
 import { createUniversityWithLicence, setUniversityStatus, updateBasics } from "./services/universities";
 import { assertSuperAdmin } from "./lib/access";
 import { PLATFORM_ROLE_LABELS, isPlatformRole } from "./lib/constants";
@@ -145,6 +147,27 @@ export async function openInstituteAction(_: ActionState, data: FormData): Promi
   });
   if (slug) redirect(`/${slug}/admin`);
   return res;
+}
+
+/** Starts viewing the learner app as one person, read only. `ok` is the page to open next. */
+export async function viewAsAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  const universityId = str(data, "universityId");
+  const userId = str(data, "userId");
+  return attempt(async () => {
+    const { slug } = await startViewAs(actor, universityId, userId);
+    await writeViewAs({ universityId, userId });
+    return `/${slug}/learn`;
+  });
+}
+
+/** Ends a view. Uses platformContext, not spaceContext, which refuses actions while viewing. */
+export async function stopViewAsAction() {
+  const actor = await platformContext();
+  const target = await readViewAs();
+  await clearViewAs();
+  if (target) await stopViewAs(actor, target.universityId, target.userId);
+  redirect(target ? `/platform/people/${target.userId}` : "/platform/people");
 }
 
 export async function leaveSupportAction(_: ActionState, data: FormData): Promise<ActionState> {

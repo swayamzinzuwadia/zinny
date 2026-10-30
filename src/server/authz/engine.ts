@@ -31,6 +31,8 @@ export type Actor = {
   assignments: Assignment[];
   /** Set when a Zinny team member is inside a university through support mode. */
   supportSessionId: string | null;
+  /** Set when a Super Admin is viewing the learner app as this person. Everything is then read only. */
+  viewedBy?: { userId: string; name: string };
 };
 
 /** What an action is being done to. Fill in every department and batch the record belongs to. */

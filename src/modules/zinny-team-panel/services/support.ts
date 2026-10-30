@@ -165,6 +165,8 @@ export const ACTION_LABELS: Record<string, string> = {
   "support.force_end": "Force-ended a support session",
   "plat.people.view": "Viewed the people list",
   "plat.person.view": "Viewed a person's details",
+  "plat.view_as.start": "Started viewing as a student",
+  "plat.view_as.stop": "Stopped viewing as a student",
   "university.create": "Created the university",
   "university.update": "Changed the university's details",
   "platform.role_grant": "Gave a Zinny team role",
