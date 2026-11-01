@@ -22,7 +22,7 @@ export function DripFields({ mode, days, date, disabled }: { mode: DripMode; day
         </Field>
       )}
       {m === "on_date" && (
-        <Field label="Opening date" hint="In the university's time zone. It opens at the start of that day.">
+        <Field label="Opening date" hint="In the institute's time zone. It opens at the start of that day.">
           <Input name="dripDate" type="date" required defaultValue={date ?? ""} disabled={disabled} />
         </Field>
       )}

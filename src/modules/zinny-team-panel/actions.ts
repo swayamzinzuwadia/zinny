@@ -59,7 +59,7 @@ export async function createUniversityAction(_: ActionState, data: FormData): Pr
   });
   if (id) {
     revalidatePath("/platform", "layout");
-    redirect(`/platform/universities/${id}?created=1`);
+    redirect(`/platform/institutes/${id}?created=1`);
   }
   return res;
 }
@@ -79,7 +79,7 @@ export async function updateBasicsAction(_: ActionState, data: FormData): Promis
       invoicePrefix: str(data, "invoicePrefix"),
     });
     revalidatePath("/platform", "layout");
-    return "Saved. The change is in the university's audit log.";
+    return "Saved. The change is in the institute's audit log.";
   });
 }
 
@@ -184,7 +184,7 @@ export async function forceEndSupportAction(_: ActionState, data: FormData): Pro
   return attempt(async () => {
     const r = await forceEndSupport(actor, str(data, "sessionId"), str(data, "endReason"));
     revalidatePath("/platform", "layout");
-    return r.forced ? "Session ended. They are out of the university on their next click." : "You have left support mode.";
+    return r.forced ? "Session ended. They are out of the institute on their next click." : "You have left support mode.";
   });
 }
 
@@ -204,7 +204,7 @@ export async function flagCourseAction(_: ActionState, data: FormData): Promise<
   return attempt(async () => {
     await flagCourse(actor, str(data, "courseId"), { category: str(data, "category"), note: str(data, "note") });
     revalidatePath("/platform", "layout");
-    return "Flag added. Account Managers can see it on the university's page.";
+    return "Flag added. Account Managers can see it on the institute's page.";
   });
 }
 

@@ -25,7 +25,7 @@ export async function universityLite(tx: Tx): Promise<UniversityLite> {
     })
     .from(universities)
     .where(sql`${universities.id} = zinny_current_university()`);
-  if (!u) throw new NotFoundError("University");
+  if (!u) throw new NotFoundError("Institute");
   return u;
 }
 

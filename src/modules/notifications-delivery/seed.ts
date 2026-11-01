@@ -32,16 +32,16 @@ export async function seed(ctx: SeedContext) {
     emailSubject: "Timetable update: {{title}}",
     emailBody:
       "Hi {{firstName}},\n\n{{body}}\n\nYour timetable in Zinny already shows the change. If the new timing clashes with something, reply to this email and the office will help.",
-    smsText: "{{university}}: {{title}}. Timetable: {{link}}",
+    smsText: "{{institute}}: {{title}}. Timetable: {{link}}",
     smsTemplateId: "6650a1b2c3d4e5f6a7b8c9d0",
     whatsappTemplate: "timetable_update",
   });
   await saveKindSettings(admin, "enrolment.confirmed", {
     channels: { email: "on", sms: "optional", whatsapp: "optional" },
-    emailSubject: "Welcome to {{university}}: {{title}}",
+    emailSubject: "Welcome to {{institute}}: {{title}}",
     emailBody:
       "Hi {{firstName}},\n\n{{body}}\n\nBefore your first class, open Zinny on your phone so your timetable is always with you. See you in class.",
-    smsText: "{{university}}: {{title}}. Details: {{link}}",
+    smsText: "{{institute}}: {{title}}. Details: {{link}}",
     smsTemplateId: "6650a1b2c3d4e5f6a7b8c9d1",
   });
   // Refund alerts are urgent for the accounts team: staff may add SMS for them.
@@ -49,7 +49,7 @@ export async function seed(ctx: SeedContext) {
     channels: { email: "on", sms: "optional", whatsapp: "off" },
     emailSubject: "Action needed: {{title}}",
     emailBody: "Hi {{firstName}},\n\n{{body}}\n\nRefund it from Sales within two working days.",
-    smsText: "{{university}}: {{title}}. {{link}}",
+    smsText: "{{institute}}: {{title}}. {{link}}",
   });
   await saveKindSettings(admin, "security.otp", { smsTemplateId: "6650a1b2c3d4e5f6a7b8c9d2" });
 
@@ -97,7 +97,7 @@ export async function seed(ctx: SeedContext) {
         recipient: "+919812300003",
         status: "queued",
         nextAttemptAt: morning,
-        payload: { text: "Demo University: Data Analytics: extra class on Sat. Timetable: http://localhost:3110/demo/learn/timetable", vars: {} },
+        payload: { text: "Demo Institute: Data Analytics: extra class on Sat. Timetable: http://localhost:3110/demo/learn/timetable", vars: {} },
       })
       .returning({ id: notifDeliveries.id });
     await audit(tx, ctx.systemActor, "notifications.direct_send", "notif_delivery", row.id, { kind: "timetable.changed", channel: "sms", status: "queued", seed: true });

@@ -273,7 +273,7 @@ describe("applying a rule to past activity", () => {
 
   it("refuses a rule that is off, and a HOD can't apply a university-wide rule", async () => {
     const rule = await createRule(w.admin, { name: "Retro all", trigger: "lesson", points: 1 });
-    await expect(applyRuleToPast(w.hod, rule.id)).rejects.toThrow(/whole university/);
+    await expect(applyRuleToPast(w.hod, rule.id)).rejects.toThrow(/whole institute/);
     const own = await createRule(w.hod, { name: "Retro CS", trigger: "lesson", points: 1, departmentId: w.dept.id });
     await expect(applyRuleToPast(w.hod, own.id)).resolves.toMatchObject({ failed: 0 });
     await expect(applyRuleToPast(w.hodMkt, own.id)).rejects.toThrow(/access/);

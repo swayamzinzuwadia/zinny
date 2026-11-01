@@ -157,7 +157,7 @@ async function onCaptured(sys: Actor, payment: RazorpayPayment | undefined): Pro
   if (!order) return { status: "ignored", outcome: "unknown_order" };
   const notes = notesOf(payment.notes);
   if (notes.universityId && notes.universityId !== order.universityId) {
-    await tellFinance(sys, order, "finance.payment_rejected", "A payment was refused", `Payment ${payment.id} names a different university than its order. Nothing was changed.`);
+    await tellFinance(sys, order, "finance.payment_rejected", "A payment was refused", `Payment ${payment.id} names a different institute than its order. Nothing was changed.`);
     return { status: "rejected", outcome: "university_mismatch", orderId: order.id };
   }
   if (payment.amount !== order.totalPaise || payment.currency !== "INR") {

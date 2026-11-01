@@ -152,7 +152,7 @@ export async function listLicences(actor: Actor, today = todayIST()): Promise<Li
 /** One university's licence with its usage, for the licence form. */
 export async function licenceFor(actor: Actor, universityId: string, today = todayIST()) {
   assertPlatform(actor, "platform.licences");
-  if (!isUuid(universityId)) throw new NotFoundError("University");
+  if (!isUuid(universityId)) throw new NotFoundError("Institute");
   const conn = db();
   const university = await universityOrThrow(conn, universityId);
   const [licence] = await conn.select().from(platLicences).where(eq(platLicences.universityId, universityId));

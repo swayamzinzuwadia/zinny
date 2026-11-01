@@ -218,7 +218,7 @@ export async function flagCourse(actor: Actor, courseId: string, input: { catego
   const c = await courseOrThrow(courseId);
   if (!CATEGORY_IDS.has(input.category)) throw new ValidationError("Pick what kind of issue this is.");
   const note = input.note.trim();
-  if (note.length < 10) throw new ValidationError("Describe the issue in a sentence or two, so the Account Manager can explain it to the university.");
+  if (note.length < 10) throw new ValidationError("Describe the issue in a sentence or two, so the Account Manager can explain it to the institute.");
   if (note.length > 2000) throw new ValidationError("Keep the note under 2,000 characters.");
   return db().transaction(async (tx) => {
     const [flag] = await tx

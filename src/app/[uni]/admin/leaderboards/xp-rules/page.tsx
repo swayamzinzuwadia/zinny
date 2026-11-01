@@ -132,7 +132,7 @@ export default async function XpRulesPage({ params }: { params: Promise<{ uni: s
                 </div>
                 <Field label="Applies to">
                   <Select name="departmentId" defaultValue={scopes.universityWide ? "" : scopes.departments[0]?.id}>
-                    {scopes.universityWide && <option value="">Whole university</option>}
+                    {scopes.universityWide && <option value="">Whole institute</option>}
                     {scopes.departments.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name} only

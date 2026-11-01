@@ -60,7 +60,7 @@ export default async function PlatformHome() {
     <>
       <PageHeader
         title={`${greeting()}, ${actor.name.split(" ")[0]}`}
-        subtitle={summary.length ? summary.join(" · ") : "Everything is calm across the universities right now."}
+        subtitle={summary.length ? summary.join(" · ") : "Everything is calm across the institutes right now."}
       />
 
       <div className="grid gap-6 xl:grid-cols-[1.55fr_1fr]">
@@ -123,7 +123,7 @@ export default async function PlatformHome() {
                         <div className="font-medium">
                           {review.openFlags} open content flag{review.openFlags === 1 ? "" : "s"} on {review.flaggedCourses} course{review.flaggedCourses === 1 ? "" : "s"}
                         </div>
-                        <div className="text-muted">The university needs to fix these. Account Managers follow up.</div>
+                        <div className="text-muted">The institute needs to fix these. Account Managers follow up.</div>
                       </div>
                       <Link href="/platform/content?tab=flagged" className="text-[13px] font-medium text-brand hover:underline">
                         Open flags
@@ -136,7 +136,7 @@ export default async function PlatformHome() {
                         <div className="font-medium">
                           {review.toReview} published course{review.toReview === 1 ? "" : "s"} waiting for review
                         </div>
-                        <div className="text-muted">Newest first, across every university.</div>
+                        <div className="text-muted">Newest first, across every institute.</div>
                       </div>
                       <Link href="/platform/content" className="text-[13px] font-medium text-brand hover:underline">
                         Open review queue
@@ -152,7 +152,7 @@ export default async function PlatformHome() {
             <Card>
               <CardTitle hint={<Link href="/platform/support" className="hover:text-brand">All sessions</Link>}>In support mode now</CardTitle>
               {sessions.length === 0 ? (
-                <p className="rounded-2xl bg-canvas px-4 py-6 text-center text-[14px] text-muted">Nobody from the Zinny team is inside a university.</p>
+                <p className="rounded-2xl bg-canvas px-4 py-6 text-center text-[14px] text-muted">Nobody from the Zinny team is inside an institute.</p>
               ) : (
                 <ul className="divide-y divide-line">
                   {sessions.map((s) => (
@@ -213,10 +213,10 @@ export default async function PlatformHome() {
             <Card>
               <CardTitle>Start a support session</CardTitle>
               {picker.universities.length === 0 ? (
-                <p className="text-[14px] text-muted">There are no universities yet.</p>
+                <p className="text-[14px] text-muted">There are no institutes yet.</p>
               ) : (
                 <ActionForm action={startSupportAction} className="space-y-3" resetOnSuccess={false}>
-                  <Field label="University">
+                  <Field label="Institute">
                     <Select name="universityId" defaultValue={picker.lastUniversityId ?? undefined} required>
                       {picker.universities.map((u) => (
                         <option key={u.id} value={u.id}>
@@ -237,10 +237,10 @@ export default async function PlatformHome() {
 
           {stats && (
             <div className="grid grid-cols-2 gap-4">
-              <Stat label="Universities" value={formatCount(stats.universities.active)} hint={stats.universities.suspended ? `${stats.universities.suspended} suspended` : "All active"} />
+              <Stat label="Institutes" value={formatCount(stats.universities.active)} hint={stats.universities.suspended ? `${stats.universities.suspended} suspended` : "All active"} />
               <Stat label="Active students" value={formatCount(stats.activeStudents)} hint="With an active enrolment" />
               <Stat label="Enrolments, 4 weeks" value={formatCount(stats.weeks.reduce((s, w) => s + w.enrolments, 0))} hint={`${formatCount(stats.weeks.at(-1)?.enrolments ?? 0)} this week`} />
-              <Stat label="Collected this month" value={formatINRShort(stats.months.at(-1)?.paise ?? 0)} hint="By all universities" />
+              <Stat label="Collected this month" value={formatINRShort(stats.months.at(-1)?.paise ?? 0)} hint="By all institutes" />
             </div>
           )}
 

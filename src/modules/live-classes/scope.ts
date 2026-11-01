@@ -10,7 +10,7 @@ import { reach, type Action, type Actor } from "@/server/core";
 import { ForbiddenError } from "@/server/errors";
 
 export function uniOf(actor: Actor): string {
-  if (!actor.universityId) throw new ForbiddenError("Open a university space first.");
+  if (!actor.universityId) throw new ForbiddenError("Open an institute space first.");
   return actor.universityId;
 }
 

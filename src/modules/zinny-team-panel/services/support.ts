@@ -100,7 +100,7 @@ export async function supportPicker(actor: Actor) {
 /** Enters a university's space (core `enterSupportMode`, which logs support.enter). Returns where to go. */
 export async function startSupport(actor: Actor, universityId: string, reason: string) {
   assertPlatform(actor, "platform.support_mode");
-  if (!universityId || !isUuid(universityId)) throw new ValidationError("Pick the university you are helping.");
+  if (!universityId || !isUuid(universityId)) throw new ValidationError("Pick the institute you are helping.");
   const why = reason.trim();
   if (why.length < 5) throw new ValidationError("Write a short reason for entering support mode, like the ticket number.");
   if (why.length > 300) throw new ValidationError("Keep the reason under 300 characters.");
@@ -167,8 +167,8 @@ export const ACTION_LABELS: Record<string, string> = {
   "plat.person.view": "Viewed a person's details",
   "plat.view_as.start": "Started viewing as a student",
   "plat.view_as.stop": "Stopped viewing as a student",
-  "university.create": "Created the university",
-  "university.update": "Changed the university's details",
+  "university.create": "Created the institute",
+  "university.update": "Changed the institute's details",
   "platform.role_grant": "Gave a Zinny team role",
   "platform.role_revoke": "Removed a Zinny team role",
   "plat.licence.create": "Set up the licence",
@@ -176,8 +176,8 @@ export const ACTION_LABELS: Record<string, string> = {
   "plat.alert.raise": "Licence warning raised",
   "plat.alert.resolve": "Licence warning cleared",
   "plat.alert.acknowledge": "Marked a licence warning as handled",
-  "plat.university.suspend": "Suspended the university",
-  "plat.university.reactivate": "Reactivated the university",
+  "plat.university.suspend": "Suspended the institute",
+  "plat.university.reactivate": "Reactivated the institute",
   "plat.review.clear": "Reviewed a course, no issues",
   "plat.flag.create": "Flagged a course",
   "plat.flag.resolve": "Resolved a content flag",
@@ -343,7 +343,7 @@ export async function activityLogCsv(actor: Actor, filters: LogFilters): Promise
     .limit(EXPORT_LIMIT + 1)) as LogEntry[];
   const truncated = rows.length > EXPORT_LIMIT;
   const list = rows.slice(0, EXPORT_LIMIT);
-  const head = ["When (IST)", "Person", "Email", "University", "Action", "What happened", "Record", "Record id", "Support session", "Session reason", "Details"];
+  const head = ["When (IST)", "Person", "Email", "Institute", "Action", "What happened", "Record", "Record id", "Support session", "Session reason", "Details"];
   const lines = [head.map(cell).join(",")];
   for (const r of list) {
     lines.push(

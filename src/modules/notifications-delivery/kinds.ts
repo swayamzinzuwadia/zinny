@@ -39,14 +39,14 @@ export type KindDefinition = {
 };
 
 /** Variables every template may use. */
-export const TEMPLATE_VARIABLES = ["name", "firstName", "title", "body", "university", "link"] as const;
+export const TEMPLATE_VARIABLES = ["name", "firstName", "title", "body", "institute", "link"] as const;
 export type TemplateVariable = (typeof TEMPLATE_VARIABLES)[number];
 export const VARIABLE_HELP: Record<TemplateVariable, string> = {
   name: "the person's full name",
   firstName: "the person's first name",
   title: "the notification's headline",
   body: "the notification's details",
-  university: "your institute's name",
+  institute: "your institute's name",
   link: "the page the message points to",
 };
 
@@ -65,7 +65,7 @@ export const CORE_KINDS: KindDefinition[] = [
     template: {
       emailSubject: "{{title}}",
       emailBody: learnerEmail("The batch is on your timetable in Zinny. See you in class."),
-      smsText: "{{university}}: {{title}}. Details: {{link}}",
+      smsText: "{{institute}}: {{title}}. Details: {{link}}",
     },
     ctaLabel: "Open my learning",
     link: (uni) => `/${uni}/learn/my`,
@@ -81,7 +81,7 @@ export const CORE_KINDS: KindDefinition[] = [
     template: {
       emailSubject: "{{title}}",
       emailBody: learnerEmail("Your timetable in Zinny already shows the change."),
-      smsText: "{{university}}: {{title}}. Timetable: {{link}}",
+      smsText: "{{institute}}: {{title}}. Timetable: {{link}}",
     },
     ctaLabel: "Open my timetable",
     link: (uni) => `/${uni}/learn/timetable`,
@@ -97,7 +97,7 @@ export const CORE_KINDS: KindDefinition[] = [
     template: {
       emailSubject: "{{title}}",
       emailBody: learnerEmail("Your new classes are on your timetable."),
-      smsText: "{{university}}: {{title}}. Details: {{link}}",
+      smsText: "{{institute}}: {{title}}. Details: {{link}}",
     },
     ctaLabel: "Open my learning",
     link: (uni) => `/${uni}/learn/my`,
@@ -113,7 +113,7 @@ export const CORE_KINDS: KindDefinition[] = [
     template: {
       emailSubject: "{{title}}",
       emailBody: learnerEmail("You stay in your current batch. You can pick another batch from My learning."),
-      smsText: "{{university}}: {{title}}. Details: {{link}}",
+      smsText: "{{institute}}: {{title}}. Details: {{link}}",
     },
     ctaLabel: "Open my learning",
     link: (uni) => `/${uni}/learn/my`,
@@ -129,7 +129,7 @@ export const CORE_KINDS: KindDefinition[] = [
     template: {
       emailSubject: "{{title}}",
       emailBody: learnerEmail("You don't need to do anything for the refund. If you'd like, pick another batch of the course."),
-      smsText: "{{university}}: {{title}}. Your payment will be refunded in full. {{link}}",
+      smsText: "{{institute}}: {{title}}. Your payment will be refunded in full. {{link}}",
     },
     ctaLabel: "Browse courses",
     link: (uni) => `/${uni}/learn/courses`,
@@ -145,7 +145,7 @@ export const CORE_KINDS: KindDefinition[] = [
     template: {
       emailSubject: "{{title}}",
       emailBody: `${staffEmail}\n\nApprove or reject it from your dashboard.`,
-      smsText: "{{university}}: {{title}}. Review: {{link}}",
+      smsText: "{{institute}}: {{title}}. Review: {{link}}",
     },
     ctaLabel: "Review the request",
     link: (uni) => `/${uni}/admin`,
@@ -161,7 +161,7 @@ export const CORE_KINDS: KindDefinition[] = [
     template: {
       emailSubject: "{{title}}",
       emailBody: `${staffEmail}\n\nRefund it from Sales.`,
-      smsText: "{{university}}: {{title}}. {{link}}",
+      smsText: "{{institute}}: {{title}}. {{link}}",
     },
     ctaLabel: "Open sales",
     link: (uni) => `/${uni}/admin/finance/sales`,
@@ -177,7 +177,7 @@ export const CORE_KINDS: KindDefinition[] = [
     template: {
       emailSubject: "{{title}}",
       emailBody: `${staffEmail}\n\nAssign another faculty member to the batch before then.`,
-      smsText: "{{university}}: {{title}}. {{link}}",
+      smsText: "{{institute}}: {{title}}. {{link}}",
     },
     ctaLabel: "Open the batch",
     link: (uni, data) => (str(data.batchId) ? `/${uni}/admin/products/batches/${str(data.batchId)}` : `/${uni}/admin`),
@@ -281,7 +281,7 @@ export function genericKind(kind: string): KindDefinition {
     audience: "learners",
     roles: [],
     defaults: { email: "on", sms: "off", whatsapp: "off" },
-    template: { emailSubject: "{{title}}", emailBody: "Hi {{firstName}},\n\n{{body}}", smsText: "{{university}}: {{title}}" },
+    template: { emailSubject: "{{title}}", emailBody: "Hi {{firstName}},\n\n{{body}}", smsText: "{{institute}}: {{title}}" },
     ctaLabel: "Open Zinny",
     link: dataLink,
     sample: { title: `${humanizeKind(kind)}: an example`, body: "The details of the notification appear here." },

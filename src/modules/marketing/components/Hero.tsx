@@ -7,7 +7,7 @@ export function Hero() {
   return (
     <section aria-labelledby="hero-title" className="relative px-4 pt-32 pb-28 sm:pt-40 md:pb-40">
       <div className="mx-auto max-w-4xl text-center">
-        <p className={`text-[14px] text-brand ${css.rise}`}>For institutes and universities</p>
+        <p className={`text-[14px] text-brand ${css.rise}`}>For institutes</p>
         <h1
           id="hero-title"
           className={`${display.className} mt-5 text-[clamp(3.25rem,9vw,7.5rem)] leading-[0.92] tracking-[-0.025em] text-ink ${css.balance} ${css.rise} ${css.d1}`}

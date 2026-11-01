@@ -86,7 +86,7 @@ describe("support mode", () => {
     const { csv, rows } = await activityLogCsv(sa, { scope: "support", universityId: U.id });
     expect(rows).toBe(2);
     const lines = csv.trim().split("\r\n");
-    expect(lines[0]).toContain("When (IST),Person,Email,University,Action");
+    expect(lines[0]).toContain("When (IST),Person,Email,Institute,Action");
     expect(lines).toHaveLength(3);
     // A reason that looks like a formula is never run by a spreadsheet.
     expect(csv).toContain(`"'=HYPERLINK(""http://x"") ticket 1"`);

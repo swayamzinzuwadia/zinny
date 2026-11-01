@@ -8,25 +8,25 @@ import { OptionalLicence } from "@/modules/zinny-team-panel/components/optional-
 import { LICENSABLE_MODULES, PLAN_DEFAULTS } from "@/modules/zinny-team-panel/lib/constants";
 import { addDays, addMonths, todayIST } from "@/modules/zinny-team-panel/lib/format";
 
-export const metadata = { title: "New university" };
+export const metadata = { title: "New institute" };
 
 export default async function NewUniversityPage() {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.manage_universities")) return <NoAccess section="Universities" who="Super Admins and Account Managers" />;
+  if (!canPlatform(actor, "platform.manage_universities")) return <NoAccess section="Institutes" who="Super Admins and Account Managers" />;
   const canLicence = canPlatform(actor, "platform.licences");
   const today = todayIST();
   const d = PLAN_DEFAULTS.pilot;
 
   return (
     <>
-      <BackLink href="/platform/universities">Universities</BackLink>
+      <BackLink href="/platform/institutes">Institutes</BackLink>
       <PageHeader
-        title="New university"
+        title="New institute"
         subtitle="Creates its private space and invites its Institute Admin by email. Nothing is visible to students until the admin sets it up."
       />
       <ActionForm action={createUniversityAction} resetOnSuccess={false} className="grid max-w-5xl gap-6 lg:grid-cols-2">
         <Card className="h-fit">
-          <CardTitle>The university</CardTitle>
+          <CardTitle>The institute</CardTitle>
           <div className="space-y-4">
             <Field label="Name">
               <Input name="name" placeholder="Riverside College of Commerce" required minLength={2} maxLength={120} />
@@ -68,7 +68,7 @@ export default async function NewUniversityPage() {
             <p className="text-[14px] text-muted">A Super Admin, Account Manager or Finance Admin sets up the licence afterwards.</p>
           )}
           <div className="mt-6">
-            <SubmitButton pendingText="Creating…">Create university and invite admin</SubmitButton>
+            <SubmitButton pendingText="Creating…">Create institute and invite admin</SubmitButton>
           </div>
         </Card>
       </ActionForm>

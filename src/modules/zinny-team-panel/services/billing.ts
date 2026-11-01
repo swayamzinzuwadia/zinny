@@ -91,7 +91,7 @@ export type NewInvoiceInput = {
 /** Issues an invoice. Seller and buyer details are copied from Zinny's settings and the university now. */
 export async function createInvoice(actor: Actor, input: NewInvoiceInput) {
   assertPlatform(actor, "platform.finance");
-  if (!isUuid(input.universityId)) throw new ValidationError("Pick the university to invoice.");
+  if (!isUuid(input.universityId)) throw new ValidationError("Pick the institute to invoice.");
   if (!isDate(input.periodStart) || !isDate(input.periodEnd)) throw new ValidationError("Enter the period the invoice covers.");
   if (input.periodEnd < input.periodStart) throw new ValidationError("The period must end on or after it starts.");
   const description = input.description.trim();

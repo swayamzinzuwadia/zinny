@@ -21,13 +21,13 @@ export default async function NewInvoicePage({ searchParams }: { searchParams: P
       <BackLink href="/platform/billing">Zinny invoices</BackLink>
       <PageHeader
         title="New invoice"
-        subtitle="Pick the university first to fill in its licence term. GST is split into CGST and SGST in Zinny's own state, IGST elsewhere. The number is given when you issue it."
+        subtitle="Pick the institute first to fill in its licence term. GST is split into CGST and SGST in Zinny's own state, IGST elsewhere. The number is given when you issue it."
       />
       <Card className="max-w-2xl">
         <form className="mb-5 flex items-end gap-2 border-b border-line pb-5">
-          <Field label="University">
+          <Field label="Institute">
             <Select name="university" defaultValue={d.universityId} className="w-80">
-              <option value="">Pick a university</option>
+              <option value="">Pick an institute</option>
               {unis.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}
@@ -39,7 +39,7 @@ export default async function NewInvoicePage({ searchParams }: { searchParams: P
         </form>
         <ActionForm key={d.universityId} action={createInvoiceAction} resetOnSuccess={false} className="space-y-4">
           <input type="hidden" name="universityId" value={d.universityId} />
-          {!d.universityId && <p className="rounded-xl bg-warn-soft px-3 py-2 text-[13px] text-warn">Pick the university above before you issue the invoice.</p>}
+          {!d.universityId && <p className="rounded-xl bg-warn-soft px-3 py-2 text-[13px] text-warn">Pick the institute above before you issue the invoice.</p>}
           <Field label="Description">
             <Input name="description" defaultValue={d.description} required maxLength={300} />
           </Field>

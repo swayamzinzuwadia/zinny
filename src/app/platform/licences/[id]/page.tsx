@@ -56,8 +56,8 @@ export default async function LicencePage({ params }: { params: Promise<{ id: st
         }
         actions={
           canPlatform(actor, "platform.manage_universities") ? (
-            <Link href={`/platform/universities/${u.id}`} className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
-              University details
+            <Link href={`/platform/institutes/${u.id}`} className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
+              Institute details
             </Link>
           ) : undefined
         }

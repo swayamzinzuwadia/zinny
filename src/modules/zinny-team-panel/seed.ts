@@ -149,7 +149,7 @@ export async function seed(ctx: SeedContext) {
   await markReviewed(qasim, ctx.ids.courses["Python Basics"], "Clear outline, realistic outcomes.");
   await flagCourse(qasim, ctx.ids.courses["Digital Marketing"], {
     category: "claims",
-    note: "The description promises \"guaranteed placement with top brands\". Ask the university to remove the guarantee or link to its placement terms.",
+    note: "The description promises \"guaranteed placement with top brands\". Ask the institute to remove the guarantee or link to its placement terms.",
   });
 
   // Partners for the marketplace.
@@ -158,7 +158,7 @@ export async function seed(ctx: SeedContext) {
   if (!have.has(names[0])) {
     const p = await createPartner(parth, { name: names[0], kind: "sponsor", status: "active", website: "brightpath.org.in", industry: "Education non-profit", city: "Pune", summary: "Sponsors 50 scholarships a year for first-generation learners." });
     await addContact(parth, p.id, { name: "Ananya Kulkarni", title: "Programme Director", email: "ananya@brightpath.org.in", phone: "+91 98220 41567" });
-    await addNote(parth, p.id, "Agreed to fund the Data Analytics weekend batch at Demo University from January.");
+    await addNote(parth, p.id, "Agreed to fund the Data Analytics weekend batch at Demo Institute from January.");
   }
   if (!have.has(names[1])) {
     const p = await createPartner(parth, { name: names[1], kind: "corporate_partner", status: "in_talks", website: "kalpanainfotech.com", industry: "IT services", city: "Bengaluru", summary: "Wants to hire Python and SQL graduates through the marketplace." });

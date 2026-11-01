@@ -13,7 +13,7 @@ const DISCARD = new Error("Read-only transaction discarded");
  */
 export async function withTenant<T>(actor: Actor, fn: (tx: Tx) => Promise<T>): Promise<T> {
   const universityId = actor.universityId;
-  if (!universityId) throw new ForbiddenError("No university selected.");
+  if (!universityId) throw new ForbiddenError("No institute selected.");
   const run = async (tx: Tx) => {
     await tx.execute(
       sql`select set_config('app.university_id', ${universityId}, true), set_config('app.user_id', ${actor.userId}, true)`,

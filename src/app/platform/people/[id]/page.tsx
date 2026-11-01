@@ -53,7 +53,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                 {institutes.map((u) => (
                   <li key={u.universityId} className="rounded-2xl bg-canvas p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <Link href={`/platform/universities/${u.universityId}`} className="font-medium hover:text-brand">
+                      <Link href={`/platform/institutes/${u.universityId}`} className="font-medium hover:text-brand">
                         {u.universityName}
                       </Link>
                       <span className="flex flex-wrap gap-2">

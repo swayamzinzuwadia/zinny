@@ -53,7 +53,7 @@ export async function poolsFor(tx: Tx, actor: Actor): Promise<Pool[]> {
     }
   }
   const pools: Pool[] = depts.filter((d) => allowed.has(d.id)).map((d) => ({ key: d.id, departmentId: d.id, name: `${d.name} pool`, code: d.code }));
-  return r.all ? [{ key: UNIVERSITY_POOL, departmentId: null, name: "University-wide pool", code: null }, ...pools] : pools;
+  return r.all ? [{ key: UNIVERSITY_POOL, departmentId: null, name: "Institute-wide pool", code: null }, ...pools] : pools;
 }
 
 export function poolKeyToDepartment(key: string): string | null {

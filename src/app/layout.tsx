@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
+import { NavigationProgress } from "@/components/nav-progress";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -11,7 +13,12 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, them
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="min-h-dvh font-sans text-[15px] leading-relaxed">{children}</body>
+      <body className="min-h-dvh font-sans text-[15px] leading-relaxed">
+        <Suspense fallback={null}>
+          <NavigationProgress />
+        </Suspense>
+        {children}
+      </body>
     </html>
   );
 }

@@ -17,7 +17,7 @@ import { can, reach, type Actor, type Target } from "@/server/core";
 import { ForbiddenError } from "@/server/errors";
 
 export function uni(actor: Actor): string {
-  if (!actor.universityId) throw new ForbiddenError("Open a university first.");
+  if (!actor.universityId) throw new ForbiddenError("Open an institute first.");
   return actor.universityId;
 }
 

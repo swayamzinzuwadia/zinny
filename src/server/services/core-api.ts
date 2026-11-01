@@ -14,7 +14,7 @@ import { emit, emitFor } from "../events";
 import { audit, withTenant } from "../tenant";
 
 function uni(actor: Actor) {
-  if (!actor.universityId) throw new ForbiddenError("No university selected.");
+  if (!actor.universityId) throw new ForbiddenError("No institute selected.");
   return actor.universityId;
 }
 
@@ -152,7 +152,7 @@ export async function updateUniversity(actor: Actor, universityId: string, patch
   assertPlatform(actor, "platform.manage_universities");
   const set: Partial<typeof universities.$inferInsert> = {};
   if (patch.name !== undefined) {
-    if (patch.name.trim().length < 2) throw new ValidationError("Give the university a name.");
+    if (patch.name.trim().length < 2) throw new ValidationError("Give the institute a name.");
     set.name = patch.name.trim();
   }
   if (patch.slug !== undefined) {
@@ -187,10 +187,10 @@ export async function updateUniversity(actor: Actor, universityId: string, patch
   }
   return systemDb().transaction(async (tx) => {
     const [before] = await tx.select().from(universities).where(eq(universities.id, universityId)).for("update");
-    if (!before) throw new NotFoundError("University");
+    if (!before) throw new NotFoundError("Institute");
     if (set.slug && set.slug !== before.slug) {
       const [dup] = await tx.select({ id: universities.id }).from(universities).where(eq(universities.slug, set.slug));
-      if (dup) throw new ConflictError("Another university already uses that web address.");
+      if (dup) throw new ConflictError("Another institute already uses that web address.");
     }
     const [after] = Object.keys(set).length
       ? await tx.update(universities).set(set).where(eq(universities.id, universityId)).returning()

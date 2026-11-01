@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useNavPath } from "./nav-progress";
 import { cx } from "./ui";
 
 /*
@@ -23,7 +23,7 @@ export function activeHref(path: string, base: string, hrefs: string[]): string 
 }
 
 export function SidebarNav({ base, sections, label }: { base: string; sections: SidebarSection[]; label: string }) {
-  const path = usePathname();
+  const path = useNavPath();
   const current = activeHref(
     path,
     base,

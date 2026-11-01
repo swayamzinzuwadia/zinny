@@ -20,7 +20,7 @@ export default async function SupportPage() {
     <>
       <PageHeader
         title="Support mode"
-        subtitle="The Zinny team only enters a university's space through support mode. You act as yourself with Institute Admin powers for up to 2 hours, and every change is logged with who, what and when."
+        subtitle="The Zinny team only enters an institute's space through support mode. You act as yourself with Institute Admin powers for up to 2 hours, and every change is logged with who, what and when."
         actions={
           <Link href="/platform/support/log" className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
             Activity log
@@ -31,9 +31,9 @@ export default async function SupportPage() {
       <div className="grid gap-6 xl:grid-cols-[1.55fr_1fr]">
         <div className="min-w-0 space-y-6">
           <Card>
-            <CardTitle hint={active.length ? `${active.length} open` : undefined}>Who is in which university now</CardTitle>
+            <CardTitle hint={active.length ? `${active.length} open` : undefined}>Who is in which institute now</CardTitle>
             {active.length === 0 ? (
-              <p className="rounded-2xl bg-canvas px-4 py-6 text-center text-[14px] text-muted">Nobody from the Zinny team is inside a university.</p>
+              <p className="rounded-2xl bg-canvas px-4 py-6 text-center text-[14px] text-muted">Nobody from the Zinny team is inside an institute.</p>
             ) : (
               <ul className="space-y-3">
                 {active.map((s) => {
@@ -95,7 +95,7 @@ export default async function SupportPage() {
             {recent.length === 0 ? (
               <Empty title="No support sessions yet" />
             ) : (
-              <Table head={["Started", "Who", "University", "Reason", "Changes", "Status"]}>
+              <Table head={["Started", "Who", "Institute", "Reason", "Changes", "Status"]}>
                 {recent.map((s) => {
                   const state = sessionState(s, now);
                   return (
@@ -133,10 +133,10 @@ export default async function SupportPage() {
         <Card className="h-fit">
           <CardTitle>Start a support session</CardTitle>
           {picker.universities.length === 0 ? (
-            <p className="text-[14px] text-muted">There are no universities yet.</p>
+            <p className="text-[14px] text-muted">There are no institutes yet.</p>
           ) : (
             <ActionForm action={startSupportAction} className="space-y-4" resetOnSuccess={false}>
-              <Field label="University">
+              <Field label="Institute">
                 <Select name="universityId" defaultValue={picker.lastUniversityId ?? undefined} required>
                   {picker.universities.map((u) => (
                     <option key={u.id} value={u.id}>

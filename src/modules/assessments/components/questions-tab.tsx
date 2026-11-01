@@ -17,7 +17,7 @@ export async function QuestionsTab({ uni, actor, testId, search, base }: { uni: 
   const pickedIds = new Set(data.picked.map((q) => q.id));
   const f = { pool: one(search.pool) || "all", q: one(search.q), type: one(search.type), difficulty: one(search.difficulty), tag: one(search.tag), page: Number(one(search.page)) || 1 };
   const pool = data.canManage ? await searchQuestions(actor, f) : null;
-  const poolName = (dept: string | null) => pool?.pools.find((p) => p.departmentId === dept)?.name ?? (dept ? "department pool" : "university-wide pool");
+  const poolName = (dept: string | null) => pool?.pools.find((p) => p.departmentId === dept)?.name ?? (dept ? "department pool" : "institute-wide pool");
   const fields = { uni, testId };
   const qs = (patch: Record<string, string | number>) => {
     const p = new URLSearchParams({ tab: "questions" });

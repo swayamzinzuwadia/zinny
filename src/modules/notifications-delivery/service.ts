@@ -41,7 +41,7 @@ import {
 import { channelAllowed, configFrom, FIRST_RUN_LOOKBACK_MS, kindConfigs, preferenceMap, prefKey, readUniversitySettings, type KindConfig } from "./store";
 
 function uni(actor: Actor): string {
-  if (!actor.universityId) throw new ValidationError("Open a university first.");
+  if (!actor.universityId) throw new ValidationError("Open an institute first.");
   return actor.universityId;
 }
 
@@ -177,7 +177,7 @@ function checkTemplate(label: string, value: string, max: number) {
   const bad = unknownVariables(value);
   if (bad.length) {
     throw new ValidationError(
-      `${label} uses ${bad.map((b) => (b.startsWith("{") ? "unbalanced braces" : `{{${b}}}`)).join(", ")}, which isn't a variable. Use {{name}}, {{firstName}}, {{title}}, {{body}}, {{university}} or {{link}}.`,
+      `${label} uses ${bad.map((b) => (b.startsWith("{") ? "unbalanced braces" : `{{${b}}}`)).join(", ")}, which isn't a variable. Use {{name}}, {{firstName}}, {{title}}, {{body}}, {{institute}} or {{link}}.`,
     );
   }
 }

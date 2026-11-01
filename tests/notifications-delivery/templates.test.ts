@@ -89,7 +89,7 @@ describe("notifications-delivery: templates use the right university's branding"
   it("an unknown kind falls back to a generic template with the notification's title and body", () => {
     const def = kindDefinition("certificates.issued");
     expect(def.label).toBe("Certificates issued");
-    expect(def.template).toEqual({ emailSubject: "{{title}}", emailBody: "Hi {{firstName}},\n\n{{body}}", smsText: "{{university}}: {{title}}" });
+    expect(def.template).toEqual({ emailSubject: "{{title}}", emailBody: "Hi {{firstName}},\n\n{{body}}", smsText: "{{institute}}: {{title}}" });
     expect(def.link("demo", { link: "/demo/learn/certificates/abc" })).toBe("/demo/learn/certificates/abc");
     expect(def.link("demo", { link: "https://evil.test/phish" })).toBeNull();
     expect(def.link("demo", { link: "/other/learn" })).toBeNull();

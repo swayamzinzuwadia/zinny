@@ -18,7 +18,7 @@ export type SiteProfile = typeof siteProfiles.$inferSelect;
 export const SOCIAL_NETWORKS: { key: keyof SocialLinks; label: string; placeholder: string }[] = [
   { key: "website", label: "Main website", placeholder: "https://www.demo.edu" },
   { key: "instagram", label: "Instagram", placeholder: "https://instagram.com/demouniversity" },
-  { key: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/school/demo-university" },
+  { key: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/school/demo-institute" },
   { key: "youtube", label: "YouTube", placeholder: "https://youtube.com/@demouniversity" },
   { key: "facebook", label: "Facebook", placeholder: "https://facebook.com/demouniversity" },
   { key: "x", label: "X (Twitter)", placeholder: "https://x.com/demouni" },

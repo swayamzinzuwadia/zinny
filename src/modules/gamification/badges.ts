@@ -40,7 +40,7 @@ function checkThreshold(n: number, metric: string) {
 
 function assertManage(actor: Actor, departmentId: string | null) {
   if (departmentId === null && !can(actor, "leaderboard.manage", { universityId: uni(actor) })) {
-    throw new ForbiddenError("Only an institute admin can change badges for the whole university. Choose your department instead.");
+    throw new ForbiddenError("Only an institute admin can change badges for the whole institute. Choose your department instead.");
   }
   if (!can(actor, "leaderboard.manage", scopeTarget(uni(actor), departmentId))) throw new ForbiddenError();
 }
@@ -97,7 +97,7 @@ export async function listBadges(actor: Actor) {
       badges: badges.map((b) => ({
         ...b,
         criterion: criterion(b),
-        scopeName: b.departmentId ? (dir.departments.get(b.departmentId)?.name ?? "Department") : "Whole university",
+        scopeName: b.departmentId ? (dir.departments.get(b.departmentId)?.name ?? "Department") : "Whole institute",
         earnedBy: countOf.get(b.id) ?? 0,
         canManage: can(actor, "leaderboard.manage", scopeTarget(uni(actor), b.departmentId)),
       })),

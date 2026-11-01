@@ -1,5 +1,8 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
+import { DateField, DateTimeField, TimeField } from "./date-time-fields";
+
+export { Select } from "./select";
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(" ");
@@ -115,15 +118,10 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 }
 
 export function Input(props: ComponentProps<"input">) {
+  if (props.type === "date") return <DateField {...props} />;
+  if (props.type === "time") return <TimeField {...props} />;
+  if (props.type === "datetime-local") return <DateTimeField {...props} />;
   return <input {...props} className={cx(inputClass, props.className)} />;
-}
-
-export function Select({ children, ...props }: ComponentProps<"select">) {
-  return (
-    <select {...props} className={cx(inputClass, "pr-8", props.className)}>
-      {children}
-    </select>
-  );
 }
 
 export function Textarea(props: ComponentProps<"textarea">) {

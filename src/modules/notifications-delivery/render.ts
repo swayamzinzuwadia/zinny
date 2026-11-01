@@ -10,9 +10,12 @@ export type TemplateVars = Record<TemplateVariable, string>;
 
 const VAR_RE = /\{\{\s*([a-zA-Z]+)\s*\}\}/g;
 
+/** Templates saved before the rename still say {{university}}, and must keep working. */
+const OLD_NAMES: Record<string, TemplateVariable> = { university: "institute" };
+
 /** Variables used in a template that don't exist, e.g. ["fristName"]. */
 export function unknownVariables(template: string): string[] {
-  const known = new Set<string>(TEMPLATE_VARIABLES);
+  const known = new Set<string>([...TEMPLATE_VARIABLES, ...Object.keys(OLD_NAMES)]);
   const bad = new Set<string>();
   for (const m of template.matchAll(VAR_RE)) if (!known.has(m[1])) bad.add(m[1]);
   // Unbalanced braces are almost always a typo.
@@ -22,7 +25,10 @@ export function unknownVariables(template: string): string[] {
 }
 
 export function fill(template: string, vars: Partial<TemplateVars>): string {
-  return template.replace(VAR_RE, (_, name: string) => (name in vars ? (vars[name as TemplateVariable] ?? "") : ""));
+  return template.replace(VAR_RE, (_, name: string) => {
+    const key = OLD_NAMES[name] ?? (name as TemplateVariable);
+    return key in vars ? (vars[key] ?? "") : "";
+  });
 }
 
 export function escapeHtml(s: string): string {

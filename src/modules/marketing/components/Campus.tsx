@@ -138,7 +138,7 @@ function SupportLog() {
     >
       <div className="flex items-center gap-2 font-sans text-[12px] text-canvas/60">
         <span className="now-dot size-1.5 rounded-full bg-gold" />
-        Support mode · Demo University
+        Support mode · Demo Institute
       </div>
       <motion.p className="mt-3 whitespace-nowrap text-canvas/90" {...type(1.5)}>
         Sid (Support Agent) entered at 11:42

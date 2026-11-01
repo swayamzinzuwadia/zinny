@@ -36,7 +36,7 @@ export default async function MyProfilePage({ params }: { params: Promise<{ uni:
     <>
       <PageHeader
         title="My profile page"
-        subtitle="Your public page on the university website: a photo, a headline, a short bio and what you teach. An admin checks it before it goes live."
+        subtitle="Your public page on the institute website: a photo, a headline, a short bio and what you teach. An admin checks it before it goes live."
       />
       <ProfileTabs uni={uni} actor={actor} active="me" />
 

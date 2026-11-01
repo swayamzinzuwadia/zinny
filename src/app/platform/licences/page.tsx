@@ -24,7 +24,7 @@ export default async function LicencesPage() {
     <>
       <PageHeader
         title="Licences"
-        subtitle="Plan, caps, modules and term for each university, with usage against the caps. Warnings appear on the home page at 90% of a cap and 30 days before a licence ends."
+        subtitle="Plan, caps, modules and term for each institute, with usage against the caps. Warnings appear on the home page at 90% of a cap and 30 days before a licence ends."
         actions={
           <ActionForm action={checkLicencesAction} className="flex flex-col items-end">
             <SubmitButton variant="secondary" pendingText="Checking…">
@@ -42,9 +42,9 @@ export default async function LicencesPage() {
       </div>
 
       {rows.length === 0 ? (
-        <Empty title="No universities yet">Create a university first, then set up its licence.</Empty>
+        <Empty title="No institutes yet">Create an institute first, then set up its licence.</Empty>
       ) : (
-        <Table head={["University", "Plan", "Students", "Staff", "Modules", "Term", ""]}>
+        <Table head={["Institute", "Plan", "Students", "Staff", "Modules", "Term", ""]}>
           {rows.map((r) => (
             <tr key={r.universityId} className="hover:bg-canvas/60">
               <Td>

@@ -40,7 +40,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
         title="People"
         subtitle="Every account at every institute. Only Super Admins can open this page, and each view is kept in the activity log."
         actions={
-          <Link href="/platform/universities" className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
+          <Link href="/platform/institutes" className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
             Institutes
           </Link>
         }
@@ -96,7 +96,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                 </Link>
               </Td>
               <Td>
-                <Link href={`/platform/universities/${p.universityId}`} className="hover:text-brand">
+                <Link href={`/platform/institutes/${p.universityId}`} className="hover:text-brand">
                   {p.universityName}
                 </Link>
               </Td>

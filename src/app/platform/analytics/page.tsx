@@ -14,7 +14,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   if (!canPlatform(actor, "platform.view_analytics")) return <NoAccess section="Analytics" who="Super Admins, Account Managers and Support Agents" />;
   const { university } = await searchParams;
   const a = await analytics(actor, { universityId: university });
-  const scopeName = a.universityId ? (a.perUniversity.find((u) => u.id === a.universityId)?.name ?? "This university") : "All universities";
+  const scopeName = a.universityId ? (a.perUniversity.find((u) => u.id === a.universityId)?.name ?? "This institute") : "All institutes";
   const lastWeek = a.weeks.length - 1;
   const lastMonth = a.months.length - 1;
 
@@ -22,11 +22,11 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     <>
       <PageHeader
         title="Analytics"
-        subtitle="Across every university, in India time. Weeks start on Monday. Money collected counts payments universities received from students, before refunds."
+        subtitle="Across every institute, in India time. Weeks start on Monday. Money collected counts payments institutes received from students, before refunds."
         actions={
           <form className="flex gap-2">
-            <Select name="university" defaultValue={a.universityId ?? ""} aria-label="University" className="w-60">
-              <option value="">All universities</option>
+            <Select name="university" defaultValue={a.universityId ?? ""} aria-label="Institute" className="w-60">
+              <option value="">All institutes</option>
               {a.perUniversity.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}
@@ -38,7 +38,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         }
       />
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Universities" value={formatCount(a.universities.active)} hint={a.universities.suspended ? `${a.universities.suspended} suspended` : `${formatCount(a.universities.total)} in total`} />
+        <Stat label="Institutes" value={formatCount(a.universities.active)} hint={a.universities.suspended ? `${a.universities.suspended} suspended` : `${formatCount(a.universities.total)} in total`} />
         <Stat label="Active students" value={formatCount(a.activeStudents)} hint={`${formatCount(a.students)} with a student role`} />
         <Stat label="Enrolments this week" value={formatCount(a.weeks[lastWeek]?.enrolments ?? 0)} hint={`${formatCount(a.weeks.reduce((s, w) => s + w.enrolments, 0))} in 12 weeks`} />
         <Stat label="Collected this month" value={formatINRShort(a.months[lastMonth]?.paise ?? 0)} hint={`${formatINRShort(a.months.reduce((s, m) => s + m.paise, 0))} in 12 months`} />
@@ -61,8 +61,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           />
         </Card>
       </div>
-      <h2 className="mb-3 text-[17px] font-medium">By university</h2>
-      <Table head={["University", "Status", "Students", "Active students", "Enrolments, 12 weeks", "Collected this month", "Collected, 12 months"]}>
+      <h2 className="mb-3 text-[17px] font-medium">By institute</h2>
+      <Table head={["Institute", "Status", "Students", "Active students", "Enrolments, 12 weeks", "Collected this month", "Collected, 12 months"]}>
         {a.perUniversity.map((u) => (
           <tr key={u.id} className={u.id === a.universityId ? "bg-gold-soft/40" : "hover:bg-canvas/60"}>
             <Td>

@@ -16,7 +16,7 @@ export function hasReach(r: Reach): boolean {
 
 /** Where the actor holds `action`, in their current university. Throws when they hold it nowhere. */
 export function reachOf(actor: Actor, action: Action, message?: string): Reach {
-  if (!actor.universityId) throw new ForbiddenError("Open a university first.");
+  if (!actor.universityId) throw new ForbiddenError("Open an institute first.");
   const r = reach(actor, action, actor.universityId);
   if (!hasReach(r)) throw new ForbiddenError(message);
   return r;

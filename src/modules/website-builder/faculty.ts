@@ -166,7 +166,7 @@ export async function approveFacultyProfile(actor: Actor, id: string) {
     await notify(tx, universityId, [row.userId], {
       kind: "website.profile_approved",
       title: "Your public profile is live",
-      body: row.visible ? "It now appears on the university website." : "An admin has hidden it from the website for now.",
+      body: row.visible ? "It now appears on the institute website." : "An admin has hidden it from the website for now.",
       data: { profileId: id },
     });
     await audit(tx, actor, "site.approve_faculty_profile", "site_faculty_profile", id, { userId: row.userId });

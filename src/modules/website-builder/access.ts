@@ -17,7 +17,7 @@ export const TEACHING_ROLES: readonly RoleName[] = ["hod", "permanent_faculty", 
 const STAFF_ROLES: readonly RoleName[] = ["institute_admin", "board_owner", "accounts_fees", "hod", "permanent_faculty", "visiting_faculty"];
 
 export function uniOf(actor: Actor): string {
-  if (!actor.universityId) throw new ForbiddenError("Open a university first.");
+  if (!actor.universityId) throw new ForbiddenError("Open an institute first.");
   return actor.universityId;
 }
 

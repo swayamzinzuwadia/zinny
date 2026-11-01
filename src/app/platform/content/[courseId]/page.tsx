@@ -43,7 +43,7 @@ export default async function CoursePreviewPage({ params }: { params: Promise<{ 
           </span>
         }
       />
-      <p className="-mt-4 mb-6 text-[13px] text-muted">Read-only preview. The Zinny team never edits a university&apos;s content.</p>
+      <p className="-mt-4 mb-6 text-[13px] text-muted">Read-only preview. The Zinny team never edits an institute&apos;s content.</p>
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <div className="min-w-0 space-y-6">
@@ -140,7 +140,7 @@ export default async function CoursePreviewPage({ params }: { params: Promise<{ 
                     ))}
                   </Select>
                 </Field>
-                <Field label="Note for the Account Manager" hint="What is wrong and where, so they can explain it to the university.">
+                <Field label="Note for the Account Manager" hint="What is wrong and where, so they can explain it to the institute.">
                   <Textarea name="note" required minLength={10} maxLength={2000} />
                 </Field>
                 <SubmitButton variant="secondary">Add flag</SubmitButton>

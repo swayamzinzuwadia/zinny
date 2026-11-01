@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useNavPath } from "@/components/nav-progress";
 import { cx } from "@/components/ui";
 import type { TrailParent } from "@/components/page-trail";
 
@@ -43,7 +43,7 @@ export const LEARN_PARENTS: TrailParent[] = [
 ];
 
 function useActive(base: string) {
-  const path = usePathname();
+  const path = useNavPath();
   return (href: string) => (href === base ? path === base : path === href || path.startsWith(href + "/"));
 }
 

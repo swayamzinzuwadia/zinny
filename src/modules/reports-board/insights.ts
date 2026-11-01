@@ -70,7 +70,7 @@ export async function loadInsights(actor: Actor, asOf = new Date()): Promise<Ins
     const inScope = batchInReach(scope, batches.id, batches.departmentId);
 
     // ── Scope label
-    let scopeLabel = "the whole university";
+    let scopeLabel = "the whole institute";
     if (!scope.all) {
       const names = await tx
         .select({ name: departments.name })

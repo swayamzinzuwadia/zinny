@@ -26,7 +26,7 @@ describe("website-builder: demo seed", () => {
       console.log = quiet;
     }
     const site = await siteBySlug("demo");
-    expect(site).toMatchObject({ name: "Demo University", live: true, city: "Navi Mumbai", email: "admissions@demo.edu" });
+    expect(site).toMatchObject({ name: "Demo Institute", live: true, city: "Navi Mumbai", email: "admissions@demo.edu" });
     expect(site?.logo).not.toBeNull();
     expect(site?.cover).not.toBeNull();
     expect(site?.palette.primary).toBe("#17365d");

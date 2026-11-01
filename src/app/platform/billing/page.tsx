@@ -19,7 +19,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     <>
       <PageHeader
         title="Zinny invoices"
-        subtitle="Zinny's GST invoices to universities for their licences. These are separate from the invoices universities issue to their students."
+        subtitle="Zinny's GST invoices to institutes for their licences. These are separate from the invoices institutes issue to their students."
         actions={<ButtonLink href={`/platform/billing/new${f.university ? `?university=${f.university}` : ""}`}>New invoice</ButtonLink>}
       />
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
@@ -39,7 +39,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       {invoices.length === 0 ? (
         <Empty title="No invoices here">Issue one from New invoice.</Empty>
       ) : (
-        <Table head={["Number", "University", "Period", "Amount", "GST", "Total", "Due", "Status"]}>
+        <Table head={["Number", "Institute", "Period", "Amount", "GST", "Total", "Due", "Status"]}>
           {invoices.map((i) => (
             <tr key={i.id} className="hover:bg-canvas/60">
               <Td>

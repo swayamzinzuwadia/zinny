@@ -60,9 +60,9 @@ const SECTIONS: Section[] = [
   { key: "overview", label: "Overview", entries: [{ label: "Home", href: "", allowed: isZinnyTeam }] },
   {
     key: "universities",
-    label: "Universities",
+    label: "Institutes",
     entries: [
-      { label: "Universities", href: "/universities", allowed: can("platform.manage_universities") },
+      { label: "Institutes", href: "/institutes", allowed: can("platform.manage_universities") },
       { label: "Licences", href: "/licences", allowed: can("platform.licences") },
     ],
   },

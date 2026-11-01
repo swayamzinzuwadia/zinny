@@ -67,7 +67,7 @@ export function TodayBoard() {
         {/* Header */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <motion.div variants={drop}>
-            <p className="text-[13px] text-canvas/60">Thursday, 29 October · Demo University</p>
+            <p className="text-[13px] text-canvas/60">Thursday, 29 October · Demo Institute</p>
             <p className="mt-1 text-[26px] leading-tight font-medium tracking-tight sm:text-[30px]">Good morning, Asha</p>
           </motion.div>
           <motion.ul variants={drop} className="flex flex-wrap gap-2 text-[13px]">

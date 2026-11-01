@@ -246,7 +246,7 @@ export function InvoiceVisual({ active }: Props) {
           <p className="mt-1 text-[16px] font-medium whitespace-nowrap tabular sm:text-[18px]">INV/26-27/0031</p>
         </div>
         <div className="text-right text-[12px] leading-relaxed text-muted">
-          <p className="text-ink">Demo University</p>
+          <p className="text-ink">Demo Institute</p>
           <p>GSTIN 27ABCDE1234F1Z5</p>
         </div>
       </div>
@@ -311,7 +311,7 @@ export function CertificateVisual({ active }: Props) {
         <div aria-hidden className="pointer-events-none absolute inset-3 rounded-[20px] border border-gold/50" />
         <div aria-hidden className="pointer-events-none absolute inset-[18px] rounded-[16px] border border-line" />
         <div className="relative text-center">
-          <p className="text-[12px] text-muted">Demo University</p>
+          <p className="text-[12px] text-muted">Demo Institute</p>
           <p className={`${display.className} mt-3 text-[clamp(1.5rem,3vw,2.25rem)] leading-none`}>Certificate of completion</p>
           <p className="mt-5 text-[12px] text-muted">This certifies that</p>
           <p className={`${display.className} mt-1 text-[clamp(1.75rem,3.6vw,2.75rem)] leading-none text-brand italic`}>Riya Sharma</p>
@@ -375,7 +375,7 @@ export function CertificateVisual({ active }: Props) {
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-muted">Issued by</dt>
-                <dd>Demo University</dd>
+                <dd>Demo Institute</dd>
               </div>
             </dl>
           </motion.div>
@@ -402,11 +402,11 @@ export function WebsiteVisual({ active }: Props) {
           <span className="size-2.5 rounded-full bg-line" />
           <span className="size-2.5 rounded-full bg-line" />
         </span>
-        <span className="mx-auto rounded-full bg-surface px-4 py-1 text-[12px] text-muted ring-1 ring-line">demo-university.in</span>
+        <span className="mx-auto rounded-full bg-surface px-4 py-1 text-[12px] text-muted ring-1 ring-line">demo-institute.in</span>
       </div>
       <div className="relative bg-brand px-6 pt-8 pb-10 text-canvas sm:px-8">
         <p className="text-[12px] text-canvas/70">Pune · Since 1998</p>
-        <p className={`${display.className} mt-2 text-[clamp(1.75rem,3.4vw,2.6rem)] leading-none`}>Demo University</p>
+        <p className={`${display.className} mt-2 text-[clamp(1.75rem,3.4vw,2.6rem)] leading-none`}>Demo Institute</p>
         <p className="mt-2 max-w-xs text-[13px] text-canvas/75">Evening and weekend courses for working professionals.</p>
         <span className="mt-5 inline-block rounded-full bg-canvas px-4 py-1.5 text-[12px] font-medium text-brand">Send an enquiry</span>
       </div>

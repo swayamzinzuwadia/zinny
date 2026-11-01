@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import type { ActionState, FormAction } from "@/components/forms";
-import { cx } from "@/components/ui";
+import { Select, cx } from "@/components/ui";
 
 const field =
   "h-12 w-full rounded-2xl border border-[var(--site-line)] bg-surface px-4 text-[16px] outline-none transition placeholder:text-faint focus:border-[var(--site-primary)] focus:ring-4 focus:ring-[var(--site-soft)]";
@@ -106,14 +106,14 @@ export function EnquiryForm({
       {courses.length > 0 && (
         <div>
           <Label htmlFor={id("course")}>Course</Label>
-          <select id={id("course")} name="courseId" defaultValue={courseId ?? ""} className={cx(field, "pr-10")}>
+          <Select plain id={id("course")} name="courseId" defaultValue={courseId ?? ""} className={field}>
             <option value="">Not sure yet</option>
             {courses.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.title}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       )}
       <div>
@@ -176,14 +176,14 @@ export function ReviewForm({ uni, action, courses }: { uni: string; action: Form
           <Label htmlFor="rev-course" hint="Optional">
             Course you took
           </Label>
-          <select id="rev-course" name="courseId" defaultValue="" className={cx(field, "pr-10")}>
+          <Select plain id="rev-course" name="courseId" defaultValue="" className={field}>
             <option value="">None or not listed</option>
             {courses.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.title}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       )}
       <div>

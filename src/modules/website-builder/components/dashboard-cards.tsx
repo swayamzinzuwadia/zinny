@@ -56,12 +56,12 @@ export async function MyProfileCard({ uni, actor }: DashboardCardProps) {
   if (!mine.eligible) return null;
   const p = mine.profile;
   const line = !p
-    ? "Students and visitors can read about you on the university website. Add a photo and a short bio."
+    ? "Students and visitors can read about you on the institute website. Add a photo and a short bio."
     : p.status === "changes_requested"
       ? `An admin asked for changes: ${p.reviewNote}`
       : p.status === "approved"
         ? p.visible
-          ? "Your profile is live on the university website."
+          ? "Your profile is live on the institute website."
           : "Your profile is approved but hidden from the website for now."
         : p.status === "pending"
           ? "Waiting for an admin to approve it."

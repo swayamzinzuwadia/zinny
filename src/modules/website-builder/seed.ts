@@ -33,12 +33,12 @@ export async function seed(ctx: SeedContext) {
 
   /* ── Institute profile ── */
   console.log("  website: profile and pictures…");
-  const logo = await image(asha, "logo", crestSvg(), "Demo University crest");
+  const logo = await image(asha, "logo", crestSvg(), "Demo Institute crest");
   const cover = await image(asha, "cover", campusSvg(), "The main hall and clock tower");
   await saveProfile(asha, {
     tagline: "Practical degrees and certificate courses in Navi Mumbai since 1998",
     about: [
-      "Demo University started in 1998 as a small evening institute in Vashi, teaching accounting to people who worked during the day. We still believe what we believed then: the best way to learn a skill is from someone who uses it at work, in a small group, at a time you can actually attend.",
+      "Demo Institute started in 1998 as a small evening institute in Vashi, teaching accounting to people who worked during the day. We still believe what we believed then: the best way to learn a skill is from someone who uses it at work, in a small group, at a time you can actually attend.",
       "Today about 2,400 students study with us each year across computer science and marketing. Every course runs in batches of 30 or fewer, with a fixed weekly timetable, live classes and a faculty member who knows your name.",
       "Our graduates work as analysts, developers and marketers at banks, start-ups and agencies across India. Many come back to teach.",
     ].join("\n\n"),
@@ -52,7 +52,7 @@ export async function seed(ctx: SeedContext) {
     social: {
       website: "https://www.demo.edu",
       instagram: "https://instagram.com/demouniversity",
-      linkedin: "https://www.linkedin.com/school/demo-university",
+      linkedin: "https://www.linkedin.com/school/demo-institute",
       youtube: "https://www.youtube.com/@demouniversity",
     },
     primaryColor: "#17365d",
@@ -137,7 +137,7 @@ export async function seed(ctx: SeedContext) {
 
   /* ── Team ── */
   const team = [
-    { name: "Dr. Kavita Deshpande", title: "Vice Chancellor", bio: "An economist by training, Kavita has led Demo University since 2015 and chairs its academic council.", seed: 31 },
+    { name: "Dr. Kavita Deshpande", title: "Vice Chancellor", bio: "An economist by training, Kavita has led Demo Institute since 2015 and chairs its academic council.", seed: 31 },
     { name: "Prof. Sameer Joshi", title: "Dean of Academics", bio: "Sameer oversees course quality, assessment and faculty development across both departments.", seed: 32 },
     { name: "Anita D'Souza", title: "Registrar", bio: "Anita looks after admissions records, certificates and everything to do with your student file.", seed: 33 },
     { name: "Rohit Bansal", title: "Head of Admissions", bio: "Rohit and his team answer enquiries, help you pick a batch and explain fees and instalments.", seed: 34 },

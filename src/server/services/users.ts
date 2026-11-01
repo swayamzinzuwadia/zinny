@@ -109,7 +109,7 @@ export async function listPeople(actor: Actor, group: keyof typeof USER_GROUPS):
           ? (x.deptName ?? "Department")
           : x.scopeType === "batch"
             ? `${x.batchCourse ?? "Course"} · ${x.batchName ?? "Batch"}`
-            : "Whole university";
+            : "Whole institute";
       p.roles.push({ assignmentId: x.assignmentId, role: x.role, label: ROLE_LABELS[x.role], scope, endsAt: x.endsAt });
       people.set(x.userId, p);
     }
@@ -137,7 +137,7 @@ async function assignRoleTx(tx: Tx, actor: Actor, input: RoleInput) {
 
 async function assignRoleTxFlagged(tx: Tx, actor: Actor, input: RoleInput) {
   const allowed = ALLOWED_SCOPES[input.role];
-  if (!allowed) throw new ValidationError("That role can't be given inside a university.");
+  if (!allowed) throw new ValidationError("That role can't be given inside an institute.");
 
   let departmentId: string | null = null;
   let scopeType: "university" | "department" | "batch";

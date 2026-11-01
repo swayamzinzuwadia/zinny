@@ -12,7 +12,7 @@ export type LessonRow = typeof contentLessons.$inferSelect;
 export type SectionRow = typeof contentSections.$inferSelect;
 
 export function uni(actor: Actor): string {
-  if (!actor.universityId) throw new ForbiddenError("No university selected.");
+  if (!actor.universityId) throw new ForbiddenError("No institute selected.");
   return actor.universityId;
 }
 

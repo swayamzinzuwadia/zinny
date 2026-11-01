@@ -131,7 +131,7 @@ export default async function AttendancePage({ params }: { params: Promise<{ uni
               <CardTitle>Attendance threshold</CardTitle>
               <ActionForm action={setThresholdAction} resetOnSuccess={false} className="space-y-3">
                 <input type="hidden" name="uni" value={uni} />
-                <Field label="Minimum attendance" hint="For every batch in the university. Students below it are highlighted and alerted each week, with a summary for their HOD.">
+                <Field label="Minimum attendance" hint="For every batch in the institute. Students below it are highlighted and alerted each week, with a summary for their HOD.">
                   <div className="flex items-center gap-2">
                     <Input name="threshold" type="number" min={1} max={100} step={1} defaultValue={data.threshold} className="w-24" required />
                     <span className="text-muted">%</span>

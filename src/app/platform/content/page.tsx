@@ -31,16 +31,16 @@ export default async function ContentReviewPage({ searchParams }: { searchParams
         title="Content review"
         subtitle={
           canReview
-            ? "Newly published courses across universities, newest first. Preview each one, then mark it reviewed or flag an issue for the university's Account Manager. Nobody on the Zinny team edits a university's content."
-            : "Issues Content QA found in university courses. Follow up with the university; Content QA resolves the flag once it's fixed."
+            ? "Newly published courses across institutes, newest first. Preview each one, then mark it reviewed or flag an issue for the institute's Account Manager. Nobody on the Zinny team edits an institute's content."
+            : "Issues Content QA found in institute courses. Follow up with the institute; Content QA resolves the flag once it's fixed."
         }
       />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <Tabs tabs={QUEUE_TABS.map((t) => ({ key: t, label: TAB_LABELS[t], href: href(t), count: counts[t] }))} active={tab} />
         <form className="flex gap-2">
           <input type="hidden" name="tab" value={tab} />
-          <Select name="university" defaultValue={uni ?? ""} aria-label="University" className="w-56">
-            <option value="">Every university</option>
+          <Select name="university" defaultValue={uni ?? ""} aria-label="Institute" className="w-56">
+            <option value="">Every institute</option>
             {unis.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name}
@@ -53,10 +53,10 @@ export default async function ContentReviewPage({ searchParams }: { searchParams
 
       {rows.length === 0 ? (
         <Empty title={tab === "to-review" ? "Nothing waits for review" : tab === "flagged" ? "No open flags" : "Nothing reviewed yet"}>
-          {tab === "to-review" ? "New courses appear here as soon as a university publishes them." : undefined}
+          {tab === "to-review" ? "New courses appear here as soon as an institute publishes them." : undefined}
         </Empty>
       ) : (
-        <Table head={["Course", "University", "Batches", "Students", "Price", tab === "cleared" ? "Reviewed" : "Created", ""]}>
+        <Table head={["Course", "Institute", "Batches", "Students", "Price", tab === "cleared" ? "Reviewed" : "Created", ""]}>
           {rows.map((r) => (
             <tr key={r.courseId} className="hover:bg-canvas/60">
               <Td>

@@ -21,7 +21,7 @@ export function ColorField({ initial, brandColor }: { initial: string | null; br
       <legend className="mb-1.5 block text-[13px] font-medium">Main colour</legend>
       <label className="flex items-center gap-2 text-[14px]">
         <input type="checkbox" name="useBrandColour" checked={useBrand} onChange={(e) => setUseBrand(e.target.checked)} className="h-4 w-4 accent-[#0b5e4c]" />
-        Use the university&apos;s colour
+        Use the institute&apos;s colour
         <span className="inline-block h-4 w-4 rounded-full border border-line" style={{ background: brandColor }} aria-hidden />
       </label>
       {!useBrand && (

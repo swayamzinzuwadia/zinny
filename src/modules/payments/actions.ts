@@ -18,7 +18,7 @@ import { updateInvoiceSettings } from "./settings";
 const SLUG = /^[a-z0-9-]{2,40}$/;
 
 async function ctx(uni: string) {
-  if (!SLUG.test(uni)) throw new ValidationError("Unknown university.");
+  if (!SLUG.test(uni)) throw new ValidationError("Unknown institute.");
   const { actor } = await spaceContext(uni);
   return actor;
 }

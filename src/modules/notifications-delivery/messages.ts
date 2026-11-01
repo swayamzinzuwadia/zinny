@@ -37,7 +37,7 @@ export function messageVars(m: MessageInput, link: string | null): TemplateVars 
     firstName: firstName(m.person.name),
     title: m.title,
     body: m.body,
-    university: m.university.name,
+    institute: m.university.name,
     link: link ? absoluteUrl(link) : absoluteUrl(`/${m.university.slug}`),
   };
 }
@@ -103,7 +103,9 @@ export function renderText(m: MessageInput, cfg: KindConfig, template: KindTempl
       firstName: oneLine(vars.firstName, 30),
       title: oneLine(vars.title, 120),
       body: oneLine(vars.body, 200),
-      university: oneLine(vars.university, 60),
+      institute: oneLine(vars.institute, 60),
+      // DLT flows set up in MSG91 before the rename still ask for this name.
+      university: oneLine(vars.institute, 60),
       link: vars.link,
       text,
     },

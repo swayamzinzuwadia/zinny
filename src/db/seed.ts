@@ -48,7 +48,7 @@ export async function seedDemo(): Promise<SeedContext> {
   const runningSince = addDays(weekStart(today), -21);
   const termEnd = addDays(nextMonday, 90);
 
-  console.log("Resetting demo university…");
+  console.log("Resetting demo institute…");
   await db.delete(universities).where(eq(universities.slug, SLUG));
 
   const zara = await upsertStaff("zara@zinny.demo", "Zara Zinny", "super_admin");
@@ -56,7 +56,7 @@ export async function seedDemo(): Promise<SeedContext> {
 
   const zaraActor = await loadActor(zara.id, null);
   const uni = await createUniversity(zaraActor, {
-    name: "Demo University",
+    name: "Demo Institute",
     slug: SLUG,
     adminName: "Asha Admin",
     adminEmail: "asha@demo.edu",
@@ -64,7 +64,7 @@ export async function seedDemo(): Promise<SeedContext> {
   });
   await db
     .update(universities)
-    .set({ gstin: "27AABCD1234E1Z5", legalName: "Demo University Trust", address: "Mumbai, Maharashtra" })
+    .set({ gstin: "27AABCD1234E1Z5", legalName: "Demo Institute Trust", address: "Mumbai, Maharashtra" })
     .where(eq(universities.id, uni.id));
 
   const [asha] = await db.select().from(users).where(eq(users.email, "asha@demo.edu"));

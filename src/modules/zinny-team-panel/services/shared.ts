@@ -67,9 +67,9 @@ export async function usageFor(conn: Conn, universityIds?: string[], now = new D
 export const emptyUsage = (): Usage => ({ students: 0, staff: 0 });
 
 export async function universityOrThrow(conn: Conn, universityId: string) {
-  if (!/^[0-9a-f-]{36}$/i.test(universityId)) throw new NotFoundError("University");
+  if (!/^[0-9a-f-]{36}$/i.test(universityId)) throw new NotFoundError("Institute");
   const [u] = await conn.select().from(universities).where(eq(universities.id, universityId));
-  if (!u) throw new NotFoundError("University");
+  if (!u) throw new NotFoundError("Institute");
   return u;
 }
 

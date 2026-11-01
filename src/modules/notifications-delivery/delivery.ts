@@ -71,7 +71,7 @@ export function readyAt(channel: Channel, security: boolean, timezone: string, a
 }
 
 function uniOf(actor: Actor): string {
-  if (!actor.universityId) throw new ValidationError("Delivery runs inside a university.");
+  if (!actor.universityId) throw new ValidationError("Delivery runs inside an institute.");
   return actor.universityId;
 }
 
@@ -590,7 +590,8 @@ export async function sendDirectText(channel: "sms" | "whatsapp", m: SmsMessage,
       if (security) throw new ValidationError(`"${m.to}" isn't a valid mobile number.`);
       return { ctx, planned: [{ row: { ...base, recipient: String(m.to ?? "").slice(0, 32), status: "failed" as const, lastError: "Not a valid mobile number." } }] };
     }
-    const vars = { text, code: codeIn(text), university: oneLine(ctx.university.name, 60) };
+    const institute = oneLine(ctx.university.name, 60);
+    const vars = { text, code: codeIn(text), institute, university: institute };
     const content: Content = { text: { to: phone, text, kind, vars, templateId: cfg.smsTemplateId, whatsappTemplate: cfg.whatsappTemplate } };
     const sending = { status: "sending" as const, attempts: 1, lockedUntil: new Date(now.getTime() + CLAIM_MS), provider: providers[channel].name };
     if (security) {

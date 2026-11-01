@@ -58,7 +58,7 @@ export type TextProvider = { name: string; send(m: OutboundText): Promise<SendRe
 export type Providers = { email: EmailProvider; sms: TextProvider; whatsapp: TextProvider };
 
 /** WhatsApp template body variables, in order: {{1}} first name, {{2}} headline, {{3}} institute, {{4}} link. */
-export const WHATSAPP_VARIABLE_ORDER = ["firstName", "title", "university", "link"] as const;
+export const WHATSAPP_VARIABLE_ORDER = ["firstName", "title", "institute", "link"] as const;
 
 const TIMEOUT_MS = 10_000;
 

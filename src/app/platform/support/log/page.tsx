@@ -48,7 +48,7 @@ export default async function ActivityLogPage({ searchParams }: { searchParams: 
       <BackLink href="/platform/support">Support mode</BackLink>
       <PageHeader
         title="Activity log"
-        subtitle="Who did what, where and when. Support sessions show every change made inside a university; all Zinny team activity adds licences, invoices, roles and the rest."
+        subtitle="Who did what, where and when. Support sessions show every change made inside an institute; all Zinny team activity adds licences, invoices, roles and the rest."
         actions={
           <a href={`/platform/support/log/export${query(filters)}`} className={buttonClass("secondary")} download>
             Download CSV
@@ -65,9 +65,9 @@ export default async function ActivityLogPage({ searchParams }: { searchParams: 
             <option value="all">All Zinny team activity</option>
           </Select>
         </Field>
-        <Field label="University">
+        <Field label="Institute">
           <Select name="university" defaultValue={filters.universityId ?? ""}>
-            <option value="">Every university</option>
+            <option value="">Every institute</option>
             {options.universities.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name}
@@ -117,7 +117,7 @@ export default async function ActivityLogPage({ searchParams }: { searchParams: 
         </Empty>
       ) : (
         <>
-          <Table head={["When (IST)", "Who", "University", "What happened", "Details"]}>
+          <Table head={["When (IST)", "Who", "Institute", "What happened", "Details"]}>
             {log.entries.map((e) => (
               <tr key={e.id} className="align-top">
                 <Td className="whitespace-nowrap text-muted">{formatDateTime(e.at)}</Td>

@@ -276,7 +276,7 @@ describe("notifications-delivery: provider clients", () => {
       text: "x",
       kind: "timetable.changed",
       whatsappTemplate: "timetable_update",
-      vars: { firstName: "Riya", title: "Class moved", university: "Demo University", link: "https://x.test/t" },
+      vars: { firstName: "Riya", title: "Class moved", institute: "Demo University", link: "https://x.test/t" },
     });
     expect(calls[0].url).toBe("https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/");
     const body = JSON.parse(String(calls[0].init.body));

@@ -49,7 +49,7 @@ export default async function Home() {
           <Link href="/platform">
             <Card className="hover:border-brand">
               <div className="font-medium">Zinny team panel</div>
-              <div className="text-sm text-muted">Universities, licences and support mode</div>
+              <div className="text-sm text-muted">Institutes, licences and support mode</div>
             </Card>
           </Link>
         )}

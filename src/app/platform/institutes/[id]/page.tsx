@@ -15,11 +15,11 @@ import { invoicesForUniversity } from "@/modules/zinny-team-panel/services/billi
 import { activeSessions } from "@/modules/zinny-team-panel/services/support";
 import { getUniversity } from "@/modules/zinny-team-panel/services/universities";
 
-export const metadata = { title: "University" };
+export const metadata = { title: "Institute" };
 
 export default async function UniversityPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string }> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.manage_universities")) return <NoAccess section="Universities" who="Super Admins and Account Managers" />;
+  if (!canPlatform(actor, "platform.manage_universities")) return <NoAccess section="Institutes" who="Super Admins and Account Managers" />;
   const { id } = await params;
   const { created } = await searchParams;
   const data = await getUniversity(actor, id).catch((e) => {
@@ -40,7 +40,7 @@ export default async function UniversityPage({ params, searchParams }: { params:
 
   return (
     <>
-      <BackLink href="/platform/universities">Universities</BackLink>
+      <BackLink href="/platform/institutes">Institutes</BackLink>
       <PageHeader
         title={u.name}
         subtitle={
@@ -83,21 +83,21 @@ export default async function UniversityPage({ params, searchParams }: { params:
       )}
       {suspended && (
         <div className="mb-6">
-          <Notice tone="danger">This university is suspended. Its licence warnings are paused until it is reactivated.</Notice>
+          <Notice tone="danger">This institute is suspended. Its licence warnings are paused until it is reactivated.</Notice>
         </div>
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <div className="min-w-0 space-y-6">
           <Card>
-            <CardTitle hint="Changes go through core and land in the university's audit log">Basics</CardTitle>
+            <CardTitle hint="Changes go through core and land in the institute's audit log">Basics</CardTitle>
             <ActionForm action={updateBasicsAction} resetOnSuccess={false} className="space-y-4">
               <input type="hidden" name="universityId" value={u.id} />
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Name">
                   <Input name="name" defaultValue={u.name} required minLength={2} maxLength={120} />
                 </Field>
-                <Field label="Web address" hint="Changing it breaks old links to this university.">
+                <Field label="Web address" hint="Changing it breaks old links to this institute.">
                   <Input name="slug" defaultValue={u.slug} required minLength={2} maxLength={40} autoCapitalize="none" spellCheck={false} />
                 </Field>
                 <Field label="Time zone" hint="Class times and dates use this zone.">
@@ -254,20 +254,20 @@ export default async function UniversityPage({ params, searchParams }: { params:
                 <Field label="Note" hint="Optional">
                   <Input name="reason" placeholder="Renewal signed on 28 Oct" maxLength={300} />
                 </Field>
-                <SubmitButton variant="secondary">Reactivate university</SubmitButton>
+                <SubmitButton variant="secondary">Reactivate institute</SubmitButton>
               </ActionForm>
             ) : (
               <ActionForm action={setStatusAction} className="space-y-3" confirm={`Suspend ${u.name}?`}>
                 <input type="hidden" name="universityId" value={u.id} />
                 <input type="hidden" name="status" value="suspended" />
                 <p className="text-[14px] text-muted">
-                  Marks the university as suspended, for example when a licence lapses unpaid, and pauses its licence warnings. The reason goes into its
-                  audit log with your name. Its people can still sign in until sign-in blocking for suspended universities ships.
+                  Marks the institute as suspended, for example when a licence lapses unpaid, and pauses its licence warnings. The reason goes into its
+                  audit log with your name. Its people can still sign in until sign-in blocking for suspended institutes ships.
                 </p>
                 <Field label="Reason">
                   <Input name="reason" placeholder="Licence unpaid since 1 Oct" required minLength={5} maxLength={300} />
                 </Field>
-                <SubmitButton variant="danger">Suspend university</SubmitButton>
+                <SubmitButton variant="danger">Suspend institute</SubmitButton>
               </ActionForm>
             )}
           </Card>

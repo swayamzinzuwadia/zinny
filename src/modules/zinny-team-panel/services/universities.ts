@@ -91,7 +91,7 @@ export async function listUniversities(actor: Actor, today = todayIST()): Promis
 /** One university: its basics, people, licence, activity and open content flags. */
 export async function getUniversity(actor: Actor, universityId: string, today = todayIST()) {
   assertPlatform(actor, "platform.manage_universities");
-  if (!isUuid(universityId)) throw new NotFoundError("University");
+  if (!isUuid(universityId)) throw new NotFoundError("Institute");
   const conn = db();
   const university = await universityOrThrow(conn, universityId);
   const [[licence], usage, [counts], flags, alerts, [admin]] = await Promise.all([
@@ -148,7 +148,7 @@ export type NewUniversityInput = {
 export async function createUniversityWithLicence(actor: Actor, input: NewUniversityInput) {
   assertPlatform(actor, "platform.manage_universities");
   const name = input.name.trim();
-  if (name.length < 2) throw new ValidationError("Enter the university's name.");
+  if (name.length < 2) throw new ValidationError("Enter the institute's name.");
   if (name.length > 120) throw new ValidationError("Keep the name under 120 characters.");
   const slug = checkSlug(input.slug);
   const adminName = input.adminName.trim();
@@ -162,7 +162,7 @@ export async function createUniversityWithLicence(actor: Actor, input: NewUniver
   if (withLicence) validateLicence(input.licence!);
 
   const [taken] = await db().select({ id: universities.id }).from(universities).where(eq(universities.slug, slug));
-  if (taken) throw new ConflictError("Another university already uses that web address.");
+  if (taken) throw new ConflictError("Another institute already uses that web address.");
 
   const uni = await createUniversity(actor, { name, slug, adminName, adminEmail, invoicePrefix: prefix });
   if (withLicence) await saveLicence(actor, uni.id, input.licence!);
@@ -183,12 +183,12 @@ export type BasicsInput = {
 /** Edits name, web address, time zone, GSTIN, legal name, address, state and invoice prefix (core `updateUniversity`). */
 export async function updateBasics(actor: Actor, universityId: string, input: BasicsInput) {
   assertPlatform(actor, "platform.manage_universities");
-  if (!isUuid(universityId)) throw new NotFoundError("University");
+  if (!isUuid(universityId)) throw new NotFoundError("Institute");
   const before = await universityOrThrow(db(), universityId);
   const slug = input.slug.trim().toLowerCase() === before.slug ? before.slug : checkSlug(input.slug);
   if (slug !== before.slug) {
     const [taken] = await db().select({ id: universities.id }).from(universities).where(eq(universities.slug, slug));
-    if (taken) throw new ConflictError("Another university already uses that web address.");
+    if (taken) throw new ConflictError("Another institute already uses that web address.");
   }
   if (input.legalName.trim().length > 200) throw new ValidationError("Keep the legal name under 200 characters.");
   if (input.address.trim().length > 500) throw new ValidationError("Keep the address under 500 characters.");
@@ -211,12 +211,12 @@ export async function updateBasics(actor: Actor, universityId: string, input: Ba
 export async function setUniversityStatus(actor: Actor, universityId: string, status: "active" | "suspended", reason: string) {
   assertPlatform(actor, "platform.manage_universities");
   if (status !== "active" && status !== "suspended") throw new ValidationError("Status is active or suspended.");
-  if (!isUuid(universityId)) throw new NotFoundError("University");
+  if (!isUuid(universityId)) throw new NotFoundError("Institute");
   const why = reason.trim();
-  if (status === "suspended" && why.length < 5) throw new ValidationError("Write why you are suspending this university.");
+  if (status === "suspended" && why.length < 5) throw new ValidationError("Write why you are suspending this institute.");
   const before = await universityOrThrow(db(), universityId);
   if (before.status === status) {
-    throw new ConflictError(status === "suspended" ? "This university is already suspended." : "This university is already active.");
+    throw new ConflictError(status === "suspended" ? "This institute is already suspended." : "This institute is already active.");
   }
   const after = await updateUniversity(actor, universityId, { status });
   await db().transaction(async (tx) => {

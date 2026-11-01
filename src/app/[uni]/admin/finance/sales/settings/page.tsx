@@ -34,7 +34,7 @@ export default async function InvoiceSettingsPage({ params }: { params: Promise<
   return (
     <>
       {back}
-      <PageHeader title="Invoice settings" subtitle="What every GST invoice of this university shows. Invoices already issued keep what they were issued with." />
+      <PageHeader title="Invoice settings" subtitle="What every GST invoice of this institute shows. Invoices already issued keep what they were issued with." />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardTitle>Seller details</CardTitle>
@@ -74,7 +74,7 @@ export default async function InvoiceSettingsPage({ params }: { params: Promise<
           <CardTitle>On every invoice</CardTitle>
           <div className="mb-4">
             <Notice tone="neutral">
-              Confirm the SAC code with your chartered accountant. 999293 covers commercial training and coaching; degree programmes from a recognised university may use
+              Confirm the SAC code with your chartered accountant. 999293 covers commercial training and coaching; degree programmes from a recognised institute may use
               another code or be exempt from GST.
             </Notice>
           </div>

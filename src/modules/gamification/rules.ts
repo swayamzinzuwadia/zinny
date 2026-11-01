@@ -61,7 +61,7 @@ async function loadRule(actor: Actor, ruleId: string): Promise<XpRule> {
 function assertManage(actor: Actor, departmentId: string | null) {
   const u = uni(actor);
   if (departmentId === null && !can(actor, "leaderboard.manage", { universityId: u })) {
-    throw new ForbiddenError("Only an institute admin can change rules for the whole university. Choose your department instead.");
+    throw new ForbiddenError("Only an institute admin can change rules for the whole institute. Choose your department instead.");
   }
   assertCan(actor, "leaderboard.manage", scopeTarget(u, departmentId));
 }
@@ -91,7 +91,7 @@ export async function listRules(actor: Actor) {
         ...r,
         trigger: triggerFor(r.eventType, r.condition)?.key ?? "",
         description: describeTrigger(r),
-        scopeName: r.departmentId ? (dir.departments.get(r.departmentId)?.name ?? "Department") : "Whole university",
+        scopeName: r.departmentId ? (dir.departments.get(r.departmentId)?.name ?? "Department") : "Whole institute",
         canManage: can(actor, "leaderboard.manage", scopeTarget(uni(actor), r.departmentId)),
         awards: byRule.get(r.id)?.awards ?? 0,
         pointsAwarded: byRule.get(r.id)?.points ?? 0,

@@ -53,7 +53,7 @@ function handbook(course: string, weeks: string[]): LessonSpec["pdf"] {
   return {
     title: `${course}: course handbook`,
     blocks: [
-      { heading: "Welcome", text: `This handbook explains how ${course} runs at Demo University: the weekly rhythm, what counts toward completion and where to get help.` },
+      { heading: "Welcome", text: `This handbook explains how ${course} runs at Demo Institute: the weekly rhythm, what counts toward completion and where to get help.` },
       { heading: "How the course runs", text: "Each week opens a new section of lessons. Watch the videos, read the notes, and come to the live class with your questions. Lessons marked optional are there if you want to go further; they don't count toward your progress." },
       { heading: "Completing the course", text: "Your progress is the share of required lessons you have completed. When you reach 100% the course is marked complete and, where the course has one, your certificate is issued." },
       { heading: "Weekly plan", text: weeks.map((w, i) => `Week ${i + 1}: ${w}`).join("\n") },
@@ -371,7 +371,7 @@ async function writeCurriculum(author: Actor, courseId: string, sections: Sectio
       }
       if (l.kind === "pdf" && l.pdf) {
         const name = `${l.pdf.title.replace(/[^A-Za-z0-9 ]+/g, "").replace(/\s+/g, " ").trim()}.pdf`;
-        await uploadFile(author, lesson.id, name, makePdf(l.pdf.title, l.pdf.blocks, `${courseTitle} · Demo University`));
+        await uploadFile(author, lesson.id, name, makePdf(l.pdf.title, l.pdf.blocks, `${courseTitle} · Demo Institute`));
       }
       const drip = resolveDrip(l.drip ?? s.drip, today);
       await updateLesson(author, lesson.id, { durationMinutes: l.minutes, ...(drip && { drip }) });

@@ -122,7 +122,7 @@ export function KindEditor({ uni, editor, providers, backHref }: { uni: string; 
                 </dl>
                 <p className="mt-3 text-muted">
                   WhatsApp templates get four values in order: first name, headline, institute name and link. In SMS templates, use the names name, firstName,
-                  title, body, university, link or text as DLT variables.
+                  title, body, institute, link or text as DLT variables.
                 </p>
               </details>
             )}

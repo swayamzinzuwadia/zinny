@@ -29,7 +29,7 @@ export function need(id: unknown, what: string): string {
 }
 
 export function uni(actor: Actor): string {
-  if (!actor.universityId) throw new ForbiddenError("No university selected.");
+  if (!actor.universityId) throw new ForbiddenError("No institute selected.");
   return actor.universityId;
 }
 
