@@ -1,9 +1,14 @@
-import { Instrument_Serif } from "next/font/google";
+import { Montserrat, Playfair_Display } from "next/font/google";
 
-/** Headline face for the landing page only. Lexend stays the face for body text and UI. */
-export const display = Instrument_Serif({
+/** Headlines on the landing page. The app itself stays in Lexend. */
+export const display = Playfair_Display({
   subsets: ["latin"],
-  weight: "400",
   style: ["normal", "italic"],
+  display: "swap",
+});
+
+/** Body text and labels on the landing page. */
+export const text = Montserrat({
+  subsets: ["latin"],
   display: "swap",
 });

@@ -72,7 +72,7 @@ export function Roles() {
             id="roles-title"
             className={`${display.className} mt-4 text-[clamp(2.5rem,5.5vw,4.5rem)] leading-[0.98] tracking-[-0.02em] ${css.balance}`}
           >
-            One product. The right view for everyone in it.
+            One product. <em className="text-brand">The right view</em> for everyone in it.
           </h2>
         </Reveal>
 

@@ -1,3 +1,4 @@
+import { text } from "./fonts";
 import css from "./landing.module.css";
 import { Campus } from "./components/Campus";
 import { Closing } from "./components/Closing";
@@ -13,7 +14,7 @@ import { Story } from "./components/Story";
 export function LandingPage() {
   return (
     <MotionRoot>
-      <div className={`min-h-dvh overflow-x-clip text-ink ${css.canvas}`}>
+      <div className={`min-h-dvh overflow-x-clip text-ink ${text.className} ${css.canvas}`}>
         <Nav />
         <main>
           <Hero />

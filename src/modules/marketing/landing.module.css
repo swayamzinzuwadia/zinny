@@ -28,8 +28,15 @@
   }
 }
 
-/* The cream canvas gets a faint paper grain so large empty areas don't read as flat. */
+/*
+ * The cream canvas gets a faint paper grain so large empty areas don't read as flat.
+ * Browsers drop ligatures on tightly spaced text unless they are asked for by name, and
+ * the headlines are all tightly spaced, so the joined fi, ff and italic Th need this.
+ */
 .canvas {
+  font-variant-ligatures: common-ligatures contextual;
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
   background-color: #faf6ea;
   background-image:
     radial-gradient(120% 70% at 50% 0%, #fffdf7 0%, rgb(255 253 247 / 0) 60%),
@@ -58,6 +65,8 @@
 
 /* Layered product shadow: a sheet of glass resting on paper. */
 .sheet {
+  /* These are pictures of the product, so they keep the product's own typeface. */
+  font-family: var(--font-sans);
   box-shadow:
     0 0 0 1px rgb(20 38 31 / 0.06),
     0 2px 4px rgb(20 38 31 / 0.04),

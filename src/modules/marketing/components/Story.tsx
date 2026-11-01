@@ -17,7 +17,7 @@ type Chapter = {
   id: string;
   short: string;
   eyebrow: string;
-  title: string;
+  title: React.ReactNode;
   body: string;
   points: string[];
   Visual: (p: { active: boolean }) => React.ReactNode;
@@ -28,7 +28,11 @@ const CHAPTERS: Chapter[] = [
     id: "run",
     short: "Run",
     eyebrow: "Run the institute",
-    title: "Batches that fill fairly. Timetables that keep up.",
+    title: (
+      <>
+        Batches that <em className="text-brand">fill fairly.</em> Timetables that keep up.
+      </>
+    ),
     body: "Departments, courses and batches with real seat limits. Students pick the batch that fits their week, seats are held while they pay, and every timetable rebuilds itself the moment a class moves.",
     points: ["Seat held for 10 minutes while paying", "A clash warning before anyone enrols", "Batch switches approved only when a seat is free"],
     Visual: SeatMapVisual,
@@ -55,7 +59,11 @@ const CHAPTERS: Chapter[] = [
     id: "prove",
     short: "Prove it",
     eyebrow: "Prove it",
-    title: "Certificates anyone can check.",
+    title: (
+      <>
+        <em className="text-brand">Certificates</em> anyone can check.
+      </>
+    ),
     body: "Issue certificates in your own design, each with a QR code that opens a public verify page. The board gets reports and insights on enrolments, completion, revenue and faculty load, ready to export.",
     points: ["QR verification on every certificate", "Reports in CSV and Excel", "Insights the board can read in a minute"],
     Visual: CertificateVisual,

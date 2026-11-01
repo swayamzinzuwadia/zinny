@@ -141,7 +141,7 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
 
 export function Table({ head, children }: { head: ReactNode[]; children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-[22px] border border-line bg-surface">
+    <div className="relative overflow-x-auto rounded-[22px] border border-line bg-surface">
       <table className="w-full min-w-[640px] text-left text-[14px]">
         <thead className="border-b border-line text-[13px] text-muted">
           <tr>

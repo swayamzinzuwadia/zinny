@@ -1,39 +1,30 @@
-import { PageHeader, Table, Td } from "@/components/ui";
-import { ACCESS_LABEL, MENU, SECTION_ACCESS } from "@/server/authz/menu";
-import { ROLE_LABELS } from "@/server/authz/roles";
-import type { RoleName } from "@/db/schema";
+import { PageHeader } from "@/components/ui";
+import { roleSummaries } from "@/server/authz/capabilities";
+import { RolesExplorer } from "./roles-explorer";
 
 export const metadata = { title: "Roles & permissions" };
 
-const ROWS: RoleName[] = ["institute_admin", "board_owner", "accounts_fees", "hod", "permanent_faculty", "visiting_faculty"];
+const NOTES = [
+  { title: "Holding several roles", body: "One person can head one department and teach in another. They get the strongest access any of their roles gives." },
+  { title: "Changing what someone can do", body: "Give or remove a role under Administration or Teaching. What each role allows is the same at every institute." },
+  { title: "Students and parents", body: "Students, alumni and parents use the learner app, so they never see the admin panel." },
+];
 
-/** The PRD page 3 matrix, rendered from the same table the server enforces. */
-export default function RolesPage() {
-  const cols = MENU.filter((m) => m.key !== "dashboard");
+/** The PRD page 3 matrix, rendered from the same tables the server enforces. */
+export default async function RolesPage({ params }: { params: Promise<{ uni: string }> }) {
+  const { uni } = await params;
   return (
     <>
-      <PageHeader
-        title="Roles & permissions"
-        subtitle="Who sees what in the admin panel. Every action is also checked on the server against the person's role and scope."
-      />
-      <Table head={["Role", ...cols.map((c) => c.label)]}>
-        {ROWS.map((r) => (
-          <tr key={r}>
-            <Td className="font-medium">{ROLE_LABELS[r]}</Td>
-            {cols.map((c) => {
-              const a = SECTION_ACCESS[r]?.[c.key];
-              return (
-                <Td key={c.key} className={a === "full" ? "text-brand" : a ? "text-ink" : "text-faint"}>
-                  {a ? ACCESS_LABEL[a] : "–"}
-                </Td>
-              );
-            })}
-          </tr>
+      <PageHeader title="Roles & permissions" subtitle="What each role can do, and how far it reaches. Zinny checks these rules on the server for every action." />
+      <RolesExplorer base={`/${uni}/admin`} roles={roleSummaries()} />
+      <div className="mt-8 grid gap-6 md:grid-cols-3">
+        {NOTES.map((n) => (
+          <div key={n.title}>
+            <h2 className="text-[14px] font-medium">{n.title}</h2>
+            <p className="mt-1 text-[14px] text-muted">{n.body}</p>
+          </div>
         ))}
-      </Table>
-      <p className="mt-4 text-sm text-muted">
-        Students, alumni and parents use the learner app, not the admin panel. One person can hold several roles, for example head one department and teach in another.
-      </p>
+      </div>
     </>
   );
 }
