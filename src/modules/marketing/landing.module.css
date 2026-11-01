@@ -19,12 +19,10 @@
   from {
     opacity: 0;
     transform: translateY(14px);
-    filter: blur(6px);
   }
   to {
     opacity: 1;
     transform: none;
-    filter: none;
   }
 }
 
@@ -68,6 +66,32 @@
   font-weight: 560;
 }
 
+/* The brand's chalkboard: deep green with faint ruled lines and a lighter patch where it has been wiped. */
+.chalkboard {
+  background-color: #063a2f;
+  background-image:
+    radial-gradient(90% 70% at 16% 0%, rgb(11 94 76 / 0.6) 0%, rgb(6 58 47 / 0) 70%),
+    repeating-linear-gradient(to bottom, rgb(250 246 234 / 0.035) 0 1px, transparent 1px 44px);
+}
+
+/* The hero's chalk underline draws itself once. */
+.draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 1.1s 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Titles on the marketplace shelf read up the spine, like real books. */
+.spineText {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
 /* Frosted surfaces that float over the product (the "needs you" card, the nav, the role switcher). */
 .glass {
   background: rgb(255 253 247 / 0.72);
@@ -109,5 +133,9 @@
 @media (prefers-reduced-motion: reduce) {
   .rise {
     animation: none;
+  }
+  .draw {
+    animation: none;
+    stroke-dashoffset: 0;
   }
 }

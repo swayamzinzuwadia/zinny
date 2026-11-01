@@ -11,11 +11,11 @@ import { LandingPage } from "@/modules/marketing/LandingPage";
 import { marketplaceAccess } from "@/modules/marketplace/service";
 
 export const metadata: Metadata = {
-  title: { absolute: "Zinny · The whole institute, in order" },
+  title: { absolute: "Zinny · Run your institute. Sell what it teaches." },
   description:
-    "Courses, batches, fees and certificates in one private space for every institute, and a marketplace where students buy recorded lessons directly from them.",
+    "Courses, batches, live classes, tests, fees and certificates in one private space for every institute, and a marketplace where anyone can buy what it teaches.",
   openGraph: {
-    title: "Zinny · The whole institute, in order",
+    title: "Zinny · Run your institute. Sell what it teaches.",
     description: "One private space for every institute, and a marketplace of recorded courses and lectures sold directly by institutes.",
     type: "website",
   },

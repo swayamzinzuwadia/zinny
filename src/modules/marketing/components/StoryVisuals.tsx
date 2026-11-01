@@ -385,6 +385,176 @@ export function CertificateVisual({ active }: Props) {
   );
 }
 
+/* ───────────── Tests: a question, then the class's results ───────────── */
+
+const OPTIONS = ["VLOOKUP", "XLOOKUP", "Power Query merge", "COUNTIF"];
+const SPREAD = [0.14, 0.3, 0.52, 1, 0.76, 0.4];
+
+export function TestVisual({ active }: Props) {
+  return (
+    <div className="grid h-full w-full grid-rows-[1.3fr_1fr] gap-3">
+      <div className={`${card} flex flex-col p-6`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[13px] text-muted">Data Analytics · Mid-term mock</p>
+            <p className="mt-0.5 text-[15px] font-medium">Question 7 of 20</p>
+          </div>
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-gold-soft px-2.5 py-1 text-[12px] text-gold-strong tabular">
+            <span className="now-dot size-1.5 rounded-full bg-gold" />
+            18:24 left
+          </span>
+        </div>
+        <p className="mt-4 text-[17px] leading-snug font-medium">Which of these joins two tables on a shared column, without breaking when a column moves?</p>
+        <ul className="mt-4 grid gap-1.5 sm:grid-cols-2">
+          {OPTIONS.map((o, i) => (
+            <motion.li
+              key={o}
+              className="rounded-xl px-3 py-2 text-[14px] ring-1"
+              initial={false}
+              animate={{
+                backgroundColor: active && i === 1 ? "#e3eee8" : "#fffdf7",
+                boxShadow: "0 0 0 0 transparent",
+                borderColor: "transparent",
+              }}
+              style={{ "--tw-ring-color": active && i === 1 ? "#0b5e4c" : "#e8e0cc" } as React.CSSProperties}
+              transition={{ duration: motionTokens.duration.normal, delay: active ? 0.5 : 0 }}
+            >
+              {o}
+            </motion.li>
+          ))}
+        </ul>
+        <p className="mt-auto pt-3 text-[12px] text-muted">Tab switches and full-screen exits are recorded.</p>
+      </div>
+      <div className={`${card} flex flex-col p-6`}>
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="text-[15px] font-medium">Results</p>
+          <p className="text-[13px] text-muted">
+            Class average <span className="font-medium text-brand tabular">74%</span>
+          </p>
+        </div>
+        <div className="mt-4 flex flex-1 items-end gap-1.5">
+          {SPREAD.map((h, i) => (
+            <motion.span
+              key={i}
+              className={`h-full flex-1 origin-bottom rounded-t-md ${h === 1 ? "bg-brand" : "bg-brand-soft"}`}
+              initial={false}
+              animate={{ scaleY: active ? h : 0.06 }}
+              transition={{ duration: motionTokens.duration.slow, ease, delay: active ? 0.9 + i * 0.08 : 0 }}
+            />
+          ))}
+        </div>
+        <div className="mt-1.5 flex justify-between text-[11px] text-muted tabular">
+          <span>0%</span>
+          <span>100%</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────── The marketplace: a lecture goes on sale, and sells ───────────── */
+
+const SALES = [
+  { who: "Neha K.", where: "independent learner", when: "5:12 pm" },
+  { who: "Rohan D.", where: "alumnus of Riverside College", when: "5:47 pm" },
+  { who: "Sana P.", where: "independent learner", when: "6:03 pm" },
+];
+
+export function SellVisual({ active }: Props) {
+  return (
+    <div className={`${card} flex flex-col p-6 sm:p-8`}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[13px] text-muted">Products · Marketplace</p>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={active ? "live" : "draft"}
+            className={`rounded-full px-2.5 py-1 text-[12px] font-medium ${active ? "bg-brand-soft text-brand-strong" : "bg-canvas text-muted ring-1 ring-line"}`}
+            initial={{ opacity: 0, scale: motionTokens.scale.press }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: motionTokens.scale.press }}
+            transition={{ duration: motionTokens.duration.fast, delay: active ? 0.5 : 0 }}
+          >
+            {active ? "On sale" : "Ready to list"}
+          </motion.span>
+        </AnimatePresence>
+      </div>
+      <p className={`${display.className} ${css.accent} mt-4 text-[clamp(1.75rem,3vw,2.4rem)] leading-[1.1]`}>Pivot tables, in one lecture</p>
+      <p className="mt-1.5 text-[13px] text-muted">Recorded this morning · Data Analytics · Demo Institute</p>
+      <dl className="mt-6 grid grid-cols-3 gap-2 border-y border-line py-4 text-[13px]">
+        <div>
+          <dt className="text-muted">Type</dt>
+          <dd className="mt-0.5 font-medium">Lecture</dd>
+        </div>
+        <div>
+          <dt className="text-muted">Your price</dt>
+          <dd className="mt-0.5 font-medium tabular">₹499</dd>
+        </div>
+        <div>
+          <dt className="text-muted">With GST</dt>
+          <dd className="mt-0.5 font-medium tabular">₹588.82</dd>
+        </div>
+      </dl>
+      <p className="mt-5 text-[13px] text-muted">Bought today</p>
+      <ul className="mt-2 space-y-1.5">
+        {SALES.map((s, i) => (
+          <motion.li
+            key={s.who}
+            className="flex items-center justify-between gap-3 rounded-xl bg-canvas px-3 py-2.5 text-[13px]"
+            initial={false}
+            animate={{ opacity: active ? 1 : 0, x: active ? 0 : motionTokens.distance.md }}
+            transition={{ duration: motionTokens.duration.normal, ease, delay: active ? 0.9 + i * 0.35 : 0 }}
+          >
+            <span className="min-w-0 truncate">
+              <span className="font-medium">{s.who}</span> <span className="text-muted">· {s.where}</span>
+            </span>
+            <span className="shrink-0 text-muted tabular">{s.when}</span>
+          </motion.li>
+        ))}
+      </ul>
+      <p className="mt-auto pt-4 text-[12px] text-muted">Every buyer gets a GST invoice, and the lecture opens in their library.</p>
+    </div>
+  );
+}
+
+/* ───────────── Reports: the day, read in a minute ───────────── */
+
+const WEEKS = [14, 18, 12, 21, 19, 24, 17, 26, 22, 28, 25, 31];
+const TILES = [
+  { label: "Active learners", value: "248" },
+  { label: "Completion rate", value: "71%" },
+  { label: "Revenue this month", value: "₹6.4L" },
+];
+
+export function ReportVisual({ active }: Props) {
+  return (
+    <div className={`${card} flex flex-col p-6 sm:p-8`}>
+      <p className="text-[13px] text-muted">Insights · Demo Institute</p>
+      <p className="mt-1 text-[22px] font-medium tracking-tight">This term, at a glance</p>
+      <dl className="mt-5 grid grid-cols-3 gap-2">
+        {TILES.map((t) => (
+          <div key={t.label} className="rounded-2xl bg-canvas p-3">
+            <dt className="text-[12px] leading-snug text-muted">{t.label}</dt>
+            <dd className="mt-1 text-[20px] font-medium tracking-tight tabular sm:text-[24px]">{t.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-6 text-[14px] font-medium">Enrolments per week</p>
+      <div className="mt-3 flex min-h-[120px] flex-1 items-end gap-1.5">
+        {WEEKS.map((w, i) => (
+          <motion.span
+            key={i}
+            className={`h-full flex-1 origin-bottom rounded-t-md ${i === WEEKS.length - 1 ? "bg-gold" : "bg-brand"}`}
+            initial={false}
+            animate={{ scaleY: active ? w / 31 : 0.05 }}
+            transition={{ duration: motionTokens.duration.slow, ease, delay: active ? 0.2 + i * 0.05 : 0 }}
+          />
+        ))}
+      </div>
+      <p className="mt-3 text-[12px] text-muted">A table behind every chart. Export to CSV or Excel.</p>
+    </div>
+  );
+}
+
 /* ───────────── Your own website: course cards with live seat counts ───────────── */
 
 const COURSES = [
