@@ -24,19 +24,24 @@ export function Nav() {
         <Link href="/" aria-label="Zinny home" className="flex shrink-0 items-center rounded-full">
           <Image src="/brand/zinny-wordmark.png" alt="Zinny" width={407} height={183} priority className="h-7 w-auto" />
         </Link>
-        <div className="flex items-center gap-1 text-[14px]">
+        <div className="flex items-center gap-0.5 text-[14px] sm:gap-1">
+          {/* To the section, not /marketplace: browsing needs an account, and the section says how to get one. */}
+          <a href="#marketplace" className="rounded-full px-2 py-2 whitespace-nowrap text-ink [transition-property:color] duration-150 hover:text-brand sm:px-3">
+            Marketplace
+          </a>
           <a href="#story" className="hidden rounded-full px-3 py-2 text-muted [transition-property:color] duration-150 hover:text-ink md:block">
             How it works
           </a>
           <a href="#roles" className="hidden rounded-full px-3 py-2 text-muted [transition-property:color] duration-150 hover:text-ink md:block">
             Every role
           </a>
-          <Link href="/login" className="rounded-full px-3 py-2 text-ink [transition-property:color] duration-150 hover:text-brand">
+          {/* The narrowest phones have no room for this one; the page below still has a way to sign in. */}
+          <Link href="/login" className="hidden rounded-full px-2 py-2 whitespace-nowrap text-ink [transition-property:color] duration-150 hover:text-brand min-[360px]:block sm:px-3">
             Sign in
           </Link>
           <Link
             href="/signup"
-            className="ml-1 rounded-full bg-brand px-4 py-2 font-medium text-canvas [transition-property:background-color,transform] duration-150 hover:bg-brand-strong active:scale-[0.96]"
+            className="ml-1 rounded-full bg-brand px-4 py-2 font-medium whitespace-nowrap text-canvas [transition-property:background-color,transform] duration-150 hover:bg-brand-strong active:scale-[0.96]"
           >
             Sign up
           </Link>

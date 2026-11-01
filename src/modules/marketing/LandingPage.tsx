@@ -19,12 +19,12 @@ export function LandingPage() {
         <Nav />
         <main>
           <Hero />
+          <Marketplace />
           <Facts />
           <Campus />
           <Story />
           <Roles />
           <India />
-          <Marketplace />
           <Closing />
         </main>
       </div>

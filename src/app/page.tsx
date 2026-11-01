@@ -13,10 +13,10 @@ import { marketplaceAccess } from "@/modules/marketplace/service";
 export const metadata: Metadata = {
   title: { absolute: "Zinny · The whole institute, in order" },
   description:
-    "Courses, batches, classes, fees and certificates in one private space for every institute, with exactly the right view for every person in it.",
+    "Courses, batches, fees and certificates in one private space for every institute, and a marketplace where students buy recorded lessons directly from them.",
   openGraph: {
     title: "Zinny · The whole institute, in order",
-    description: "One private space for every institute: courses, batches, live classes, tests, GST invoices and certificates.",
+    description: "One private space for every institute, and a marketplace of recorded courses and lectures sold directly by institutes.",
     type: "website",
   },
 };

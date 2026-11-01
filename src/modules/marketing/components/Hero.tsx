@@ -8,7 +8,7 @@ export function Hero() {
   return (
     <section aria-labelledby="hero-title" className="relative px-4 pt-32 pb-28 sm:pt-40 md:pb-40">
       <div className="mx-auto max-w-4xl text-center">
-        <p className={`text-[14px] text-brand ${css.rise}`}>For institutes</p>
+        <p className={`text-[14px] text-brand ${css.rise}`}>For institutes and their students</p>
         <h1
           id="hero-title"
           className={`${display.className} ${css.headline} mt-5 text-[clamp(3.25rem,9vw,7.5rem)] leading-[0.92] tracking-[-0.025em] text-ink ${css.balance} ${css.rise} ${css.d1}`}
@@ -16,8 +16,8 @@ export function Hero() {
           The whole institute, <em className="text-brand">in order.</em>
         </h1>
         <p className={`mx-auto mt-7 max-w-2xl text-[17px] leading-relaxed text-muted sm:text-[19px] ${css.pretty} ${css.rise} ${css.d2}`}>
-          Courses, batches, classes, fees and certificates in one private space for every institute, with exactly the
-          right view for every person in it.
+          Courses, batches, fees and certificates in one private space for every institute, and a marketplace where
+          students buy recorded lessons directly from them.
         </p>
         <div className={`mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row ${css.rise} ${css.d3}`}>
           <a
@@ -27,10 +27,10 @@ export function Hero() {
             Book a demo
           </a>
           <a
-            href="#story"
+            href="#marketplace"
             className="inline-flex h-12 items-center rounded-full px-6 text-[15px] text-ink ring-1 ring-line [transition-property:background-color,box-shadow] duration-150 hover:bg-surface hover:ring-faint"
           >
-            See how it works
+            See the marketplace
           </a>
         </div>
         <p className={`mt-6 text-[15px] text-muted ${css.rise} ${css.d3}`}>

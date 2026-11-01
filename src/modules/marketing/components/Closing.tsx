@@ -38,6 +38,7 @@ export function Closing() {
         <footer className="mx-auto mt-32 flex max-w-6xl flex-col items-center justify-between gap-6 border-t border-canvas/10 pt-8 text-[13px] text-canvas/55 sm:flex-row">
           <Image src="/brand/zinny-wordmark-cream.png" alt="Zinny" width={407} height={183} className="h-6 w-auto opacity-90" />
           <nav aria-label="Footer" className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+            <a href="#marketplace" className="hover:text-canvas">Marketplace</a>
             <a href="#story" className="hover:text-canvas">How it works</a>
             <a href="#roles" className="hover:text-canvas">Every role</a>
             <Link href="/verify" className="hover:text-canvas">Verify a certificate</Link>
