@@ -51,9 +51,9 @@ export async function seed(ctx: SeedContext) {
     email: "admissions@demo.edu",
     social: {
       website: "https://www.demo.edu",
-      instagram: "https://instagram.com/demouniversity",
+      instagram: "https://instagram.com/demoinstitute",
       linkedin: "https://www.linkedin.com/school/demo-institute",
-      youtube: "https://www.youtube.com/@demouniversity",
+      youtube: "https://www.youtube.com/@demoinstitute",
     },
     primaryColor: "#17365d",
     logoMediaId: logo,
