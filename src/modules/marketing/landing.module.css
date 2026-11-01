@@ -1,32 +1,4 @@
 /*
- * CSS-only motion for what must paint before JavaScript loads (the hero copy), so it never
- * waits on hydration and never delays the largest paint.
- */
-.rise {
-  animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.d1 {
-  animation-delay: 0.08s;
-}
-.d2 {
-  animation-delay: 0.16s;
-}
-.d3 {
-  animation-delay: 0.24s;
-}
-
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/*
  * The cream canvas gets a faint paper grain so large empty areas don't read as flat.
  * Browsers drop ligatures on tightly spaced text unless they are asked for by name, and
  * the headlines are all tightly spaced, so the joined fi, ff and italic Th need this.
@@ -36,31 +8,20 @@
   font-kerning: normal;
   text-rendering: optimizeLegibility;
   background-color: #faf6ea;
-  background-image:
-    radial-gradient(120% 70% at 50% 0%, #fffdf7 0%, rgb(255 253 247 / 0) 60%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.15 0 0 0 0 0.12 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /*
  * Headlines. Playfair Display's thin strokes get finer the smaller it is set, so the weight
- * rises as the size falls: light and sharp at poster size, sturdier in a card. Lining figures
- * keep numbers level with the capitals, and no faked bold or italic ever replaces the real cuts.
+ * rises as the size falls. Lining figures keep numbers level with the capitals, and no faked
+ * bold or italic ever replaces the real cuts.
  */
 .headline,
-.heading,
-.subheading,
 .accent {
   font-synthesis: none;
   font-variant-numeric: lining-nums;
 }
 .headline {
   font-weight: 460;
-}
-.heading {
-  font-weight: 490;
-}
-.subheading {
-  font-weight: 520;
 }
 .accent {
   font-weight: 560;
@@ -74,68 +35,226 @@
     repeating-linear-gradient(to bottom, rgb(250 246 234 / 0.035) 0 1px, transparent 1px 44px);
 }
 
-/* The hero's chalk underline draws itself once. */
-.draw {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: draw 1.1s 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-@keyframes draw {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-/* Titles on the marketplace shelf read up the spine, like real books. */
-.spineText {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-}
-
-/* Frosted surfaces that float over the product (the "needs you" card, the nav, the role switcher). */
+/* Frosted surface for the navbar, which floats over every scene. */
 .glass {
-  background: rgb(255 253 247 / 0.72);
+  background: rgb(255 253 247 / 0.78);
   backdrop-filter: blur(18px) saturate(1.4);
   -webkit-backdrop-filter: blur(18px) saturate(1.4);
   box-shadow:
     0 0 0 1px rgb(20 38 31 / 0.06),
-    0 1px 1px rgb(20 38 31 / 0.04),
     0 12px 32px -8px rgb(20 38 31 / 0.18);
 }
 
-.glassDark {
-  background: rgb(6 58 47 / 0.55);
-  backdrop-filter: blur(18px) saturate(1.3);
-  -webkit-backdrop-filter: blur(18px) saturate(1.3);
-  box-shadow:
-    inset 0 0 0 1px rgb(250 246 234 / 0.1),
-    0 20px 40px -12px rgb(0 0 0 / 0.45);
+/* ───────────── The film: a tall track with a stage stuck to the screen ───────────── */
+
+.film {
+  position: relative;
+  height: 820svh;
+}
+.marketAnchor {
+  position: absolute;
+  top: 350svh;
+}
+.stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
 }
 
-/* Layered product shadow: a sheet of glass resting on paper. */
-.sheet {
-  /* These are pictures of the product, so they keep the product's own typeface. */
-  font-family: var(--font-sans);
-  box-shadow:
-    0 0 0 1px rgb(20 38 31 / 0.06),
-    0 2px 4px rgb(20 38 31 / 0.04),
-    0 24px 48px -16px rgb(20 38 31 / 0.22),
-    0 64px 96px -48px rgb(6 58 47 / 0.28);
+.desk {
+  background-color: #efe7d3;
+  background-image: radial-gradient(70% 60% at 50% 48%, #fbf6e8 0%, rgb(251 246 232 / 0) 72%);
 }
 
-.balance {
+.board {
+  position: absolute;
+  inset: 0;
+  clip-path: circle(0% at 50% 58%);
+}
+
+/* A scrap of the mess. GSAP moves it; `scale` here is separate, so the two never fight. */
+.piece {
+  position: absolute;
+  z-index: 10;
+  left: var(--mx);
+  top: var(--my);
+  visibility: hidden;
+}
+.pieceFace {
+  scale: 0.6;
+}
+@media (min-width: 768px) {
+  .piece {
+    left: var(--x);
+    top: var(--y);
+  }
+  .pieceFace {
+    scale: 1;
+  }
+}
+
+.lecture {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  overflow: hidden;
+  visibility: hidden;
+}
+.play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 78vmin;
+  translate: -50% -50%;
+  color: rgb(168 127 18 / 0.42);
+}
+.beats {
+  position: absolute;
+  inset: 0;
+}
+.beat {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  translate: 0 -50%;
+  padding: 0 1.25rem;
+  text-align: center;
+  font-size: clamp(3rem, 10.5vw, 10.5rem);
+  line-height: 1;
+  letter-spacing: -0.025em;
+  visibility: hidden;
+}
+.beatTop {
+  top: 6.5rem;
+  translate: none;
+  font-size: clamp(2.5rem, 6vw, 5.75rem);
   text-wrap: balance;
 }
-.pretty {
-  text-wrap: pretty;
+.beatTop h2 {
+  font-size: inherit;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .rise {
-    animation: none;
+/* The shelf. `--k` shrinks the books together on small or short screens. */
+.shelf {
+  --k: 1;
+  position: absolute;
+  inset: auto 0 0;
+  padding-bottom: 1.5rem;
+}
+@media (min-width: 1100px) and (min-height: 860px) {
+  .shelf {
+    --k: 1.22;
   }
-  .draw {
-    animation: none;
-    stroke-dashoffset: 0;
+}
+@media (max-width: 640px), (max-height: 760px) {
+  .shelf {
+    --k: 0.72;
+  }
+}
+.track {
+  display: flex;
+  width: max-content;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0 1.25rem;
+}
+.spine {
+  position: relative;
+  display: flex;
+  width: calc(78px * var(--k));
+  height: calc(var(--h) * var(--k));
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 6px 6px 3px 3px;
+}
+.spineText {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+.plank {
+  height: 0.875rem;
+  transform-origin: left;
+  background: #063a2f;
+  box-shadow: 0 18px 30px -16px rgb(6 58 47 / 0.55);
+}
+
+/* ───────────── Two doors. Leaning towards one opens it wider ───────────── */
+
+.doors {
+  display: flex;
+  min-height: 92svh;
+  flex-direction: column;
+}
+.door {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2.5rem;
+  padding: 2.5rem 1.5rem;
+  transition: flex-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.doorTitle {
+  font-size: clamp(3.75rem, 10vw, 9.5rem);
+  line-height: 0.98;
+  letter-spacing: -0.025em;
+}
+@media (min-width: 768px) {
+  .doors {
+    flex-direction: row;
+  }
+  .door {
+    padding: 3.5rem;
+  }
+  .door:hover {
+    flex-grow: 1.55;
+  }
+}
+
+/* No motion, or no JavaScript: the same story as a plain page. */
+@media (prefers-reduced-motion: reduce), (scripting: none) {
+  .film {
+    height: auto;
+  }
+  .stage {
+    position: static;
+    height: auto;
+    overflow: visible;
+  }
+  .piece,
+  .desk,
+  .play {
+    display: none;
+  }
+  .board {
+    position: relative;
+    min-height: 100svh;
+    clip-path: none;
+  }
+  .lecture {
+    position: relative;
+    padding-top: 5rem;
+    clip-path: none;
+    visibility: visible;
+  }
+  .beats {
+    position: static;
+  }
+  .beat {
+    position: static;
+    padding-bottom: 2.5rem;
+    translate: none;
+    visibility: visible;
+  }
+  .shelf {
+    position: static;
+    overflow-x: auto;
+  }
+  .door {
+    transition: none;
   }
 }

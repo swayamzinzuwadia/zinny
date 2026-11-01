@@ -1,33 +1,22 @@
 import { text } from "./fonts";
 import css from "./landing.module.css";
-import { Campus } from "./components/Campus";
-import { Closing } from "./components/Closing";
-import { Day } from "./components/Day";
-import { Hero } from "./components/Hero";
-import { India } from "./components/India";
-import { Marketplace } from "./components/Marketplace";
-import { MotionRoot } from "./components/MotionRoot";
+import { Cursor } from "./components/Cursor";
+import { Film } from "./components/Film";
+import { Finale } from "./components/Finale";
 import { Nav } from "./components/Nav";
-import { Roles } from "./components/Roles";
-import { Timetable } from "./components/Timetable";
+import { SmoothScroll } from "./components/SmoothScroll";
 
 /** The public landing page, shown at "/" to anyone who isn't signed in. */
 export function LandingPage() {
   return (
-    <MotionRoot>
-      <div className={`min-h-dvh overflow-x-clip text-ink ${text.className} ${css.canvas}`}>
-        <Nav />
-        <main>
-          <Hero />
-          <Marketplace />
-          <Day />
-          <Timetable />
-          <Roles />
-          <Campus />
-          <India />
-          <Closing />
-        </main>
-      </div>
-    </MotionRoot>
+    <div className={`min-h-dvh overflow-x-clip text-ink ${text.className} ${css.canvas}`}>
+      <SmoothScroll />
+      <Cursor />
+      <Nav />
+      <main>
+        <Film />
+        <Finale />
+      </main>
+    </div>
   );
 }
