@@ -11,7 +11,7 @@ import "server-only";
  * university can never be found, or used, from another.
  */
 import { randomUUID } from "node:crypto";
-import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { systemDb, type Tx } from "@/db/client";
 import { roleAssignments, sessions, universities, users, type RoleName } from "@/db/schema";
@@ -255,6 +255,13 @@ export const DEMO_ACCOUNTS = [
   ["Students", "neha@zinny.demo", "Marketplace learner"],
   ["Parents", "pallavi@demo.edu", "Parent of Riya"],
 ] as const;
+
+/** The demo accounts this database has, so a site seeded before an account was added never offers a broken button. */
+export async function availableDemoAccounts() {
+  const rows = await systemDb().select({ email: users.email }).from(users).where(inArray(sql`lower(${users.email})`, DEMO_ACCOUNTS.map(([, email]) => email)));
+  const present = new Set(rows.map((r) => r.email.toLowerCase()));
+  return DEMO_ACCOUNTS.filter(([, email]) => present.has(email));
+}
 
 /** Only the listed demo accounts, and only when demo mode is on. */
 export async function demoSignIn(email: string): Promise<string> {

@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { closeDb, systemDb } from "@/db/client";
-import { batches, courses, enrolments, orders, universities } from "@/db/schema";
+import { batches, courses, enrolments, orders, universities, users } from "@/db/schema";
 import { homeSpacesFor } from "@/server/auth/session";
 import { loadActor, systemActorFor } from "@/server/actor";
 import { storage } from "@/server/core";
@@ -10,7 +10,7 @@ import { listBatches } from "@/server/services/batches";
 import { listCourses } from "@/server/services/courses";
 import { batchOptions, browseCatalog, confirmPayment, failPayment, holdSeat } from "@/server/services/enrolment";
 import { graduate } from "@/server/services/users";
-import { landingAfterSignIn, signUpMarketplaceLearner } from "@/modules/identity/auth";
+import { availableDemoAccounts, landingAfterSignIn, signUpMarketplaceLearner } from "@/modules/identity/auth";
 import { learnerOutline } from "@/modules/content-progress/learn";
 import { contentLessons, contentSections } from "@/modules/content-progress/schema";
 import { deleteLesson } from "@/modules/content-progress/service";
@@ -84,6 +84,13 @@ describe("signing up on your own", () => {
     const address = email("taken");
     await signUpMarketplaceLearner({ name: "First Person", email: address, password: PW, confirm: PW, ip: ip() });
     await expect(signUpMarketplaceLearner({ name: "Second Person", email: address, password: PW, confirm: PW, ip: ip() })).rejects.toMatchObject({ code: "email_taken" });
+  });
+});
+
+describe("demo accounts on the sign-in page", () => {
+  it("offers only the accounts this database has", async () => {
+    await systemDb().insert(users).values({ email: "neha@zinny.demo", name: "Neha Kulkarni" }).onConflictDoNothing();
+    expect((await availableDemoAccounts()).map(([, email]) => email)).toEqual(["neha@zinny.demo"]);
   });
 });
 

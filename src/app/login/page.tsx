@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { buttonClass, cx } from "@/components/ui";
 import { demoEnabled } from "@/server/auth/config";
 import { currentUserId } from "@/server/auth/session";
-import { DEMO_ACCOUNTS, loginUniversity, phoneSignInView, safeNext, slugFromNext } from "@/modules/identity/auth";
+import { availableDemoAccounts, loginUniversity, phoneSignInView, safeNext, slugFromNext } from "@/modules/identity/auth";
 import { AuthShell, AuthTabs } from "@/modules/identity/components/auth-shell";
 import { DemoButton, PasswordSignInForm, PhoneChooseForm, PhoneCodeForm, PhoneNumberForm } from "@/modules/identity/components/auth-forms";
 import { PHONE_COOKIE, UNI_COOKIE } from "@/modules/identity/cookies";
@@ -43,6 +43,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const view = tab === "phone" ? await phoneSignInView(jar.get(PHONE_COOKIE)?.value) : null;
   // A phone sign-in started at another institute isn't continued here.
   const phone = view && view.universityId === university?.id ? view : null;
+  const demoAccounts = demoEnabled() && !phone ? await availableDemoAccounts() : [];
 
   const title = phone?.step === "code" ? "Enter your code" : phone?.step === "choose" ? "Choose your account" : university ? "Sign in to your institute" : "Sign in to Zinny";
   const subtitle = university ? (
@@ -64,13 +65,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       title={title}
       subtitle={phone ? undefined : subtitle}
       footer={
-        demoEnabled() && !phone ? (
+        demoAccounts.length > 0 ? (
           <div className="rounded-[22px] border border-line bg-surface p-5">
             <p className="font-medium">Try a demo account</p>
             <p className="mb-3 text-[13px] text-muted">Each one shows Zinny as that role sees it. Password for all: zinny123</p>
             {/* While one account signs in, the others can't be clicked. */}
             <div className="grid gap-1 has-[button:disabled]:pointer-events-none">
-              {DEMO_ACCOUNTS.map(([group, email, label]) => (
+              {demoAccounts.map(([group, email, label]) => (
                 <form key={email} action={demoSignInAction}>
                   <input type="hidden" name="email" value={email} />
                   <DemoButton label={label} group={group} />
