@@ -13,7 +13,7 @@ export const metadata = { title: "Licences" };
 
 export default async function LicencesPage() {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.licences")) return <NoAccess section="Licences" who="Super Admins, Account Managers and Finance Admins" />;
+  if (!canPlatform(actor, "platform.licences")) return <NoAccess section="Licences" />;
   const [rows, alerts] = await Promise.all([listLicences(actor), listAlerts(actor)]);
   const licensed = rows.filter((r) => r.licence);
   const renewing = licensed.filter((r) => r.daysLeft !== null && r.daysLeft >= 0 && r.daysLeft <= 30).length;

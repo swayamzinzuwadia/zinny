@@ -19,7 +19,7 @@ export const metadata = { title: "Institute" };
 
 export default async function UniversityPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string }> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.manage_universities")) return <NoAccess section="Institutes" who="Super Admins and Account Managers" />;
+  if (!canPlatform(actor, "platform.manage_universities")) return <NoAccess section="Institutes" />;
   const { id } = await params;
   const { created } = await searchParams;
   const data = await getUniversity(actor, id).catch((e) => {

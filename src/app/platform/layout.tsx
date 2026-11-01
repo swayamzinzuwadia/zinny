@@ -28,7 +28,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
     ...new Set(
       actor.assignments
         .filter((a) => a.scopeType === "platform" && a.startsAt <= now && (!a.endsAt || a.endsAt > now) && isPlatformRole(a.role))
-        .map((a) => PLATFORM_ROLE_LABELS[a.role as keyof typeof PLATFORM_ROLE_LABELS]),
+        .map((a) => a.label ?? PLATFORM_ROLE_LABELS[a.role as keyof typeof PLATFORM_ROLE_LABELS]),
     ),
   ];
   const mine = canPlatform(actor, "platform.support_mode") ? (await activeSessions(actor)).filter((s) => s.staffUserId === actor.userId) : [];

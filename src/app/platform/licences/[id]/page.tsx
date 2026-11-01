@@ -16,7 +16,7 @@ export const metadata = { title: "Licence" };
 
 export default async function LicencePage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.licences")) return <NoAccess section="Licences" who="Super Admins, Account Managers and Finance Admins" />;
+  if (!canPlatform(actor, "platform.licences")) return <NoAccess section="Licences" />;
   const { id } = await params;
   const data = await licenceFor(actor, id).catch((e) => {
     if (e instanceof NotFoundError) notFound();

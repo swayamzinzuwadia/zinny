@@ -12,7 +12,7 @@ export const metadata = { title: "New institute" };
 
 export default async function NewUniversityPage() {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.manage_universities")) return <NoAccess section="Institutes" who="Super Admins and Account Managers" />;
+  if (!canPlatform(actor, "platform.manage_universities")) return <NoAccess section="Institutes" />;
   const canLicence = canPlatform(actor, "platform.licences");
   const today = todayIST();
   const d = PLAN_DEFAULTS.pilot;

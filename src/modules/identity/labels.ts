@@ -21,6 +21,9 @@ export const ROLE_TITLE = {
   sponsor: "Sponsor / Advertiser",
   corporate_partner: "Corporate Partner",
   individual_learner: "Individual Learner",
+  custom_institute: "Team member",
+  custom_department: "Team member",
+  custom_platform: "Team member",
 } as const satisfies Record<RoleName, string>;
 
 export const roleTitle = (r: RoleName) => ROLE_TITLE[r];
@@ -33,6 +36,8 @@ export const ADMIN_PANEL: ReadonlySet<RoleName> = new Set<RoleName>([
   "hod",
   "permanent_faculty",
   "visiting_faculty",
+  "custom_institute",
+  "custom_department",
 ]);
 
 /** Teaching roles a HOD may manage inside their own department (same rule as core's role service). */

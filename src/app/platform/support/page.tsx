@@ -12,7 +12,7 @@ export const metadata = { title: "Support mode" };
 
 export default async function SupportPage() {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.support_mode")) return <NoAccess section="Support mode" who="Super Admins and Support Agents" />;
+  if (!canPlatform(actor, "platform.support_mode")) return <NoAccess section="Support mode" />;
   const [active, recent, picker] = await Promise.all([activeSessions(actor), recentSessions(actor, 25), supportPicker(actor)]);
   const now = new Date();
 

@@ -15,7 +15,7 @@ const STATUS_TONE = { prospect: "neutral", in_talks: "gold", active: "brand", pa
 
 export default async function PartnersPage({ searchParams }: { searchParams: Promise<{ kind?: string; status?: string; q?: string }> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.partners")) return <NoAccess section="Partners" who="Super Admins and Partnerships" />;
+  if (!canPlatform(actor, "platform.partners")) return <NoAccess section="Partners" />;
   const f = await searchParams;
   const { partners } = await listPartners(actor, f);
   const filtered = !!(f.kind || f.status || f.q);

@@ -4,8 +4,10 @@
  * on the server by the engine.
  */
 import type { RoleName } from "@/db/schema";
+import { sectionAccess } from "./abilities";
 import type { Actor } from "./engine";
-import { isActive } from "./engine";
+import { can, isActive } from "./engine";
+import { GRANTS_ONLY_AT } from "./roles";
 
 export type SectionKey =
   | "dashboard"
@@ -149,7 +151,9 @@ export function menuFor(actor: Actor, universityId: string, now = new Date()) {
   const best = new Map<SectionKey, Access>();
   for (const a of actor.assignments) {
     if (!isActive(a, now) || a.universityId !== universityId) continue;
-    for (const [section, access] of Object.entries(SECTION_ACCESS[a.role] ?? {}) as [SectionKey, Access][]) {
+    // A changed or custom role opens what it grants. Faculty work in batches, whatever their row says.
+    const sections = a.grants ? sectionAccess(a.grants, GRANTS_ONLY_AT[a.role] ? "batch" : a.scopeType) : (SECTION_ACCESS[a.role] ?? {});
+    for (const [section, access] of Object.entries(sections) as [SectionKey, Access][]) {
       const cur = best.get(section);
       if (!cur || RANK[access] > RANK[cur]) best.set(section, access);
     }
@@ -159,7 +163,8 @@ export function menuFor(actor: Actor, universityId: string, now = new Date()) {
     .map((s) => (s.key === "insights" && !best.has("finance") ? { ...s, items: [...s.items, REPORTS_ITEM] } : s))
     // Scoped viewers only get the people lists they can actually use.
     .map((s) => {
-      if (s.key !== "users" || s.access === "full") return s;
+      if (s.key !== "users") return s;
+      if (s.access === "full") return can(actor, "role.manage", { universityId }, now) ? s : { ...s, items: s.items.filter((i) => i.href !== "/users/roles") };
       const keep =
         s.access === "students"
           ? ["/users/students"]

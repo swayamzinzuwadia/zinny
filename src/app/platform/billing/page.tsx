@@ -10,7 +10,7 @@ export const metadata = { title: "Zinny invoices" };
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ status?: string; university?: string }> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.finance")) return <NoAccess section="Zinny billing" who="Super Admins and Finance Admins" />;
+  if (!canPlatform(actor, "platform.finance")) return <NoAccess section="Zinny billing" />;
   const f = await searchParams;
   const { filter, invoices, summary } = await listInvoices(actor, { status: f.status, universityId: f.university });
   const href = (s: string) => `/platform/billing?status=${s}${f.university ? `&university=${f.university}` : ""}`;

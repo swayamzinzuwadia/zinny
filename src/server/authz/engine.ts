@@ -20,7 +20,13 @@ export type Assignment = {
   batchId: string | null;
   startsAt: Date;
   endsAt: Date | null;
+  /** Set when an institute changed this role or made it: replaces ROLE_GRANTS for it. */
+  grants?: readonly Action[];
+  /** A custom role's own name. */
+  label?: string;
 };
+
+const granted = (a: Assignment): readonly Action[] => a.grants ?? ROLE_GRANTS[a.role];
 
 export type Actor = {
   userId: string;
@@ -52,7 +58,7 @@ export function isActive(a: Assignment, now = new Date()): boolean {
 function grants(a: Assignment, action: Action): boolean {
   const only = GRANTS_ONLY_AT[a.role];
   if (only && a.scopeType !== "platform" && !only.includes(a.scopeType)) return false;
-  return ROLE_GRANTS[a.role].includes(action);
+  return granted(a).includes(action);
 }
 
 function scopeContains(a: Assignment, t: Target): boolean {
@@ -78,7 +84,7 @@ export function can(actor: Actor, action: Action, target: Target, now = new Date
     // university that grants the action is enough (a HOD or a faculty member whose
     // only role is in a department still has their own profile).
     return actor.assignments.some(
-      (a) => isActive(a, now) && a.scopeType !== "platform" && a.universityId === target.universityId && ROLE_GRANTS[a.role].includes(action),
+      (a) => isActive(a, now) && a.scopeType !== "platform" && a.universityId === target.universityId && granted(a).includes(action),
     );
   }
 
@@ -90,7 +96,7 @@ export function can(actor: Actor, action: Action, target: Target, now = new Date
 /** Platform-level actions (Zinny team panel): no university target. */
 export function canPlatform(actor: Actor, action: Action, now = new Date()): boolean {
   return actor.assignments.some(
-    (a) => a.scopeType === "platform" && isActive(a, now) && ROLE_GRANTS[a.role].includes(action),
+    (a) => a.scopeType === "platform" && isActive(a, now) && granted(a).includes(action),
   );
 }
 

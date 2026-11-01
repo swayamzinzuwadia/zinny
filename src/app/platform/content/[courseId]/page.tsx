@@ -18,7 +18,7 @@ const hm = (t: string) => t.slice(0, 5);
 
 export default async function CoursePreviewPage({ params }: { params: Promise<{ courseId: string }> }) {
   const actor = await platformContext();
-  if (!canSeeContentFlags(actor)) return <NoAccess section="content review" who="Super Admins, Content QA and Account Managers" />;
+  if (!canSeeContentFlags(actor)) return <NoAccess section="content review" />;
   const { courseId } = await params;
   const p = await coursePreview(actor, courseId).catch((e) => {
     if (e instanceof NotFoundError) notFound();

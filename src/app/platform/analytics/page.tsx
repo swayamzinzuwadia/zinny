@@ -11,7 +11,7 @@ export const metadata = { title: "Analytics" };
 
 export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<{ university?: string }> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.view_analytics")) return <NoAccess section="Analytics" who="Super Admins, Account Managers and Support Agents" />;
+  if (!canPlatform(actor, "platform.view_analytics")) return <NoAccess section="Analytics" />;
   const { university } = await searchParams;
   const a = await analytics(actor, { universityId: university });
   const scopeName = a.universityId ? (a.perUniversity.find((u) => u.id === a.universityId)?.name ?? "This institute") : "All institutes";

@@ -62,6 +62,11 @@ export const roleName = pgEnum("role_name", [
   "sponsor",
   "corporate_partner",
   "individual_learner",
+  // Made by an institute or the Zinny team: custom_roles holds the name and what it grants.
+  // Separate from the roles above so nothing that looks for a real HOD finds one of these.
+  "custom_institute",
+  "custom_department",
+  "custom_platform",
 ]);
 
 export const scopeType = pgEnum("scope_type", ["platform", "university", "department", "batch"]);
@@ -186,6 +191,8 @@ export const roleAssignments = pgTable("role_assignments", {
   id: id(),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   role: roleName("role").notNull(),
+  /** Which custom role, when `role` is one of the custom_* kinds. */
+  customRoleId: uuid("custom_role_id").references(() => customRoles.id),
   scopeType: scopeType("scope_type").notNull(),
   universityId: uuid("university_id").references(() => universities.id, { onDelete: "cascade" }),
   departmentId: uuid("department_id").references(() => departments.id, { onDelete: "cascade" }),
@@ -207,6 +214,33 @@ export const roleAssignments = pgTable("role_assignments", {
   index("role_assignments_user_idx").on(t.userId),
   index("role_assignments_uni_idx").on(t.universityId),
   index("role_assignments_batch_idx").on(t.batchId),
+]);
+
+/**
+ * Roles an institute made, and built-in roles it changed. With a name, a row is a custom role
+ * of the custom_* `kind`. Without one, it is that institute's edit of the built-in role `kind`.
+ * university_id is null for the Zinny team's own. `actions` is only a request: what a role
+ * really grants always goes through effectiveGrants() (src/server/authz/abilities.ts).
+ */
+export const customRoles = pgTable("custom_roles", {
+  id: id(),
+  universityId: uuid("university_id").references(() => universities.id, { onDelete: "cascade" }),
+  kind: roleName("kind").notNull(),
+  name: text("name"),
+  description: text("description").notNull().default(""),
+  actions: text("actions").array().notNull(),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: createdAt(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("custom_roles_uni_idx").on(t.universityId),
+  uniqueIndex("custom_roles_name_uq")
+    .on(sql`coalesce(${t.universityId}, '00000000-0000-0000-0000-000000000000'::uuid)`, sql`lower(${t.name})`)
+    .where(sql`${t.name} is not null and ${t.archivedAt} is null`),
+  uniqueIndex("custom_roles_edit_uq")
+    .on(sql`coalesce(${t.universityId}, '00000000-0000-0000-0000-000000000000'::uuid)`, t.kind)
+    .where(sql`${t.name} is null`),
 ]);
 
 export const courses = pgTable("courses", {

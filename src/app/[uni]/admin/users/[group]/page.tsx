@@ -5,6 +5,7 @@ import { can, reach } from "@/server/authz/engine";
 import { ROLE_LABELS, USER_GROUPS } from "@/server/authz/roles";
 import { spaceContext } from "@/server/context";
 import { listDepartments } from "@/server/services/departments";
+import { customRoleChoices } from "@/server/services/roles";
 import { listPeople } from "@/server/services/users";
 import type { RoleName } from "@/db/schema";
 import { addPersonAction, graduateAction, linkParentAction, revokeRoleAction } from "../../actions";
@@ -33,6 +34,8 @@ export default async function PeoplePage({ params }: { params: Promise<{ uni: st
   const myDepts = depts.filter((d) => isAdmin || hodReach.departmentIds.has(d.id));
   const canAdd = isAdmin || (g === "teaching" && myDepts.length > 0);
   const roles = isAdmin ? ADDABLE[g] : (["permanent_faculty", "visiting_faculty"] as RoleName[]);
+  const customKind = g === "administration" ? "custom_institute" : g === "teaching" ? "custom_department" : null;
+  const custom = (await customRoleChoices(actor, university.id)).filter((c) => c.kind === customKind);
   const canGraduate = can(actor, "user.graduate", { universityId: university.id });
 
   return (
@@ -121,6 +124,11 @@ export default async function PeoplePage({ params }: { params: Promise<{ uni: st
                   {roles.map((r) => (
                     <option key={r} value={r}>
                       {ROLE_LABELS[r]}
+                    </option>
+                  ))}
+                  {custom.map((c) => (
+                    <option key={c.id} value={`custom:${c.id}`}>
+                      {c.name}
                     </option>
                   ))}
                 </Select>

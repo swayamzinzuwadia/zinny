@@ -21,7 +21,7 @@ const FILTERS = [
 
 export default async function UniversitiesPage({ searchParams }: { searchParams: Promise<{ show?: string; q?: string }> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.manage_universities")) return <NoAccess section="Institutes" who="Super Admins and Account Managers" />;
+  if (!canPlatform(actor, "platform.manage_universities")) return <NoAccess section="Institutes" />;
   const { show = "all", q = "" } = await searchParams;
   const all = await listUniversities(actor);
   const term = q.trim().toLowerCase().slice(0, 80);

@@ -1,6 +1,7 @@
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Avatar, Badge, Card, CardTitle, Field, Input, PageHeader, Select } from "@/components/ui";
+import { Avatar, Badge, ButtonLink, Card, CardTitle, Field, Input, PageHeader, Select } from "@/components/ui";
 import { platformContext } from "@/server/context";
+import { customRoleChoices } from "@/server/core";
 import { addRoleAction, inviteMemberAction, removeRoleAction } from "@/modules/zinny-team-panel/actions";
 import { NoAccess } from "@/modules/zinny-team-panel/components/bits";
 import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
@@ -13,15 +14,24 @@ export const metadata = { title: "Team" };
 export default async function TeamPage() {
   const actor = await platformContext();
   if (!isSuperAdmin(actor)) return <NoAccess section="Team" who="Only Super Admins" />;
-  const team = await listTeam(actor);
+  const [team, custom] = await Promise.all([listTeam(actor), customRoleChoices(actor, null)]);
 
   return (
     <>
-      <PageHeader title="Team and roles" subtitle="The Zinny team and what each person can open. Roles take effect on their next page load." />
+      <PageHeader
+        title="Team and roles"
+        subtitle="The Zinny team and what each person can open. Roles take effect on their next page load."
+        actions={
+          <ButtonLink href="/platform/team/roles" variant="secondary">
+            Roles & permissions
+          </ButtonLink>
+        }
+      />
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="min-w-0 space-y-3">
           {team.map((m) => {
             const missing = PLATFORM_ROLES.filter((r) => !m.roles.some((x) => x.role === r));
+            const missingCustom = custom.filter((c) => !m.roles.some((x) => x.customRoleId === c.id));
             return (
               <Card key={m.userId} className="p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -35,13 +45,18 @@ export default async function TeamPage() {
                     </div>
                     {m.invited && <Badge tone="gold">Invite not accepted yet</Badge>}
                   </div>
-                  {missing.length > 0 && (
+                  {missing.length + missingCustom.length > 0 && (
                     <ActionForm action={addRoleAction} className="flex gap-2">
                       <input type="hidden" name="userId" value={m.userId} />
                       <Select name="role" aria-label={`Role to give ${m.name}`} className="h-8 w-44 text-[13px]">
                         {missing.map((r) => (
                           <option key={r} value={r}>
                             {PLATFORM_ROLE_LABELS[r]}
+                          </option>
+                        ))}
+                        {missingCustom.map((c) => (
+                          <option key={c.id} value={`custom:${c.id}`}>
+                            {c.name}
                           </option>
                         ))}
                       </Select>
@@ -56,14 +71,14 @@ export default async function TeamPage() {
                     const own = m.userId === actor.userId && r.role === "super_admin";
                     return (
                       <li key={r.assignmentId} className="flex items-center gap-2 rounded-full bg-canvas py-1 pl-3 pr-1 text-[13px] ring-1 ring-line" title={PLATFORM_ROLE_HINTS[r.role]}>
-                        {PLATFORM_ROLE_LABELS[r.role]}
+                        {r.label}
                         <span className="text-faint">since {formatDate(r.since.toISOString().slice(0, 10), { year: false })}</span>
                         {own ? (
                           <span className="px-2 text-faint">yours</span>
                         ) : (
-                          <ActionForm action={removeRoleAction} confirm={`Remove ${PLATFORM_ROLE_LABELS[r.role]} from ${m.name}?`}>
+                          <ActionForm action={removeRoleAction} confirm={`Remove ${r.label} from ${m.name}?`}>
                             <input type="hidden" name="assignmentId" value={r.assignmentId} />
-                            <button className="rounded-full px-2 py-0.5 text-danger hover:bg-danger-soft" aria-label={`Remove ${PLATFORM_ROLE_LABELS[r.role]} from ${m.name}`}>
+                            <button className="rounded-full px-2 py-0.5 text-danger hover:bg-danger-soft" aria-label={`Remove ${r.label} from ${m.name}`}>
                               Remove
                             </button>
                           </ActionForm>
@@ -91,6 +106,11 @@ export default async function TeamPage() {
                   {PLATFORM_ROLES.map((r) => (
                     <option key={r} value={r}>
                       {PLATFORM_ROLE_LABELS[r]}
+                    </option>
+                  ))}
+                  {custom.map((c) => (
+                    <option key={c.id} value={`custom:${c.id}`}>
+                      {c.name}
                     </option>
                   ))}
                 </Select>

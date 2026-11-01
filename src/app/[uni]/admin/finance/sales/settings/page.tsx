@@ -25,7 +25,7 @@ export default async function InvoiceSettingsPage({ params }: { params: Promise<
       <>
         {back}
         <PageHeader title="Invoice settings" />
-        <Empty title="You don't have access to invoice settings">They&apos;re for Institute Admins, Board / Owner and Accounts &amp; Fees.</Empty>
+        <Empty title="You don't have access to invoice settings">Your role doesn&apos;t include them. Ask an Institute Admin if you need them.</Empty>
       </>
     );
   }

@@ -14,7 +14,7 @@ export const metadata = { title: "Invoice" };
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.finance")) return <NoAccess section="Zinny billing" who="Super Admins and Finance Admins" />;
+  if (!canPlatform(actor, "platform.finance")) return <NoAccess section="Zinny billing" />;
   const { id } = await params;
   const i = await getInvoice(actor, id).catch((e) => {
     if (e instanceof NotFoundError) notFound();

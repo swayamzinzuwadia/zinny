@@ -84,7 +84,14 @@ const SECTIONS: Section[] = [
   { key: "partners", label: "Partners", entries: [{ label: "Sponsors and partners", href: "/partners", allowed: can("platform.partners") }] },
   { key: "billing", label: "Billing", entries: [{ label: "Zinny invoices", href: "/billing", allowed: can("platform.finance") }] },
   { key: "analytics", label: "Analytics", entries: [{ label: "Analytics", href: "/analytics", allowed: can("platform.view_analytics") }] },
-  { key: "team", label: "Team", entries: [{ label: "Team and roles", href: "/team", allowed: isSuperAdmin }] },
+  {
+    key: "team",
+    label: "Team",
+    entries: [
+      { label: "Team and roles", href: "/team", allowed: isSuperAdmin },
+      { label: "Roles & permissions", href: "/team/roles", allowed: isSuperAdmin },
+    ],
+  },
 ];
 
 /** The sidebar for this person: only the sections their platform roles allow. */

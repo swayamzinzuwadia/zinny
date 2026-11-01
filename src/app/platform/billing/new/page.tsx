@@ -12,7 +12,7 @@ export const metadata = { title: "New invoice" };
 
 export default async function NewInvoicePage({ searchParams }: { searchParams: Promise<{ university?: string }> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.finance")) return <NoAccess section="Zinny billing" who="Super Admins and Finance Admins" />;
+  if (!canPlatform(actor, "platform.finance")) return <NoAccess section="Zinny billing" />;
   const { university } = await searchParams;
   const [unis, d] = await Promise.all([universityOptions(actor), invoiceDraft(actor, university)]);
 

@@ -9,6 +9,7 @@ import { auditLog, batches, courses, enrolments, orders, roleAssignments, univer
 import type { CheckoutOrder } from "@/contracts/core";
 import { assertCan, assertPlatform, canPlatform, isActive, type Actor } from "../authz/engine";
 import { ACTIONS, PLATFORM_ROLES, type Action } from "../authz/roles";
+import { liveCustomRole } from "./roles";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors";
 import { emit, emitFor } from "../events";
 import { audit, withTenant } from "../tenant";
@@ -218,23 +219,34 @@ function assertSuperAdmin(actor: Actor) {
  * Gives a person a Zinny team role, creating their account if needed. Super Admin only.
  * Emits `user.invited` (with no university) when the person has no password yet.
  */
-export async function grantPlatformRole(actor: Actor, input: { email: string; name: string; role: RoleName }) {
+export async function grantPlatformRole(actor: Actor, given: { email: string; name: string; role: RoleName; customRoleId?: string | null }) {
   assertSuperAdmin(actor);
+  const input = given.customRoleId ? { ...given, role: "custom_platform" as const } : given;
+  if (!given.customRoleId && input.role === "custom_platform") throw new ValidationError("Pick which custom role to give.");
   if (!PLATFORM_ROLES.includes(input.role)) throw new ValidationError("That isn't a Zinny team role.");
   const email = input.email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ValidationError("Enter a valid email.");
   if (input.name.trim().length < 2) throw new ValidationError("Enter the person's name.");
   return systemDb().transaction(async (tx) => {
+    const custom = input.customRoleId ? await liveCustomRole(tx, null, input.customRoleId) : null;
     const [existing] = await tx.select().from(users).where(sql`lower(${users.email}) = ${email}`);
     const person = existing ?? (await tx.insert(users).values({ email, name: input.name.trim() }).returning())[0];
     const [dup] = await tx
       .select()
       .from(roleAssignments)
-      .where(and(eq(roleAssignments.userId, person.id), eq(roleAssignments.role, input.role), eq(roleAssignments.scopeType, "platform"), isNull(roleAssignments.revokedAt)));
+      .where(
+        and(
+          eq(roleAssignments.userId, person.id),
+          eq(roleAssignments.role, input.role),
+          custom ? eq(roleAssignments.customRoleId, custom.id) : isNull(roleAssignments.customRoleId),
+          eq(roleAssignments.scopeType, "platform"),
+          isNull(roleAssignments.revokedAt),
+        ),
+      );
     if (dup) return dup;
     const [a] = await tx
       .insert(roleAssignments)
-      .values({ userId: person.id, role: input.role, scopeType: "platform", createdBy: actor.userId || null })
+      .values({ userId: person.id, role: input.role, customRoleId: custom?.id ?? null, scopeType: "platform", createdBy: actor.userId || null })
       .returning();
     await tx.insert(auditLog).values({
       universityId: null,

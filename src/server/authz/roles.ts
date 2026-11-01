@@ -19,6 +19,7 @@ export const ACTIONS = [
   "user.create",
   "user.import",
   "user.manage_roles",
+  "role.manage", // make and edit roles; never given by a role that can be edited
   "user.graduate",
   "user.link_parent",
   // Products
@@ -231,6 +232,11 @@ export const ROLE_GRANTS: Record<RoleName, readonly Action[]> = {
   sponsor: [],
   corporate_partner: [],
   individual_learner: ["catalog.browse", "self.enrol", "self.view_learning", ...LEARNER_MODULE_ACTIONS, ...PROFILE],
+
+  // ── Custom roles: only the basics here. What else they grant comes from custom_roles.
+  custom_institute: ["university.view", "department.view", ...PROFILE],
+  custom_department: ["university.view", "department.view", ...PROFILE],
+  custom_platform: [],
 };
 
 export const PLATFORM_ROLES: readonly RoleName[] = [
@@ -240,6 +246,7 @@ export const PLATFORM_ROLES: readonly RoleName[] = [
   "finance_admin",
   "partnerships",
   "support_agent",
+  "custom_platform",
 ];
 
 export const ROLE_LABELS: Record<RoleName, string> = {
@@ -262,12 +269,15 @@ export const ROLE_LABELS: Record<RoleName, string> = {
   sponsor: "Sponsor / Advertiser",
   corporate_partner: "Corporate Partner",
   individual_learner: "Individual Learner",
+  custom_institute: "Custom role",
+  custom_department: "Custom role",
+  custom_platform: "Custom role",
 };
 
 /** Groups for the Users section (PRD page 7). */
 export const USER_GROUPS = {
-  administration: ["institute_admin", "board_owner", "accounts_fees"],
-  teaching: ["hod", "permanent_faculty", "visiting_faculty"],
+  administration: ["institute_admin", "board_owner", "accounts_fees", "custom_institute"],
+  teaching: ["hod", "permanent_faculty", "visiting_faculty", "custom_department"],
   students: ["student", "alumni", "parent"],
 } as const satisfies Record<string, readonly RoleName[]>;
 
@@ -282,6 +292,8 @@ export const ALLOWED_SCOPES: Partial<Record<RoleName, readonly ("university" | "
   student: ["university"],
   alumni: ["university"],
   parent: ["university"],
+  custom_institute: ["university"],
+  custom_department: ["department"],
 };
 
 /**
@@ -302,4 +314,6 @@ export const ADMIN_PANEL_ROLES: ReadonlySet<RoleName> = new Set([
   "hod",
   "permanent_faculty",
   "visiting_faculty",
+  "custom_institute",
+  "custom_department",
 ]);

@@ -53,7 +53,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ uni: s
 
   const now = new Date();
   const [profile, sessions, current] = await Promise.all([getProfile(actor, actor.userId, now), mySessions(actor, actor.userId), currentSession()]);
-  const roles = [...new Set(actor.assignments.filter((a) => isActive(a, now) && a.universityId === university.id).map((a) => ROLE_LABELS[a.role]))];
+  const roles = [...new Set(actor.assignments.filter((a) => isActive(a, now) && a.universityId === university.id).map((a) => a.label ?? ROLE_LABELS[a.role]))];
   const others = sessions.filter((s) => s.id !== current?.sessionId);
 
   return (

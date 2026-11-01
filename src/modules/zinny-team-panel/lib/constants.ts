@@ -35,12 +35,14 @@ export const CAP_WARNING_RATIO = 0.9;
 export const END_WARNING_DAYS = 30;
 
 /** Roles that count towards a licence's staff cap. Students count towards the student cap. */
-export const STAFF_ROLES = ["institute_admin", "board_owner", "accounts_fees", "hod", "permanent_faculty", "visiting_faculty"] as const satisfies readonly RoleName[];
+/** Everyone who counts against a licence's staff cap, custom roles included. */
+export const STAFF_ROLES = ["institute_admin", "board_owner", "accounts_fees", "hod", "permanent_faculty", "visiting_faculty", "custom_institute", "custom_department"] as const satisfies readonly RoleName[];
 
 /* ── Zinny team ── */
 
+/** The built-in roles, for pickers. Custom ones are listed by name from custom_roles. */
 export const PLATFORM_ROLES = ["super_admin", "account_manager", "support_agent", "content_qa", "finance_admin", "partnerships"] as const satisfies readonly RoleName[];
-export type PlatformRole = (typeof PLATFORM_ROLES)[number];
+export type PlatformRole = (typeof PLATFORM_ROLES)[number] | "custom_platform";
 
 export const PLATFORM_ROLE_LABELS: Record<PlatformRole, string> = {
   super_admin: "Super Admin",
@@ -49,6 +51,7 @@ export const PLATFORM_ROLE_LABELS: Record<PlatformRole, string> = {
   content_qa: "Content QA",
   finance_admin: "Finance Admin",
   partnerships: "Partnerships",
+  custom_platform: "Custom role",
 };
 
 export const PLATFORM_ROLE_HINTS: Record<PlatformRole, string> = {
@@ -58,9 +61,10 @@ export const PLATFORM_ROLE_HINTS: Record<PlatformRole, string> = {
   content_qa: "The content review queue and flags",
   finance_admin: "Zinny invoices and licences",
   partnerships: "Sponsors and corporate partners",
+  custom_platform: "What this role allows is set under Roles & permissions",
 };
 
-export const isPlatformRole = (r: string): r is PlatformRole => (PLATFORM_ROLES as readonly string[]).includes(r);
+export const isPlatformRole = (r: string): r is PlatformRole => r === "custom_platform" || (PLATFORM_ROLES as readonly string[]).includes(r);
 
 /* ── Content review ── */
 

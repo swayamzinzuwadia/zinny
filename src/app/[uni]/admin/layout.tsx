@@ -24,7 +24,7 @@ export default async function AdminLayout({ children, params }: { children: Reac
   if (items.some((i) => i.href === "/products/courses")) trail.push({ prefix: "/products/batches", href: "/products/courses", label: "Courses" });
   const now = new Date();
   const roles = [
-    ...new Set(actor.assignments.filter((a) => isActive(a, now) && a.universityId === university.id).map((a) => ROLE_LABELS[a.role])),
+    ...new Set(actor.assignments.filter((a) => isActive(a, now) && a.universityId === university.id).map((a) => a.label ?? ROLE_LABELS[a.role])),
   ];
 
   async function logout() {

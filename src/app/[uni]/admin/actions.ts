@@ -11,6 +11,7 @@ import { addSessionOverride, assignFaculty, createBatch, removeFaculty, updateBa
 import { createCourse, updateCourse } from "@/server/services/courses";
 import { createDepartment, setHod } from "@/server/services/departments";
 import { decideSwitch } from "@/server/services/enrolment";
+import { deleteRole, parseRoleChoice, resetRole, roleDraft, saveRole } from "@/server/services/roles";
 import type { Slot } from "@/server/services/schedule";
 import { addPerson, graduate, importPeople, linkParent, revokeRole } from "@/server/services/users";
 
@@ -172,16 +173,45 @@ export async function addPersonAction(_: ActionState, data: FormData): Promise<A
   const { uni, actor } = await ctx(data);
   return attempt(async () => {
     const endsAt = str(data, "endsAt");
+    const { role, customRoleId } = parseRoleChoice(str(data, "role"));
     await addPerson(actor, {
       name: str(data, "name"),
       email: str(data, "email"),
       phone: str(data, "phone"),
-      role: str(data, "role") as RoleName,
+      role: role as RoleName,
+      customRoleId,
       departmentId: str(data, "departmentId") || null,
       endsAt: endsAt ? new Date(`${endsAt}T23:59:59+05:30`) : null,
     });
     revalidatePath(`/${uni}/admin/users`, "layout");
     return "Added.";
+  });
+}
+
+export async function saveRoleAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const { uni, actor } = await ctx(data);
+  return attempt(async () => {
+    const saved = await saveRole(actor, actor.universityId, roleDraft(data));
+    revalidatePath(`/${uni}/admin`, "layout");
+    return saved;
+  });
+}
+
+export async function resetRoleAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const { uni, actor } = await ctx(data);
+  return attempt(async () => {
+    const done = await resetRole(actor, actor.universityId, str(data, "role"));
+    revalidatePath(`/${uni}/admin`, "layout");
+    return done;
+  });
+}
+
+export async function deleteRoleAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const { uni, actor } = await ctx(data);
+  return attempt(async () => {
+    const done = await deleteRole(actor, actor.universityId, str(data, "id"));
+    revalidatePath(`/${uni}/admin`, "layout");
+    return done;
   });
 }
 

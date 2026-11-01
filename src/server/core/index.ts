@@ -42,6 +42,7 @@ export { holdSeat } from "../services/enrolment";
 // Zinny team (platform context, no university)
 export { listUniversities, createUniversity, enterSupportMode, exitSupportMode, supportTrail } from "../services/support";
 export { updateUniversity, grantPlatformRole, revokePlatformRole } from "../services/core-api";
+export { customRoleChoices, deleteRole, listRoles, parseRoleChoice, resetRole, roleDraft, saveRole, type RoleDraft } from "../services/roles";
 export { assertPlatform, canPlatform } from "../authz/engine";
 
 // Shapes returned by the functions above

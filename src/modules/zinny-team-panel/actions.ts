@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/forms";
 import { attempt, str } from "@/server/action";
 import { platformContext } from "@/server/context";
+import { deleteRole, resetRole, roleDraft, saveRole } from "@/server/core";
 import { parseRupees } from "./lib/format";
 import { addRole, inviteMember, removeRole } from "./services/team";
 import { createInvoice, markInvoicePaid, markInvoiceUnpaid } from "./services/billing";
@@ -359,7 +360,7 @@ export async function inviteMemberAction(_: ActionState, data: FormData): Promis
     const role = str(data, "role");
     await inviteMember(actor, { name: str(data, "name"), email: str(data, "email"), role });
     revalidatePath("/platform/team");
-    return `Added as ${isPlatformRole(role) ? PLATFORM_ROLE_LABELS[role] : role}. New people get an email to set their password.`;
+    return `Added${isPlatformRole(role) ? ` as ${PLATFORM_ROLE_LABELS[role]}` : ""}. New people get an email to set their password.`;
   });
 }
 
@@ -369,7 +370,34 @@ export async function addRoleAction(_: ActionState, data: FormData): Promise<Act
     const role = str(data, "role");
     await addRole(actor, str(data, "userId"), role);
     revalidatePath("/platform/team");
-    return `${isPlatformRole(role) ? PLATFORM_ROLE_LABELS[role] : role} role added.`;
+    return `${isPlatformRole(role) ? `${PLATFORM_ROLE_LABELS[role]} role` : "Role"} added.`;
+  });
+}
+
+export async function saveTeamRoleAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  return attempt(async () => {
+    const saved = await saveRole(actor, null, roleDraft(data));
+    revalidatePath("/platform", "layout");
+    return saved;
+  });
+}
+
+export async function resetTeamRoleAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  return attempt(async () => {
+    const done = await resetRole(actor, null, str(data, "role"));
+    revalidatePath("/platform", "layout");
+    return done;
+  });
+}
+
+export async function deleteTeamRoleAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  return attempt(async () => {
+    const done = await deleteRole(actor, null, str(data, "id"));
+    revalidatePath("/platform", "layout");
+    return done;
   });
 }
 

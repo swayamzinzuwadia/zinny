@@ -6,11 +6,12 @@ import { PLAN_LABELS, type Plan } from "../lib/constants";
 import { formatCount } from "../lib/format";
 
 /** Shown instead of a section the person's platform roles don't open. */
-export function NoAccess({ section, who }: { section: string; who: string }) {
+/** `who` is only for sections no role can be given: anything else depends on how roles are set up. */
+export function NoAccess({ section, who }: { section: string; who?: string }) {
   return (
     <div className="mx-auto max-w-xl pt-10">
       <Empty title={`You don't have access to ${section}`}>
-        {who} can open this section. Ask a Super Admin if you need it for your work.
+        {who ? `${who} can open this section.` : "Your role doesn't include this section."} Ask a Super Admin if you need it for your work.
         <div className="mt-4">
           <Link href="/platform" className="text-[14px] font-medium text-brand hover:underline">
             Back to the platform home

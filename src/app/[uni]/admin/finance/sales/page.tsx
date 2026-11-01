@@ -37,7 +37,7 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
     return (
       <>
         <PageHeader title="Sales" />
-        <Empty title="You don't have access to Sales">Sales is for Institute Admins, Board / Owner and Accounts &amp; Fees. Ask an Institute Admin if you need it.</Empty>
+        <Empty title="You don't have access to Sales">Your role doesn&apos;t include Sales. Ask an Institute Admin if you need it.</Empty>
       </>
     );
   }

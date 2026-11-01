@@ -14,7 +14,7 @@ export const metadata = { title: "Partner" };
 
 export default async function PartnerPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.partners")) return <NoAccess section="Partners" who="Super Admins and Partnerships" />;
+  if (!canPlatform(actor, "platform.partners")) return <NoAccess section="Partners" />;
   const { id } = await params;
   const data = await getPartner(actor, id).catch((e) => {
     if (e instanceof NotFoundError) notFound();

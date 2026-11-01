@@ -1,6 +1,7 @@
-import { and, eq, gt, isNull, or } from "drizzle-orm";
+import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { systemDb } from "@/db/client";
-import { roleAssignments, supportSessions, users } from "@/db/schema";
+import { customRoles, roleAssignments, supportSessions, users } from "@/db/schema";
+import { effectiveGrants } from "./authz/abilities";
 import type { Actor, Assignment } from "./authz/engine";
 import { canPlatform } from "./authz/engine";
 import { NotFoundError } from "./errors";
@@ -15,9 +16,21 @@ export async function loadActor(userId: string, universityId: string | null): Pr
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) throw new NotFoundError("User");
 
+  // Each assignment comes with this institute's custom role, or its edit of a built-in role.
+  // The university check means a row can never pick up another institute's role.
   const rows = await db
-    .select()
+    .select({ assignment: roleAssignments, roleName: customRoles.name, stored: customRoles.actions, archivedAt: customRoles.archivedAt })
     .from(roleAssignments)
+    .leftJoin(
+      customRoles,
+      and(
+        sql`${customRoles.universityId} is not distinct from ${roleAssignments.universityId}`,
+        or(
+          eq(customRoles.id, roleAssignments.customRoleId),
+          and(isNull(roleAssignments.customRoleId), isNull(customRoles.name), eq(customRoles.kind, roleAssignments.role)),
+        ),
+      ),
+    )
     .where(
       and(
         eq(roleAssignments.userId, userId),
@@ -28,15 +41,20 @@ export async function loadActor(userId: string, universityId: string | null): Pr
       ),
     );
 
-  const assignments: Assignment[] = rows.map((r) => ({
-    role: r.role,
-    scopeType: r.scopeType,
-    universityId: r.universityId,
-    departmentId: r.departmentId,
-    batchId: r.batchId,
-    startsAt: r.startsAt,
-    endsAt: r.endsAt,
-  }));
+  const assignments: Assignment[] = rows.map(({ assignment: r, roleName, stored, archivedAt }) => {
+    const grants = effectiveGrants(r.role, archivedAt ? [] : stored);
+    return {
+      role: r.role,
+      scopeType: r.scopeType,
+      universityId: r.universityId,
+      departmentId: r.departmentId,
+      batchId: r.batchId,
+      startsAt: r.startsAt,
+      endsAt: r.endsAt,
+      ...(grants ? { grants } : {}),
+      ...(roleName ? { label: roleName } : {}),
+    };
+  });
 
   const actor: Actor = {
     userId: user.id,

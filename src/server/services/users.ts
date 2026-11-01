@@ -8,6 +8,7 @@ import type { Tx } from "@/db/client";
 import {
   batches,
   courses,
+  customRoles,
   departments,
   enrolments,
   parentLinks,
@@ -15,13 +16,16 @@ import {
   users,
   type RoleName,
 } from "@/db/schema";
+import { CUSTOM_ROLES } from "../authz/abilities";
 import { assertCan, can, reach, type Actor } from "../authz/engine";
 import { ALLOWED_SCOPES, ROLE_LABELS, USER_GROUPS } from "../authz/roles";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors";
 import { emit } from "../events";
 import { audit, withTenant } from "../tenant";
+import { liveCustomRole } from "./roles";
 
-const UNIVERSITY_ROLES = Object.keys(ALLOWED_SCOPES) as RoleName[];
+/** Roles a CSV can name. Custom roles need picking by hand, because each institute's differ. */
+const UNIVERSITY_ROLES = (Object.keys(ALLOWED_SCOPES) as RoleName[]).filter((r) => !CUSTOM_ROLES.has(r));
 const FACULTY_ROLES: RoleName[] = ["permanent_faculty", "visiting_faculty"];
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -54,6 +58,7 @@ export async function listPeople(actor: Actor, group: keyof typeof USER_GROUPS):
         email: users.email,
         phone: users.phone,
         role: roleAssignments.role,
+        customName: customRoles.name,
         scopeType: roleAssignments.scopeType,
         startsAt: roleAssignments.startsAt,
         endsAt: roleAssignments.endsAt,
@@ -69,6 +74,7 @@ export async function listPeople(actor: Actor, group: keyof typeof USER_GROUPS):
       .leftJoin(departments, eq(departments.id, roleAssignments.departmentId))
       .leftJoin(batches, eq(batches.id, roleAssignments.batchId))
       .leftJoin(courses, eq(courses.id, batches.courseId))
+      .leftJoin(customRoles, eq(customRoles.id, roleAssignments.customRoleId))
       .where(and(isNull(roleAssignments.revokedAt), inArray(roleAssignments.role, [...groupRoles])))
       .orderBy(users.name);
 
@@ -110,7 +116,7 @@ export async function listPeople(actor: Actor, group: keyof typeof USER_GROUPS):
           : x.scopeType === "batch"
             ? `${x.batchCourse ?? "Course"} · ${x.batchName ?? "Batch"}`
             : "Whole institute";
-      p.roles.push({ assignmentId: x.assignmentId, role: x.role, label: ROLE_LABELS[x.role], scope, endsAt: x.endsAt });
+      p.roles.push({ assignmentId: x.assignmentId, role: x.role, label: x.customName ?? ROLE_LABELS[x.role], scope, endsAt: x.endsAt });
       people.set(x.userId, p);
     }
     return [...people.values()];
@@ -122,6 +128,7 @@ export async function listPeople(actor: Actor, group: keyof typeof USER_GROUPS):
 export type RoleInput = {
   userId: string;
   role: RoleName;
+  customRoleId?: string | null;
   departmentId?: string | null;
   batchId?: string | null;
   endsAt?: Date | null;
@@ -135,7 +142,11 @@ async function assignRoleTx(tx: Tx, actor: Actor, input: RoleInput) {
   return (await assignRoleTxFlagged(tx, actor, input)).assignment;
 }
 
-async function assignRoleTxFlagged(tx: Tx, actor: Actor, input: RoleInput) {
+async function assignRoleTxFlagged(tx: Tx, actor: Actor, given: RoleInput) {
+  // A custom role is named by id. Its kind comes from the role, never from the form.
+  if (!given.customRoleId && CUSTOM_ROLES.has(given.role)) throw new ValidationError("Pick which custom role to give.");
+  const custom = given.customRoleId ? await liveCustomRole(tx, uni(actor), given.customRoleId) : null;
+  const input = custom ? { ...given, role: custom.kind } : given;
   const allowed = ALLOWED_SCOPES[input.role];
   if (!allowed) throw new ValidationError("That role can't be given inside an institute.");
 
@@ -175,6 +186,7 @@ async function assignRoleTxFlagged(tx: Tx, actor: Actor, input: RoleInput) {
       and(
         eq(roleAssignments.userId, input.userId),
         eq(roleAssignments.role, input.role),
+        custom ? eq(roleAssignments.customRoleId, custom.id) : isNull(roleAssignments.customRoleId),
         isNull(roleAssignments.revokedAt),
         input.batchId ? eq(roleAssignments.batchId, input.batchId) : isNull(roleAssignments.batchId),
         scopeType === "department" ? eq(roleAssignments.departmentId, departmentId!) : isNull(roleAssignments.departmentId),
@@ -187,6 +199,7 @@ async function assignRoleTxFlagged(tx: Tx, actor: Actor, input: RoleInput) {
     .values({
       userId: input.userId,
       role: input.role,
+      customRoleId: custom?.id ?? null,
       scopeType,
       universityId: uni(actor),
       departmentId: scopeType === "department" ? departmentId : null,
@@ -198,6 +211,7 @@ async function assignRoleTxFlagged(tx: Tx, actor: Actor, input: RoleInput) {
   await audit(tx, actor, "role.assign", "role_assignment", a.id, {
     userId: input.userId,
     role: input.role,
+    customRoleId: custom?.id ?? null,
     scopeType,
     departmentId,
     batchId: input.batchId ?? null,
@@ -256,6 +270,7 @@ export type NewPerson = {
   email: string;
   phone?: string;
   role: RoleName;
+  customRoleId?: string | null;
   departmentId?: string | null;
   endsAt?: Date | null;
 };
@@ -265,14 +280,15 @@ export async function addPerson(actor: Actor, input: NewPerson) {
   if (input.name.trim().length < 2) throw new ValidationError("Enter the person's name.");
   return withTenant(actor, async (tx) => {
     const userId = await upsertPerson(tx, input.email, input.name, input.phone);
-    const { created } = await assignRoleTxFlagged(tx, actor, {
+    const { created, assignment } = await assignRoleTxFlagged(tx, actor, {
       userId,
       role: input.role,
+      customRoleId: input.customRoleId ?? null,
       departmentId: input.departmentId ?? null,
       endsAt: input.endsAt ?? null,
     });
-    await audit(tx, actor, "user.add", "user", userId, { email: input.email.toLowerCase(), role: input.role });
-    if (created) await inviteIfNoPassword(tx, actor, userId, input.role);
+    await audit(tx, actor, "user.add", "user", userId, { email: input.email.toLowerCase(), role: assignment.role });
+    if (created) await inviteIfNoPassword(tx, actor, userId, assignment.role);
     return userId;
   });
 }

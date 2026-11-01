@@ -35,7 +35,7 @@ function details(data: Record<string, unknown>) {
 
 export default async function ActivityLogPage({ searchParams }: { searchParams: Promise<Search> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.support_mode")) return <NoAccess section="the activity log" who="Super Admins and Support Agents" />;
+  if (!canPlatform(actor, "platform.support_mode")) return <NoAccess section="the activity log" />;
   const q = await searchParams;
   const { filters, problems } = parseLogFilters(q);
   const pageRaw = Number(Array.isArray(q.page) ? q.page[0] : q.page);

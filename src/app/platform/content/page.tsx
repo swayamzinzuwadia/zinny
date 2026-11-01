@@ -13,7 +13,7 @@ const TAB_LABELS: Record<QueueTab, string> = { "to-review": "To review", flagged
 
 export default async function ContentReviewPage({ searchParams }: { searchParams: Promise<{ tab?: string; university?: string }> }) {
   const actor = await platformContext();
-  if (!canSeeContentFlags(actor)) return <NoAccess section="content review" who="Super Admins, Content QA and Account Managers" />;
+  if (!canSeeContentFlags(actor)) return <NoAccess section="content review" />;
   const sp = await searchParams;
   const canReview = canPlatform(actor, "platform.content_review");
   const fallback: QueueTab = canReview ? "to-review" : "flagged";
