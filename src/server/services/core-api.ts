@@ -54,7 +54,7 @@ export async function orderForCheckout(actor: Actor, orderId: string): Promise<C
       .select({
         order: orders,
         course: { id: courses.id, title: courses.title, gstRateBp: courses.gstRateBp },
-        batch: { id: batches.id, name: batches.name },
+        batch: { id: batches.id, name: batches.name, recorded: batches.recorded },
       })
       .from(orders)
       .innerJoin(courses, eq(courses.id, orders.courseId))

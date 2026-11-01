@@ -119,6 +119,15 @@
         "src/modules/zinny-team-panel/",
         "src/app/platform/"
       ]
+    },
+    "marketplace": {
+      "module": "marketplace",
+      "port": 3113,
+      "paths": [
+        "src/modules/marketplace/",
+        "src/app/marketplace/",
+        "src/app/[uni]/admin/products/marketplace/"
+      ]
     }
   }
 }

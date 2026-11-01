@@ -34,9 +34,16 @@ export function Nav() {
           <Link href="/login" className="rounded-full px-3 py-2 text-ink [transition-property:color] duration-150 hover:text-brand">
             Sign in
           </Link>
+          <Link
+            href="/signup"
+            className="ml-1 rounded-full bg-brand px-4 py-2 font-medium text-canvas [transition-property:background-color,transform] duration-150 hover:bg-brand-strong active:scale-[0.96]"
+          >
+            Sign up
+          </Link>
+          {/* Phones keep this button in the hero, just below. */}
           <a
             href={demoHref}
-            className="ml-1 rounded-full bg-brand px-4 py-2 font-medium text-canvas [transition-property:background-color,transform] duration-150 hover:bg-brand-strong active:scale-[0.96]"
+            className="ml-1 hidden rounded-full px-4 py-2 font-medium text-ink ring-1 ring-line [transition-property:background-color,box-shadow] duration-150 hover:bg-surface hover:ring-faint sm:block"
           >
             Book a demo
           </a>

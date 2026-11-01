@@ -89,7 +89,7 @@ export function Story() {
           <p className="text-[14px] text-brand">How it works</p>
           <h2
             id="story-title"
-            className={`${display.className} mt-4 text-[clamp(2.5rem,5.5vw,4.5rem)] leading-[0.98] tracking-[-0.02em] ${css.balance}`}
+            className={`${display.className} ${css.heading} mt-4 text-[clamp(2.5rem,5.5vw,4.5rem)] leading-[0.98] tracking-[-0.02em] ${css.balance}`}
           >
             Everything an institute runs, from one quiet place.
           </h2>
@@ -180,7 +180,7 @@ function ChapterText({ chapter, index, onActive }: { chapter: Chapter; index: nu
           <span className="text-faint tabular">{String(index + 1).padStart(2, "0")}</span>
           {chapter.eyebrow}
         </p>
-        <h3 className={`${display.className} mt-4 text-[clamp(2rem,3.6vw,3.25rem)] leading-[1.02] tracking-[-0.015em] ${css.balance}`}>
+        <h3 className={`${display.className} ${css.subheading} mt-4 text-[clamp(2rem,3.6vw,3.25rem)] leading-[1.02] tracking-[-0.015em] ${css.balance}`}>
           {chapter.title}
         </h3>
         <p className={`mt-5 max-w-lg text-[16px] leading-relaxed text-muted ${css.pretty}`}>{chapter.body}</p>

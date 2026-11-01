@@ -312,9 +312,9 @@ export function CertificateVisual({ active }: Props) {
         <div aria-hidden className="pointer-events-none absolute inset-[18px] rounded-[16px] border border-line" />
         <div className="relative text-center">
           <p className="text-[12px] text-muted">Demo Institute</p>
-          <p className={`${display.className} mt-3 text-[clamp(1.5rem,3vw,2.25rem)] leading-none`}>Certificate of completion</p>
+          <p className={`${display.className} ${css.accent} mt-3 text-[clamp(1.5rem,3vw,2.25rem)] leading-none`}>Certificate of completion</p>
           <p className="mt-5 text-[12px] text-muted">This certifies that</p>
-          <p className={`${display.className} mt-1 text-[clamp(1.75rem,3.6vw,2.75rem)] leading-none text-brand italic`}>Riya Sharma</p>
+          <p className={`${display.className} ${css.accent} mt-1 text-[clamp(1.75rem,3.6vw,2.75rem)] leading-none text-brand italic`}>Riya Sharma</p>
           <p className="mt-3 text-[13px] text-muted">completed Machine Learning Foundations on 12 October 2026</p>
         </div>
         <div className="relative flex items-end justify-between">
@@ -406,7 +406,7 @@ export function WebsiteVisual({ active }: Props) {
       </div>
       <div className="relative bg-brand px-6 pt-8 pb-10 text-canvas sm:px-8">
         <p className="text-[12px] text-canvas/70">Pune · Since 1998</p>
-        <p className={`${display.className} mt-2 text-[clamp(1.75rem,3.4vw,2.6rem)] leading-none`}>Demo Institute</p>
+        <p className={`${display.className} ${css.accent} mt-2 text-[clamp(1.75rem,3.4vw,2.6rem)] leading-none`}>Demo Institute</p>
         <p className="mt-2 max-w-xs text-[13px] text-canvas/75">Evening and weekend courses for working professionals.</p>
         <span className="mt-5 inline-block rounded-full bg-canvas px-4 py-1.5 text-[12px] font-medium text-brand">Send an enquiry</span>
       </div>

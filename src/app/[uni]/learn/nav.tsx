@@ -7,9 +7,21 @@ import type { TrailParent } from "@/components/page-trail";
 
 type Item = { href: string; label: string };
 
+/** "buyer": someone who only bought from this institute on the marketplace. */
+export type LearnView = "student" | "parent" | "buyer";
+
 /** The learner app's sections. The first four are the phone tab bar; the rest join them on wider screens. */
-export function learnSections(base: string, parentOnly: boolean): { primary: Item[]; more: Item[] } {
-  if (parentOnly) return { primary: [{ href: base, label: "Home" }], more: [] };
+export function learnSections(base: string, view: LearnView, canShop: boolean): { primary: Item[]; more: Item[] } {
+  if (view === "parent") return { primary: [{ href: base, label: "Home" }], more: [] };
+  if (view === "buyer") {
+    return {
+      primary: [
+        { href: "/marketplace/library", label: "My library" },
+        { href: "/marketplace", label: "Marketplace" },
+      ],
+      more: [],
+    };
+  }
   return {
     primary: [
       { href: base, label: "Today" },
@@ -21,6 +33,12 @@ export function learnSections(base: string, parentOnly: boolean): { primary: Ite
       { href: `${base}/assignments`, label: "Assignments" },
       { href: `${base}/leaderboard`, label: "Leaderboard" },
       { href: `${base}/certificates`, label: "Certificates" },
+      ...(canShop
+        ? [
+            { href: "/marketplace/library", label: "My library" },
+            { href: "/marketplace", label: "Marketplace" },
+          ]
+        : []),
     ],
   };
 }
@@ -48,9 +66,9 @@ function useActive(base: string) {
 }
 
 /** Tabs across the top on tablets and desktops. */
-export function LearnTabs({ base, parentOnly, className }: { base: string; parentOnly: boolean; className?: string }) {
+export function LearnTabs({ base, view, canShop, className }: { base: string; view: LearnView; canShop: boolean; className?: string }) {
   const active = useActive(base);
-  const { primary, more } = learnSections(base, parentOnly);
+  const { primary, more } = learnSections(base, view, canShop);
   return (
     <nav aria-label="Learner app" className={cx("min-w-0", className)}>
       <ul className="-mx-1 flex gap-1 overflow-x-auto px-1 [scrollbar-width:none]">
@@ -82,12 +100,14 @@ const ICONS: Record<string, React.ReactNode> = {
   Timetable: <path d="M3.5 4.5h13v12h-13zM3.5 8h13M7.5 11h1.5M11 11h1.5M7.5 13.5h1.5" />,
   Courses: <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H16v12H5.5A1.5 1.5 0 0 0 4 16.5zM4 16.5A1.5 1.5 0 0 0 5.5 18H16v-3" />,
   "My learning": <path d="M10 17.5a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15ZM8.5 7l4 3-4 3z" />,
+  "My library": <path d="M4.5 3.5h3v13h-3zM8.5 3.5h3v13h-3zM12.5 4.2l2.9-.8 3.1 12.6-2.9.8z" />,
+  Marketplace: <path d="M3.5 8.5v8h13v-8M2.5 8.5l1.5-5h12l1.5 5zM8 16.5v-4.5h4v4.5" />,
 };
 
 /** The tab bar on phones (the learner app is mobile first). */
-export function LearnBottomBar({ base, parentOnly }: { base: string; parentOnly: boolean }) {
+export function LearnBottomBar({ base, view, canShop }: { base: string; view: LearnView; canShop: boolean }) {
   const active = useActive(base);
-  const { primary } = learnSections(base, parentOnly);
+  const { primary } = learnSections(base, view, canShop);
   return (
     <nav
       data-learn-chrome

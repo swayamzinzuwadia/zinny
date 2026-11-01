@@ -49,6 +49,7 @@ export const MENU: MenuSection[] = [
       { label: "Courses", href: "/products/courses" },
       { label: "Tests", href: "/products/tests" },
       { label: "Assignments", href: "/products/assignments" },
+      { label: "Marketplace", href: "/products/marketplace" },
       { label: "Learning progress", href: "/products/content" },
       { label: "Certificates", href: "/products/certificates" },
       { label: "Categories & utilities", href: "/products/categories" },

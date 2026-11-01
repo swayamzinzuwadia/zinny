@@ -42,7 +42,7 @@ export function Campus() {
               <p className="text-[14px] text-canvas/60">Privacy</p>
               <h2
                 id="campus-title"
-                className={`${display.className} mt-4 text-[clamp(2.5rem,5.5vw,4.5rem)] leading-[0.98] tracking-[-0.02em] ${css.balance}`}
+                className={`${display.className} ${css.heading} mt-4 text-[clamp(2.5rem,5.5vw,4.5rem)] leading-[0.98] tracking-[-0.02em] ${css.balance}`}
               >
                 Every institute gets its own <em className="text-gold">private</em> campus.
               </h2>

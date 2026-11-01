@@ -178,7 +178,7 @@ export async function loadInsights(actor: Actor, asOf = new Date()): Promise<Ins
       })
       .from(batches)
       .innerJoin(courses, eq(courses.id, batches.courseId))
-      .where(and(inArray(batches.status, ["open", "closed"]), gte(batches.endDate, today), inScope))
+      .where(and(inArray(batches.status, ["open", "closed"]), eq(batches.recorded, false), gte(batches.endDate, today), inScope))
       .orderBy(asc(courses.title), asc(batches.startDate), asc(batches.name));
     const liveIds = live.map((b) => b.id);
 

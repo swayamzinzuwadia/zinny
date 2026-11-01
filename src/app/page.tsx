@@ -3,11 +3,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/ui";
 import { loadActor } from "@/server/actor";
-import { currentUserId, signOut, spacesFor } from "@/server/auth/session";
+import { currentUserId, homeSpacesFor, signOut } from "@/server/auth/session";
 import { canPlatform } from "@/server/authz/engine";
 import { ADMIN_PANEL_ROLES, ROLE_LABELS } from "@/server/authz/roles";
 import type { RoleName } from "@/db/schema";
 import { LandingPage } from "@/modules/marketing/LandingPage";
+import { marketplaceAccess } from "@/modules/marketplace/service";
 
 export const metadata: Metadata = {
   title: { absolute: "Zinny · The whole institute, in order" },
@@ -24,8 +25,9 @@ export const metadata: Metadata = {
 export default async function Home() {
   const userId = await currentUserId();
   if (!userId) return <LandingPage />;
-  const [spaces, platform] = await Promise.all([spacesFor(userId), loadActor(userId, null)]);
+  const [spaces, platform] = await Promise.all([homeSpacesFor(userId), loadActor(userId, null)]);
   const isStaff = canPlatform(platform, "platform.support_mode") || canPlatform(platform, "platform.manage_universities");
+  if (spaces.length === 0 && !isStaff && (await marketplaceAccess(userId)).canShop) redirect("/marketplace");
 
   const destinations = spaces.map((s) => ({
     href: `/${s.slug}/${s.roles.some((r) => ADMIN_PANEL_ROLES.has(r as RoleName)) ? "admin" : "learn"}`,

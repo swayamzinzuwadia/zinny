@@ -11,9 +11,9 @@
  * of them sees 100%. Completion itself goes through core `markEnrolmentCompleted`, which
  * is idempotent, so enrolment.completed is emitted once whatever happens here.
  */
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
-import { enrolments } from "@/db/schema";
+import { batches, enrolments } from "@/db/schema";
 import { audit, emit, markEnrolmentCompleted, systemActorFor, type Actor } from "@/server/core";
 import { AppError, NotFoundError } from "@/server/errors";
 import { coursePercent } from "./lib/kinds";
@@ -60,8 +60,14 @@ export async function lockLessonProgress(tx: Tx, universityId: string, userId: s
   return { row, created: inserted.length > 0 };
 }
 
+/** Marketplace buyers sit in a recorded batch: it has no classes, so live lessons aren't for them. */
+export async function isRecordedBatch(tx: Tx, batchId: string) {
+  const [b] = await tx.select({ recorded: batches.recorded }).from(batches).where(eq(batches.id, batchId));
+  return b?.recorded ?? false;
+}
+
 /** Required, ready lessons of the course, and how many of them the student has completed. */
-export async function countRequired(tx: Tx, courseId: string, userId: string) {
+export async function countRequired(tx: Tx, courseId: string, userId: string, opts: { skipLive?: boolean } = {}) {
   const [r] = await tx
     .select({
       total: sql<number>`count(*)::int`,
@@ -69,7 +75,7 @@ export async function countRequired(tx: Tx, courseId: string, userId: string) {
     })
     .from(contentLessons)
     .leftJoin(contentLessonProgress, and(eq(contentLessonProgress.lessonId, contentLessons.id), eq(contentLessonProgress.userId, userId)))
-    .where(and(eq(contentLessons.courseId, courseId), eq(contentLessons.required, true), eq(contentLessons.ready, true)));
+    .where(and(eq(contentLessons.courseId, courseId), eq(contentLessons.required, true), eq(contentLessons.ready, true), opts.skipLive ? ne(contentLessons.kind, "live") : undefined));
   return { total: r?.total ?? 0, done: r?.done ?? 0 };
 }
 
@@ -87,7 +93,7 @@ export async function syncCourseProgress(
   e: EnrolmentRef,
   touch?: { lessonId: string; at?: Date },
 ): Promise<SyncResult> {
-  const { total, done } = await countRequired(tx, e.courseId, e.userId);
+  const { total, done } = await countRequired(tx, e.courseId, e.userId, { skipLive: await isRecordedBatch(tx, e.batchId) });
   const percent = coursePercent(done, total);
   await tx
     .update(contentCourseProgress)

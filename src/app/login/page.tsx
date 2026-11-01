@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { buttonClass, cx } from "@/components/ui";
 import { demoEnabled } from "@/server/auth/config";
 import { currentUserId } from "@/server/auth/session";
 import { DEMO_ACCOUNTS, loginUniversity, phoneSignInView, safeNext, slugFromNext } from "@/modules/identity/auth";
@@ -43,7 +44,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   // A phone sign-in started at another institute isn't continued here.
   const phone = view && view.universityId === university?.id ? view : null;
 
-  const title = phone?.step === "code" ? "Enter your code" : phone?.step === "choose" ? "Choose your account" : "Sign in to your institute";
+  const title = phone?.step === "code" ? "Enter your code" : phone?.step === "choose" ? "Choose your account" : university ? "Sign in to your institute" : "Sign in to Zinny";
   const subtitle = university ? (
     <span className="flex flex-wrap items-baseline gap-x-2">
       <span>
@@ -55,7 +56,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       </form>
     </span>
   ) : (
-    "Use the email your institute registered for you."
+    "Use the email on your Zinny account."
   );
 
   return (
@@ -65,7 +66,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       footer={
         demoEnabled() && !phone ? (
           <div className="rounded-[22px] border border-line bg-surface p-5">
-            <h2 className="font-medium">Try a demo account</h2>
+            <p className="font-medium">Try a demo account</p>
             <p className="mb-3 text-[13px] text-muted">Each one shows Zinny as that role sees it. Password for all: zinny123</p>
             {/* While one account signs in, the others can't be clicked. */}
             <div className="grid gap-1 has-[button:disabled]:pointer-events-none">
@@ -114,21 +115,26 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       )}
 
       {!phone && (
-        <p className="mt-6 text-[14px] text-muted">
-          New here?{" "}
+        <div className="mt-7">
           {(!university || university.signupOpen) && (
             <>
-              <Link href={university ? `/signup?uni=${university.slug}` : "/signup"} className="font-medium text-brand hover:underline">
+              <div className="mb-4 flex items-center gap-3 text-[13px] text-muted">
+                <span aria-hidden className="h-px flex-1 bg-line" />
+                New to Zinny?
+                <span aria-hidden className="h-px flex-1 bg-line" />
+              </div>
+              <Link href={university ? `/signup?uni=${university.slug}` : "/signup"} className={cx(buttonClass("secondary"), "w-full")}>
                 Create a student account
               </Link>
-              . Staff get{" "}
             </>
           )}
-          {university && !university.signupOpen ? "Your institute sends you an invitation email." : "an invitation email."}{" "}
-          <Link href="/reset" className="text-brand hover:underline">
-            Didn&apos;t get it?
-          </Link>
-        </p>
+          <p className="mt-3 text-[14px] text-muted">
+            Staff get an invitation email from their institute.{" "}
+            <Link href="/reset" className="text-brand hover:underline">
+              Didn&apos;t get it?
+            </Link>
+          </p>
+        </div>
       )}
     </AuthShell>
   );

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
+import { display } from "@/modules/marketing/fonts";
 import { paletteStyle } from "@/modules/website-builder/branding";
 import { getSite } from "@/modules/website-builder/cached";
 import { SiteFooter, SiteHeader } from "@/modules/website-builder/components/site/chrome";
@@ -46,7 +47,7 @@ export default async function SiteLayout({ children, params }: { children: React
   const site = await getSite(uni);
   if (!site) notFound();
   return (
-    <div style={paletteStyle(site.palette) as CSSProperties} className="flex min-h-dvh flex-col bg-canvas text-ink selection:bg-[var(--site-soft)]">
+    <div style={paletteStyle(site.palette) as CSSProperties} className={`display-headings flex min-h-dvh flex-col bg-canvas text-ink selection:bg-[var(--site-soft)] ${display.variable}`}>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-surface focus:px-4 focus:py-2">
         Skip to content
       </a>

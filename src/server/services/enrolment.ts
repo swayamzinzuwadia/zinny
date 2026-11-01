@@ -20,7 +20,7 @@ import {
 } from "@/db/schema";
 import { systemActorFor } from "../actor";
 import { assertCan, reach, type Actor } from "../authz/engine";
-import { AppError, ConflictError, NotFoundError, ValidationError } from "../errors";
+import { AppError, ConflictError, NotFoundError, ValidationError, isUniqueViolation } from "../errors";
 import { earliestStart, formatDate, todayIn } from "../lib/dates";
 import { emit } from "../events";
 import { gateway } from "../payments/gateway";
@@ -189,7 +189,17 @@ export type HoldResult =
       checkout: Record<string, unknown>;
     };
 
+/** Creates the payment order with the gateway after the seat is safely held (no network call inside the lock). */
+async function startGatewayOrder<T extends Extract<HoldResult, { status: "held" }>>(actor: Actor, held: T): Promise<T> {
+  if (Object.keys(held.checkout).length > 0) return held;
+  const go = await gateway().createOrder({ amountPaise: held.totalPaise, receipt: held.orderId, notes: { orderId: held.orderId, universityId: uni(actor) } });
+  await withTenant(actor, (tx) => tx.update(orders).set({ gatewayOrderId: go.gatewayOrderId }).where(eq(orders.id, held.orderId)));
+  return { ...held, checkout: go.checkout };
+}
+
 export async function holdSeat(actor: Actor, input: { batchId: string; acknowledgeClash?: boolean }): Promise<HoldResult> {
+  // Marketplace buyers can pay for what they bought (self.enrol) but can't browse into live batches.
+  assertCan(actor, "catalog.browse", { universityId: uni(actor) });
   assertCan(actor, "self.enrol", { universityId: uni(actor), ownerUserId: actor.userId });
 
   const result = await withTenant(actor, async (tx): Promise<HoldResult> => {
@@ -273,19 +283,78 @@ export async function holdSeat(actor: Actor, input: { batchId: string; acknowled
     return { status: "held", enrolmentId: e.id, orderId: order.id, totalPaise: order.totalPaise, expiresAt, gateway: order.gateway, checkout: {} };
   }).catch((err) => {
     // Two tabs racing for the same course: the unique index stops a second live seat.
-    if (err && typeof err === "object" && "code" in err && (err as { code: string }).code === "23505")
-      throw new ConflictError("You already have a seat in this course.", "already_enrolled");
+    if (isUniqueViolation(err)) throw new ConflictError("You already have a seat in this course.", "already_enrolled");
     throw err;
   });
 
-  // Create the payment order with the gateway after the seat is safely held (no network call inside the lock).
-  if (result.status === "held" && Object.keys(result.checkout).length === 0) {
-    const g = gateway();
-    const go = await g.createOrder({ amountPaise: result.totalPaise, receipt: result.orderId, notes: { orderId: result.orderId, universityId: uni(actor) } });
-    await withTenant(actor, (tx) => tx.update(orders).set({ gatewayOrderId: go.gatewayOrderId }).where(eq(orders.id, result.orderId)));
-    result.checkout = go.checkout;
-  }
-  return result;
+  return result.status === "held" ? startGatewayOrder(actor, result) : result;
+}
+
+/**
+ * A marketplace purchase: a seat in a course's recorded batch, at the listing's price.
+ * Recorded batches have no classes and no real seat limit, so nothing can fill up or
+ * clash. The person gets nothing until confirmPayment activates the seat.
+ */
+export async function holdRecordedSeat(actor: Actor, input: { batchId: string; pricePaise: number }) {
+  assertCan(actor, "self.enrol", { universityId: uni(actor), ownerUserId: actor.userId });
+
+  const held = await withTenant(actor, async (tx) => {
+    const { batch } = await loadBatch(tx, uni(actor), input.batchId, { lock: true });
+    if (!batch.recorded) throw new ConflictError("This course isn't on sale here.", "not_recorded");
+    const [course] = await tx.select().from(courses).where(eq(courses.id, batch.courseId));
+    await expireStaleHolds(tx, { userId: actor.userId });
+
+    const [live] = await tx
+      .select()
+      .from(enrolments)
+      .where(and(eq(enrolments.userId, actor.userId), eq(enrolments.courseId, course.id), inArray(enrolments.status, ["held", "active", "completed"])));
+    if (live && live.status !== "held") throw new ConflictError("You already own this.", "already_enrolled");
+    if (live?.batchId === batch.id) {
+      const [order] = await tx.select().from(orders).where(eq(orders.enrolmentId, live.id));
+      return {
+        status: "held" as const,
+        enrolmentId: live.id,
+        orderId: order.id,
+        totalPaise: order.totalPaise,
+        expiresAt: live.holdExpiresAt!,
+        gateway: order.gateway,
+        checkout: order.gatewayOrderId ? { order_id: order.gatewayOrderId, resumed: true } : {},
+      };
+    }
+    if (live) {
+      // A seat held in one of the course's live batches gives way to this purchase.
+      await tx.update(enrolments).set({ status: "cancelled" }).where(eq(enrolments.id, live.id));
+      await tx.update(orders).set({ status: "expired" }).where(and(eq(orders.enrolmentId, live.id), eq(orders.status, "pending")));
+    }
+
+    const expiresAt = new Date(Date.now() + SEAT_HOLD_MINUTES * 60_000);
+    const [e] = await tx
+      .insert(enrolments)
+      .values({ universityId: uni(actor), userId: actor.userId, courseId: course.id, batchId: batch.id, status: "held", holdExpiresAt: expiresAt })
+      .returning();
+    const gst = gstFor(input.pricePaise, course.gstRateBp);
+    const [order] = await tx
+      .insert(orders)
+      .values({
+        universityId: uni(actor),
+        userId: actor.userId,
+        courseId: course.id,
+        batchId: batch.id,
+        enrolmentId: e.id,
+        basePaise: input.pricePaise,
+        gstPaise: gst,
+        totalPaise: input.pricePaise + gst,
+        gateway: gateway().name,
+      })
+      .returning();
+    await audit(tx, actor, "enrolment.hold", "enrolment", e.id, { batchId: batch.id, orderId: order.id, marketplace: true });
+    return { status: "held" as const, enrolmentId: e.id, orderId: order.id, totalPaise: order.totalPaise, expiresAt, gateway: order.gateway, checkout: {} };
+  }).catch((err) => {
+    if (isUniqueViolation(err)) throw new ConflictError("You already own this.", "already_enrolled");
+    throw err;
+  });
+
+  return startGatewayOrder(actor, held);
 }
 
 export type PaymentOutcome = { status: "enrolled" | "already_paid" | "refund_due"; enrolmentId: string; invoiceNumber?: string };
@@ -365,8 +434,10 @@ export async function confirmPayment(universityId: string, input: { orderId: str
     const invoice = await issueInvoice(tx, order.id);
     await notify(tx, universityId, [order.userId], {
       kind: "enrolment.confirmed",
-      title: `You're enrolled in ${course.title}`,
-      body: `${batch.startDate > (await universityToday(tx, universityId)) ? `${batch.name} starts on ${formatDate(batch.startDate)}` : `${batch.name} is on your timetable now`}. Invoice ${invoice.number} is ready.`,
+      title: batch.recorded ? `${course.title} is in your library` : `You're enrolled in ${course.title}`,
+      body: batch.recorded
+        ? `Invoice ${invoice.number} is ready.`
+        : `${batch.startDate > (await universityToday(tx, universityId)) ? `${batch.name} starts on ${formatDate(batch.startDate)}` : `${batch.name} is on your timetable now`}. Invoice ${invoice.number} is ready.`,
       data: { courseId: course.id, batchId: batch.id, invoiceId: invoice.id },
     });
     await audit(tx, sys, "payment.confirmed", "order", order.id, { gatewayPaymentId: input.gatewayPaymentId, invoice: invoice.number });

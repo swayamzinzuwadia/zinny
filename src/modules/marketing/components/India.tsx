@@ -17,7 +17,7 @@ export function India() {
           <p className="text-[14px] text-brand">Made for India</p>
           <h2
             id="india-title"
-            className={`${display.className} mt-4 text-[clamp(2.5rem,5vw,4rem)] leading-[0.98] tracking-[-0.02em] ${css.balance}`}
+            className={`${display.className} ${css.heading} mt-4 text-[clamp(2.5rem,5vw,4rem)] leading-[0.98] tracking-[-0.02em] ${css.balance}`}
           >
             Built for how institutes here actually run.
           </h2>

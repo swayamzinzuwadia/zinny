@@ -31,6 +31,7 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@
 import {
   completeLessonTx,
   finishCompletions,
+  isRecordedBatch,
   learnerEnrolment,
   lockCourseProgress,
   lockLessonProgress,
@@ -82,7 +83,8 @@ export type Outline = {
 
 async function buildOutline(tx: Tx, e: EnrolmentRef, batchStart: string, today: string): Promise<Outline> {
   const { sections, lessons } = await courseCurriculum(tx, e.courseId);
-  const ready = lessons.filter((l) => l.ready);
+  const recorded = await isRecordedBatch(tx, e.batchId);
+  const ready = lessons.filter((l) => l.ready && !(recorded && l.kind === "live"));
   const progress = await tx
     .select()
     .from(contentLessonProgress)

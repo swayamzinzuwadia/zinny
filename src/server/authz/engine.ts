@@ -50,8 +50,14 @@ export type Target = {
   ownerUserId?: string;
 };
 
+/**
+ * starts_at comes from the database's clock and `now` from the app's. They can differ by a
+ * moment, and a role must count as soon as it's granted, even within the same request.
+ */
+const CLOCK_SKEW_MS = 5_000;
+
 export function isActive(a: Assignment, now = new Date()): boolean {
-  return a.startsAt <= now && (a.endsAt === null || a.endsAt > now);
+  return a.startsAt.getTime() - CLOCK_SKEW_MS <= now.getTime() && (a.endsAt === null || a.endsAt > now);
 }
 
 /** Does this assignment grant `action` at all (role grants it, and from this kind of scope)? */

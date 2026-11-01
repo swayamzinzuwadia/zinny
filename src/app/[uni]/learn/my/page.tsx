@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Badge, Card, Empty } from "@/components/ui";
 import { SlotList } from "@/components/slots";
+import { hasRole } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { formatDate } from "@/server/lib/dates";
 import { visibleSlots } from "@/server/registry";
@@ -12,6 +14,7 @@ export const metadata = { title: "My learning" };
 export default async function MyLearning({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
   const { actor, university } = await spaceContext(uni);
+  if (!hasRole(actor, ["student", "alumni", "parent"])) redirect("/marketplace/library");
   const all = await myLearning(actor);
   const learning = all.filter((l) => l.status === "active");
   const completed = all.filter((l) => l.status === "completed");

@@ -70,7 +70,7 @@ export function Roles() {
           <p className="text-[14px] text-brand">Every role</p>
           <h2
             id="roles-title"
-            className={`${display.className} mt-4 text-[clamp(2.5rem,5.5vw,4.5rem)] leading-[0.98] tracking-[-0.02em] ${css.balance}`}
+            className={`${display.className} ${css.heading} mt-4 text-[clamp(2.5rem,5.5vw,4.5rem)] leading-[0.98] tracking-[-0.02em] ${css.balance}`}
           >
             One product. <em className="text-brand">The right view</em> for everyone in it.
           </h2>
@@ -114,7 +114,7 @@ export function Roles() {
               transition={{ duration: motionTokens.duration.normal, ease: motionTokens.easing.smooth }}
               className="text-center lg:text-left"
             >
-              <p className={`${display.className} text-[clamp(1.75rem,3vw,2.5rem)] leading-tight`}>{role.who}</p>
+              <p className={`${display.className} ${css.accent} text-[clamp(1.75rem,3vw,2.5rem)] leading-tight`}>{role.who}</p>
               <p className={`mx-auto mt-4 max-w-md text-[16px] leading-relaxed text-muted lg:mx-0 ${css.pretty}`}>{role.line}</p>
             </motion.div>
           </AnimatePresence>

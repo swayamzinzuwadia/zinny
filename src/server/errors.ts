@@ -33,3 +33,9 @@ export class ConflictError extends AppError {
     super(message, code, 409, details);
   }
 }
+
+/** Postgres refused a duplicate of a unique index. Drizzle keeps the driver's error in `cause`. */
+export function isUniqueViolation(e: unknown) {
+  const err = e as { code?: string; cause?: { code?: string } } | null;
+  return err?.code === "23505" || err?.cause?.code === "23505";
+}

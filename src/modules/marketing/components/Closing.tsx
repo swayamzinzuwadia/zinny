@@ -12,7 +12,7 @@ export function Closing() {
         <Reveal className="mx-auto max-w-3xl text-center">
           <h2
             id="closing-title"
-            className={`${display.className} text-[clamp(2.75rem,7vw,6rem)] leading-[0.95] tracking-[-0.025em] ${css.balance}`}
+            className={`${display.className} ${css.headline} text-[clamp(2.75rem,7vw,6rem)] leading-[0.95] tracking-[-0.025em] ${css.balance}`}
           >
             See your institute, <em className="text-gold">in order.</em>
           </h2>
@@ -42,6 +42,7 @@ export function Closing() {
             <a href="#roles" className="hover:text-canvas">Every role</a>
             <Link href="/verify" className="hover:text-canvas">Verify a certificate</Link>
             <Link href="/login" className="hover:text-canvas">Sign in</Link>
+            <Link href="/signup" className="hover:text-canvas">Sign up</Link>
           </nav>
           <p>© 2026 Zinny</p>
         </footer>

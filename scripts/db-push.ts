@@ -34,8 +34,8 @@ export async function dropEverything(url: string) {
 
 /** Runs drizzle-kit push against `url`. Throws with drizzle-kit's own output when it fails. */
 export function drizzlePush(url: string, cwd = process.cwd()) {
-  const bin = join(cwd, "node_modules", ".bin", process.platform === "win32" ? "drizzle-kit.cmd" : "drizzle-kit");
-  const res = spawnSync(bin, ["push", "--force"], {
+  // Through node, not node_modules/.bin: Windows can't spawn the .cmd wrapper without a shell.
+  const res = spawnSync(process.execPath, [join(cwd, "node_modules", "drizzle-kit", "bin.cjs"), "push", "--force"], {
     cwd,
     env: { ...process.env, DATABASE_URL_OWNER: url },
     encoding: "utf8",

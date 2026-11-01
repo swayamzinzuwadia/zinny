@@ -9,7 +9,7 @@ import type { ActionState } from "@/components/forms";
 import { str } from "@/server/action";
 import { AppError, ValidationError } from "@/server/errors";
 import { humanDuration } from "@/server/auth/config";
-import { clientInfo, cookieOptions, spacesFor, startSession, type SessionMethod } from "@/server/auth/session";
+import { clientInfo, cookieOptions, homeSpacesFor, startSession, type SessionMethod } from "@/server/auth/session";
 import {
   PHONE_COOKIE_MS,
   acceptInvite,
@@ -22,6 +22,7 @@ import {
   safeNext,
   signInMessage,
   signInWithPassword,
+  signUpMarketplaceLearner,
   signUpStudent,
   startPhoneSignIn,
   verifyPhoneCode,
@@ -36,7 +37,7 @@ import { PHONE_COOKIE, UNI_COOKIE } from "@/modules/identity/cookies";
  */
 async function signInAs(userId: string, method: SessionMethod, next?: string | null): Promise<string> {
   await startSession(userId, method, { keepFresh: true });
-  const spaces = await spacesFor(userId);
+  const spaces = await homeSpacesFor(userId);
   if (spaces.length === 1) (await cookies()).set(UNI_COOKIE, spaces[0].slug, { ...cookieOptions(), maxAge: 400 * 86_400 });
   return landingAfterSignIn(userId, next);
 }
@@ -89,14 +90,9 @@ export async function signUpAction(_: AuthState, data: FormData): Promise<AuthSt
   let dest: string | null = null;
   try {
     const { ip } = await clientInfo();
-    const r = await signUpStudent({
-      slug: str(data, "uni"),
-      name,
-      email,
-      password: String(data.get("password") ?? ""),
-      confirm: String(data.get("confirm") ?? ""),
-      ip,
-    });
+    const slug = str(data, "uni");
+    const details = { name, email, password: String(data.get("password") ?? ""), confirm: String(data.get("confirm") ?? ""), ip };
+    const r = slug ? await signUpStudent({ ...details, slug }) : await signUpMarketplaceLearner(details);
     if (r.status === "network_limited") {
       const wait = humanDuration(r.retryAt.getTime() - Date.now());
       return { error: `Too many new accounts from your network. Try again in ${wait}.`, code: "network_limited", email, name, at: Date.now() };

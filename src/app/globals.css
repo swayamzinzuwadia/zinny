@@ -62,6 +62,19 @@ h3 {
 }
 
 /*
+ * Playfair Display headlines on public pages. A wrapper sets --font-playfair (display.variable
+ * in src/modules/marketing/fonts.ts). Only h1 and h2: Playfair needs size to read well.
+ */
+.font-display,
+.display-headings h1,
+.display-headings h2 {
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-synthesis: none;
+  font-variant-numeric: lining-nums;
+  letter-spacing: -0.012em;
+}
+
+/*
  * Sidebar scrolling: a thin cream thumb that only shows while the pointer is over the
  * menu, and soft fades at the top and bottom edges so items don't cut off hard.
  */

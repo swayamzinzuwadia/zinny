@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Notice } from "@/components/ui";
+import { hasRole } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { batchOptions } from "@/server/services/enrolment";
 import { formatINR, gstFor } from "@/server/services/finance";
@@ -8,6 +10,7 @@ import { BatchPicker } from "../../batch-picker";
 export default async function CoursePage({ params }: { params: Promise<{ uni: string; id: string }> }) {
   const { uni, id } = await params;
   const { actor } = await spaceContext(uni);
+  if (!hasRole(actor, ["student", "alumni"])) redirect("/marketplace");
   const { course, options, myEnrolment } = await batchOptions(actor, id);
   const total = course.pricePaise + gstFor(course.pricePaise, course.gstRateBp);
 

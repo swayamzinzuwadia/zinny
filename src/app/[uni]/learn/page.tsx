@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { SlotList } from "@/components/slots";
 import { Card, CardTitle, Empty, buttonClass, cx } from "@/components/ui";
 import { WeekView } from "@/components/week-view";
@@ -27,7 +28,8 @@ function startsIn(mins: number) {
 export default async function LearnHome({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
   const { actor, university } = await spaceContext(uni);
-  const isStudent = hasRole(actor, ["student", "alumni", "individual_learner"]);
+  if (!hasRole(actor, ["student", "alumni", "parent"])) redirect("/marketplace/library");
+  const isStudent = hasRole(actor, ["student", "alumni"]);
   const first = actor.name.split(" ")[0];
   const nowMin = minutesNowIn(university.timezone);
 

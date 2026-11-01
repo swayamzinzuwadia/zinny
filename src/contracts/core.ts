@@ -62,6 +62,6 @@ export type CheckoutOrder = {
     universityId: string;
   };
   course: { id: string; title: string; gstRateBp: number };
-  batch: { id: string; name: string };
+  batch: { id: string; name: string; recorded: boolean };
   enrolment: { id: string; status: EnrolmentStatus; holdExpiresAt: Date | null } | null;
 };

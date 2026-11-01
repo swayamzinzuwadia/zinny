@@ -176,6 +176,8 @@ export const batches = pgTable("batches", {
   seatLimit: integer("seat_limit").notNull(),
   status: batchStatus("status").notNull().default("open"),
   meetingUrl: text("meeting_url"),
+  /** How marketplace buyers hold a seat: no timetable, no real seat limit, never offered for enrolment. */
+  recorded: boolean("recorded").notNull().default(false),
   createdAt: createdAt(),
 }, (t) => [
   check("batch_dates", sql`${t.endDate} >= ${t.startDate}`),

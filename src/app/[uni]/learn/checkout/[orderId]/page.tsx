@@ -18,15 +18,18 @@ export default async function Checkout({ params }: { params: Promise<{ uni: stri
   const { actor } = await spaceContext(uni);
   const v = await checkoutView(actor, orderId);
   const { order, course, batch, enrolment } = v;
-  const coursePage = `/${uni}/learn/courses/${course.id}`;
+  // A marketplace purchase has no batch to pick: every way back leads to the marketplace.
+  const recorded = batch.recorded;
+  const coursePage = recorded ? "/marketplace" : `/${uni}/learn/courses/${course.id}`;
 
   const cancel = (
     <ActionForm action={cancelCheckoutAction}>
       <input type="hidden" name="uni" value={uni} />
       <input type="hidden" name="orderId" value={order.id} />
       <input type="hidden" name="courseId" value={course.id} />
-      <SubmitButton variant="ghost" size="sm" pendingText="Releasing your seat…">
-        Cancel and pick another batch
+      {recorded && <input type="hidden" name="recorded" value="1" />}
+      <SubmitButton variant="ghost" size="sm" pendingText={recorded ? "Cancelling…" : "Releasing your seat…"}>
+        {recorded ? "Cancel this purchase" : "Cancel and pick another batch"}
       </SubmitButton>
     </ActionForm>
   );
@@ -40,7 +43,7 @@ export default async function Checkout({ params }: { params: Promise<{ uni: stri
 
       <Card className="p-5 sm:p-6">
         <div className="text-[17px] font-semibold leading-snug">{course.title}</div>
-        <div className="text-sm text-muted">{batch.name}</div>
+        <div className="text-sm text-muted">{recorded ? v.universityName : batch.name}</div>
 
         <dl className="mt-5 space-y-2 text-[14px]">
           <div className="flex justify-between gap-4">
@@ -61,7 +64,7 @@ export default async function Checkout({ params }: { params: Promise<{ uni: stri
           </div>
         </dl>
 
-        {v.state === "pay" && enrolment?.holdExpiresAt && (
+        {v.state === "pay" && !recorded && enrolment?.holdExpiresAt && (
           <div className="mt-5 flex items-center gap-2.5 rounded-2xl bg-gold-soft px-4 py-3 text-[14px] text-gold-strong">
             <span className="now-dot h-2 w-2 shrink-0 rounded-full bg-gold" aria-hidden />
             <Countdown until={enrolment.holdExpiresAt.toISOString()} />
@@ -110,9 +113,9 @@ export default async function Checkout({ params }: { params: Promise<{ uni: stri
 
           {v.state === "paid" && (
             <>
-              <Notice>Payment received. You&apos;re enrolled in {batch.name}.</Notice>
+              <Notice>{recorded ? `Payment received. ${course.title} is in your library.` : <>Payment received. You&apos;re enrolled in {batch.name}.</>}</Notice>
               <div className="flex flex-wrap gap-2">
-                <ButtonLink href={`/${uni}/learn/timetable`}>Open my timetable</ButtonLink>
+                {recorded ? <ButtonLink href="/marketplace/library">Open my library</ButtonLink> : <ButtonLink href={`/${uni}/learn/timetable`}>Open my timetable</ButtonLink>}
                 {v.invoice && (
                   <a href={`/${uni}/learn/invoices/${v.invoice.id}`} className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
                     Download invoice
@@ -125,11 +128,11 @@ export default async function Checkout({ params }: { params: Promise<{ uni: stri
           {v.state === "refund_due" && (
             <>
               <Notice tone="gold">
-                The batch filled up before your payment finished, so you weren&apos;t enrolled. Your {inr(order.totalPaise)} will be refunded in full
+                {recorded ? "You already own this, so you weren't charged for it twice." : "The batch filled up before your payment finished, so you weren't enrolled."} Your {inr(order.totalPaise)} will be refunded in full
                 {v.refundedPaise > 0 ? `; ${inr(v.refundedPaise)} is refunded so far.` : "."} You&apos;ll get a notification when the refund is sent.
               </Notice>
               <ButtonLink href={coursePage} variant="secondary">
-                Pick another batch
+                {recorded ? "Back to the marketplace" : "Pick another batch"}
               </ButtonLink>
             </>
           )}
@@ -138,7 +141,7 @@ export default async function Checkout({ params }: { params: Promise<{ uni: stri
             <>
               <Notice tone="neutral">This payment was refunded in full. It reaches your account in 5 to 7 working days.</Notice>
               <ButtonLink href={coursePage} variant="secondary">
-                See the batches
+                {recorded ? "Back to the marketplace" : "See the batches"}
               </ButtonLink>
             </>
           )}
@@ -146,10 +149,11 @@ export default async function Checkout({ params }: { params: Promise<{ uni: stri
           {v.state === "closed" && (
             <>
               <Notice tone="neutral">
-                {order.status === "failed" ? "The payment didn't go through, so your seat was released." : "This checkout timed out and your seat was released."} Pick a batch again to
-                try once more.
+                {recorded
+                  ? `${order.status === "failed" ? "The payment didn't go through." : "This checkout timed out."} You weren't charged. Open the listing again to try once more.`
+                  : `${order.status === "failed" ? "The payment didn't go through, so your seat was released." : "This checkout timed out and your seat was released."} Pick a batch again to try once more.`}
               </Notice>
-              <ButtonLink href={coursePage}>Pick a batch again</ButtonLink>
+              <ButtonLink href={coursePage}>{recorded ? "Back to the marketplace" : "Pick a batch again"}</ButtonLink>
             </>
           )}
         </div>

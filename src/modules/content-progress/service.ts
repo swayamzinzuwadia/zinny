@@ -10,7 +10,7 @@
  * made optional, or its content published) recounts the course's progress in the same
  * transaction; enrolments that reach 100% are completed through core afterwards.
  */
-import { asc, eq, sql } from "drizzle-orm";
+import { asc, eq, inArray, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { assertCan, audit, can, courseTarget, getCourseLite, storage, withTenant, type Actor, type Target } from "@/server/core";
 import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
@@ -71,10 +71,25 @@ async function afterCommit(universityId: string, a: AfterCommit) {
   if (a.finished.length) await finishCompletions(universityId, a.finished);
 }
 
+/** A lecture sold on the marketplace shares its file with the lesson it came from, so a file goes only with its last lesson. */
+async function unusedKeys(tx: Tx, keys: string[]) {
+  if (keys.length === 0) return keys;
+  const used = await tx
+    .select({ key: sql<string>`${contentLessons.content}->>'key'` })
+    .from(contentLessons)
+    .where(inArray(sql`${contentLessons.content}->>'key'`, keys));
+  const stillUsed = new Set(used.map((u) => u.key));
+  return keys.filter((k) => !stillUsed.has(k));
+}
+
 /** Runs a curriculum change in one transaction, then its after-commit work. */
 async function change<T>(actor: Actor, fn: (tx: Tx, later: AfterCommit) => Promise<T>): Promise<T> {
   const later: AfterCommit = { deleteKeys: [], finished: [] };
-  const result = await withTenant(actor, (tx) => fn(tx, later));
+  const result = await withTenant(actor, async (tx) => {
+    const r = await fn(tx, later);
+    later.deleteKeys = await unusedKeys(tx, later.deleteKeys);
+    return r;
+  });
   await afterCommit(uni(actor), later);
   return result;
 }

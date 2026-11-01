@@ -46,7 +46,7 @@ export async function listCourses(actor: Actor) {
         pricePaise: courses.pricePaise,
         departmentId: courses.departmentId,
         departmentName: departments.name,
-        batchCount: sql<number>`(select count(*)::int from batches b where b.course_id = ${courses.id})`,
+        batchCount: sql<number>`(select count(*)::int from batches b where b.course_id = ${courses.id} and not b.recorded)`,
         studentCount: sql<number>`(select count(*)::int from enrolments e where e.course_id = ${courses.id} and e.status = 'active')`,
       })
       .from(courses)
@@ -98,6 +98,27 @@ export async function createCourse(actor: Actor, input: CourseInput) {
     await audit(tx, actor, "course.create", "course", course.id, { title: course.title, departmentId: dept.id });
     return course;
   });
+}
+
+/**
+ * The course behind one lecture sold on the marketplace. Archived, so the institute's own
+ * students never see it in the catalogue. The caller has checked permission on `source`.
+ */
+export async function createLectureCourse(tx: Tx, actor: Actor, source: typeof courses.$inferSelect, title: string) {
+  const [course] = await tx
+    .insert(courses)
+    .values({
+      universityId: uni(actor),
+      departmentId: source.departmentId,
+      title,
+      gstRateBp: source.gstRateBp,
+      certificateEnabled: false,
+      status: "archived",
+      createdBy: actor.userId,
+    })
+    .returning();
+  await audit(tx, actor, "course.create", "course", course.id, { title, lectureOf: source.id });
+  return course;
 }
 
 export async function updateCourse(

@@ -254,6 +254,14 @@ export async function spacesFor(userId: string) {
   return [...map.values()].map((s) => ({ ...s, roles: [...s.roles] }));
 }
 
+/**
+ * The spaces this person belongs to, leaving out institutes they only bought from on the
+ * marketplace. Those purchases live in My library, so they aren't a home to land in.
+ */
+export async function homeSpacesFor(userId: string) {
+  return (await spacesFor(userId)).filter((s) => s.roles.some((r) => r !== "individual_learner"));
+}
+
 /** Session ids that still exist, of those given (used to show "signed out" after revoking). */
 export async function liveSessionIds(ids: string[]): Promise<Set<string>> {
   if (ids.length === 0) return new Set();

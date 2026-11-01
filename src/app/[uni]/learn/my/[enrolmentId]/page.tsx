@@ -36,8 +36,8 @@ export default async function CourseHub({ params, searchParams }: { params: Prom
 
   return (
     <>
-      <Link href={`/${uni}/learn/my`} className="text-sm text-muted">
-        My learning
+      <Link href={b.recorded ? "/marketplace/library" : `/${uni}/learn/my`} className="text-sm text-muted">
+        {b.recorded ? "My library" : "My learning"}
       </Link>
       <div className="mb-6 mt-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -45,6 +45,9 @@ export default async function CourseHub({ params, searchParams }: { params: Prom
           {e.status === "completed" && <Badge tone="brand">Completed</Badge>}
           {e.switchRequest && <Badge tone="warn">Switch requested</Badge>}
         </div>
+        {b.recorded ? (
+          <p className="mt-1 text-[14px] text-muted">From {university.name}. Yours to watch at your own pace.</p>
+        ) : (
         <Card className="mt-4 p-5">
           <dl className="grid gap-3 text-[14px] sm:grid-cols-3">
             <div>
@@ -67,6 +70,7 @@ export default async function CourseHub({ params, searchParams }: { params: Prom
             <SwitchBatch uni={uni} enrolmentId={e.enrolmentId} switchRequest={e.switchRequest} lastDecision={e.lastDecision} options={e.allOptions} />
           )}
         </Card>
+        )}
       </div>
 
       {tabs.length === 0 ? (

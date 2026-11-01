@@ -5,7 +5,7 @@ import "server-only";
  *
  * Brief exception: this file and src/server/auth/ may use systemDb(), and the only core
  * data they write is users.password_hash, the sessions table, and the new user, student
- * role and audit entry of a sign-up (signUpStudent). Other university tables
+ * role and audit entry of a sign-up (signUpStudent, signUpMarketplaceLearner). Other university tables
  * (invitations, phone challenges, settings) are still read and written under row-level
  * security with withTenant(systemActorFor(universityId)), so an invitation for one
  * university can never be found, or used, from another.
@@ -24,8 +24,9 @@ import { deferAfterResponse, type Defer } from "@/server/auth/defer";
 import { checkNewPassword, hashPassword, verifyAgainstNothing, verifyPassword } from "@/server/auth/passwords";
 import { maskEmail, maskPhone, normalizePhone, phoneTail } from "@/server/auth/phone";
 import { clearThrottle, consume, lockedUntil, pruneThrottles, recordFailure, throttleKey } from "@/server/auth/throttle";
-import { pruneSessions, spacesFor } from "@/server/auth/session";
+import { homeSpacesFor, pruneSessions } from "@/server/auth/session";
 import { compactUuid, expandUuid, hmac, randomToken, sameHex, sha256, sixDigitCode } from "@/server/auth/tokens";
+import { mktLearners } from "@/modules/marketplace/schema";
 import { passwordChangedEmail, resetEmail, signInCodeSms } from "./emails";
 import { ADMIN_PANEL, landingFor, roleTitle } from "./labels";
 import { idnInvites, idnOtpChallenges, idnSettings, idnTokens } from "./schema";
@@ -39,7 +40,7 @@ const resetUrl = () => `${appUrl()}/reset`;
 export type LoginUniversity = { id: string; slug: string; name: string; phoneSignIn: boolean; signupOpen: boolean };
 
 /** Paths that are app routes, not university slugs. */
-const RESERVED = new Set(["login", "signup", "invite", "reset", "platform", "api", "verify", "site", "_next", "brand", "favicon.ico"]);
+const RESERVED = new Set(["login", "signup", "invite", "reset", "platform", "marketplace", "api", "verify", "site", "_next", "brand", "favicon.ico"]);
 
 /** The university slug at the start of a `next` path ("/demo/learn" → "demo"), if any. */
 export function slugFromNext(next: string | null | undefined): string | null {
@@ -84,7 +85,8 @@ export function safeNext(next: string | null | undefined): string | null {
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return null;
   if (/[\u0000-\u001f]/.test(next) || next.length > 500) return null;
   // "/demo" alone has no page: the space picker at "/" sends people to the right app.
-  if (/^\/[a-z0-9-]+\/?$/i.test(next.split(/[?#]/)[0])) return "/";
+  const path = next.split(/[?#]/)[0];
+  if (/^\/[a-z0-9-]+\/?$/i.test(path) && path !== "/marketplace") return "/";
   if (/^\/(login|reset|invite)(\/|$|\?)/.test(next)) return "/";
   return next;
 }
@@ -98,10 +100,14 @@ export async function landingAfterSignIn(userId: string, next: string | null | u
   const safe = safeNext(next) ?? "/";
   if (safe !== "/") return safe;
   if (await activePlatformRole(userId, new Date())) return "/";
-  const spaces = await spacesFor(userId);
+  const spaces = await homeSpacesFor(userId);
   const wanted = slugFromNext(next);
   const space = spaces.find((s) => s.slug === wanted) ?? (spaces.length === 1 ? spaces[0] : null);
-  if (!space) return "/";
+  if (!space) {
+    // Someone who signed up for the marketplace has no institute to go to.
+    const [learner] = spaces.length === 0 ? await systemDb().select({ id: mktLearners.userId }).from(mktLearners).where(eq(mktLearners.userId, userId)) : [];
+    return learner ? "/marketplace" : "/";
+  }
   return `/${space.slug}/${space.roles.some((r) => ADMIN_PANEL.has(r as RoleName)) ? "admin" : "learn"}`;
 }
 
@@ -109,26 +115,16 @@ export async function landingAfterSignIn(userId: string, next: string | null | u
 
 export type SignUpResult = { status: "created"; userId: string; landing: string } | { status: "network_limited"; retryAt: Date };
 
-/**
- * Creates a student account at one institute, for /signup. It only ever creates a new
- * person: an email already in Zinny is refused, so nobody can take over an account or a
- * pending invitation by signing up with its address. The caller starts the session.
- * The answer does show that an email is taken, so attempts are capped per network.
- */
-export async function signUpStudent(input: {
-  slug: string;
-  name: string;
-  email: string;
-  password: string;
-  confirm: string;
-  ip: string | null;
-  now?: Date;
-}): Promise<SignUpResult> {
-  const now = input.now ?? new Date();
-  const university = await loginUniversity(input.slug);
-  if (!university) throw new ValidationError("We can't find that institute. Check the code and try again.", "unknown_institute");
-  if (!university.signupOpen) throw new ValidationError(`${university.name} isn't taking new students here. Please contact the institute.`, "signup_closed");
+type SignUpInput = { name: string; email: string; password: string; confirm: string; ip: string | null; now?: Date };
 
+/**
+ * Sign-up only ever creates a new person: an email already in Zinny is refused, so nobody
+ * can take over an account or a pending invitation by signing up with its address. The
+ * caller starts the session. The answer does show that an email is taken, so attempts are
+ * capped per network. `setUp` adds what makes this person a student or a marketplace learner.
+ */
+async function createAccount(input: SignUpInput, setUp: (tx: Tx, userId: string) => Promise<string>): Promise<SignUpResult> {
+  const now = input.now ?? new Date();
   const name = input.name.trim().replace(/\s+/g, " ");
   const email = normEmail(input.email);
   if (name.length < 2 || name.length > 100) throw new ValidationError("Enter your full name.");
@@ -144,15 +140,34 @@ export async function signUpStudent(input: {
     // The unique index on the email settles two sign-ups racing for the same address.
     const [created] = await tx.insert(users).values({ email, name, passwordHash }).onConflictDoNothing().returning({ id: users.id });
     if (!created) throw new ValidationError("This email already has a Zinny account. Sign in, or reset your password if you've forgotten it.", "email_taken");
+    return { status: "created" as const, userId: created.id, landing: await setUp(tx, created.id) };
+  });
+}
+
+/** A person on their own, for the marketplace. They belong to no institute. */
+export async function signUpMarketplaceLearner(input: SignUpInput): Promise<SignUpResult> {
+  return createAccount(input, async (tx, userId) => {
+    await tx.insert(mktLearners).values({ userId });
+    return "/marketplace";
+  });
+}
+
+/** A student account at one institute, for /signup?uni=<institute>. */
+export async function signUpStudent(input: SignUpInput & { slug: string }): Promise<SignUpResult> {
+  const university = await loginUniversity(input.slug);
+  if (!university) throw new ValidationError("We can't find that institute. Check the code and try again.", "unknown_institute");
+  if (!university.signupOpen) throw new ValidationError(`${university.name} isn't taking new students here. Please contact the institute.`, "signup_closed");
+
+  return createAccount(input, async (tx, userId) => {
     await tx.insert(roleAssignments).values({
-      userId: created.id,
+      userId,
       role: "student",
       scopeType: "university",
       universityId: university.id,
-      createdBy: created.id,
+      createdBy: userId,
     });
-    await audit(tx, personActor(university.id, created.id), "user.self_signup", "user", created.id, { role: "student" });
-    return { status: "created" as const, userId: created.id, landing: landingFor(university.slug, "student") };
+    await audit(tx, personActor(university.id, userId), "user.self_signup", "user", userId, { role: "student" });
+    return landingFor(university.slug, "student");
   });
 }
 
@@ -237,6 +252,7 @@ export const DEMO_ACCOUNTS = [
   ["Teaching", "vikram@demo.edu", "Visiting Faculty"],
   ["Students", "riya@demo.edu", "Student (PRD example week)"],
   ["Students", "kabir@demo.edu", "Student (switch pending)"],
+  ["Students", "neha@zinny.demo", "Marketplace learner"],
   ["Parents", "pallavi@demo.edu", "Parent of Riya"],
 ] as const;
 

@@ -53,7 +53,7 @@ export async function dashboard(actor: Actor) {
       ? await tx
           .select({ id: batches.id, departmentId: batches.departmentId, status: batches.status, endDate: batches.endDate })
           .from(batches)
-          .where(inArray(batches.courseId, courseIds))
+          .where(and(inArray(batches.courseId, courseIds), eq(batches.recorded, false)))
       : [];
     const scoped = rows.filter((b) => batchReach.all || batchReach.departmentIds.has(b.departmentId) || batchReach.batchIds.has(b.id));
     const live = scoped.filter((b) => b.status !== "archived" && b.endDate >= today);

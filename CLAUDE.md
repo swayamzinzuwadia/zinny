@@ -7,7 +7,7 @@ Several agents build Zinny at the same time, each in its own git worktree. That 
 ## Stack (fixed — do not change or add alternatives)
 
 - Next.js 15 App Router, React 19, TypeScript (strict), server actions
-- Tailwind CSS v4 with the brand tokens in `src/app/globals.css`; font Lexend
+- Tailwind CSS v4 with the brand tokens in `src/app/globals.css`; font Lexend, with Playfair Display (variable) for h1 and h2 on public pages: landing, sign-in, marketplace, institute sites
 - PostgreSQL 16, Drizzle ORM; row-level security for tenant isolation
 - Own session auth (bcrypt + httpOnly cookie)
 - Razorpay for payments (mock gateway in dev)
@@ -33,7 +33,7 @@ npm run check:ownership                 # fails if you changed a file you don't 
 
 1. **Business rules live in services.** Module code goes in `src/modules/<module>/`. Pages and server actions only call service functions.
 2. **Every service function** checks permission first (`assertCan` for one record, `reach` for lists, from `@/server/authz/engine`), runs its queries inside `withTenant(actor, tx => …)`, and calls `audit(tx, actor, …)` for every write.
-3. **Never use `systemDb()`** in module code. Jobs and webhooks use `systemActorFor(universityId)` with `withTenant`. The only exception is named in your brief.
+3. **Never use `systemDb()`** in module code. Jobs and webhooks use `systemActorFor(universityId)` with `withTenant`. The only exception is named in your brief. The marketplace reads across institutes by design: `src/modules/marketplace/service.ts` uses `systemDb()` for reads only, and writes under the seller's row-level security.
 4. **Every table holding university data** has `university_id uuid not null` referencing `universities`. Row-level security is applied automatically to any table with that column. Money is integer paise. Dates are `YYYY-MM-DD` strings; times of day are in the university's time zone.
 5. **Stay inside your ownership.** Only create or edit files listed under "You own" in your brief. Everything else is read-only for you, including: `src/db/schema.ts`, `src/server/**`, `src/components/**`, `src/contracts/**`, `src/app/globals.css`, `drizzle.config.ts`, `CLAUDE.md`, `docs/plan/**`, other modules' folders, and other agents' routes. `npm run check:ownership` must pass before you finish.
 6. **Talk to other modules only through contracts** (`docs/plan/contracts.md`): emit and handle events, register into slots, and call the core API in `@/server/core`. Never import another module's files and never query another module's tables. If you need data another module owns, it must arrive as an event payload. Core tables (the ones in `src/db/schema.ts`) are frozen during a wave: you may read them directly with `select`, but change them only through the core API.

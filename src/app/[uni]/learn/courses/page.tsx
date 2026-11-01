@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import { Empty } from "@/components/ui";
+import { hasRole } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { browseCatalog, myLearning } from "@/server/services/enrolment";
 import { formatINR } from "@/server/services/finance";
@@ -9,6 +11,7 @@ export const metadata = { title: "Courses" };
 export default async function Catalog({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
   const { actor } = await spaceContext(uni);
+  if (!hasRole(actor, ["student", "alumni"])) redirect("/marketplace");
   const [courses, learning] = await Promise.all([browseCatalog(actor), myLearning(actor)]);
   const mine = new Map(learning.filter((l) => l.status === "active").map((l) => [l.course.id, l.enrolmentId]));
   const departments = new Set(courses.map((c) => c.departmentName)).size;

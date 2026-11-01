@@ -9,6 +9,7 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import type { ActionState } from "@/components/forms";
 import { attempt, str } from "@/server/action";
 import { spaceContext } from "@/server/context";
+import { orderForCheckout, type Actor } from "@/server/core";
 import { AppError, ValidationError } from "@/server/errors";
 import { abandonCheckout, failInTestMode, payInTestMode, verifyCheckoutPayment, type PaymentConfirmation } from "./checkout";
 import { parseRupees } from "./money";
@@ -23,8 +24,10 @@ async function ctx(uni: string) {
   return actor;
 }
 
-function afterPayment(uni: string, orderId: string, out: PaymentConfirmation) {
-  return out.status === "refund_due" ? `/${uni}/learn/checkout/${orderId}` : `/${uni}/learn/timetable?enrolled=1`;
+async function afterPayment(actor: Actor, uni: string, orderId: string, out: PaymentConfirmation) {
+  if (out.status === "refund_due") return `/${uni}/learn/checkout/${orderId}`;
+  const { batch } = await orderForCheckout(actor, orderId);
+  return batch.recorded ? "/marketplace/library?bought=1" : `/${uni}/learn/timetable?enrolled=1`;
 }
 
 type ClientResult = { ok: true; next?: string } | { ok: false; error: string };
@@ -57,7 +60,7 @@ export async function verifyRazorpayAction(input: {
       razorpayPaymentId: String(input.razorpay_payment_id ?? ""),
       signature: String(input.razorpay_signature ?? ""),
     });
-    return afterPayment(input.uni, input.orderId, out);
+    return afterPayment(actor, input.uni, input.orderId, out);
   });
 }
 
@@ -88,7 +91,7 @@ export async function payTestModeAction(_: ActionState, data: FormData): Promise
   let next: string | null = null;
   const res = await attempt(async () => {
     const actor = await ctx(uni);
-    next = afterPayment(uni, orderId, await payInTestMode(actor, orderId));
+    next = await afterPayment(actor, uni, orderId, await payInTestMode(actor, orderId));
   });
   if (next) redirect(next);
   return res;
@@ -114,6 +117,7 @@ export async function cancelCheckoutAction(_: ActionState, data: FormData): Prom
     await abandonCheckout(await ctx(uni), orderId, { reason: "dismissed", description: "Cancelled on the checkout page" });
   });
   if (res?.error) return res;
+  if (str(data, "recorded")) redirect("/marketplace");
   redirect(/^[0-9a-f-]{36}$/i.test(courseId) ? `/${uni}/learn/courses/${courseId}` : `/${uni}/learn/courses`);
 }
 

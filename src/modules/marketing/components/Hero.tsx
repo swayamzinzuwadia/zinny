@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { demoHref } from "../config";
 import { display } from "../fonts";
 import css from "../landing.module.css";
@@ -10,7 +11,7 @@ export function Hero() {
         <p className={`text-[14px] text-brand ${css.rise}`}>For institutes</p>
         <h1
           id="hero-title"
-          className={`${display.className} mt-5 text-[clamp(3.25rem,9vw,7.5rem)] leading-[0.92] tracking-[-0.025em] text-ink ${css.balance} ${css.rise} ${css.d1}`}
+          className={`${display.className} ${css.headline} mt-5 text-[clamp(3.25rem,9vw,7.5rem)] leading-[0.92] tracking-[-0.025em] text-ink ${css.balance} ${css.rise} ${css.d1}`}
         >
           The whole institute, <em className="text-brand">in order.</em>
         </h1>
@@ -32,6 +33,12 @@ export function Hero() {
             See how it works
           </a>
         </div>
+        <p className={`mt-6 text-[15px] text-muted ${css.rise} ${css.d3}`}>
+          Learning on your own?{" "}
+          <Link href="/signup" className="font-medium text-brand underline underline-offset-4 hover:text-brand-strong">
+            Create a student account
+          </Link>
+        </p>
       </div>
 
       <div className="mt-16 sm:mt-20">

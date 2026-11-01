@@ -5,6 +5,7 @@ import { Closing } from "./components/Closing";
 import { Facts } from "./components/Facts";
 import { Hero } from "./components/Hero";
 import { India } from "./components/India";
+import { Marketplace } from "./components/Marketplace";
 import { MotionRoot } from "./components/MotionRoot";
 import { Nav } from "./components/Nav";
 import { Roles } from "./components/Roles";
@@ -23,6 +24,7 @@ export function LandingPage() {
           <Story />
           <Roles />
           <India />
+          <Marketplace />
           <Closing />
         </main>
       </div>

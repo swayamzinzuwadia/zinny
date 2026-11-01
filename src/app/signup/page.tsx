@@ -1,23 +1,23 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { currentUserId } from "@/server/auth/session";
 import { loginUniversity } from "@/modules/identity/auth";
 import { AuthShell } from "@/modules/identity/components/auth-shell";
 import { InstituteCodeForm, SignUpForm } from "@/modules/identity/components/auth-forms";
-import { UNI_COOKIE } from "@/modules/identity/cookies";
 import { signUpAction } from "../login/actions";
 
 export const metadata = { title: "Create your account", referrer: "strict-origin-when-cross-origin" as const };
 
-/** Student sign-up, for one institute. Staff and parents are still added by the institute. */
-export default async function SignUpPage({ searchParams }: { searchParams: Promise<{ uni?: string }> }) {
+/**
+ * Student sign-up. On its own it creates a marketplace account, which belongs to no
+ * institute; with ?uni= it joins that institute, if it takes sign-ups. Staff and parents
+ * are still added by the institute.
+ */
+export default async function SignUpPage({ searchParams }: { searchParams: Promise<{ uni?: string; join?: string }> }) {
   const sp = await searchParams;
   if (await currentUserId()) redirect("/");
 
-  const jar = await cookies();
-  // ?uni= first (empty means "not your institute"), then the institute this device last used.
-  const code = (sp.uni !== undefined ? sp.uni : (jar.get(UNI_COOKIE)?.value ?? "")).trim();
+  const code = (sp.uni ?? "").trim();
   const university = await loginUniversity(code);
   const signInHref = university ? `/login?uni=${university.slug}` : "/login";
   const signIn = (
@@ -29,11 +29,32 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
     </p>
   );
 
+  if (!code && sp.join === undefined) {
+    return (
+      <AuthShell title="Create your account" subtitle="Buy recorded courses and lectures from institutes on Zinny, and watch them at your own pace.">
+        <SignUpForm action={signUpAction} uni="" signInHref={signInHref} />
+        {signIn}
+        <p className="mt-2 text-[14px] text-muted">
+          Your institute uses Zinny?{" "}
+          <Link href="/signup?join=1" className="text-brand hover:underline">
+            Join it with its code
+          </Link>
+        </p>
+      </AuthShell>
+    );
+  }
+
   if (!university) {
     return (
-      <AuthShell title="Find your institute" subtitle="Student accounts belong to one institute. Enter its code to continue.">
+      <AuthShell title="Find your institute" subtitle="Enter your institute's code to join it as a student.">
         <InstituteCodeForm code={code} notFound={!!code} />
         {signIn}
+        <p className="mt-2 text-[14px] text-muted">
+          Not with an institute?{" "}
+          <Link href="/signup" className="text-brand hover:underline">
+            Create a marketplace account
+          </Link>
+        </p>
       </AuthShell>
     );
   }
@@ -54,7 +75,7 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
           <span>
             Joining <span className="font-medium text-ink">{university.name}</span>.
           </span>
-          <Link href="/signup?uni=" className="text-[14px] text-brand hover:underline">
+          <Link href="/signup?join=1" className="text-[14px] text-brand hover:underline">
             Not your institute?
           </Link>
         </span>

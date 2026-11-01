@@ -14,7 +14,7 @@ import type { MailTransport } from "./mail";
 import type { PaymentGateway } from "./payments";
 import type { SmsTransport } from "./sms";
 
-/** The twelve module ids. Each is also the folder name under `src/modules/`. */
+/** The module ids. Each is also the folder name under `src/modules/`. */
 export const MODULE_IDS = [
   "assessments",
   "assignments-polls",
@@ -23,6 +23,7 @@ export const MODULE_IDS = [
   "gamification",
   "identity",
   "live-classes",
+  "marketplace",
   "notifications-delivery",
   "payments",
   "reports-board",

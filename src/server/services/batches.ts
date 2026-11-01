@@ -162,6 +162,24 @@ function validateBatch(input: Pick<BatchInput, "name" | "startDate" | "endDate" 
   if (!Number.isInteger(input.seatLimit) || input.seatLimit < 1) throw new ValidationError("Seat limit must be at least 1.");
 }
 
+/** Dates and size of a recorded batch: open-ended, so drip rules and seat counts never get in a buyer's way. */
+const RECORDED = { name: "Marketplace buyers", startDate: "2000-01-01", endDate: "2099-12-31", seatLimit: 2_147_483_647 };
+
+/**
+ * The hidden batch that marketplace buyers of a course are enrolled in. It has no classes
+ * and is never offered for enrolment. The caller has checked permission on the course.
+ */
+export async function ensureRecordedBatch(tx: Tx, actor: Actor, course: { id: string; departmentId: string }) {
+  const [existing] = await tx.select().from(batches).where(and(eq(batches.courseId, course.id), eq(batches.recorded, true)));
+  if (existing) return existing;
+  const [batch] = await tx
+    .insert(batches)
+    .values({ universityId: uni(actor), courseId: course.id, departmentId: course.departmentId, status: "closed", recorded: true, ...RECORDED })
+    .returning();
+  await audit(tx, actor, "batch.create", "batch", batch.id, { courseId: course.id, recorded: true });
+  return batch;
+}
+
 export async function createBatch(actor: Actor, input: BatchInput) {
   validateBatch(input);
   const slotError = validateSlots(input.slots);
@@ -331,7 +349,7 @@ export async function listBatches(actor: Actor, courseId: string) {
   return withTenant(actor, async (tx) => {
     const { target } = await loadCourse(tx, uni(actor), courseId);
     const r = reach(actor, "batch.view", uni(actor));
-    const all = await tx.select({ id: batches.id }).from(batches).where(eq(batches.courseId, courseId)).orderBy(asc(batches.startDate));
+    const all = await tx.select({ id: batches.id }).from(batches).where(and(eq(batches.courseId, courseId), eq(batches.recorded, false))).orderBy(asc(batches.startDate));
     // Faculty only see their own batches; HOD and admin see all of them.
     const ids = all
       .map((b) => b.id)
