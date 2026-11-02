@@ -145,6 +145,7 @@ const PATHS: Record<string, React.ReactNode> = {
   overview: <path d="M3.5 9 10 3.5 16.5 9v7.5h-4.5v-5H8v5H3.5z" />,
   products: <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H16v12H5.5A1.5 1.5 0 0 0 4 16.5zM4 16.5A1.5 1.5 0 0 0 5.5 18H16v-3M7.5 6.5h5" />,
   users: <path d="M7.5 9.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2.5 17a5 5 0 0 1 10 0M13 3.8a3 3 0 0 1 0 5.4M15 12.5a5 5 0 0 1 2.5 4.5" />,
+  marketplace: <path d="M3 7.5 4.5 3h11L17 7.5M3 7.5h14M3 7.5a2.3 2.3 0 0 0 4.7 0 2.3 2.3 0 0 0 4.6 0 2.3 2.3 0 0 0 4.7 0M4.5 10v7h11v-7M8 17v-4h4v4" />,
   leaderboards: <path d="M6 3.5h8v3.5a4 4 0 0 1-8 0zM6 5H3.5v1a3 3 0 0 0 3 3M14 5h2.5v1a3 3 0 0 1-3 3M10 11v3M7 17h6M8 14h4v3H8z" />,
   finance: <path d="M3 6h14v10H3zM3 9h14M13 12.5h1.5M6 3.5h8" />,
   billing: <path d="M5 2.5h10v15l-2-1.3-1.5 1.3L10 16.2l-1.5 1.3L7 16.2l-2 1.3zM7.5 6.5h5M7.5 9.5h5M7.5 12.5h3" />,

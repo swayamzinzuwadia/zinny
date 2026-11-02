@@ -86,7 +86,8 @@ function summarise(
   const has = new Set<Action>(grants);
   const list = platform ? PLATFORM_ABILITIES : INSTITUTE_ABILITIES;
   const derived = custom || base.edited ? sectionAccess(grants, SCOPE[reachKey]) : null;
-  const titles: { key: string; label: string }[] = platform ? [...PLATFORM_SECTIONS] : MENU.filter((m) => m.key !== "dashboard");
+  // Marketplace has no abilities of its own: it opens with "Create and edit courses" (menuFor), so it isn't listed here.
+  const titles: { key: string; label: string }[] = platform ? [...PLATFORM_SECTIONS] : MENU.filter((m) => m.key !== "dashboard" && m.key !== "marketplace");
 
   const sections = titles.map((t): SectionSummary => {
     const abilities = list.filter((a) => a.section === t.key && (platform || kind === "institute_admin" || worksAt(a, reachKey) || (a.locked && hasAll(has, a))));

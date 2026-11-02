@@ -40,8 +40,14 @@ describe("PRD page 3: who sees what in the admin menu", () => {
 
   it("Institute Admin sees everything, in full", () => {
     const m = sections(admin);
-    expect(Object.keys(m)).toHaveLength(10);
+    expect(Object.keys(m)).toHaveLength(11);
     expect(new Set(Object.values(m))).toEqual(new Set(["full"]));
+  });
+  it("Marketplace goes to whoever edits courses: admin and HOD, not faculty or the board", () => {
+    expect(sections(admin).marketplace).toBe("full");
+    expect(sections(hodCS).marketplace).toBe("dept");
+    expect(sections(facultyB1).marketplace).toBeUndefined();
+    expect(sections(board).marketplace).toBeUndefined();
   });
   it("Board / Owner: view only on products, users, finance, insights", () => {
     expect(sections(board)).toEqual({ dashboard: "view", products: "view", users: "view", finance: "view", insights: "view" });

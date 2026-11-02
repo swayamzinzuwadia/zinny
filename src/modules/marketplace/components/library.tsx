@@ -23,7 +23,7 @@ export function LibraryCard({ item }: { item: LibraryItem }) {
     <article className="flex flex-col rounded-[22px] border border-line bg-surface p-5">
       <div className="flex items-center justify-between gap-3">
         <span className="min-w-0 truncate text-[13px] text-muted">{item.institute}</span>
-        {item.completed ? <Badge tone="brand">Completed</Badge> : <Badge>{item.kind === "lecture" ? "Lecture" : "Course"}</Badge>}
+        {item.completed ? <Badge tone="brand">Completed</Badge> : <Badge>{{ course: "Course", lecture: "Lecture", combo: "Combo" }[item.kind]}</Badge>}
       </div>
       <h2 className="mt-3 text-[21px] leading-snug font-medium">
         <Link href={courseHref(item)} className="hover:text-brand">
@@ -50,20 +50,15 @@ export function LibraryCard({ item }: { item: LibraryItem }) {
   );
 }
 
-/** Learner home: purchases at a glance, and the way to the marketplace for those who can shop there. */
+/** Learner home: the way into the marketplace, and what this learner already bought there. */
 export async function LibraryHomeCard({ actor }: HomeCardProps) {
   const [items, access] = await Promise.all([myLibrary(actor.userId), marketplaceAccess(actor.userId)]);
   if (items.length === 0 && !access.canShop) return null;
   return (
     <Card>
-      <CardTitle hint={items.length > 0 ? <Link href="/marketplace/library" className="text-brand">See all</Link> : undefined}>My library</CardTitle>
+      <CardTitle hint={items.length > 0 ? `${items.length} bought` : undefined}>Marketplace</CardTitle>
       {items.length === 0 ? (
-        <p className="text-[14px] text-muted">
-          Courses and lectures you buy show here once your payment is confirmed.{" "}
-          <Link href="/marketplace" className="text-brand">
-            Browse the marketplace
-          </Link>
-        </p>
+        <p className="text-[14px] text-muted">Recorded courses, lectures and combos from institutes across Zinny. Whatever you buy shows here once your payment is confirmed.</p>
       ) : (
         <ul className="space-y-3.5">
           {items.slice(0, 3).map((item) => (
@@ -77,6 +72,18 @@ export async function LibraryHomeCard({ actor }: HomeCardProps) {
           ))}
         </ul>
       )}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        {access.canShop && (
+          <ButtonLink href="/marketplace" size="sm">
+            Browse the marketplace
+          </ButtonLink>
+        )}
+        {items.length > 0 && (
+          <ButtonLink href="/marketplace/library" size="sm" variant="secondary">
+            What I bought
+          </ButtonLink>
+        )}
+      </div>
     </Card>
   );
 }

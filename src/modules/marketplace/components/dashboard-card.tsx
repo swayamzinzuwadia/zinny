@@ -7,7 +7,7 @@ import { salesSummary } from "../listings";
 /** Admin dashboard → Marketplace (dashboardCards.marketplace-sales), for the listings this person manages. */
 export async function MarketplaceDashboardCard({ uni, actor, today }: DashboardCardProps) {
   const s = await salesSummary(actor, today);
-  const base = `/${uni}/admin/products/marketplace`;
+  const base = `/${uni}/admin/marketplace`;
   const listed = s.live + s.paused > 0;
   return (
     <Card>

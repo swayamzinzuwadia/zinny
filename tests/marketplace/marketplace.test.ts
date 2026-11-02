@@ -15,9 +15,25 @@ import { learnerOutline } from "@/modules/content-progress/learn";
 import { contentLessons, contentSections } from "@/modules/content-progress/schema";
 import { deleteLesson } from "@/modules/content-progress/service";
 import { handlers } from "@/modules/marketplace/events";
-import { createListing, getListing, listableSources, listListings, salesSummary, setListingStatus, updateListing } from "@/modules/marketplace/listings";
-import { mktLearners, mktListings } from "@/modules/marketplace/schema";
-import { browseMarketplace, listingDetail, marketplaceAccess, marketplaceInstitute, myLibrary, startPurchase } from "@/modules/marketplace/service";
+import {
+  comboSources,
+  courseMarketplace,
+  createCode,
+  createCombo,
+  createListing,
+  getListing,
+  listableSources,
+  listCodes,
+  listListings,
+  salesSummary,
+  setCodeStatus,
+  setListingStatus,
+  updateListing,
+} from "@/modules/marketplace/listings";
+import { mktCodes, mktComboCourses, mktLearners, mktListings, mktRedemptions } from "@/modules/marketplace/schema";
+import { browseMarketplace, listingDetail, marketplaceAccess, marketplaceInstitute, myLibrary, quoteCode, startPurchase } from "@/modules/marketplace/service";
+import { todayIn } from "@/server/core";
+import { createCourse } from "@/server/services/courses";
 import { payRefunds } from "@/modules/payments/schema";
 import { grant, makeDepartment, person, setupCourse, uniqueCode } from "../fixtures";
 import { expectTenantIsolated } from "../helpers/isolation";
@@ -95,29 +111,42 @@ describe("demo accounts on the sign-in page", () => {
 });
 
 describe("who may shop", () => {
-  it("lets independent learners and alumni in, and keeps current students and staff out", async () => {
+  it("lets every learner in, current students included, and keeps staff out", async () => {
     const s = await setupCourse();
     const student = await person("Current Student", "student", { universityId: s.uni.id });
     const alumnus = await person("Past Student", "alumni", { universityId: s.uni.id });
     const staff = await person("Staff Member", "permanent_faculty", { universityId: s.uni.id, departmentId: s.dept.id });
     expect((await marketplaceAccess(await learner())).canShop).toBe(true);
     expect((await marketplaceAccess(alumnus.user.id)).canShop).toBe(true);
-    expect((await marketplaceAccess(student.user.id)).canShop).toBe(false);
+    expect((await marketplaceAccess(student.user.id)).canShop).toBe(true);
     expect((await marketplaceAccess(staff.user.id)).canShop).toBe(false);
+    await expect(startPurchase(staff.user.id, (await shop()).listing.id)).rejects.toMatchObject({ status: 403 });
   });
 
-  it("opens up the moment a student graduates", async () => {
+  it("lets a student buy from another institute without becoming its student", async () => {
+    const { listing } = await shop();
+    const home = await setupCourse({ name: "Home College" });
+    const student = await person("Curious Student", "student", { universityId: home.uni.id });
+    await buy(student.user.id, listing.id);
+    expect((await myLibrary(student.user.id)).map((i) => i.title)).toEqual(["Data Analytics, recorded"]);
+    expect((await homeSpacesFor(student.user.id)).map((s) => s.slug)).toEqual([home.uni.slug]);
+  });
+
+  it("lets a student buy recordings from their own institute", async () => {
+    const { uni, listing } = await shop();
+    const student = await person("Own Student", "student", { universityId: uni.id });
+    await buy(student.user.id, listing.id);
+    expect(await myLibrary(student.user.id)).toHaveLength(1);
+  });
+
+  it("keeps shopping open after a student graduates, and keeps what they bought", async () => {
+    const { listing } = await shop();
     const s = await setupCourse();
     const student = await person("Graduating Student", "student", { universityId: s.uni.id });
-    expect((await marketplaceAccess(student.user.id)).canShop).toBe(false);
+    await buy(student.user.id, listing.id);
     await graduate(s.admin, student.user.id);
     expect((await marketplaceAccess(student.user.id)).canShop).toBe(true);
-  });
-
-  it("refuses a purchase from a current student", async () => {
-    const { uni, listing } = await shop();
-    const student = await person("Keen Student", "student", { universityId: uni.id });
-    await expect(startPurchase(student.user.id, listing.id)).rejects.toMatchObject({ status: 403 });
+    expect(await myLibrary(student.user.id)).toHaveLength(1);
   });
 
   it("keeps what you bought if you later join an institute", async () => {
@@ -126,7 +155,7 @@ describe("who may shop", () => {
     const buyer = await learner();
     await buy(buyer, listing.id);
     await grant(buyer, "student", { universityId: elsewhere.uni.id });
-    expect((await marketplaceAccess(buyer)).canShop).toBe(false);
+    expect((await marketplaceAccess(buyer)).canShop).toBe(true);
     expect(await myLibrary(buyer)).toHaveLength(1);
   });
 });
@@ -391,7 +420,199 @@ describe("refunds", () => {
   });
 });
 
+describe("deals: compare-at prices", () => {
+  it("shows the usual price struck through and the share saved, and only accepts a higher usual price", async () => {
+    const { hod, listing } = await shop();
+    await updateListing(hod, listing.id, { title: "On offer", description: "", pricePaise: 100_000, compareAtPaise: 200_000 });
+    const item = (await browseMarketplace()).find((i) => i.id === listing.id);
+    expect(item).toMatchObject({ totalPaise: 118_000, compareAtTotalPaise: 236_000, percentOff: 50 });
+    await expect(updateListing(hod, listing.id, { title: "On offer", description: "", pricePaise: 100_000, compareAtPaise: 100_000 })).rejects.toMatchObject({ status: 422 });
+    await updateListing(hod, listing.id, { title: "No offer", description: "", pricePaise: 100_000, compareAtPaise: null });
+    expect((await browseMarketplace()).find((i) => i.id === listing.id)).toMatchObject({ compareAtTotalPaise: null, percentOff: null });
+  });
+});
+
+describe("combos", () => {
+  /** A second course in the same department, with two recorded lessons and a live class. */
+  async function secondCourse(s: Awaited<ReturnType<typeof shop>>) {
+    const course = await createCourse(s.hod, { departmentId: s.dept.id, title: "Excel for Analysts", pricePaise: 0 });
+    await addLesson(s.uni.id, course.id, "Pivot tables");
+    await addLesson(s.uni.id, course.id, "Charts that explain");
+    await addLesson(s.uni.id, course.id, "Live doubt clearing", { kind: "live", content: {} });
+    return course;
+  }
+
+  it("sells several courses as one course, a section for each, without their live classes", async () => {
+    const s = await shop();
+    const excel = await secondCourse(s);
+    const combo = await createCombo(s.hod, {
+      courseIds: [s.course.id, excel.id],
+      title: "Analyst starter pack",
+      description: "",
+      pricePaise: 150_000,
+      compareAtPaise: 300_000,
+    });
+    expect(combo.kind).toBe("combo");
+    const detail = await listingDetail(combo.id, null);
+    expect(detail?.includes).toEqual(["Data Analytics", "Excel for Analysts"]);
+    expect(detail?.outline.sections.map((x) => [x.title, x.lessons.map((l) => l.title)])).toEqual([
+      ["Data Analytics", ["Introduction", "Going deeper"]],
+      ["Excel for Analysts", ["Pivot tables", "Charts that explain"]],
+    ]);
+    expect((await listListings(s.hod)).find((l) => l.id === combo.id)?.includes).toEqual(["Data Analytics", "Excel for Analysts"]);
+
+    const buyer = await learner();
+    await buy(buyer, combo.id);
+    expect((await myLibrary(buyer)).map((i) => [i.kind, i.title])).toEqual([["combo", "Analyst starter pack"]]);
+  });
+
+  it("needs two courses with recordings, all within the person's own departments", async () => {
+    const s = await shop();
+    const excel = await secondCourse(s);
+    const base = { title: "Pack", description: "", pricePaise: 50_000 };
+    await expect(createCombo(s.hod, { ...base, courseIds: [s.course.id] })).rejects.toMatchObject({ status: 422 });
+    const empty = await createCourse(s.hod, { departmentId: s.dept.id, title: "Nothing recorded", pricePaise: 0 });
+    await expect(createCombo(s.hod, { ...base, courseIds: [s.course.id, empty.id] })).rejects.toMatchObject({ status: 422 });
+
+    const other = await makeDepartment(s.uni.id, uniqueCode(), "Commerce");
+    const otherHod = await (await person("Other Hod", "hod", { universityId: s.uni.id, departmentId: other.id })).actor();
+    await expect(createCombo(otherHod, { ...base, courseIds: [s.course.id, excel.id] })).rejects.toMatchObject({ status: 403 });
+    expect((await comboSources(s.hod)).map((c) => c.title).sort()).toEqual(["Data Analytics", "Excel for Analysts"]);
+    expect(await comboSources(otherHod)).toEqual([]);
+  });
+});
+
+describe("discount codes", () => {
+  const today = () => todayIn("Asia/Kolkata");
+  const shift = (days: number) => new Date(Date.parse(`${today()}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
+  it("takes a percentage or an amount off the price before GST, never below ₹1", async () => {
+    const { admin, listing } = await shop();
+    const code = `SAVE${uniqueCode()}`;
+    await createCode(admin, { code: code.toLowerCase(), kind: "percent", value: 20 });
+    expect(await quoteCode(listing.id, ` ${code.toLowerCase()} `)).toEqual({ totalPaise: 94_400, savedPaise: 23_600 });
+
+    const buyer = await learner();
+    const { orderId } = await startPurchase(buyer, listing.id, code);
+    const [order] = await systemDb().select().from(orders).where(eq(orders.id, orderId));
+    expect(order.basePaise).toBe(80_000);
+    const [used] = await systemDb().select().from(mktRedemptions).where(eq(mktRedemptions.orderId, orderId));
+    expect(used.discountPaise).toBe(20_000);
+
+    const huge = `HUGE${uniqueCode()}`;
+    await createCode(admin, { code: huge, kind: "amount", value: 500_000 });
+    expect((await quoteCode(listing.id, huge)).totalPaise).toBe(118);
+  });
+
+  it("refuses codes for another listing, outside their dates, used up or paused", async () => {
+    const { admin, hod, listing } = await shop();
+    const lecture = await createListing(hod, { kind: "lecture", sourceId: (await listableSources(hod))[0].lectures[0].id, title: "One lecture", description: "", pricePaise: 20_000 });
+    const make = async (over: Partial<Parameters<typeof createCode>[1]>) => {
+      const code = `C${uniqueCode()}`;
+      return createCode(admin, { code, kind: "percent", value: 10, ...over });
+    };
+    const other = await make({ listingId: lecture.id });
+    await expect(quoteCode(listing.id, other.code)).rejects.toThrow(/different course/);
+    await expect(quoteCode(lecture.id, other.code)).resolves.toBeTruthy();
+    await expect(quoteCode(listing.id, (await make({ endsOn: shift(-1) })).code)).rejects.toThrow(/ended/);
+    await expect(quoteCode(listing.id, (await make({ startsOn: shift(1) })).code)).rejects.toThrow(/started/);
+    await expect(quoteCode(listing.id, (await make({ startsOn: today(), endsOn: today() })).code)).resolves.toBeTruthy();
+    await expect(quoteCode(listing.id, "NOPE-NOT-A-CODE")).rejects.toThrow(/isn't a code/);
+
+    const once = await make({ maxUses: 1 });
+    await startPurchase(await learner(), listing.id, once.code);
+    await expect(startPurchase(await learner(), listing.id, once.code)).rejects.toThrow(/used up/);
+    expect((await listCodes(admin)).find((c) => c.id === once.id)?.uses).toBe(1);
+
+    const paused = await make({});
+    await setCodeStatus(admin, paused.id, "paused");
+    await expect(quoteCode(listing.id, paused.code)).rejects.toThrow(/isn't a code/);
+  });
+
+  it("swaps a checkout started at the full price for one at the code's price", async () => {
+    const { admin, listing } = await shop();
+    const code = `LATE${uniqueCode()}`;
+    await createCode(admin, { code, kind: "percent", value: 50 });
+    const buyer = await learner();
+    const first = await startPurchase(buyer, listing.id);
+    const second = await startPurchase(buyer, listing.id, code);
+    expect(second.orderId).not.toBe(first.orderId);
+    const [old] = await systemDb().select().from(orders).where(eq(orders.id, first.orderId));
+    expect(old.status).toBe("expired");
+    expect((await startPurchase(buyer, listing.id, code)).orderId).toBe(second.orderId);
+  });
+
+  it("lets a HOD make codes for their own listings only, and an admin for everything", async () => {
+    const { uni, hod, admin, listing } = await shop();
+    await expect(createCode(hod, { code: `ALL${uniqueCode()}`, kind: "percent", value: 10 })).rejects.toMatchObject({ status: 403 });
+    const mine = await createCode(hod, { code: `HOD${uniqueCode()}`, kind: "percent", value: 10, listingId: listing.id });
+    const other = await makeDepartment(uni.id, uniqueCode(), "Commerce");
+    const otherHod = await (await person("Other Hod", "hod", { universityId: uni.id, departmentId: other.id })).actor();
+    await expect(createCode(otherHod, { code: `X${uniqueCode()}`, kind: "percent", value: 10, listingId: listing.id })).rejects.toMatchObject({ status: 403 });
+    await expect(setCodeStatus(otherHod, mine.id, "paused")).rejects.toMatchObject({ status: 403 });
+    expect((await listCodes(otherHod)).map((c) => c.id)).not.toContain(mine.id);
+    expect((await listCodes(admin)).map((c) => c.id)).toContain(mine.id);
+    await expect(createCode(admin, { code: mine.code, kind: "percent", value: 5 })).rejects.toMatchObject({ status: 409 });
+    await expect(createCode(admin, { code: "x", kind: "percent", value: 5 })).rejects.toMatchObject({ status: 422 });
+    await expect(createCode(admin, { code: `BIG${uniqueCode()}`, kind: "percent", value: 95 })).rejects.toMatchObject({ status: 422 });
+  });
+});
+
+describe("the course editor's Marketplace tab", () => {
+  it("shows how a course is sold, to people who can edit it", async () => {
+    const s = await shop();
+    // A paid seat in one of the course's live batches is a student, not a marketplace buyer.
+    const seat = await holdSeat(await s.student("Batch Student"), { batchId: s.batch.id });
+    if (seat.status !== "held") throw new Error("Expected a held seat.");
+    await confirmPayment(s.uni.id, { orderId: seat.orderId, gatewayPaymentId: `pay_${seat.orderId.slice(0, 8)}` });
+    await buy(await learner(), s.listing.id);
+    const m = await courseMarketplace(s.hod, s.course.id);
+    expect(m.whole?.id).toBe(s.listing.id);
+    expect(m.whole?.buyers).toBe(1);
+    expect(m.videos).toBe(2);
+    expect(m.unlistedLectures.map((l) => l.title)).toEqual(["Introduction", "Going deeper"]);
+    await createListing(s.hod, { kind: "lecture", sourceId: s.intro.id, title: "Intro only", description: "", pricePaise: 10_000 });
+    const after = await courseMarketplace(s.hod, s.course.id);
+    expect(after.lectures.map((l) => l.title)).toEqual(["Intro only"]);
+    expect(after.unlistedLectures.map((l) => l.title)).toEqual(["Going deeper"]);
+    await expect(courseMarketplace(await loadActor(s.facultyUserId, s.uni.id), s.course.id)).rejects.toMatchObject({ status: 403 });
+  });
+});
+
 describe("tenant isolation", () => {
+  /** A listing to hang codes and combo rows on, in its own institute. */
+  async function listingIn(uni: { id: string }) {
+    const dept = await makeDepartment(uni.id, uniqueCode(), "Commerce");
+    const [course] = await systemDb().insert(courses).values({ universityId: uni.id, departmentId: dept.id, title: "Course" }).returning();
+    const [batch] = await systemDb()
+      .insert(batches)
+      .values({ universityId: uni.id, courseId: course.id, departmentId: dept.id, name: "Buyers", startDate: "2000-01-01", endDate: "2099-12-31", seatLimit: 1000, recorded: true, status: "closed" })
+      .returning();
+    const [listing] = await systemDb().insert(mktListings).values({ universityId: uni.id, courseId: course.id, batchId: batch.id, kind: "combo", title: "Listing", pricePaise: 1000 }).returning();
+    return { course, batch, listing };
+  }
+
+  it("mkt_codes is isolated", () =>
+    expectTenantIsolated(mktCodes, async (uni) => ({ universityId: uni.id, code: `C${uniqueCode()}`, kind: "percent" as const, value: 10 })));
+
+  it("mkt_combo_courses is isolated", () =>
+    expectTenantIsolated(mktComboCourses, async (uni) => {
+      const { course, listing } = await listingIn(uni);
+      return { universityId: uni.id, listingId: listing.id, courseId: course.id };
+    }));
+
+  it("mkt_redemptions is isolated", () =>
+    expectTenantIsolated(mktRedemptions, async (uni) => {
+      const { course, batch } = await listingIn(uni);
+      const buyer = await person("Buyer", "student", { universityId: uni.id });
+      const [code] = await systemDb().insert(mktCodes).values({ universityId: uni.id, code: `R${uniqueCode()}`, kind: "percent", value: 10 }).returning();
+      const [order] = await systemDb()
+        .insert(orders)
+        .values({ universityId: uni.id, userId: buyer.user.id, courseId: course.id, batchId: batch.id, basePaise: 900, gstPaise: 162, totalPaise: 1062 })
+        .returning();
+      return { universityId: uni.id, codeId: code.id, orderId: order.id, discountPaise: 100 };
+    }));
+
   it("mkt_listings is isolated", () =>
     expectTenantIsolated(mktListings, async (uni) => {
       const dept = await makeDepartment(uni.id, uniqueCode(), "Commerce");

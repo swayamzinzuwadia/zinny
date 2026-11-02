@@ -7,18 +7,20 @@ import "server-only";
  * connection, limited to live listings of active institutes and the signed-in person's own
  * purchases. Every write runs under the selling institute's row-level security.
  *
- * Who may shop: people who signed up for the marketplace, and alumni. Current students of
- * an institute may not. Whatever someone already bought stays theirs either way.
+ * Who may shop: anyone who learns, meaning people who signed up for the marketplace and the
+ * students and alumni of any institute. Staff accounts only look. Whatever someone bought
+ * stays theirs whatever their roles become.
  */
-import { and, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql, type SQL } from "drizzle-orm";
 import { systemDb } from "@/db/client";
 import { courses, enrolments, invoices, orders, roleAssignments, universities } from "@/db/schema";
 import { contentCourseProgress } from "@/modules/content-progress/schema";
 import { recordedOutline, type RecordedOutline } from "@/modules/content-progress/recorded";
 import { spacesFor } from "@/server/auth/session";
-import { audit, gstFor, holdRecordedSeat, loadActor, systemActorFor, withTenant } from "@/server/core";
-import { ForbiddenError, NotFoundError } from "@/server/errors";
-import { mktLearners, mktListings, type ListingKind } from "./schema";
+import { audit, cancelHold, gstFor, holdRecordedSeat, loadActor, systemActorFor, todayIn, withTenant } from "@/server/core";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
+import { normaliseCode } from "./listings";
+import { mktCodes, mktComboCourses, mktLearners, mktListings, mktRedemptions, type ListingKind } from "./schema";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -31,7 +33,7 @@ export async function marketplaceAccess(userId: string) {
   ]);
   const roles = new Set(spaces.flatMap((s) => s.roles));
   return {
-    canShop: !roles.has("student") && (!!learner || roles.has("alumni")),
+    canShop: !!learner || roles.has("student") || roles.has("alumni") || roles.has("individual_learner"),
     /** Signed up for the marketplace, so they have no institute to go back to. */
     independent: !!learner,
   };
@@ -52,6 +54,10 @@ export type CatalogItem = {
   pricePaise: number;
   /** What the buyer pays, GST included. */
   totalPaise: number;
+  /** The usual price with GST, shown struck through; null when there's no deal. */
+  compareAtTotalPaise: number | null;
+  /** Whole percent saved against the usual price. */
+  percentOff: number | null;
   lessons: number;
   minutes: number;
 };
@@ -83,6 +89,8 @@ async function liveListings(filter?: SQL): Promise<CatalogItem[]> {
     batchId: l.batchId,
     pricePaise: l.pricePaise,
     totalPaise: l.pricePaise + gstFor(l.pricePaise, gstRateBp),
+    compareAtTotalPaise: l.compareAtPaise ? l.compareAtPaise + gstFor(l.compareAtPaise, gstRateBp) : null,
+    percentOff: l.compareAtPaise ? Math.round((1 - l.pricePaise / l.compareAtPaise) * 100) : null,
     lessons,
     minutes,
   }));
@@ -111,16 +119,25 @@ export async function marketplaceInstitute(slug: string) {
   return row ?? null;
 }
 
-export type ListingDetail = CatalogItem & { outline: RecordedOutline; ownedEnrolmentId: string | null };
+/** `includes`: for a combo, the titles of the courses in it. */
+export type ListingDetail = CatalogItem & { outline: RecordedOutline; ownedEnrolmentId: string | null; includes: string[] };
 
-/** One live listing, what's in it, and whether this person already owns it. */
-/** Anyone may look at a listing; `userId` is only used to tell a signed-in buyer they already own it. */
+/** One live listing and what's in it. Anyone may look; `userId` only tells a signed-in buyer they already own it. */
 export async function listingDetail(listingId: string, userId: string | null): Promise<ListingDetail | null> {
   if (!UUID.test(listingId)) return null;
   const [item] = await liveListings(eq(mktListings.id, listingId));
   if (!item) return null;
-  const [outline, [owned]] = await Promise.all([
+  const [outline, includes, [owned]] = await Promise.all([
     withTenant(systemActorFor(item.universityId), (tx) => recordedOutline(tx, item.courseId)),
+    item.kind === "combo"
+      ? systemDb()
+          .select({ title: courses.title })
+          .from(mktComboCourses)
+          .innerJoin(courses, eq(courses.id, mktComboCourses.courseId))
+          .where(eq(mktComboCourses.listingId, item.id))
+          .orderBy(asc(mktComboCourses.position))
+          .then((rows) => rows.map((r) => r.title))
+      : [],
     userId
       ? systemDb()
           .select({ id: enrolments.id })
@@ -128,7 +145,7 @@ export async function listingDetail(listingId: string, userId: string | null): P
           .where(and(eq(enrolments.userId, userId), eq(enrolments.courseId, item.courseId), inArray(enrolments.status, ["active", "completed"])))
       : [],
   ]);
-  return { ...item, outline, ownedEnrolmentId: owned?.id ?? null };
+  return { ...item, outline, includes, ownedEnrolmentId: owned?.id ?? null };
 }
 
 /* ───────────────────────────── Buying ───────────────────────────── */
@@ -161,16 +178,76 @@ async function joinAsBuyer(universityId: string, userId: string) {
  * Starts checkout for a listing. Nothing is granted here: the course reaches My library
  * only when the gateway confirms the payment (core confirmPayment).
  */
-export async function startPurchase(userId: string, listingId: string): Promise<{ slug: string; orderId: string }> {
+export async function startPurchase(userId: string, listingId: string, code?: string): Promise<{ slug: string; orderId: string }> {
   const access = await marketplaceAccess(userId);
-  if (!access.canShop) throw new ForbiddenError("The marketplace is open to independent learners and alumni.");
+  if (!access.canShop) throw new ForbiddenError("Buying is open to learners: students, alumni and people with a marketplace account.");
+  const item = await liveListing(listingId);
+  const deal = code?.trim() ? await applyCode(item, code) : null;
+  const pricePaise = item.pricePaise - (deal?.discountPaise ?? 0);
+
+  await joinAsBuyer(item.universityId, userId);
+  const actor = await loadActor(userId, item.universityId);
+  // A checkout started earlier at another price (say, before a code) gives way to this one.
+  const [earlier] = await systemDb()
+    .select({ enrolmentId: enrolments.id, basePaise: orders.basePaise })
+    .from(enrolments)
+    .innerJoin(orders, eq(orders.enrolmentId, enrolments.id))
+    .where(and(eq(enrolments.userId, userId), eq(enrolments.batchId, item.batchId), eq(enrolments.status, "held"), eq(orders.status, "pending")));
+  if (earlier && earlier.basePaise !== pricePaise) await cancelHold(actor, earlier.enrolmentId);
+
+  const held = await holdRecordedSeat(actor, { batchId: item.batchId, pricePaise });
+  if (deal) {
+    await withTenant(systemActorFor(item.universityId), async (tx) => {
+      const [saved] = await tx
+        .insert(mktRedemptions)
+        .values({ universityId: item.universityId, codeId: deal.codeId, orderId: held.orderId, discountPaise: deal.discountPaise })
+        .onConflictDoNothing()
+        .returning({ id: mktRedemptions.id });
+      if (saved) await audit(tx, actor, "marketplace.code_use", "mkt_code", deal.codeId, { orderId: held.orderId, discountPaise: deal.discountPaise });
+    });
+  }
+  return { slug: item.instituteSlug, orderId: held.orderId };
+}
+
+async function liveListing(listingId: string) {
   if (!UUID.test(listingId)) throw new NotFoundError("Listing");
   const [item] = await liveListings(eq(mktListings.id, listingId));
   if (!item) throw new NotFoundError("Listing");
-  await joinAsBuyer(item.universityId, userId);
-  const actor = await loadActor(userId, item.universityId);
-  const held = await holdRecordedSeat(actor, { batchId: item.batchId, pricePaise: item.pricePaise });
-  return { slug: item.instituteSlug, orderId: held.orderId };
+  return item;
+}
+
+/** What a code takes off this listing's price before GST, or why it doesn't apply. The price never drops below ₹1. */
+async function applyCode(item: CatalogItem, typed: string) {
+  const db = systemDb();
+  const [code] = await db
+    .select()
+    .from(mktCodes)
+    .where(and(eq(mktCodes.universityId, item.universityId), eq(mktCodes.code, normaliseCode(typed))));
+  if (!code || code.status !== "active") throw new ValidationError(`"${typed.trim()}" isn't a code ${item.institute} has running. Check the spelling.`);
+  if (code.listingId && code.listingId !== item.id) throw new ValidationError("That code works on a different course from this institute.");
+  const [uni] = await db.select({ tz: universities.timezone }).from(universities).where(eq(universities.id, item.universityId));
+  const today = todayIn(uni?.tz ?? "Asia/Kolkata");
+  if (code.startsOn && today < code.startsOn) throw new ValidationError("That code hasn't started yet.");
+  if (code.endsOn && today > code.endsOn) throw new ValidationError("That code has ended.");
+  if (code.maxUses !== null) {
+    const [{ used }] = await db
+      .select({ used: sql<number>`count(*)::int` })
+      .from(mktRedemptions)
+      .innerJoin(orders, eq(orders.id, mktRedemptions.orderId))
+      .where(and(eq(mktRedemptions.codeId, code.id), inArray(orders.status, ["pending", "paid"])));
+    if (used >= code.maxUses) throw new ValidationError("That code has been used up.");
+  }
+  const off = code.kind === "percent" ? Math.floor((item.pricePaise * code.value) / 100) : code.value;
+  return { codeId: code.id, discountPaise: Math.min(off, item.pricePaise - 100) };
+}
+
+/** The price with a code, before buying: what "Apply" shows. */
+export async function quoteCode(listingId: string, code: string) {
+  const item = await liveListing(listingId);
+  const { discountPaise } = await applyCode(item, code);
+  const pricePaise = item.pricePaise - discountPaise;
+  const [{ gstRateBp }] = await systemDb().select({ gstRateBp: courses.gstRateBp }).from(courses).where(eq(courses.id, item.courseId));
+  return { totalPaise: pricePaise + gstFor(pricePaise, gstRateBp), savedPaise: item.totalPaise - (pricePaise + gstFor(pricePaise, gstRateBp)) };
 }
 
 /* ───────────────────────────── My library ───────────────────────────── */

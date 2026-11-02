@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Badge, ButtonLink, Empty, Input, Notice, cx } from "@/components/ui";
 import { currentUserId } from "@/server/auth/session";
 import { browseMarketplace, marketplaceAccess, marketplaceInstitute, type CatalogItem } from "@/modules/marketplace/service";
-import { inr } from "@/modules/payments/money";
 import { getSite } from "@/modules/website-builder/cached";
+import { KIND_LABEL, Price } from "@/modules/marketplace/components/price";
 
 export const metadata = { title: "Marketplace" };
 export const dynamic = "force-dynamic";
@@ -14,7 +14,9 @@ const KINDS = [
   { key: "", label: "All" },
   { key: "course", label: "Courses" },
   { key: "lecture", label: "Lectures" },
+  { key: "combo", label: "Combos" },
 ] as const;
+
 
 function duration(minutes: number) {
   if (minutes < 60) return `${minutes} min`;
@@ -34,7 +36,10 @@ function Listing({ item, showInstitute }: { item: CatalogItem; showInstitute: bo
         ) : (
           <span />
         )}
-        <Badge tone={item.kind === "lecture" ? "neutral" : "brand"}>{item.kind === "lecture" ? "Lecture" : "Course"}</Badge>
+        <span className="flex shrink-0 gap-1.5">
+          {item.percentOff && <Badge tone="gold">{item.percentOff}% off</Badge>}
+          <Badge tone={item.kind === "lecture" ? "neutral" : "brand"}>{KIND_LABEL[item.kind]}</Badge>
+        </span>
       </div>
       <h2 className="mt-3 text-[23px] leading-[1.2] font-medium group-hover:text-brand">
         <Link href={`/marketplace/${item.id}`} className="after:absolute after:inset-0 after:rounded-[22px]">
@@ -47,7 +52,7 @@ function Listing({ item, showInstitute }: { item: CatalogItem; showInstitute: bo
           {item.lessons} {item.lessons === 1 ? "lesson" : "lessons"}
           {item.minutes > 0 && ` · ${duration(item.minutes)}`}
         </span>
-        <span className="tabular text-[16px] font-medium whitespace-nowrap">{inr(item.totalPaise)}</span>
+        <Price totalPaise={item.totalPaise} compareAtTotalPaise={item.compareAtTotalPaise} className="text-[16px] font-medium" />
       </div>
     </article>
   );
@@ -59,7 +64,7 @@ export default async function Marketplace({ searchParams }: { searchParams: Prom
   const { canShop } = userId ? await marketplaceAccess(userId) : { canShop: false };
 
   const q = (sp.q ?? "").trim();
-  const kind = sp.kind === "course" || sp.kind === "lecture" ? sp.kind : undefined;
+  const kind = sp.kind === "course" || sp.kind === "lecture" || sp.kind === "combo" ? sp.kind : undefined;
   const institute = sp.institute ? await marketplaceInstitute(sp.institute) : null;
   const [items, site] = await Promise.all([browseMarketplace({ q, kind, institute: institute?.slug }), institute ? getSite(institute.slug) : null]);
   const filterHref = (key: string) => {
@@ -107,7 +112,7 @@ export default async function Marketplace({ searchParams }: { searchParams: Prom
       ) : (
         !canShop && (
           <div className="mt-5 max-w-2xl">
-            <Notice tone="neutral">You can look around. Buying is open to independent learners and alumni; current students learn through their institute.</Notice>
+            <Notice tone="neutral">You can look around. Buying is for learner accounts: students, alumni and people who signed up for the marketplace.</Notice>
           </div>
         )
       )}

@@ -6,6 +6,7 @@ import { spaceContext } from "@/server/context";
 import { listCourses } from "@/server/services/courses";
 import { listDepartments } from "@/server/services/departments";
 import { formatINR } from "@/server/services/finance";
+import { marketplaceOnlyCourseIds } from "@/modules/marketplace/listings";
 import { createCourseAction } from "../../actions";
 
 export const metadata = { title: "Courses" };
@@ -15,7 +16,8 @@ const STATUS_TONE = { published: "brand", draft: "neutral", archived: "warn" } a
 export default async function CoursesPage({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
   const { actor, university } = await spaceContext(uni);
-  const [courses, depts] = await Promise.all([listCourses(actor), listDepartments(actor)]);
+  const [all, depts, forSale] = await Promise.all([listCourses(actor), listDepartments(actor), marketplaceOnlyCourseIds(actor)]);
+  const courses = all.filter((c) => !forSale.has(c.id));
   const creatable = depts.filter((d) => can(actor, "course.create", { universityId: university.id, departmentIds: [d.id] }));
 
   return (

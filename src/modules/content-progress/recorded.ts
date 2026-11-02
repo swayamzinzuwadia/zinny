@@ -43,6 +43,32 @@ export async function lessonCourseId(tx: Tx, lessonId: string) {
 }
 
 /**
+ * Copies a course's ready recorded lessons (everything but live classes) into one section of
+ * `courseId`, titled `sectionTitle`, keeping their order. A combo is built from these copies;
+ * like a lecture copy, each shares its stored file with the original. Returns how many it copied.
+ */
+export async function copyCourseInto(tx: Tx, universityId: string, sourceCourseId: string, courseId: string, sectionTitle: string, position: number) {
+  const { lessons } = await courseCurriculum(tx, sourceCourseId);
+  const ready = lessons.filter((l) => l.ready && l.kind !== "live");
+  if (ready.length === 0) return 0;
+  const [section] = await tx.insert(contentSections).values({ universityId, courseId, title: sectionTitle, position }).returning();
+  await tx.insert(contentLessons).values(
+    ready.map((l, i) => ({
+      universityId,
+      courseId,
+      sectionId: section.id,
+      title: l.title,
+      kind: l.kind,
+      content: l.content,
+      ready: true,
+      durationMinutes: l.durationMinutes,
+      position: i,
+    })),
+  );
+  return ready.length;
+}
+
+/**
  * Makes a ready video lesson the only lesson of `courseId`, so a lecture sold on its own
  * opens nothing else. The two lessons share the stored file (service.ts keeps it while
  * either one uses it). Returns null when the lesson can't be sold.

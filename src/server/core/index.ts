@@ -39,7 +39,8 @@ export { confirmPayment, failPayment } from "../services/enrolment";
 // Wave 1 integration (payments request): seeds and modules start a checkout the way a student does.
 export { holdSeat } from "../services/enrolment";
 // Marketplace: a recorded course sold across institutes, and the hidden batch its buyers sit in.
-export { holdRecordedSeat } from "../services/enrolment";
+export { cancelHold, holdRecordedSeat } from "../services/enrolment";
+export { todayIn } from "../lib/dates";
 export { ensureRecordedBatch } from "../services/batches";
 export { createLectureCourse } from "../services/courses";
 export { gstFor } from "../services/finance";

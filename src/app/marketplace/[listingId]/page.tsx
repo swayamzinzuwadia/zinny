@@ -5,8 +5,9 @@ import { Badge, ButtonLink, Card, Notice } from "@/components/ui";
 import { currentUserId } from "@/server/auth/session";
 import { buyAction } from "@/modules/marketplace/actions";
 import { listingDetail, marketplaceAccess } from "@/modules/marketplace/service";
-import { inr } from "@/modules/payments/money";
 import { getSite } from "@/modules/website-builder/cached";
+import { CodeField } from "@/modules/marketplace/components/code-field";
+import { KIND_LABEL, Price } from "@/modules/marketplace/components/price";
 
 export const metadata = { title: "Marketplace" };
 export const dynamic = "force-dynamic";
@@ -29,10 +30,17 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
             <Link href={`/marketplace?institute=${item.instituteSlug}`} className="text-[14px] text-muted hover:text-brand hover:underline">
               {item.institute}
             </Link>
-            <Badge tone={item.kind === "lecture" ? "neutral" : "brand"}>{item.kind === "lecture" ? "Lecture" : "Course"}</Badge>
+            <Badge tone={item.kind === "lecture" ? "neutral" : "brand"}>{KIND_LABEL[item.kind]}</Badge>
+            {item.percentOff && <Badge tone="gold">{item.percentOff}% off</Badge>}
           </div>
           <h1 className="mt-3 text-[clamp(2rem,5vw,3.25rem)] leading-[1.05] font-medium">{item.title}</h1>
           {item.description && <p className="mt-4 max-w-2xl text-[16px] leading-relaxed whitespace-pre-line text-muted">{item.description}</p>}
+          {item.includes.length > 0 && (
+            <p className="mt-4 max-w-2xl text-[15px]">
+              <span className="text-muted">Together in this combo: </span>
+              <span className="font-medium">{item.includes.join(", ")}</span>
+            </p>
+          )}
 
           <h2 className="mt-10 text-[23px] font-medium">What&apos;s inside</h2>
           <div className="mt-4 space-y-5">
@@ -54,8 +62,10 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
 
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <Card className="p-5 sm:p-6">
-            <div className="tabular text-[30px] leading-none font-semibold">{inr(item.totalPaise)}</div>
-            <p className="mt-1.5 text-[13px] text-muted">Includes GST. A GST invoice comes with your purchase.</p>
+            <Price totalPaise={item.totalPaise} compareAtTotalPaise={item.compareAtTotalPaise} className="block text-[30px] leading-none font-semibold" />
+            <p className="mt-1.5 text-[13px] text-muted">
+              {item.percentOff ? `You save ${item.percentOff}% on the usual price. ` : ""}Includes GST. A GST invoice comes with your purchase.
+            </p>
             <div className="mt-5">
               {item.ownedEnrolmentId ? (
                 <>
@@ -65,12 +75,13 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
                   </div>
                 </>
               ) : canShop ? (
-                <ActionForm action={buyAction} resetOnSuccess={false}>
+                <ActionForm action={buyAction} resetOnSuccess={false} className="space-y-3">
                   <input type="hidden" name="listingId" value={item.id} />
-                  <SubmitButton pendingText="Opening checkout…">Buy for {inr(item.totalPaise)}</SubmitButton>
+                  <CodeField />
+                  <SubmitButton pendingText="Opening checkout…">Buy now</SubmitButton>
                 </ActionForm>
               ) : userId ? (
-                <Notice tone="neutral">Buying opens to independent learners and alumni.</Notice>
+                <Notice tone="neutral">Buying is for learner accounts: students, alumni and people who signed up for the marketplace.</Notice>
               ) : (
                 <div className="flex flex-wrap items-center gap-3">
                   <ButtonLink href="/signup">Create an account to buy</ButtonLink>

@@ -12,6 +12,7 @@ import { GRANTS_ONLY_AT } from "./roles";
 export type SectionKey =
   | "dashboard"
   | "products"
+  | "marketplace"
   | "users"
   | "leaderboards"
   | "finance"
@@ -49,11 +50,20 @@ export const MENU: MenuSection[] = [
       { label: "Courses", href: "/products/courses" },
       { label: "Tests", href: "/products/tests" },
       { label: "Assignments", href: "/products/assignments" },
-      { label: "Marketplace", href: "/products/marketplace" },
       { label: "Learning progress", href: "/products/content" },
       { label: "Certificates", href: "/products/certificates" },
       { label: "Categories & utilities", href: "/products/categories" },
       { label: "More products", href: "/products/more" },
+    ],
+  },
+  {
+    key: "marketplace",
+    label: "Marketplace",
+    hint: "Sell recordings to anyone on Zinny",
+    items: [
+      { label: "Listings", href: "/marketplace" },
+      { label: "Combos", href: "/marketplace/combos" },
+      { label: "Discount codes", href: "/marketplace/codes" },
     ],
   },
   {
@@ -159,6 +169,9 @@ export function menuFor(actor: Actor, universityId: string, now = new Date()) {
       if (!cur || RANK[access] > RANK[cur]) best.set(section, access);
     }
   }
+  // Selling on the marketplace is editing courses, so whoever edits courses (all of them, or their department's) gets the section.
+  const products = best.get("products");
+  if (products === "full" || products === "dept") best.set("marketplace", products);
   return MENU.filter((s) => best.has(s.key))
     .map((s) => ({ ...s, access: best.get(s.key)! }))
     .map((s) => (s.key === "insights" && !best.has("finance") ? { ...s, items: [...s.items, REPORTS_ITEM] } : s))

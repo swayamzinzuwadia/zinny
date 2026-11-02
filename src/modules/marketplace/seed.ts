@@ -1,11 +1,11 @@
-/** Demo data: one course and one lecture on sale, and a marketplace learner who bought the lecture. */
+/** Demo data: a course on a deal with a code, a lecture, a combo, and a marketplace learner who bought the lecture. */
 import { eq } from "drizzle-orm";
 import type { SeedContext } from "@/contracts/module";
 import { systemDb } from "@/db/client";
 import { users } from "@/db/schema";
 import { hashPassword } from "@/server/auth/passwords";
 import { confirmPayment } from "@/server/core";
-import { createListing, listableSources } from "./listings";
+import { comboSources, createCode, createCombo, createListing, listableSources } from "./listings";
 import { mktLearners } from "./schema";
 import { startPurchase } from "./service";
 
@@ -16,13 +16,25 @@ export async function seed(ctx: SeedContext) {
   const lecture = sources.flatMap((s) => s.lectures).at(-1);
   if (!whole || !lecture) return;
 
-  await createListing(hema, {
+  const course = await createListing(hema, {
     kind: "course",
     sourceId: whole.id,
     title: `${whole.title}: the full recordings`,
     description: "Every recorded lesson of this course, yours to watch at your own pace. The recordings come from our live batches, so you hear real questions from real students.",
     pricePaise: 349_900,
+    compareAtPaise: 499_900,
   });
+  await createCode(hema, { code: "WELCOME10", kind: "percent", value: 10, listingId: course.id });
+  const forCombo = (await comboSources(hema)).slice(0, 2);
+  if (forCombo.length === 2) {
+    await createCombo(hema, {
+      courseIds: forCombo.map((c) => c.id),
+      title: `${forCombo[0].title} + ${forCombo[1].title}`,
+      description: "Both courses' recordings together, for less than buying them one by one.",
+      pricePaise: 449_900,
+      compareAtPaise: 699_900,
+    });
+  }
   const single = await createListing(hema, {
     kind: "lecture",
     sourceId: lecture.id,

@@ -431,7 +431,15 @@ function Contact({ site, s }: { site: SiteInfo; s: PageSection }) {
 }
 
 /** A recorded course or lecture this institute sells on the Zinny marketplace. */
-export type RecordedItem = { id: string; kind: "course" | "lecture"; title: string; description: string; lessons: number; totalPaise: number };
+export type RecordedItem = {
+  id: string;
+  kind: "course" | "lecture" | "combo";
+  title: string;
+  description: string;
+  lessons: number;
+  totalPaise: number;
+  compareAtTotalPaise: number | null;
+};
 
 /** What the institute sells on the marketplace. Each card opens the listing there, where anyone can buy it. */
 export function RecordedShelf({ uni, items }: { uni: string; items: RecordedItem[] }) {
@@ -455,11 +463,15 @@ export function RecordedShelf({ uni, items }: { uni: string; items: RecordedItem
               href={`/marketplace/${r.id}`}
               className="group flex h-full flex-col rounded-[22px] border border-[var(--site-line)] bg-surface p-5 transition-colors hover:border-[var(--site-primary)]"
             >
-              <span className="text-[13px] text-muted">{r.kind === "lecture" ? "Single lecture" : `Course · ${r.lessons} ${r.lessons === 1 ? "lesson" : "lessons"}`}</span>
+              <span className="text-[13px] text-muted">
+                {r.kind === "lecture" ? "Single lecture" : `${r.kind === "combo" ? "Combo" : "Course"} · ${r.lessons} ${r.lessons === 1 ? "lesson" : "lessons"}`}
+              </span>
               <span className="mt-1.5 text-[20px] font-semibold leading-snug tracking-[-0.01em] group-hover:text-[var(--site-primary)]">{r.title}</span>
               {r.description && <span className="mt-1.5 line-clamp-2 text-[15px] text-muted">{r.description}</span>}
               <span className="mt-auto pt-4 text-[15px] font-medium tabular-nums">
-                {formatINR(r.totalPaise)} <span className="text-[13px] font-normal text-muted">incl. GST</span>
+                {formatINR(r.totalPaise)}{" "}
+                {r.compareAtTotalPaise && <s className="text-[13px] font-normal text-muted">{formatINR(r.compareAtTotalPaise)}</s>}{" "}
+                <span className="text-[13px] font-normal text-muted">incl. GST</span>
               </span>
             </Link>
           </li>
