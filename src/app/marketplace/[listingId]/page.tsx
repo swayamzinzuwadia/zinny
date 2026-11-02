@@ -45,7 +45,7 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
 
   const titlePage = (
     <>
-      <div className="flex items-center gap-3">
+      <div data-ink className="flex items-center gap-3">
         <div id="listing-book" className="w-11 shrink-0">
           <Jacket item={item} />
         </div>
@@ -56,20 +56,22 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
           <div className="text-muted">{facts}</div>
         </div>
       </div>
-      <h1 className="mt-7 text-[clamp(2.2rem,4.4vw,3.4rem)] leading-[1.04] font-semibold [text-wrap:balance]">{item.title}</h1>
-      {item.description && <p className="mt-4 text-[16px] leading-relaxed whitespace-pre-line text-ink/80">{item.description}</p>}
+      <h1 data-ink-title className="mt-7 text-[clamp(2.2rem,4.4vw,3.4rem)] leading-[1.04] font-semibold [text-wrap:balance]">
+        {item.title}
+      </h1>
+      {item.description && <p data-ink className="mt-4 text-[16px] leading-relaxed whitespace-pre-line text-ink/80">{item.description}</p>}
       {item.includes.length > 0 && (
-        <p className="mt-4 text-[15px] text-ink/80">
+        <p data-ink className="mt-4 text-[15px] text-ink/80">
           <span className="text-muted">This combo brings together </span>
           {item.includes.join(", ")}.
         </p>
       )}
 
-      <div className="mt-8 border-t border-line pt-6">
+      <div data-ink className="mt-8 border-t border-line pt-6">
         <div className="flex flex-wrap items-center gap-3">
           <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} size="lg" />
           {item.percentOff && item.compareAtPaise && (
-            <span className="rounded-full bg-gold-soft px-3 py-1 text-[13.5px] font-medium text-brand-deep">
+            <span data-stamp className="rounded-full bg-gold px-3 py-1 text-[13.5px] font-semibold text-brand-deep">
               Save {inr(item.compareAtPaise - item.pricePaise)}, {item.percentOff}% off
             </span>
           )}
@@ -102,7 +104,7 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
         </div>
       </div>
 
-      <ul className="mt-7 space-y-1.5 text-[14px] text-ink/80">
+      <ul data-ink className="mt-7 space-y-1.5 text-[14px] text-ink/80">
         <li className="flex gap-2.5">
           <Tick />
           Watch at your own pace, as often as you like
@@ -129,21 +131,23 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
 
   const contentsPage = (
     <section aria-labelledby="contents">
-      <h2 id="contents" className="text-[clamp(1.8rem,3vw,2.4rem)] leading-tight font-semibold">
+      <h2 id="contents" data-ink-head className="text-[clamp(1.8rem,3vw,2.4rem)] leading-tight font-semibold">
         Contents
       </h2>
-      <p className="mt-1 text-[14px] text-muted">
+      <p data-ink-head className="mt-1 text-[14px] text-muted">
         {lessonCount} {lessonCount === 1 ? "lesson" : "lessons"} in {item.outline.sections.length} {item.outline.sections.length === 1 ? "part" : "parts"}
       </p>
       <div className="mt-6 space-y-7">
         {item.outline.sections.map((s) => (
           <section key={s.title}>
-            <h3 className="text-[15px] font-semibold text-brand-deep">{s.title}</h3>
+            <h3 data-ink-head className="text-[15px] font-semibold text-brand-deep">
+              {s.title}
+            </h3>
             <ol className="mt-1.5">
               {s.lessons.map((l, i) => (
-                <li key={`${l.title}-${i}`} className="flex items-baseline gap-2.5 py-1.5 text-[14.5px]">
-                  <span className="min-w-0">{l.title}</span>
-                  <span aria-hidden className="h-px min-w-5 flex-1 translate-y-[-3px] border-b border-dotted border-faint" />
+                <li key={`${l.title}-${i}`} data-ink-line className="group/line flex items-baseline gap-2.5 py-1.5 text-[14.5px]">
+                  <span className="min-w-0 [transition-property:color] duration-150 group-hover/line:text-brand">{l.title}</span>
+                  <span aria-hidden data-leader className="h-px min-w-5 flex-1 translate-y-[-3px] border-b border-dotted border-faint [transition-property:border-color] duration-150 group-hover/line:border-brand" />
                   <span className="tabular shrink-0 text-[13.5px] text-muted">{l.durationMinutes > 0 ? `${l.durationMinutes} min` : l.kind === "video" ? "Video" : "Reading"}</span>
                 </li>
               ))}
