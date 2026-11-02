@@ -23,11 +23,13 @@ function Batches() {
           <div className="text-[15px] font-semibold">Data Analytics · Weekday morning</div>
           <div className="mt-0.5 text-muted">Mon to Fri, 9 to 11 am · Prof. Farah</div>
         </div>
-        <span className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand">Open</span>
+        <span data-stamp className="rounded-full bg-brand-soft px-2 py-0.5 text-[11px] font-medium text-brand">
+          Open
+        </span>
       </div>
       <div className="mt-4 grid grid-cols-10 gap-1.5">
         {Array.from({ length: 20 }, (_, i) => (
-          <span key={i} className={`aspect-square rounded-md ${i < taken ? "bg-brand" : i < 18 ? "bg-gold" : "bg-line"}`} />
+          <span key={i} data-pop className={`aspect-square rounded-md ${i < taken ? "bg-brand" : i < 18 ? "bg-gold" : "bg-line"}`} />
         ))}
       </div>
       <div className="mt-3 flex justify-between text-muted">
@@ -44,7 +46,9 @@ function Live() {
       <div className="flex items-center gap-2">
         <span className="size-2 animate-pulse rounded-full bg-gold" />
         <span className="font-semibold">Live now · Python Basics</span>
-        <span className="ml-auto rounded-full bg-brand px-3 py-1 text-[11px] font-medium text-canvas">Join class</span>
+        <span data-stamp className="ml-auto rounded-full bg-brand px-3 py-1 text-[11px] font-medium text-canvas">
+          Join class
+        </span>
       </div>
       <div className="mt-4 space-y-0">
         {[
@@ -53,7 +57,7 @@ function Live() {
           ["Kabir Rao", false],
           ["Meera Iyer", true],
         ].map(([n, p]) => (
-          <div key={String(n)} className={row}>
+          <div key={String(n)} data-row className={row}>
             <span>{n}</span>
             <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${p ? "bg-brand-soft text-brand" : "bg-danger-soft text-danger"}`}>{p ? "Present" : "Absent"}</span>
           </div>
@@ -74,7 +78,7 @@ function Tests() {
       </div>
       <div className="mt-4 flex h-28 items-end gap-2">
         {bars.map((b, i) => (
-          <span key={i} className="flex-1 rounded-t-md bg-brand/85" style={{ height: `${b}%` }} />
+          <span key={i} data-bar className="flex-1 origin-bottom rounded-t-md bg-brand/85" style={{ height: `${b}%` }} />
         ))}
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2 text-center">
@@ -84,7 +88,9 @@ function Tests() {
           ["12", "Assignments due"],
         ].map(([v, l]) => (
           <div key={l} className="rounded-lg bg-canvas py-2">
-            <div className="tabular text-[16px] font-semibold">{v}</div>
+            <div data-count={parseInt(v)} data-suffix={v.replace(/^d+/, "")} className="tabular text-[16px] font-semibold">
+              {v}
+            </div>
             <div className="text-[11px] text-muted">{l}</div>
           </div>
         ))}
@@ -101,26 +107,26 @@ function Fees() {
         <span className="text-muted">Seat held for 10 min</span>
       </div>
       <div className="mt-3 space-y-0">
-        <div className={row}>
+        <div data-row className={row}>
           <span className="text-muted">Course fee</span>
           <span className="tabular">₹6,000.00</span>
         </div>
-        <div className={row}>
+        <div data-row className={row}>
           <span className="text-muted">CGST 9%</span>
           <span className="tabular">₹540.00</span>
         </div>
-        <div className={row}>
+        <div data-row className={row}>
           <span className="text-muted">SGST 9%</span>
           <span className="tabular">₹540.00</span>
         </div>
-        <div className={`${row} text-[15px] font-semibold`}>
+        <div data-row className={`${row} text-[15px] font-semibold`}>
           <span>Total</span>
           <span className="tabular">₹7,080.00</span>
         </div>
       </div>
       <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[12px] font-medium">
         {["UPI", "Card", "Netbanking"].map((m) => (
-          <span key={m} className="rounded-lg border border-line py-2">
+          <span key={m} data-pop className="rounded-lg border border-line py-2">
             {m}
           </span>
         ))}
@@ -133,7 +139,7 @@ function Fees() {
 function Certificates() {
   return (
     <div className={screen}>
-      <div className="rounded-xl border-2 border-gold/60 bg-[#fffaf0] p-5 text-center">
+      <div data-pop className="rounded-xl border-2 border-gold/60 bg-[#fffaf0] p-5 text-center">
         <div className="text-[11px] text-muted">Certificate of completion</div>
         <div className={`${SERIF} mt-2 text-[24px] leading-tight font-semibold`}>Meera Iyer</div>
         <div className="mt-1 text-muted">completed Machine Learning Foundations</div>
@@ -153,14 +159,16 @@ function Website() {
       <div className="rounded-t-2xl bg-brand-deep px-5 pt-5 pb-6 text-canvas">
         <div className="text-[11px] text-canvas/60">yourinstitute · Home · Courses · Faculty · Blog</div>
         <div className={`${SERIF} mt-3 text-[22px] leading-tight font-semibold`}>Coaching that gets results, in Navi Mumbai.</div>
-        <div className="mt-3 inline-block rounded-full bg-gold px-3 py-1 text-[11px] font-semibold text-brand-deep">Next batch starts Monday</div>
+        <div data-stamp className="mt-3 inline-block rounded-full bg-gold px-3 py-1 text-[11px] font-semibold text-brand-deep">
+          Next batch starts Monday
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-3 p-5">
-        <div className="rounded-lg bg-canvas p-3">
+        <div data-pop className="rounded-lg bg-canvas p-3">
           <div className="font-semibold">Python Basics</div>
           <div className="text-[11px] text-muted">₹4,000 + GST · 2 seats left</div>
         </div>
-        <div className="rounded-lg bg-canvas p-3">
+        <div data-pop className="rounded-lg bg-canvas p-3">
           <div className="font-semibold">Ask us anything</div>
           <div className="text-[11px] text-muted">Enquiries land in your inbox</div>
         </div>
@@ -182,17 +190,21 @@ function Selling() {
           ["Python + Data Analytics combo", "₹4,499", "36% off", "4 buyers"],
           ["Neural networks, one lecture", "₹399", "", "21 buyers"],
         ].map(([t, p, d, b]) => (
-          <div key={t} className={row}>
+          <div key={t} data-row className={row}>
             <span className="min-w-0 truncate">{t}</span>
             <span className="flex shrink-0 items-center gap-2">
-              {d && <span className="rounded-full bg-gold px-1.5 text-[10px] font-semibold text-brand-deep">{d}</span>}
+              {d && (
+                <span data-stamp className="rounded-full bg-gold px-1.5 text-[10px] font-semibold text-brand-deep">
+                  {d}
+                </span>
+              )}
               <span className="tabular font-medium">{p}</span>
               <span className="text-[11px] text-muted">{b}</span>
             </span>
           </div>
         ))}
       </div>
-      <div className="mt-3 flex items-center gap-2 rounded-lg bg-canvas px-3 py-2 text-[12px]">
+      <div data-pop className="mt-3 flex items-center gap-2 rounded-lg bg-canvas px-3 py-2 text-[12px]">
         <span className="font-mono font-semibold">DIWALI20</span>
         <span className="text-muted">20% off everything you sell · 48 of 100 used</span>
       </div>
@@ -212,7 +224,7 @@ function People() {
           ["Accounts and fees", "Payments, refunds and reports"],
           ["Students and parents", "The learner app, nothing else"],
         ].map(([r, a]) => (
-          <div key={r} className={row}>
+          <div key={r} data-row className={row}>
             <span className="font-medium">{r}</span>
             <span className="max-w-[60%] text-right text-[12px] text-muted">{a}</span>
           </div>
@@ -263,7 +275,20 @@ export function Features() {
     () => {
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
-        gsap.fromTo(stage.current!.firstElementChild, { opacity: 0, y: 18, rotateX: 6 }, { opacity: 1, y: 0, rotateX: 0, duration: 0.55, ease: "power3.out" });
+        const screenEl = stage.current!.firstElementChild as HTMLElement;
+        const q = (sel: string) => screenEl.querySelectorAll<HTMLElement>(sel);
+        const tl = gsap.timeline();
+        tl.fromTo(screenEl, { opacity: 0, y: 24, rotateX: 10, scale: 0.97 }, { opacity: 1, y: 0, rotateX: 0, scale: 1, duration: 0.6, ease: "power3.out" }, 0)
+          .from(q("[data-row]"), { opacity: 0, x: -14, duration: 0.4, stagger: 0.06, ease: "power2.out" }, 0.15)
+          .from(q("[data-pop]"), { opacity: 0, scale: 0.4, duration: 0.35, stagger: 0.035, ease: "back.out(2.2)" }, 0.15)
+          .from(q("[data-bar]"), { scaleY: 0, duration: 0.7, stagger: 0.06, ease: "power3.out" }, 0.2)
+          .from(q("[data-stamp]"), { opacity: 0, scale: 2.2, rotate: -12, duration: 0.45, stagger: 0.08, ease: "back.out(2.4)" }, 0.45);
+        q("[data-count]").forEach((n) => {
+          const to = Number(n.dataset.count);
+          const suffix = n.dataset.suffix ?? "";
+          const c = { v: 0 };
+          tl.to(c, { v: to, duration: 0.9, ease: "power2.out", onUpdate: () => (n.textContent = `${Math.round(c.v)}${suffix}`) }, 0.2);
+        });
       });
       return () => mm.revert();
     },

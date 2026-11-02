@@ -2,13 +2,25 @@
 
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { SplitText } from "gsap/SplitText";
 import Link from "next/link";
 import { useRef } from "react";
 import { demoHref } from "../config";
 import { display } from "../fonts";
 import css from "../landing.module.css";
 
-gsap.registerPlugin(useGSAP);
+gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
+
+/** Cloth-bound spines drifting behind the first screen, each at its own depth. */
+const DRIFT = [
+  { left: "3%", top: "18%", h: 120, cloth: "bg-brand", depth: 0.9, tilt: -8 },
+  { left: "11%", top: "74%", h: 86, cloth: "bg-[#2f4a72]", depth: 0.5, tilt: 6 },
+  { left: "44%", top: "9%", h: 70, cloth: "bg-gold", depth: 0.35, tilt: 12 },
+  { left: "52%", top: "86%", h: 104, cloth: "bg-[#a8402c]", depth: 0.7, tilt: -14 },
+  { left: "88%", top: "12%", h: 96, cloth: "bg-[#7a3d66]", depth: 0.6, tilt: 9 },
+  { left: "95%", top: "62%", h: 132, cloth: "bg-brand-deep", depth: 1, tilt: -5 },
+];
 
 const SERIF = display.className;
 
@@ -106,9 +118,10 @@ function Scene() {
   );
 
   return (
-    <div ref={root} aria-hidden className="relative mx-auto w-full max-w-[34rem] select-none">
+    <div ref={root} aria-hidden className="relative mx-auto w-full max-w-[34rem] select-none [perspective:1400px]">
+      <div data-scene-tilt className="relative [transform-style:preserve-3d]">
       {/* The institute's admin, in a browser window. */}
-      <div className="overflow-hidden rounded-[14px] bg-surface shadow-[0_40px_80px_-30px_rgb(6_58_47/0.55),0_0_0_1px_rgb(20_38_31/0.08)]">
+      <div data-scene-window className="overflow-hidden rounded-[14px] bg-surface shadow-[0_40px_80px_-30px_rgb(6_58_47/0.55),0_0_0_1px_rgb(20_38_31/0.08)]">
         <div className="flex items-center gap-1.5 border-b border-line bg-canvas px-3 py-2">
           <span className="size-2 rounded-full bg-[#e8dcc0]" />
           <span className="size-2 rounded-full bg-[#e8dcc0]" />
@@ -162,19 +175,19 @@ function Scene() {
       </div>
 
       {/* A learner's phone, on the marketplace. */}
-      <div className="absolute right-0 -bottom-36 w-[10.5rem] rounded-[26px] sm:-right-10 sm:-bottom-14 sm:w-[11.5rem] bg-[#0d1f19] p-2 shadow-[0_30px_60px_-20px_rgb(0_0_0/0.6)] sm:-right-10">
+      <div data-scene-phone className="absolute right-0 -bottom-36 w-[10.5rem] rounded-[26px] sm:-right-10 sm:-bottom-14 sm:w-[11.5rem] bg-[#0d1f19] p-2 shadow-[0_30px_60px_-20px_rgb(0_0_0/0.6)] sm:-right-10">
         <div className="overflow-hidden rounded-[20px] bg-brand-deep">
           <div className="px-3 pt-3 pb-2">
             <div className={`${SERIF} text-[13px] leading-tight font-semibold text-canvas`}>Learn from the institutes themselves.</div>
           </div>
           <div className="flex items-end gap-1.5 px-3 pb-2">
-            <div className="w-[30%]">
+            <div data-scene-book className="w-[30%]">
               <MiniBook title="Spoken English" cloth="bg-[#2f4a72] text-canvas" />
             </div>
             <div data-slot className="w-[30%]">
               <MiniBook title="Data Analytics" cloth="bg-brand text-canvas" sticker="40%" />
             </div>
-            <div className="w-[30%]">
+            <div data-scene-book className="w-[30%]">
               <MiniBook title="Tally basics" cloth="bg-[#a8402c] text-canvas" />
             </div>
           </div>
@@ -194,6 +207,7 @@ function Scene() {
         </div>
       </div>
 
+      </div>
       {/* The admin's pointer. */}
       <svg data-pointer viewBox="0 0 20 20" className="pointer-events-none absolute top-0 left-0 z-30 size-5 opacity-0 drop-shadow-[0_2px_3px_rgb(0_0_0/0.35)]">
         <path d="M3 2l13 7-6 1.5L7.5 17z" fill="#14261f" stroke="#fff" strokeWidth="1.2" strokeLinejoin="round" />
@@ -207,9 +221,48 @@ export function Hero() {
   const root = useRef<HTMLElement>(null);
   useGSAP(
     () => {
+      const el = root.current!;
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
-        gsap.from("[data-rise]", { y: 26, opacity: 0, duration: 0.8, stagger: 0.09, ease: "power3.out", delay: 0.1 });
+        // The headline rises line by line out of a mask, then the rest follows.
+        const split = SplitText.create("[data-hero-title]", { type: "lines", mask: "lines" });
+        const intro = gsap.timeline({ delay: 0.1 });
+        intro
+          .from(split.lines, { yPercent: 110, duration: 1.05, stagger: 0.12, ease: "expo.out" }, 0)
+          .from("[data-rise]", { y: 26, opacity: 0, duration: 0.8, stagger: 0.1, ease: "power3.out" }, 0.45)
+          // The product scene assembles: the admin window swings up, the phone spins in, the books drop.
+          .from("[data-scene-window]", { y: 80, rotateX: 28, opacity: 0, duration: 1.1, ease: "expo.out", transformOrigin: "50% 100%" }, 0.35)
+          .from("[data-scene-phone]", { x: 160, y: 40, rotate: 18, opacity: 0, duration: 1.1, ease: "expo.out" }, 0.6)
+          .from("[data-scene-book]", { y: -60, opacity: 0, duration: 0.6, stagger: 0.08, ease: "back.out(1.8)" }, 1.0)
+          .from("[data-drift]", { opacity: 0, scale: 0.6, duration: 1.2, stagger: 0.06, ease: "power2.out" }, 0.2);
+
+        // Spines drift past at their own depths as the page scrolls.
+        gsap.utils.toArray<HTMLElement>("[data-drift]").forEach((d) => {
+          const depth = Number(d.dataset.depth);
+          gsap.to(d, { y: -260 * depth, rotate: `+=${18 * depth}`, ease: "none", scrollTrigger: { trigger: el, start: "top top", end: "bottom top", scrub: true } });
+          gsap.to(d, { y: `+=${10 + 10 * depth}`, duration: 3 + depth * 2, ease: "sine.inOut", yoyo: true, repeat: -1 });
+        });
+
+        // The scene leans towards the pointer; the spines answer at their depths.
+        if (window.matchMedia("(pointer: fine)").matches) {
+          const scene = el.querySelector<HTMLElement>("[data-scene-tilt]")!;
+          const rx = gsap.quickTo(scene, "rotateX", { duration: 0.9, ease: "power3.out" });
+          const ry = gsap.quickTo(scene, "rotateY", { duration: 0.9, ease: "power3.out" });
+          const drifts = gsap.utils.toArray<HTMLElement>("[data-drift-x]").map((d) => ({ x: gsap.quickTo(d, "x", { duration: 1.2, ease: "power3.out" }), depth: Number(d.dataset.depth) }));
+          const move = (e: PointerEvent) => {
+            const nx = e.clientX / window.innerWidth - 0.5;
+            const ny = e.clientY / window.innerHeight - 0.5;
+            rx(-ny * 7);
+            ry(nx * 9);
+            drifts.forEach((d) => d.x(-nx * 60 * d.depth));
+          };
+          window.addEventListener("pointermove", move, { passive: true });
+          return () => {
+            window.removeEventListener("pointermove", move);
+            split.revert();
+          };
+        }
+        return () => split.revert();
       });
       return () => mm.revert();
     },
@@ -218,9 +271,21 @@ export function Hero() {
 
   return (
     <section ref={root} aria-labelledby="hero" className="relative overflow-x-clip pt-28 pb-20 sm:pt-36 sm:pb-28">
+      <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
+        {DRIFT.map((d, i) => (
+          <span key={i} data-drift-x data-depth={d.depth} className="absolute" style={{ left: d.left, top: d.top }}>
+            <span
+              data-drift
+              data-depth={d.depth}
+              className={`block w-7 rounded-[3px_3px_1px_1px] opacity-[0.16] ${d.cloth}`}
+              style={{ height: d.h, transform: `rotate(${d.tilt}deg)` }}
+            />
+          </span>
+        ))}
+      </div>
       <div className="mx-auto grid max-w-[1240px] items-center gap-16 px-5 sm:px-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-12">
         <div>
-          <h1 id="hero" data-rise className={`${SERIF} ${css.headline} text-[clamp(2.9rem,6.4vw,5.6rem)] leading-[1.02] tracking-[-0.025em] text-ink`}>
+          <h1 id="hero" data-hero-title className={`${SERIF} ${css.headline} text-[clamp(2.9rem,6.4vw,5.6rem)] leading-[1.02] tracking-[-0.025em] text-ink`}>
             Run your institute.
             <br />
             <span className="text-brand">Sell what it teaches.</span>

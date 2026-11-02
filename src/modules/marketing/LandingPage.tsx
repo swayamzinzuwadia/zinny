@@ -3,6 +3,7 @@ import { display, text } from "./fonts";
 import css from "./landing.module.css";
 import { Cursor } from "./components/Cursor";
 import { Features } from "./components/Features";
+import { Film } from "./components/Film";
 import { Finale } from "./components/Finale";
 import { Hero } from "./components/Hero";
 import { India } from "./components/India";
@@ -25,6 +26,7 @@ export function LandingPage({ shelf, onSale }: { shelf: ReactNode; onSale: numbe
       <Nav />
       <main>
         <Hero />
+        <Film />
         <Loop />
         <Features />
         <Learners shelf={shelf} count={onSale} />
