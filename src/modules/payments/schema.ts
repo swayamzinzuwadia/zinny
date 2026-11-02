@@ -1,7 +1,8 @@
 /**
  * payments tables. Prefix: pay_. drizzle.config.ts picks this file up automatically.
- * Every table holds one university's data (`university_id`), so row-level security
- * applies to all of them. Money is integer paise.
+ * Every table but the bundles holds one university's data (`university_id`), so row-level
+ * security applies to them. Bundles span institutes and only the system connection reads
+ * them. Money is integer paise.
  *
  * Core owns `orders` and `invoices`; payments only reads them and links to them here.
  */
@@ -130,4 +131,49 @@ export const payInvoiceDocuments = pgTable(
     emailedAt: timestamp("emailed_at", { withTimezone: true }),
   },
   (t) => [uniqueIndex("pay_invoice_documents_invoice_uq").on(t.invoiceId)],
+);
+
+export type BundleStatus = "pending" | "paid" | "failed" | "expired";
+
+/**
+ * One payment for several orders: a marketplace cart can hold courses from different
+ * institutes, and the learner pays once. Each order still belongs to its own institute and
+ * gets its own GST invoice; the bundle only carries the shared Razorpay order and payment.
+ * It spans institutes, so it has no university_id and only the system connection reads it.
+ */
+export const payBundles = pgTable(
+  "pay_bundles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    totalPaise: integer("total_paise").notNull(),
+    gateway: text("gateway").notNull(),
+    gatewayOrderId: text("gateway_order_id").notNull(),
+    gatewayPaymentId: text("gateway_payment_id"),
+    status: text("status").$type<BundleStatus>().notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("pay_bundles_gateway_order_uq").on(t.gatewayOrderId),
+    index("pay_bundles_user_idx").on(t.userId, t.createdAt),
+    check("pay_bundle_status", sql`${t.status} in ('pending', 'paid', 'failed', 'expired')`),
+    check("pay_bundle_total", sql`${t.totalPaise} > 0`),
+  ],
+);
+
+/** The orders a bundle pays for. An order belongs to one bundle at most. */
+export const payBundleOrders = pgTable(
+  "pay_bundle_orders",
+  {
+    bundleId: uuid("bundle_id")
+      .notNull()
+      .references(() => payBundles.id, { onDelete: "cascade" }),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+  },
+  (t) => [uniqueIndex("pay_bundle_orders_order_uq").on(t.orderId), index("pay_bundle_orders_bundle_idx").on(t.bundleId)],
 );

@@ -2,6 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/ui";
 import { AccountMenu, type AccountLink } from "@/app/[uni]/learn/account-menu";
+import { cartCount } from "@/modules/marketplace/cart";
+import { CartLink } from "@/modules/marketplace/components/cart-link";
+import { marketplaceAccess } from "@/modules/marketplace/service";
 import { loadActor } from "@/server/actor";
 import { currentUserId, homeSpacesFor, signOut } from "@/server/auth/session";
 import { demoHref } from "@/modules/marketing/config";
@@ -12,7 +15,9 @@ const navLink = "rounded-full px-2.5 py-2 sm:px-3 whitespace-nowrap text-canvas/
 /** Anyone can browse the marketplace. Buying and My library ask the visitor to sign in. Pages set their own width, so a shop front can run edge to edge. */
 export default async function MarketplaceLayout({ children }: { children: React.ReactNode }) {
   const userId = await currentUserId();
-  const [person, spaces] = userId ? await Promise.all([loadActor(userId, null), homeSpacesFor(userId)]) : [null, []];
+  const [person, spaces, shopper] = userId
+    ? await Promise.all([loadActor(userId, null), homeSpacesFor(userId), marketplaceAccess(userId).then((a) => (a.canShop ? cartCount(userId) : null))])
+    : [null, [], null];
 
   async function logout() {
     "use server";
@@ -24,6 +29,7 @@ export default async function MarketplaceLayout({ children }: { children: React.
 
   return (
     <div
+      id="marketplace-root"
       className={`display-headings flex min-h-dvh flex-col bg-canvas selection:bg-gold selection:text-brand-deep [&_:focus-visible]:outline-2 [&_:focus-visible]:outline-offset-2 [&_:focus-visible]:outline-gold ${display.variable}`}
     >
       <header className="sticky top-0 z-30 bg-brand-deep text-canvas shadow-[0_1px_0_rgb(250_246_234/0.08)]">
@@ -43,7 +49,10 @@ export default async function MarketplaceLayout({ children }: { children: React.
           </nav>
           <div className="ml-auto flex shrink-0 items-center gap-1 text-[14px]">
             {person ? (
-              <AccountMenu name={person.name} email={person.email} links={links} logout={logout} />
+              <>
+                {shopper !== null && <CartLink count={shopper} />}
+                <AccountMenu name={person.name} email={person.email} links={links} logout={logout} />
+              </>
             ) : (
               <>
                 <Link href="/login?next=/marketplace" className={`${navLink} hidden min-[360px]:block`}>

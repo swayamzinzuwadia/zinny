@@ -199,11 +199,22 @@ async function joinAsBuyer(universityId: string, userId: string) {
  * Starts checkout for a listing. Nothing is granted here: the course reaches My library
  * only when the gateway confirms the payment (core confirmPayment).
  */
-export async function startPurchase(userId: string, listingId: string, code?: string): Promise<{ slug: string; orderId: string }> {
+export async function startPurchase(
+  userId: string,
+  listingId: string,
+  code?: string,
+  /** For a cart: a code that doesn't fit this item is skipped instead of refused. */
+  opts: { skipCodeThatDoesNotFit?: boolean } = {},
+): Promise<{ slug: string; orderId: string; codeApplied: boolean }> {
   const access = await marketplaceAccess(userId);
   if (!access.canShop) throw new ForbiddenError("Buying is open to learners: students, alumni and people with a marketplace account.");
   const item = await liveListing(listingId);
-  const deal = code?.trim() ? await applyCode(item, code) : null;
+  const deal = code?.trim()
+    ? await applyCode(item, code).catch((e) => {
+        if (opts.skipCodeThatDoesNotFit && e instanceof ValidationError) return null;
+        throw e;
+      })
+    : null;
   const pricePaise = item.pricePaise - (deal?.discountPaise ?? 0);
 
   await joinAsBuyer(item.universityId, userId);
@@ -227,7 +238,7 @@ export async function startPurchase(userId: string, listingId: string, code?: st
       if (saved) await audit(tx, actor, "marketplace.code_use", "mkt_code", deal.codeId, { orderId: held.orderId, discountPaise: deal.discountPaise });
     });
   }
-  return { slug: item.instituteSlug, orderId: held.orderId };
+  return { slug: item.instituteSlug, orderId: held.orderId, codeApplied: !!deal };
 }
 
 async function liveListing(listingId: string) {
@@ -324,4 +335,22 @@ export async function myLibrary(userId: string): Promise<LibraryItem[]> {
     )
     .orderBy(desc(orders.paidAt));
   return rows.map(({ status, percent, paidAt, ...r }) => ({ ...r, completed: status === "completed", percent: percent ?? 0, boughtAt: paidAt! }));
+}
+
+/* ───────────────────────────── For the cart ───────────────────────────── */
+
+/** These listings, if they are still on sale. */
+export async function liveListingsByIds(ids: string[]) {
+  const valid = ids.filter((id) => UUID.test(id));
+  return valid.length ? liveListings(inArray(mktListings.id, valid)) : [];
+}
+
+/** Of these courses, the ones this person already owns (enrolled, active or completed). */
+export async function ownedCourseIds(userId: string, courseIds: string[]) {
+  if (courseIds.length === 0) return new Set<string>();
+  const rows = await systemDb()
+    .select({ courseId: enrolments.courseId })
+    .from(enrolments)
+    .where(and(eq(enrolments.userId, userId), inArray(enrolments.courseId, courseIds), inArray(enrolments.status, ["active", "completed"])));
+  return new Set(rows.map((r) => r.courseId));
 }

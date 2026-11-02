@@ -135,3 +135,18 @@ export const mktRedemptions = pgTable(
   },
   (t) => [uniqueIndex("mkt_redemptions_order_uq").on(t.orderId), index("mkt_redemptions_code_idx").on(t.codeId)],
 );
+
+/** A learner's cart: listings they mean to buy together. Spans institutes, so only the system connection reads it. */
+export const mktCartItems = pgTable(
+  "mkt_cart_items",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    listingId: uuid("listing_id")
+      .notNull()
+      .references(() => mktListings.id, { onDelete: "cascade" }),
+    addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.listingId] })],
+);

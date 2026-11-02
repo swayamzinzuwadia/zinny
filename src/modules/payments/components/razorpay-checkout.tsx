@@ -16,7 +16,7 @@ declare global {
 }
 
 let loading: Promise<void> | null = null;
-function loadScript(src: string) {
+export function loadScript(src: string) {
   if (typeof window !== "undefined" && window.Razorpay) return Promise.resolve();
   loading ??= new Promise<void>((resolve, reject) => {
     const s = document.createElement("script");

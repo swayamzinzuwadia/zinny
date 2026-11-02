@@ -20,6 +20,7 @@ import { createHash } from "node:crypto";
 import { and, eq, or, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { audit, confirmPayment, failPayment, gateway, notify, orderUniversity, systemActorFor, withTenant, type Actor } from "@/server/core";
+import { bundleByGatewayOrder, bundleUniversity, releaseBundle, settleBundle } from "./bundles";
 import { courseTitle, financeUserIds, loadOrder, lockOrder, orderByGatewayId, UUID_RE, type OrderRow } from "./internal";
 import { inr } from "./money";
 import { isRazorpay, type RazorpayPayment, type RazorpayRefund } from "./razorpay";
@@ -68,7 +69,7 @@ export async function handleRazorpayWebhook(rawBody: string, headers: { signatur
 
   // Which university: from the gateway order id through core; for a refund webhook without
   // a payment entity, from the notes we put on the refund (checked against the order below).
-  let universityId = gatewayOrderId ? await orderUniversity(gatewayOrderId) : null;
+  let universityId = gatewayOrderId ? ((await orderUniversity(gatewayOrderId)) ?? (await bundleUniversity(gatewayOrderId))) : null;
   if (!universityId && refund && UUID_RE.test(refundNotes.universityId ?? "") && UUID_RE.test(refundNotes.orderId ?? "")) {
     universityId = refundNotes.universityId;
   }
@@ -154,7 +155,7 @@ export async function handleRazorpayWebhook(rawBody: string, headers: { signatur
 async function onCaptured(sys: Actor, payment: RazorpayPayment | undefined): Promise<Outcome> {
   if (!payment?.id || !payment.order_id) return { status: "ignored", outcome: "no_payment" };
   const order = await withTenant(sys, (tx) => orderByGatewayId(tx, payment.order_id!));
-  if (!order) return { status: "ignored", outcome: "unknown_order" };
+  if (!order) return onBundleCaptured(payment);
   const notes = notesOf(payment.notes);
   if (notes.universityId && notes.universityId !== order.universityId) {
     await tellFinance(sys, order, "finance.payment_rejected", "A payment was refused", `Payment ${payment.id} names a different institute than its order. Nothing was changed.`);
@@ -185,11 +186,29 @@ async function onCaptured(sys: Actor, payment: RazorpayPayment | undefined): Pro
   return { status: "processed", outcome: out.status, orderId: order.id };
 }
 
+/**
+ * payment.captured / order.paid for a cart paid in one go (bundles.ts): the amount must match
+ * the bundle total, then every order in it is confirmed with this payment.
+ */
+async function onBundleCaptured(payment: RazorpayPayment & { order_id?: string | null }): Promise<Outcome> {
+  const bundle = await bundleByGatewayOrder(payment.order_id!);
+  if (!bundle) return { status: "ignored", outcome: "unknown_order" };
+  if (payment.amount !== bundle.totalPaise || payment.currency !== "INR") return { status: "rejected", outcome: "bundle_amount_mismatch" };
+  if (bundle.status === "paid" && bundle.gatewayPaymentId && bundle.gatewayPaymentId !== payment.id) return { status: "processed", outcome: "bundle_duplicate_payment" };
+  const { orders } = await settleBundle(bundle.id, payment.id);
+  return { status: "processed", outcome: `bundle_paid_${orders}` };
+}
+
 /** payment.failed: free the seat (core only changes a pending order). */
 async function onFailed(sys: Actor, payment: RazorpayPayment | undefined): Promise<Outcome> {
   if (!payment?.order_id) return { status: "ignored", outcome: "no_payment" };
   const order = await withTenant(sys, (tx) => orderByGatewayId(tx, payment.order_id!));
-  if (!order) return { status: "ignored", outcome: "unknown_order" };
+  if (!order) {
+    const bundle = await bundleByGatewayOrder(payment.order_id);
+    if (!bundle) return { status: "ignored", outcome: "unknown_order" };
+    const { released } = await releaseBundle(bundle.id);
+    return { status: "processed", outcome: `bundle_released_${released}` };
+  }
   if (order.status !== "pending") return { status: "processed", outcome: `order_${order.status}`, orderId: order.id };
   await failPayment(order.universityId, order.id);
   return { status: "processed", outcome: "seat_released", orderId: order.id };

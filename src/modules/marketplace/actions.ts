@@ -10,6 +10,7 @@ import { spaceContext } from "@/server/context";
 import { ValidationError } from "@/server/errors";
 import { inr } from "@/modules/payments/money";
 import { createCode, createCombo, createListing, setCodeStatus, setListingStatus, updateListing } from "./listings";
+import { addToCart, cartCount, removeFromCart } from "./cart";
 import { quoteCode, startPurchase } from "./service";
 
 /** Everywhere a listing shows: the admin pages, the course editor, the catalogue and the institute's website. */
@@ -122,5 +123,31 @@ export async function setCodeStatusAction(_: ActionState, data: FormData): Promi
     await setCodeStatus(actor, str(data, "codeId"), status);
     refresh(uni);
     return status === "active" ? "Code switched back on." : "Code paused. Nobody can use it until you switch it back on.";
+  });
+}
+
+/* ───────────────────────────── Cart ───────────────────────────── */
+
+export type CartResult = { ok: true; count: number } | { ok: false; error: string; signIn?: boolean };
+
+/** "Add to cart", called from the listing page so its animation can start straight away. */
+export async function addToCartAction(listingId: string): Promise<CartResult> {
+  const userId = await currentUserId();
+  if (!userId) return { ok: false, error: "Sign in to add this to your cart.", signIn: true };
+  const res = await attempt(async () => {
+    await addToCart(userId, String(listingId));
+  });
+  if (res && "error" in res && res.error) return { ok: false, error: res.error };
+  // No revalidation here: the header badge takes the new count when the basket lands in it.
+  return { ok: true, count: await cartCount(userId) };
+}
+
+export async function removeFromCartAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const userId = await currentUserId();
+  if (!userId) redirect("/login?next=/marketplace/cart");
+  return attempt(async () => {
+    await removeFromCart(userId, str(data, "listingId"));
+    revalidatePath("/marketplace", "layout");
+    return "Taken out of your cart.";
   });
 }

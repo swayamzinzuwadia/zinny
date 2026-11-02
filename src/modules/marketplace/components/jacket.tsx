@@ -49,10 +49,10 @@ export const lessonsLine = (lessons: number, minutes: number) =>
  * in container units, so the same jacket works as a shelf thumbnail and as the listing's cover.
  * A deal wears a round price sticker, the way a bookshop marks one.
  */
-export function Jacket({ item, className }: { item: JacketItem; className?: string }) {
+export function Jacket({ item, className, fill = false }: { item: JacketItem; className?: string; fill?: boolean }) {
   const c = clothFor(item.id);
   return (
-    <div className={cx("@container relative aspect-[3/4] w-full", className)}>
+    <div className={cx("@container relative w-full", fill ? "h-full" : "aspect-[3/4]", className)}>
       <div
         className={cx(
           "absolute inset-0 overflow-hidden rounded-[3px_9px_9px_3px] shadow-[0_22px_34px_-20px_rgb(6_58_47/0.7),0_2px_5px_rgb(6_58_47/0.18)]",
