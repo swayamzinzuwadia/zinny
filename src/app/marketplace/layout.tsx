@@ -4,9 +4,12 @@ import { Logo } from "@/components/ui";
 import { AccountMenu, type AccountLink } from "@/app/[uni]/learn/account-menu";
 import { loadActor } from "@/server/actor";
 import { currentUserId, homeSpacesFor, signOut } from "@/server/auth/session";
+import { demoHref } from "@/modules/marketing/config";
 import { display } from "@/modules/marketing/fonts";
 
-/** Anyone can browse the marketplace. Buying and My library ask the visitor to sign in. */
+const navLink = "rounded-full px-2.5 py-2 sm:px-3 whitespace-nowrap text-canvas/75 [transition-property:color,background-color] duration-150 hover:bg-canvas/10 hover:text-canvas";
+
+/** Anyone can browse the marketplace. Buying and My library ask the visitor to sign in. Pages set their own width, so a shop front can run edge to edge. */
 export default async function MarketplaceLayout({ children }: { children: React.ReactNode }) {
   const userId = await currentUserId();
   const [person, spaces] = userId ? await Promise.all([loadActor(userId, null), homeSpacesFor(userId)]) : [null, []];
@@ -20,18 +23,20 @@ export default async function MarketplaceLayout({ children }: { children: React.
   const links: AccountLink[] = spaces.map((s) => ({ href: `/${s.slug}/learn`, label: s.name }));
 
   return (
-    <div className={`display-headings min-h-dvh pb-16 ${display.variable}`}>
-      <header className="sticky top-0 z-30 border-b border-line/70 bg-canvas/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:gap-6 sm:px-6">
+    <div
+      className={`display-headings flex min-h-dvh flex-col bg-canvas selection:bg-gold selection:text-brand-deep [&_:focus-visible]:outline-2 [&_:focus-visible]:outline-offset-2 [&_:focus-visible]:outline-gold ${display.variable}`}
+    >
+      <header className="sticky top-0 z-30 bg-brand-deep text-canvas shadow-[0_1px_0_rgb(250_246_234/0.08)]">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:gap-6 sm:px-6">
           <Link href={person ? "/marketplace" : "/"} className="flex shrink-0 items-center">
-            <Logo height={26} />
+            <Logo height={26} tone="cream" />
           </Link>
-          <nav aria-label="Marketplace" className="flex min-w-0 gap-1 text-[14px]">
-            <Link href="/marketplace" className="rounded-full px-3 py-2 whitespace-nowrap text-muted hover:bg-surface hover:text-ink">
+          <nav aria-label="Marketplace" className="flex min-w-0 gap-0.5 text-[14px]">
+            <Link href="/marketplace" className={navLink}>
               Marketplace
             </Link>
             {person && (
-              <Link href="/marketplace/library" className="hidden rounded-full px-3 py-2 whitespace-nowrap text-muted hover:bg-surface hover:text-ink min-[400px]:block">
+              <Link href="/marketplace/library" className={navLink}>
                 My library
               </Link>
             )}
@@ -41,10 +46,13 @@ export default async function MarketplaceLayout({ children }: { children: React.
               <AccountMenu name={person.name} email={person.email} links={links} logout={logout} />
             ) : (
               <>
-                <Link href="/login?next=/marketplace" className="hidden rounded-full px-3 py-2 whitespace-nowrap text-ink hover:text-brand min-[360px]:block">
+                <Link href="/login?next=/marketplace" className={`${navLink} hidden min-[360px]:block`}>
                   Sign in
                 </Link>
-                <Link href="/signup" className="rounded-full bg-brand px-4 py-2 font-medium whitespace-nowrap text-canvas hover:bg-brand-strong">
+                <Link
+                  href="/signup"
+                  className="rounded-full bg-gold px-4 py-2 font-medium whitespace-nowrap text-brand-deep [transition-property:background-color] duration-150 hover:bg-canvas"
+                >
                   Sign up
                 </Link>
               </>
@@ -52,7 +60,21 @@ export default async function MarketplaceLayout({ children }: { children: React.
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 pt-8 sm:px-6 sm:pt-12">{children}</main>
+      <main className="flex-1 pb-20">{children}</main>
+      <footer className="bg-brand-deep text-canvas">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+          <div className="max-w-md">
+            <p className={`${display.className} text-[26px] leading-tight font-semibold`}>Run an institute?</p>
+            <p className="mt-2 text-[15px] leading-relaxed text-canvas/70">Put your recorded courses on these shelves and sell them to learners everywhere, straight from your own Zinny space.</p>
+          </div>
+          <a
+            href={demoHref}
+            className="self-start rounded-full bg-gold px-5 py-2.5 text-[15px] font-medium text-brand-deep [transition-property:background-color] duration-150 hover:bg-canvas sm:self-auto"
+          >
+            Book a demo
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }

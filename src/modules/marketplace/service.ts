@@ -51,16 +51,19 @@ export type CatalogItem = {
   universityId: string;
   courseId: string;
   batchId: string;
+  /** The listed price, before GST: what the marketplace shows. GST is added at checkout. */
   pricePaise: number;
-  /** What the buyer pays, GST included. */
+  /** The usual price before GST, shown struck through; null when there's no deal. */
+  compareAtPaise: number | null;
+  /** What checkout will charge, GST included. */
   totalPaise: number;
-  /** The usual price with GST, shown struck through; null when there's no deal. */
-  compareAtTotalPaise: number | null;
   /** Whole percent saved against the usual price. */
   percentOff: number | null;
   lessons: number;
   minutes: number;
 };
+
+export type CatalogSort = "new" | "price-low" | "price-high" | "deals";
 
 async function liveListings(filter?: SQL): Promise<CatalogItem[]> {
   const rows = await systemDb()
@@ -88,16 +91,22 @@ async function liveListings(filter?: SQL): Promise<CatalogItem[]> {
     courseId: l.courseId,
     batchId: l.batchId,
     pricePaise: l.pricePaise,
+    compareAtPaise: l.compareAtPaise,
     totalPaise: l.pricePaise + gstFor(l.pricePaise, gstRateBp),
-    compareAtTotalPaise: l.compareAtPaise ? l.compareAtPaise + gstFor(l.compareAtPaise, gstRateBp) : null,
     percentOff: l.compareAtPaise ? Math.round((1 - l.pricePaise / l.compareAtPaise) * 100) : null,
     lessons,
     minutes,
   }));
 }
 
-/** `institute` is a university slug: only what that institute sells. */
-export async function browseMarketplace(filter: { q?: string; kind?: ListingKind; institute?: string; limit?: number } = {}) {
+const SORTS: Record<Exclude<CatalogSort, "new">, (a: CatalogItem, b: CatalogItem) => number> = {
+  "price-low": (a, b) => a.pricePaise - b.pricePaise,
+  "price-high": (a, b) => b.pricePaise - a.pricePaise,
+  deals: (a, b) => (b.percentOff ?? 0) - (a.percentOff ?? 0),
+};
+
+/** `institute` is a university slug: only what that institute sells. Newest first unless `sort` says otherwise. */
+export async function browseMarketplace(filter: { q?: string; kind?: ListingKind; institute?: string; sort?: CatalogSort; limit?: number } = {}) {
   const q = filter.q?.trim().slice(0, 80);
   const like = q ? `%${q.replace(/[\\%_]/g, "\\$&")}%` : null;
   const items = await liveListings(
@@ -107,7 +116,19 @@ export async function browseMarketplace(filter: { q?: string; kind?: ListingKind
       like ? or(ilike(mktListings.title, like), ilike(universities.name, like)) : undefined,
     ),
   );
+  if (filter.sort && filter.sort !== "new") items.sort(SORTS[filter.sort]);
   return filter.limit ? items.slice(0, filter.limit) : items;
+}
+
+/** Institutes with something on sale, most listings first: the catalogue's shelves. */
+export async function marketplaceInstitutes() {
+  return systemDb()
+    .select({ name: universities.name, slug: universities.slug, listings: sql<number>`count(*)::int` })
+    .from(mktListings)
+    .innerJoin(universities, eq(universities.id, mktListings.universityId))
+    .where(and(eq(mktListings.status, "live"), eq(universities.status, "active")))
+    .groupBy(universities.name, universities.slug)
+    .orderBy(desc(sql`count(*)`), asc(universities.name));
 }
 
 /** An active institute, by slug, for the "From this institute" view of the catalogue. */
@@ -241,19 +262,19 @@ async function applyCode(item: CatalogItem, typed: string) {
   return { codeId: code.id, discountPaise: Math.min(off, item.pricePaise - 100) };
 }
 
-/** The price with a code, before buying: what "Apply" shows. */
+/** The price with a code, before buying: what "Apply" shows. Before GST, like every price on the marketplace. */
 export async function quoteCode(listingId: string, code: string) {
   const item = await liveListing(listingId);
   const { discountPaise } = await applyCode(item, code);
-  const pricePaise = item.pricePaise - discountPaise;
-  const [{ gstRateBp }] = await systemDb().select({ gstRateBp: courses.gstRateBp }).from(courses).where(eq(courses.id, item.courseId));
-  return { totalPaise: pricePaise + gstFor(pricePaise, gstRateBp), savedPaise: item.totalPaise - (pricePaise + gstFor(pricePaise, gstRateBp)) };
+  return { pricePaise: item.pricePaise - discountPaise, savedPaise: discountPaise };
 }
 
 /* ───────────────────────────── My library ───────────────────────────── */
 
 export type LibraryItem = {
   orderId: string;
+  listingId: string;
+  lessons: number;
   kind: ListingKind;
   title: string;
   institute: string;
@@ -273,6 +294,8 @@ export async function myLibrary(userId: string): Promise<LibraryItem[]> {
   const rows = await systemDb()
     .select({
       orderId: orders.id,
+      listingId: mktListings.id,
+      lessons: sql<number>`(select count(*)::int from content_lessons l where l.course_id = ${mktListings.courseId} and l.ready and l.kind <> 'live')`,
       kind: mktListings.kind,
       title: mktListings.title,
       institute: universities.name,

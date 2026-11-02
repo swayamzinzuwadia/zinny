@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge, ButtonLink, Card, CardTitle, cx } from "@/components/ui";
 import type { HomeCardProps } from "@/contracts/module";
 import { marketplaceAccess, myLibrary, type LibraryItem } from "../service";
+import { Jacket } from "./jacket";
 
 const bought = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 
@@ -17,20 +18,25 @@ function Progress({ percent }: { percent: number }) {
   );
 }
 
-/** One purchase, with the way back into it. */
+/** One book on the learner's shelf, with how far they've got and the way back into it. */
 export function LibraryCard({ item }: { item: LibraryItem }) {
   return (
-    <article className="flex flex-col rounded-[22px] border border-line bg-surface p-5">
-      <div className="flex items-center justify-between gap-3">
-        <span className="min-w-0 truncate text-[13px] text-muted">{item.institute}</span>
-        {item.completed ? <Badge tone="brand">Completed</Badge> : <Badge>{{ course: "Course", lecture: "Lecture", combo: "Combo" }[item.kind]}</Badge>}
+    <article className="flex flex-col">
+      <Link href={courseHref(item)} className="group block rounded-[10px] outline-offset-4">
+        <Jacket
+          item={{ id: item.listingId, kind: item.kind, title: item.title, institute: item.institute, lessons: item.lessons, percentOff: null }}
+          className="transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-1.5"
+        />
+      </Link>
+      <div className="mt-4 flex items-start justify-between gap-3">
+        <h3 className="line-clamp-2 text-[15px] leading-snug font-medium">
+          <Link href={courseHref(item)} className="hover:text-brand">
+            {item.title}
+          </Link>
+        </h3>
+        {item.completed && <Badge tone="brand">Completed</Badge>}
       </div>
-      <h2 className="mt-3 text-[21px] leading-snug font-medium">
-        <Link href={courseHref(item)} className="hover:text-brand">
-          {item.title}
-        </Link>
-      </h2>
-      <div className="mt-auto pt-5">
+      <div className="mt-auto pt-3">
         <Progress percent={item.percent} />
         <p className="mt-2 text-[13px] text-muted">
           {item.percent}% watched · Bought {bought.format(item.boughtAt)}

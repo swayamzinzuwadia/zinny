@@ -31,7 +31,7 @@ import {
   updateListing,
 } from "@/modules/marketplace/listings";
 import { mktCodes, mktComboCourses, mktLearners, mktListings, mktRedemptions } from "@/modules/marketplace/schema";
-import { browseMarketplace, listingDetail, marketplaceAccess, marketplaceInstitute, myLibrary, quoteCode, startPurchase } from "@/modules/marketplace/service";
+import { browseMarketplace, listingDetail, marketplaceAccess, marketplaceInstitute, marketplaceInstitutes, myLibrary, quoteCode, startPurchase } from "@/modules/marketplace/service";
 import { todayIn } from "@/server/core";
 import { createCourse } from "@/server/services/courses";
 import { payRefunds } from "@/modules/payments/schema";
@@ -259,6 +259,19 @@ describe("the catalogue", () => {
     expect(await browseMarketplace({ institute: b.uni.slug })).toEqual([]);
   });
 
+  it("sorts by price or discount, and lists the institutes with something on sale", async () => {
+    const name = `Sortwell ${uniqueCode()}`;
+    const { hod, listing } = await shop({ name });
+    const second = await createListing(hod, { kind: "lecture", sourceId: (await listableSources(hod))[0].lectures[0].id, title: "Cheap lecture", description: "", pricePaise: 5_000 });
+    await updateListing(hod, listing.id, { title: "Dear course", description: "", pricePaise: 100_000, compareAtPaise: 400_000 });
+    const mine = async (sort: "new" | "price-low" | "price-high" | "deals") => (await browseMarketplace({ q: name, sort })).map((i) => i.title);
+    expect(await mine("price-low")).toEqual(["Cheap lecture", "Dear course"]);
+    expect(await mine("price-high")).toEqual(["Dear course", "Cheap lecture"]);
+    expect(await mine("deals")).toEqual(["Dear course", "Cheap lecture"]);
+    expect(second.id).toBeTruthy();
+    expect((await marketplaceInstitutes()).find((i) => i.name === name)?.listings).toBe(2);
+  });
+
   it("searches titles and institutes, treating % and _ as plain text", async () => {
     const name = `Riverbend ${uniqueCode()}`;
     const { listing } = await shop({ name });
@@ -425,10 +438,11 @@ describe("deals: compare-at prices", () => {
     const { hod, listing } = await shop();
     await updateListing(hod, listing.id, { title: "On offer", description: "", pricePaise: 100_000, compareAtPaise: 200_000 });
     const item = (await browseMarketplace()).find((i) => i.id === listing.id);
-    expect(item).toMatchObject({ totalPaise: 118_000, compareAtTotalPaise: 236_000, percentOff: 50 });
+    // The marketplace shows prices before GST; checkout adds it.
+    expect(item).toMatchObject({ pricePaise: 100_000, compareAtPaise: 200_000, totalPaise: 118_000, percentOff: 50 });
     await expect(updateListing(hod, listing.id, { title: "On offer", description: "", pricePaise: 100_000, compareAtPaise: 100_000 })).rejects.toMatchObject({ status: 422 });
     await updateListing(hod, listing.id, { title: "No offer", description: "", pricePaise: 100_000, compareAtPaise: null });
-    expect((await browseMarketplace()).find((i) => i.id === listing.id)).toMatchObject({ compareAtTotalPaise: null, percentOff: null });
+    expect((await browseMarketplace()).find((i) => i.id === listing.id)).toMatchObject({ compareAtPaise: null, percentOff: null });
   });
 });
 
@@ -490,7 +504,7 @@ describe("discount codes", () => {
     const { admin, listing } = await shop();
     const code = `SAVE${uniqueCode()}`;
     await createCode(admin, { code: code.toLowerCase(), kind: "percent", value: 20 });
-    expect(await quoteCode(listing.id, ` ${code.toLowerCase()} `)).toEqual({ totalPaise: 94_400, savedPaise: 23_600 });
+    expect(await quoteCode(listing.id, ` ${code.toLowerCase()} `)).toEqual({ pricePaise: 80_000, savedPaise: 20_000 });
 
     const buyer = await learner();
     const { orderId } = await startPurchase(buyer, listing.id, code);
@@ -501,7 +515,7 @@ describe("discount codes", () => {
 
     const huge = `HUGE${uniqueCode()}`;
     await createCode(admin, { code: huge, kind: "amount", value: 500_000 });
-    expect((await quoteCode(listing.id, huge)).totalPaise).toBe(118);
+    expect((await quoteCode(listing.id, huge)).pricePaise).toBe(100);
   });
 
   it("refuses codes for another listing, outside their dates, used up or paused", async () => {
