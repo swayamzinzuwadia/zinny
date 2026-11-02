@@ -8,7 +8,8 @@ import { canPlatform } from "@/server/authz/engine";
 import { ADMIN_PANEL_ROLES, ROLE_LABELS } from "@/server/authz/roles";
 import type { RoleName } from "@/db/schema";
 import { LandingPage } from "@/modules/marketing/LandingPage";
-import { marketplaceAccess } from "@/modules/marketplace/service";
+import { BookCard } from "@/modules/marketplace/components/jacket";
+import { browseMarketplace, marketplaceAccess } from "@/modules/marketplace/service";
 
 export const metadata: Metadata = {
   title: { absolute: "Zinny · Run your institute. Sell what it teaches." },
@@ -24,7 +25,18 @@ export const metadata: Metadata = {
 /** Signed out: the landing page. After sign-in: go straight to the only space, or pick one. */
 export default async function Home() {
   const userId = await currentUserId();
-  if (!userId) return <LandingPage />;
+  if (!userId) {
+    // The landing page shows what is really on the marketplace right now.
+    const onSale = await browseMarketplace();
+    const shelf = (
+      <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-x-7 lg:grid-cols-4">
+        {onSale.slice(0, 8).map((item) => (
+          <BookCard key={item.id} item={item} />
+        ))}
+      </div>
+    );
+    return <LandingPage shelf={shelf} onSale={onSale.length} />;
+  }
   const [spaces, platform] = await Promise.all([homeSpacesFor(userId), loadActor(userId, null)]);
   const isStaff = canPlatform(platform, "platform.support_mode") || canPlatform(platform, "platform.manage_universities");
   if (spaces.length === 0 && !isStaff && (await marketplaceAccess(userId)).canShop) redirect("/marketplace");

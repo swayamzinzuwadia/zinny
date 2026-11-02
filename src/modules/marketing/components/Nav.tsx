@@ -11,6 +11,9 @@ export function Nav() {
           <Image src="/brand/zinny-wordmark.png" alt="Zinny" width={407} height={183} priority className="h-7 w-auto" />
         </Link>
         <div className="flex items-center gap-0.5 text-[14px] sm:gap-1">
+          <a href="#features" className="hidden rounded-full px-2 py-2 whitespace-nowrap text-ink [transition-property:color] duration-150 hover:text-brand sm:block sm:px-3">
+            For institutes
+          </a>
           <Link href="/marketplace" className="rounded-full px-2 py-2 whitespace-nowrap text-ink [transition-property:color] duration-150 hover:text-brand sm:px-3">
             Marketplace
           </Link>
