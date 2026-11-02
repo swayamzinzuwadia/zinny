@@ -160,7 +160,7 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
 
   return (
     <>
-      <section aria-label={item.title} className="bg-brand-deep pt-6 pb-16 sm:pt-8 sm:pb-20">
+      <section aria-label={item.title} className="overflow-x-clip bg-brand-deep pt-6 pb-16 sm:pt-8 sm:pb-20">
         <div className={shell}>
           <nav aria-label="Breadcrumb" className="mb-8 flex flex-wrap gap-x-2 text-[14px] text-canvas/60">
             <Link href="/marketplace" className="hover:text-canvas">
