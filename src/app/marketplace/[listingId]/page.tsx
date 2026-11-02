@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Badge, ButtonLink, Card, Notice } from "@/components/ui";
 import { currentUserId } from "@/server/auth/session";
@@ -13,8 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function Listing({ params }: { params: Promise<{ listingId: string }> }) {
   const { listingId } = await params;
   const userId = await currentUserId();
-  if (!userId) redirect(`/login?next=/marketplace/${listingId}`);
-  const [item, { canShop }] = await Promise.all([listingDetail(listingId, userId), marketplaceAccess(userId)]);
+  const [item, { canShop }] = await Promise.all([listingDetail(listingId, userId), userId ? marketplaceAccess(userId) : { canShop: false }]);
   if (!item) notFound();
 
   return (
@@ -66,8 +65,15 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
                   <input type="hidden" name="listingId" value={item.id} />
                   <SubmitButton pendingText="Opening checkout…">Buy for {inr(item.totalPaise)}</SubmitButton>
                 </ActionForm>
-              ) : (
+              ) : userId ? (
                 <Notice tone="neutral">Buying opens to independent learners and alumni.</Notice>
+              ) : (
+                <div className="flex flex-wrap items-center gap-3">
+                  <ButtonLink href="/signup">Create an account to buy</ButtonLink>
+                  <Link href={`/login?next=/marketplace/${item.id}`} className="text-[15px] font-medium text-brand">
+                    Sign in
+                  </Link>
+                </div>
               )}
             </div>
           </Card>

@@ -6,11 +6,10 @@ import { loadActor } from "@/server/actor";
 import { currentUserId, homeSpacesFor, signOut } from "@/server/auth/session";
 import { display } from "@/modules/marketing/fonts";
 
-/** The marketplace is for signed-in people, so buying and My library always know who is asking. */
+/** Anyone can browse the marketplace. Buying and My library ask the visitor to sign in. */
 export default async function MarketplaceLayout({ children }: { children: React.ReactNode }) {
   const userId = await currentUserId();
-  if (!userId) redirect("/login?next=/marketplace");
-  const [person, spaces] = await Promise.all([loadActor(userId, null), homeSpacesFor(userId)]);
+  const [person, spaces] = userId ? await Promise.all([loadActor(userId, null), homeSpacesFor(userId)]) : [null, []];
 
   async function logout() {
     "use server";
@@ -24,19 +23,32 @@ export default async function MarketplaceLayout({ children }: { children: React.
     <div className={`display-headings min-h-dvh pb-16 ${display.variable}`}>
       <header className="sticky top-0 z-30 border-b border-line/70 bg-canvas/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:gap-6 sm:px-6">
-          <Link href="/marketplace" className="flex shrink-0 items-center">
+          <Link href={person ? "/marketplace" : "/"} className="flex shrink-0 items-center">
             <Logo height={26} />
           </Link>
           <nav aria-label="Marketplace" className="flex min-w-0 gap-1 text-[14px]">
             <Link href="/marketplace" className="rounded-full px-3 py-2 whitespace-nowrap text-muted hover:bg-surface hover:text-ink">
               Marketplace
             </Link>
-            <Link href="/marketplace/library" className="rounded-full px-3 py-2 whitespace-nowrap text-muted hover:bg-surface hover:text-ink">
-              My library
-            </Link>
+            {person && (
+              <Link href="/marketplace/library" className="hidden rounded-full px-3 py-2 whitespace-nowrap text-muted hover:bg-surface hover:text-ink min-[400px]:block">
+                My library
+              </Link>
+            )}
           </nav>
-          <div className="ml-auto shrink-0">
-            <AccountMenu name={person.name} email={person.email} links={links} logout={logout} />
+          <div className="ml-auto flex shrink-0 items-center gap-1 text-[14px]">
+            {person ? (
+              <AccountMenu name={person.name} email={person.email} links={links} logout={logout} />
+            ) : (
+              <>
+                <Link href="/login?next=/marketplace" className="hidden rounded-full px-3 py-2 whitespace-nowrap text-ink hover:text-brand min-[360px]:block">
+                  Sign in
+                </Link>
+                <Link href="/signup" className="rounded-full bg-brand px-4 py-2 font-medium whitespace-nowrap text-canvas hover:bg-brand-strong">
+                  Sign up
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>

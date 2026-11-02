@@ -96,9 +96,9 @@ export function Finale() {
       <footer className="flex flex-col items-center justify-between gap-4 bg-brand-deep px-6 py-7 text-[13px] text-canvas/55 sm:flex-row sm:px-10">
         <Image src="/brand/zinny-wordmark-cream.png" alt="Zinny" width={407} height={183} className="h-6 w-auto opacity-90" />
         <nav aria-label="Footer" className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-          <a href="#marketplace" className="hover:text-canvas">
+          <Link href="/marketplace" className="hover:text-canvas">
             Marketplace
-          </a>
+          </Link>
           <Link href="/verify" className="hover:text-canvas">
             Verify a certificate
           </Link>

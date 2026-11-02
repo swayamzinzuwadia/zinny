@@ -99,16 +99,19 @@ export async function browseMarketplace(filter: { q?: string; kind?: ListingKind
 export type ListingDetail = CatalogItem & { outline: RecordedOutline; ownedEnrolmentId: string | null };
 
 /** One live listing, what's in it, and whether this person already owns it. */
-export async function listingDetail(listingId: string, userId: string): Promise<ListingDetail | null> {
+/** Anyone may look at a listing; `userId` is only used to tell a signed-in buyer they already own it. */
+export async function listingDetail(listingId: string, userId: string | null): Promise<ListingDetail | null> {
   if (!UUID.test(listingId)) return null;
   const [item] = await liveListings(eq(mktListings.id, listingId));
   if (!item) return null;
   const [outline, [owned]] = await Promise.all([
     withTenant(systemActorFor(item.universityId), (tx) => recordedOutline(tx, item.courseId)),
-    systemDb()
-      .select({ id: enrolments.id })
-      .from(enrolments)
-      .where(and(eq(enrolments.userId, userId), eq(enrolments.courseId, item.courseId), inArray(enrolments.status, ["active", "completed"]))),
+    userId
+      ? systemDb()
+          .select({ id: enrolments.id })
+          .from(enrolments)
+          .where(and(eq(enrolments.userId, userId), eq(enrolments.courseId, item.courseId), inArray(enrolments.status, ["active", "completed"])))
+      : [],
   ]);
   return { ...item, outline, ownedEnrolmentId: owned?.id ?? null };
 }

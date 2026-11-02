@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { Badge, ButtonLink, Empty, Input, cx } from "@/components/ui";
+import { Badge, ButtonLink, Empty, Input, Notice, cx } from "@/components/ui";
 import { currentUserId } from "@/server/auth/session";
 import { browseMarketplace, marketplaceAccess, type CatalogItem } from "@/modules/marketplace/service";
 import { inr } from "@/modules/payments/money";
@@ -45,19 +44,7 @@ function Listing({ item }: { item: CatalogItem }) {
 export default async function Marketplace({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
   const userId = await currentUserId();
-  if (!userId) redirect("/login?next=/marketplace");
-  const { canShop } = await marketplaceAccess(userId);
-
-  if (!canShop) {
-    return (
-      <Empty title="The marketplace is for independent learners and alumni">
-        Current students learn through their institute, and it opens up once you graduate.{" "}
-        <Link href="/" className="text-brand">
-          Back to your space
-        </Link>
-      </Empty>
-    );
-  }
+  const { canShop } = userId ? await marketplaceAccess(userId) : { canShop: false };
 
   const q = (sp.q ?? "").trim();
   const kind = sp.kind === "course" || sp.kind === "lecture" ? sp.kind : undefined;
@@ -71,6 +58,24 @@ export default async function Marketplace({ searchParams }: { searchParams: Prom
     <>
       <h1 className="max-w-3xl text-[clamp(2.25rem,6vw,3.75rem)] leading-[1.02] font-medium">Recorded courses and lectures from institutes</h1>
       <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-muted">Buy once and watch at your own pace. Everything you buy stays in My library.</p>
+      {!userId ? (
+        <p className="mt-3 text-[15px] text-muted">
+          <Link href="/signup" className="font-medium text-brand">
+            Create a free account
+          </Link>{" "}
+          to buy, or{" "}
+          <Link href="/login?next=/marketplace" className="font-medium text-brand">
+            sign in
+          </Link>
+          .
+        </p>
+      ) : (
+        !canShop && (
+          <div className="mt-5 max-w-2xl">
+            <Notice tone="neutral">You can look around. Buying is open to independent learners and alumni; current students learn through their institute.</Notice>
+          </div>
+        )
+      )}
 
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <form action="/marketplace" className="w-full sm:max-w-sm">
