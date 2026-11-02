@@ -15,9 +15,9 @@ import { learnerOutline } from "@/modules/content-progress/learn";
 import { contentLessons, contentSections } from "@/modules/content-progress/schema";
 import { deleteLesson } from "@/modules/content-progress/service";
 import { handlers } from "@/modules/marketplace/events";
-import { createListing, getListing, listableSources, listListings, setListingStatus, updateListing } from "@/modules/marketplace/listings";
+import { createListing, getListing, listableSources, listListings, salesSummary, setListingStatus, updateListing } from "@/modules/marketplace/listings";
 import { mktLearners, mktListings } from "@/modules/marketplace/schema";
-import { browseMarketplace, listingDetail, marketplaceAccess, myLibrary, startPurchase } from "@/modules/marketplace/service";
+import { browseMarketplace, listingDetail, marketplaceAccess, marketplaceInstitute, myLibrary, startPurchase } from "@/modules/marketplace/service";
 import { payRefunds } from "@/modules/payments/schema";
 import { grant, makeDepartment, person, setupCourse, uniqueCode } from "../fixtures";
 import { expectTenantIsolated } from "../helpers/isolation";
@@ -182,6 +182,21 @@ describe("institutes listing what they sell", () => {
     const [order] = await systemDb().select().from(orders).where(eq(orders.id, orderId));
     expect(order.basePaise).toBe(100_000);
   });
+
+  it("sums sales for the dashboard, only across listings the viewer manages", async () => {
+    const { uni, hod, admin, listing, facultyUserId } = await shop();
+    await buy(await learner(), listing.id);
+    const today = new Date().toISOString().slice(0, 10);
+    const expected = { live: 1, paused: 0, buyers: 1, earnedPaise: 100_000, earnedThisMonthPaise: 100_000 };
+    expect(await salesSummary(hod, today)).toEqual(expected);
+    expect(await salesSummary(admin, today)).toEqual(expected);
+
+    const other = await makeDepartment(uni.id, uniqueCode(), "Commerce");
+    const otherHod = await (await person("Other Hod", "hod", { universityId: uni.id, departmentId: other.id })).actor();
+    const none = { live: 0, paused: 0, buyers: 0, earnedPaise: 0, earnedThisMonthPaise: 0 };
+    expect(await salesSummary(otherHod, today)).toEqual(none);
+    expect(await salesSummary(await loadActor(facultyUserId, uni.id), today)).toEqual(none);
+  });
 });
 
 describe("the catalogue", () => {
@@ -199,6 +214,20 @@ describe("the catalogue", () => {
     await setListingStatus(hod, listing.id, "live");
     await systemDb().update(universities).set({ status: "suspended" }).where(eq(universities.id, uni.id));
     expect((await browseMarketplace()).map((i) => i.id)).not.toContain(listing.id);
+  });
+
+  it("narrows to one institute by its slug, and shows a listing to someone signed out", async () => {
+    const a = await shop();
+    const b = await shop();
+    expect((await browseMarketplace({ institute: a.uni.slug })).map((i) => i.id)).toEqual([a.listing.id]);
+    expect((await browseMarketplace({ institute: a.uni.slug, q: "nothing like this" })).map((i) => i.id)).toEqual([]);
+    expect((await browseMarketplace()).map((i) => i.id)).toEqual(expect.arrayContaining([a.listing.id, b.listing.id]));
+    expect(await marketplaceInstitute(a.uni.slug)).toEqual({ name: a.uni.name, slug: a.uni.slug });
+    expect((await listingDetail(a.listing.id, null))?.ownedEnrolmentId).toBeNull();
+
+    await systemDb().update(universities).set({ status: "suspended" }).where(eq(universities.id, b.uni.id));
+    expect(await marketplaceInstitute(b.uni.slug)).toBeNull();
+    expect(await browseMarketplace({ institute: b.uni.slug })).toEqual([]);
   });
 
   it("searches titles and institutes, treating % and _ as plain text", async () => {

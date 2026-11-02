@@ -1,8 +1,8 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { cx } from "@/components/ui";
 import { submitEnquiryAction, submitReviewAction } from "../../actions";
-import { formatDate } from "../../format";
+import { formatDate, formatINR } from "../../format";
 import type { HomeData, SiteInfo } from "../../public";
 import type { PageSection } from "../../sections";
 import { container, CourseRow, FacultyCard, Paragraphs, PostCard, SectionHead, SiteImage, SocialLinks, Stars, telHref, whatsappHref } from "./bits";
@@ -430,38 +430,89 @@ function Contact({ site, s }: { site: SiteInfo; s: PageSection }) {
   );
 }
 
-/** The home page: the given sections, in order. Used by the live page and the draft preview. */
-export function HomeSections({ uni, site, data }: { uni: string; site: SiteInfo; data: HomeData }) {
+/** A recorded course or lecture this institute sells on the Zinny marketplace. */
+export type RecordedItem = { id: string; kind: "course" | "lecture"; title: string; description: string; lessons: number; totalPaise: number };
+
+/** What the institute sells on the marketplace. Each card opens the listing there, where anyone can buy it. */
+export function RecordedShelf({ uni, items }: { uni: string; items: RecordedItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <Band id="recorded" tone="soft">
+      <SectionHead
+        id="recorded"
+        heading="Learn from our recordings"
+        intro="Our recorded courses and lectures, open to anyone. Buy once and watch at your own pace."
+        action={
+          <Link href={`/marketplace?institute=${uni}`} className="text-[15px] font-medium text-[var(--site-primary)] underline underline-offset-4">
+            See all on the marketplace
+          </Link>
+        }
+      />
+      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((r) => (
+          <li key={r.id}>
+            <Link
+              href={`/marketplace/${r.id}`}
+              className="group flex h-full flex-col rounded-[22px] border border-[var(--site-line)] bg-surface p-5 transition-colors hover:border-[var(--site-primary)]"
+            >
+              <span className="text-[13px] text-muted">{r.kind === "lecture" ? "Single lecture" : `Course · ${r.lessons} ${r.lessons === 1 ? "lesson" : "lessons"}`}</span>
+              <span className="mt-1.5 text-[20px] font-semibold leading-snug tracking-[-0.01em] group-hover:text-[var(--site-primary)]">{r.title}</span>
+              {r.description && <span className="mt-1.5 line-clamp-2 text-[15px] text-muted">{r.description}</span>}
+              <span className="mt-auto pt-4 text-[15px] font-medium tabular-nums">
+                {formatINR(r.totalPaise)} <span className="text-[13px] font-normal text-muted">incl. GST</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Band>
+  );
+}
+
+function Section({ uni, site, data, s }: { uni: string; site: SiteInfo; data: HomeData; s: PageSection }) {
+  switch (s.type) {
+    case "hero":
+      return <Hero uni={uni} site={site} s={s} data={data} />;
+    case "about":
+      return <About site={site} s={s} />;
+    case "courses":
+      return <Courses uni={uni} s={s} data={data} />;
+    case "faculty":
+      return <Faculty uni={uni} s={s} data={data} />;
+    case "testimonials":
+      return <Testimonials s={s} data={data} />;
+    case "reviews":
+      return <Reviews uni={uni} s={s} data={data} />;
+    case "gallery":
+      return <Gallery s={s} data={data} />;
+    case "videos":
+      return <Videos s={s} data={data} />;
+    case "blog":
+      return <Blog uni={uni} s={s} data={data} />;
+    case "team":
+      return <Team s={s} data={data} />;
+    case "enquiry":
+      return <Enquiry uni={uni} site={site} s={s} data={data} />;
+    case "contact":
+      return <Contact site={site} s={s} />;
+  }
+}
+
+/**
+ * The home page: the given sections, in order. Used by the live page and the draft preview.
+ * `recorded` (the marketplace shelf) goes right after the courses section, or after the first section when there is none.
+ */
+export function HomeSections({ uni, site, data, recorded }: { uni: string; site: SiteInfo; data: HomeData; recorded?: ReactNode }) {
+  const types = data.sections.map((s) => s.type);
+  const recordedAfter = types.includes("courses") ? "courses" : types[0];
   return (
     <>
-      {data.sections.map((s) => {
-        switch (s.type) {
-          case "hero":
-            return <Hero key={s.type} uni={uni} site={site} s={s} data={data} />;
-          case "about":
-            return <About key={s.type} site={site} s={s} />;
-          case "courses":
-            return <Courses key={s.type} uni={uni} s={s} data={data} />;
-          case "faculty":
-            return <Faculty key={s.type} uni={uni} s={s} data={data} />;
-          case "testimonials":
-            return <Testimonials key={s.type} s={s} data={data} />;
-          case "reviews":
-            return <Reviews key={s.type} uni={uni} s={s} data={data} />;
-          case "gallery":
-            return <Gallery key={s.type} s={s} data={data} />;
-          case "videos":
-            return <Videos key={s.type} s={s} data={data} />;
-          case "blog":
-            return <Blog key={s.type} uni={uni} s={s} data={data} />;
-          case "team":
-            return <Team key={s.type} s={s} data={data} />;
-          case "enquiry":
-            return <Enquiry key={s.type} uni={uni} site={site} s={s} data={data} />;
-          case "contact":
-            return <Contact key={s.type} site={site} s={s} />;
-        }
-      })}
+      {data.sections.map((s) => (
+        <Fragment key={s.type}>
+          <Section uni={uni} site={site} data={data} s={s} />
+          {s.type === recordedAfter && recorded}
+        </Fragment>
+      ))}
     </>
   );
 }

@@ -6,6 +6,7 @@ import { currentUserId } from "@/server/auth/session";
 import { buyAction } from "@/modules/marketplace/actions";
 import { listingDetail, marketplaceAccess } from "@/modules/marketplace/service";
 import { inr } from "@/modules/payments/money";
+import { getSite } from "@/modules/website-builder/cached";
 
 export const metadata = { title: "Marketplace" };
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
   const userId = await currentUserId();
   const [item, { canShop }] = await Promise.all([listingDetail(listingId, userId), userId ? marketplaceAccess(userId) : { canShop: false }]);
   if (!item) notFound();
+  const site = await getSite(item.instituteSlug);
 
   return (
     <>
@@ -24,7 +26,9 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
       <div className="mt-3 grid gap-8 lg:grid-cols-[1fr_340px]">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[14px] text-muted">{item.institute}</span>
+            <Link href={`/marketplace?institute=${item.instituteSlug}`} className="text-[14px] text-muted hover:text-brand hover:underline">
+              {item.institute}
+            </Link>
             <Badge tone={item.kind === "lecture" ? "neutral" : "brand"}>{item.kind === "lecture" ? "Lecture" : "Course"}</Badge>
           </div>
           <h1 className="mt-3 text-[clamp(2rem,5vw,3.25rem)] leading-[1.05] font-medium">{item.title}</h1>
@@ -77,6 +81,20 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
               )}
             </div>
           </Card>
+          <div className="mt-4 px-1 text-[14px] leading-relaxed">
+            <div className="text-muted">Sold by</div>
+            <div className="font-medium">{item.institute}</div>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+              <Link href={`/marketplace?institute=${item.instituteSlug}`} className="text-brand hover:underline">
+                More from them
+              </Link>
+              {site && (
+                <Link href={`/site/${item.instituteSlug}`} className="text-brand hover:underline">
+                  Their website
+                </Link>
+              )}
+            </div>
+          </div>
         </aside>
       </div>
     </>

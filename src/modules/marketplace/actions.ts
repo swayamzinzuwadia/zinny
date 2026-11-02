@@ -40,6 +40,7 @@ export async function createListingAction(_: ActionState, data: FormData): Promi
     await createListing(actor, { kind, sourceId, ...fieldsOf(data) });
     revalidatePath(`/${uni}/admin/products/marketplace`);
     revalidatePath("/marketplace");
+    revalidatePath(`/site/${uni}`);
     return "Listed. It's on the marketplace now.";
   });
 }
@@ -51,6 +52,7 @@ export async function updateListingAction(_: ActionState, data: FormData): Promi
     await updateListing(actor, str(data, "listingId"), fieldsOf(data));
     revalidatePath(`/${uni}/admin/products/marketplace`);
     revalidatePath("/marketplace");
+    revalidatePath(`/site/${uni}`);
     return "Listing saved. New buyers see these details and this price.";
   });
 }
@@ -63,6 +65,7 @@ export async function setListingStatusAction(_: ActionState, data: FormData): Pr
     await setListingStatus(actor, str(data, "listingId"), status);
     revalidatePath(`/${uni}/admin/products/marketplace`);
     revalidatePath("/marketplace");
+    revalidatePath(`/site/${uni}`);
     return status === "live" ? "Back on the marketplace." : "Taken off the marketplace. People who bought it keep their access.";
   });
 }

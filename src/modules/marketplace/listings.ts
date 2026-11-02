@@ -6,9 +6,9 @@
  * A whole course is sold as it is. A single lecture becomes a one-lesson course of its own,
  * so buying it opens that lecture and nothing else.
  */
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
-import { courses } from "@/db/schema";
+import { courses, enrolments, orders } from "@/db/schema";
 import { copyLectureInto, lessonCourseId, readyVideoLessons, recordedOutline } from "@/modules/content-progress/recorded";
 import { assertCan, audit, courseTarget, createLectureCourse, ensureRecordedBatch, reach, withTenant, type Actor } from "@/server/core";
 import { ConflictError, NotFoundError, ValidationError, isUniqueViolation } from "@/server/errors";
@@ -46,6 +46,47 @@ export async function listListings(actor: Actor) {
       .innerJoin(courses, eq(courses.id, mktListings.courseId))
       .orderBy(desc(mktListings.createdAt));
     return rows.filter((x) => r.all || r.departmentIds.has(x.departmentId)).map(({ listing, buyers }) => ({ ...listing, buyers }));
+  });
+}
+
+/**
+ * The admin dashboard card: what is on sale, how many bought it and what it earned, for the
+ * listings this person manages. Earnings are before GST, from payments the gateway confirmed.
+ */
+export async function salesSummary(actor: Actor, today: string) {
+  const r = reach(actor, "course.update", uni(actor));
+  const empty = { live: 0, paused: 0, buyers: 0, earnedPaise: 0, earnedThisMonthPaise: 0 };
+  if (!r.all && r.departmentIds.size === 0) return empty;
+  return withTenant(actor, async (tx) => {
+    const mine = (
+      await tx
+        .select({ status: mktListings.status, batchId: mktListings.batchId, departmentId: courses.departmentId })
+        .from(mktListings)
+        .innerJoin(courses, eq(courses.id, mktListings.courseId))
+    ).filter((l) => r.all || r.departmentIds.has(l.departmentId));
+    if (mine.length === 0) return empty;
+    const batchIds = mine.map((l) => l.batchId);
+    const monthStart = new Date(`${today.slice(0, 7)}-01T00:00:00+05:30`);
+    const [[{ buyers }], [money]] = await Promise.all([
+      tx
+        .select({ buyers: sql<number>`count(*)::int` })
+        .from(enrolments)
+        .where(and(inArray(enrolments.batchId, batchIds), inArray(enrolments.status, ["active", "completed"]))),
+      tx
+        .select({
+          total: sql<number>`coalesce(sum(${orders.basePaise}), 0)::int`,
+          month: sql<number>`coalesce(sum(${orders.basePaise}) filter (where ${gte(orders.paidAt, monthStart)}), 0)::int`,
+        })
+        .from(orders)
+        .where(and(inArray(orders.batchId, batchIds), eq(orders.status, "paid"), isNotNull(orders.gatewayPaymentId))),
+    ]);
+    return {
+      live: mine.filter((l) => l.status === "live").length,
+      paused: mine.filter((l) => l.status === "paused").length,
+      buyers,
+      earnedPaise: money.total,
+      earnedThisMonthPaise: money.month,
+    };
   });
 }
 

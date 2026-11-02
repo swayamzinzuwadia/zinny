@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getHome, getSite } from "@/modules/website-builder/cached";
 import { JsonLd } from "@/modules/website-builder/components/site/bits";
-import { ComingSoon, HomeSections } from "@/modules/website-builder/components/site/home";
+import { ComingSoon, HomeSections, RecordedShelf } from "@/modules/website-builder/components/site/home";
+import { browseMarketplace } from "@/modules/marketplace/service";
 
 /** Seconds (matches REVALIDATE.home). Every publish refreshes it at once. */
 export const revalidate = 300;
@@ -22,7 +23,7 @@ export default async function SiteHome({ params }: { params: Promise<{ uni: stri
   const { uni } = await params;
   const site = await getSite(uni);
   if (!site) notFound();
-  const data = await getHome(uni, site.universityId);
+  const [data, recorded] = await Promise.all([getHome(uni, site.universityId), browseMarketplace({ institute: uni, limit: 6 })]);
   if (!data) return <ComingSoon site={site} />;
   return (
     <>
@@ -40,7 +41,7 @@ export default async function SiteHome({ params }: { params: Promise<{ uni: stri
           ...(Object.values(site.social).length && { sameAs: Object.values(site.social) }),
         }}
       />
-      <HomeSections uni={uni} site={site} data={data} />
+      <HomeSections uni={uni} site={site} data={data} recorded={<RecordedShelf uni={uni} items={recorded} />} />
     </>
   );
 }

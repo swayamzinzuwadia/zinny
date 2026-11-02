@@ -88,12 +88,27 @@ async function liveListings(filter?: SQL): Promise<CatalogItem[]> {
   }));
 }
 
-export async function browseMarketplace(filter: { q?: string; kind?: ListingKind } = {}) {
+/** `institute` is a university slug: only what that institute sells. */
+export async function browseMarketplace(filter: { q?: string; kind?: ListingKind; institute?: string; limit?: number } = {}) {
   const q = filter.q?.trim().slice(0, 80);
   const like = q ? `%${q.replace(/[\\%_]/g, "\\$&")}%` : null;
-  return liveListings(
-    and(filter.kind ? eq(mktListings.kind, filter.kind) : undefined, like ? or(ilike(mktListings.title, like), ilike(universities.name, like)) : undefined),
+  const items = await liveListings(
+    and(
+      filter.kind ? eq(mktListings.kind, filter.kind) : undefined,
+      filter.institute ? eq(universities.slug, filter.institute) : undefined,
+      like ? or(ilike(mktListings.title, like), ilike(universities.name, like)) : undefined,
+    ),
   );
+  return filter.limit ? items.slice(0, filter.limit) : items;
+}
+
+/** An active institute, by slug, for the "From this institute" view of the catalogue. */
+export async function marketplaceInstitute(slug: string) {
+  const [row] = await systemDb()
+    .select({ name: universities.name, slug: universities.slug })
+    .from(universities)
+    .where(and(eq(universities.slug, slug), eq(universities.status, "active")));
+  return row ?? null;
 }
 
 export type ListingDetail = CatalogItem & { outline: RecordedOutline; ownedEnrolmentId: string | null };
