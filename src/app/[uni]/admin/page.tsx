@@ -4,12 +4,14 @@ import { SwitchRequests } from "@/components/switch-requests";
 import { EnrolmentRequests } from "@/components/enrolment-requests";
 import { TodayBoard } from "@/components/today-board";
 import { Badge, Card, CardTitle, SeatMap, Stat, cx } from "@/components/ui";
+import { can } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { slotsInReach } from "@/server/registry";
 import { formatDate } from "@/server/lib/dates";
 import { dashboard } from "@/server/services/dashboard";
 import { listEnrolmentRequests, listSwitchRequests } from "@/server/services/enrolment";
-import { canAdmit, listJoinRequests } from "@/modules/identity/joining";
+import { canAdmit, getJoinSettings, listJoinRequests } from "@/modules/identity/joining";
+import { InviteStrip } from "@/modules/identity/components/invite-strip";
 import { decideEnrolmentAction } from "./actions";
 import { formatINR } from "@/server/services/finance";
 
@@ -31,8 +33,14 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
   const base = `/${uni}/admin`;
   const data = await dashboard(actor);
   const requests = data.canDecideSwitches ? await listSwitchRequests(actor) : [];
-  // Students asking for a seat (faculty, HODs, admins) and asking to join (admins, HODs).
-  const [enrolRequests, joinRequests] = await Promise.all([listEnrolmentRequests(actor), canAdmit(actor) ? listJoinRequests(actor) : Promise.resolve([])]);
+  // Students asking for a seat (faculty, HODs, admins) and asking to join (admins, HODs), and
+  // the joining code for the people who accept new students.
+  const admits = canAdmit(actor);
+  const [enrolRequests, joinRequests, joining] = await Promise.all([
+    listEnrolmentRequests(actor),
+    admits ? listJoinRequests(actor) : Promise.resolve([]),
+    admits ? getJoinSettings(actor) : Promise.resolve(null),
+  ]);
 
   const live = data.board.find((s) => s.state === "live");
   const summary = [
@@ -66,6 +74,9 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
   return (
     <div className="space-y-6">
       <TodayBoard data={data} firstName={actor.name.split(" ")[0]} base={base} summary={summary} />
+      {joining && (
+        <InviteStrip uni={uni} institute={university.name} code={joining.code} mode={joining.mode} canManage={can(actor, "settings.manage", { universityId: university.id })} />
+      )}
 
       <div className={cx("grid gap-6", showNeeds && "xl:grid-cols-[1.55fr_1fr]")}>
         {showNeeds && (

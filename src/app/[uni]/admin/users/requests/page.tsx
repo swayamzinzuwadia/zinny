@@ -1,10 +1,12 @@
+import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Avatar, Badge, Card, CardTitle, Empty, Notice, PageHeader, buttonClass, inputClass } from "@/components/ui";
 import { can, reach } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { listDepartments } from "@/server/services/departments";
-import { appUrl } from "@/server/auth/config";
 import { canAdmit, getJoinSettings, listJoinRequests } from "@/modules/identity/joining";
+import { joinLink, joinMessage, whatsAppShareHref } from "@/modules/identity/share";
+import { ShareJoinCode } from "@/modules/identity/components/share-join-code";
 import { formatWhen } from "@/modules/identity/emails";
 import { decideJoinAction, joinModeAction, newJoinCodeAction } from "./actions";
 
@@ -40,7 +42,8 @@ export default async function JoinRequestsPage({ params, searchParams }: { param
   const deptName = new Map(allDepartments.map((d) => [d.id, d.name]));
   const isAdmin = can(actor, "settings.manage", { universityId: university.id });
   const tz = university.timezone;
-  const link = `${appUrl()}/signup?code=${settings.code}`;
+  const link = joinLink(settings.code);
+  const message = joinMessage(university.name, link, settings.code);
 
   return (
     <>
@@ -124,6 +127,12 @@ export default async function JoinRequestsPage({ params, searchParams }: { param
             Students enter it when they sign up, or later under Join an institute. Share this link too:
           </p>
           <p className="mt-1 break-all text-ink">{link}</p>
+          <div className="mt-3">
+            <ShareJoinCode code={settings.code} link={link} message={message} whatsApp={whatsAppShareHref(message)} />
+          </div>
+          <Link href={`/${uni}/join-poster`} className="mt-3 inline-block text-[13px] font-medium text-brand hover:underline">
+            Print a poster with a QR code
+          </Link>
           <p className="mt-4 text-muted">
             {settings.mode === "approval" ? "Each student waits here until someone accepts them." : "Students with the code join straight away. Add their departments under Students."}
           </p>
