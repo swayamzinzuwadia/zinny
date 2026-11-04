@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DayTimePicker } from "@/components/day-picker";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { SwitchRequests } from "@/components/switch-requests";
+import { EnrolmentRequests, SeatLimitForm } from "@/components/enrolment-requests";
 import { Badge, Card, CardTitle, Empty, Field, Input, Notice, PageHeader, SeatMap, Select, Tabs } from "@/components/ui";
 import { SlotOutlet } from "@/components/slots";
 import { can } from "@/server/authz/engine";
@@ -9,11 +10,11 @@ import { spaceContext } from "@/server/context";
 import { visibleSlots } from "@/server/registry";
 import { listBatches } from "@/server/services/batches";
 import { getCourse } from "@/server/services/courses";
-import { listSwitchRequests } from "@/server/services/enrolment";
+import { listEnrolmentRequests, listSwitchRequests } from "@/server/services/enrolment";
 import { formatINR } from "@/server/services/finance";
 import { teachersForDepartment } from "@/server/services/users";
 import { ROLE_LABELS } from "@/server/authz/roles";
-import { createBatchAction, setCourseStatusAction, updateCourseAction } from "../../../actions";
+import { createBatchAction, decideEnrolmentAction, seatLimitAction, setCourseStatusAction, updateCourseAction } from "../../../actions";
 
 type Search = Record<string, string | string[] | undefined>;
 
@@ -38,6 +39,8 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
   const base = `/${uni}/admin/products/courses/${id}`;
 
   const batches = tab === "batches" ? await listBatches(actor, id) : [];
+  const enrolRequests = tab === "batches" ? await listEnrolmentRequests(actor, { courseId: id }) : [];
+  const canEditBatches = can(actor, "batch.update", { universityId: university.id, departmentIds: [course.departmentId] });
   const requests = tab === "batches" && canAddBatch ? (await listSwitchRequests(actor)).filter((r) => r.courseId === id) : [];
   const teachers = tab === "batches" && canAddBatch ? await teachersForDepartment(actor, course.departmentId) : [];
 
@@ -78,8 +81,8 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
             ) : (
               <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
                 {batches.map((b) => (
-                  <Link key={b.batchId} href={`/${uni}/admin/products/batches/${b.batchId}`}>
-                    <Card className="h-full hover:border-brand/40">
+                  <Card key={b.batchId} className="h-full hover:border-brand/40">
+                    <Link href={`/${uni}/admin/products/batches/${b.batchId}`} className="block">
                       <div className="flex items-start justify-between gap-2">
                         <div className="font-semibold">{b.batchName}</div>
                         {b.status !== "open" && <Badge>{b.status}</Badge>}
@@ -98,10 +101,22 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
                         <SeatMap limit={b.seatLimit} taken={b.seatsTaken} />
                       </div>
                       <div className="mt-2 truncate text-xs text-muted">{b.faculty?.join(", ") || "No faculty"}</div>
-                    </Card>
-                  </Link>
+                    </Link>
+                    {canEditBatches && (
+                      <div className="mt-3 border-t border-line pt-3">
+                        <SeatLimitForm uni={uni} batchId={b.batchId} seatLimit={b.seatLimit} taken={b.seatsTaken} action={seatLimitAction} />
+                      </div>
+                    )}
+                  </Card>
                 ))}
               </div>
+            )}
+            {typeof search.done === "string" && <p className="rounded-2xl bg-brand-soft px-4 py-3 text-[14px] text-brand-strong">{search.done}</p>}
+            {enrolRequests.length > 0 && (
+              <Card>
+                <CardTitle>Waiting for a seat</CardTitle>
+                <EnrolmentRequests requests={enrolRequests} uni={uni} action={decideEnrolmentAction} back={`${base}?tab=batches`} showCourse={false} />
+              </Card>
             )}
             {canAddBatch && <SwitchRequests uni={uni} requests={requests} />}
           </div>
@@ -145,6 +160,13 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
                   <Field label="Live class link" hint="Optional. Shown as the Join button on the timetable.">
                     <Input name="meetingUrl" type="url" placeholder="https://meet.google.com/…" />
                   </Field>
+                  <label className="flex items-start gap-2.5 text-sm">
+                    <input type="checkbox" name="approvalRequired" defaultChecked className="mt-0.5 accent-brand" />
+                    <span>
+                      <span className="font-medium">Faculty approve each enrolment</span>
+                      <span className="block text-muted">Students ask for a seat, and the batch&apos;s faculty accept or decline. Untick for open enrolment.</span>
+                    </span>
+                  </label>
                   <SubmitButton>Add batch</SubmitButton>
                 </ActionForm>
               )}

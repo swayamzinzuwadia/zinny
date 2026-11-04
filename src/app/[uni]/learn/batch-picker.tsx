@@ -27,18 +27,31 @@ export function BatchPicker({
   mode,
   enrolmentId,
   priceLabel,
+  acceptedBatchId,
 }: {
   uni: string;
   options: BatchOption[];
   mode: "enrol" | "switch";
   enrolmentId?: string;
   priceLabel?: string;
+  /** Faculty accepted the student into this batch: picking it goes straight to payment. */
+  acceptedBatchId?: string;
 }) {
   const [picked, setPicked] = useState<string>("");
   const [reason, setReason] = useState("");
   const [state, action] = useActionState<EnrolState, FormData>(mode === "enrol" ? enrolAction : requestSwitchAction, null);
   const pickable = mode === "switch" ? options.filter((o) => !o.mine) : options;
   const clashes = state?.clashes && state.batchId === picked ? state.clashes : null;
+  const pickedOption = pickable.find((o) => o.batchId === picked);
+  const needsApproval = mode === "enrol" && !!pickedOption?.approvalRequired && picked !== acceptedBatchId;
+  const goLabel =
+    mode === "switch"
+      ? "Request switch"
+      : needsApproval
+        ? "Ask to join this batch"
+        : priceLabel
+          ? `${picked === acceptedBatchId ? "Pay to confirm" : "Continue"} · ${priceLabel}`
+          : "Enrol for free";
 
   return (
     <form action={action}>
@@ -48,7 +61,7 @@ export function BatchPicker({
       {enrolmentId && <input type="hidden" name="enrolmentId" value={enrolmentId} />}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {pickable.map((o) => {
-          const disabled = o.full;
+          const disabled = o.full && o.batchId !== acceptedBatchId;
           const selected = picked === o.batchId;
           return (
             <label
@@ -76,6 +89,12 @@ export function BatchPicker({
               </div>
               {o.faculty.length > 0 && <div className="mt-1 truncate text-xs text-faint">with {o.faculty.join(", ")}</div>}
               {o.mine && <div className="mt-2 rounded-lg bg-brand-soft px-2 py-1 text-xs text-brand-strong">Your seat is held. Pick it to pay.</div>}
+              {o.batchId === acceptedBatchId && (
+                <div className="mt-2 rounded-lg bg-brand-soft px-2 py-1 text-xs text-brand-strong">You&apos;re accepted. Pick it to pay.</div>
+              )}
+              {mode === "enrol" && o.approvalRequired && o.batchId !== acceptedBatchId && !o.mine && (
+                <div className="mt-2 text-xs text-muted">Faculty accept each student</div>
+              )}
               {o.clashes.length > 0 && !disabled && (
                 <div className="mt-2 rounded-lg bg-warn-soft px-2 py-1 text-xs text-warn">Overlaps {o.clashes[0].courseTitle}</div>
               )}
@@ -107,7 +126,7 @@ export function BatchPicker({
           </ul>
           <div className="mt-3 flex flex-wrap gap-2">
             <input type="hidden" name="acknowledge" value="1" />
-            <Go label={mode === "enrol" ? "Enrol anyway" : "Request anyway"} />
+            <Go label={mode === "enrol" ? (needsApproval ? "Ask anyway" : "Enrol anyway") : "Request anyway"} />
             <button type="button" onClick={() => setPicked("")} className={buttonClass("secondary")}>
               Pick another batch
             </button>
@@ -115,7 +134,7 @@ export function BatchPicker({
         </div>
       ) : (
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          {picked && <Go label={mode === "enrol" ? (priceLabel ? `Continue · ${priceLabel}` : "Enrol for free") : "Request switch"} />}
+          {picked && <Go label={goLabel} />}
           {!picked && <span className="text-sm text-muted">Pick the batch that fits your schedule.</span>}
         </div>
       )}

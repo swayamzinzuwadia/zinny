@@ -7,13 +7,14 @@ import type { RoleName } from "@/db/schema";
 import { attempt, num, rupeesToPaise, str } from "@/server/action";
 import { spaceContext } from "@/server/context";
 import { ValidationError } from "@/server/errors";
-import { addSessionOverride, assignFaculty, createBatch, removeFaculty, updateBatch } from "@/server/services/batches";
+import { addSessionOverride, assignFaculty, createBatch, removeFaculty, setSeatLimit, updateBatch } from "@/server/services/batches";
 import { createCourse, updateCourse } from "@/server/services/courses";
 import { createDepartment, setHod } from "@/server/services/departments";
-import { decideSwitch } from "@/server/services/enrolment";
+import { decideEnrolment, decideSwitch } from "@/server/services/enrolment";
 import { deleteRole, parseRoleChoice, resetRole, roleDraft, saveRole } from "@/server/services/roles";
 import type { Slot } from "@/server/services/schedule";
 import { addPerson, graduate, importPeople, linkParent, revokeRole } from "@/server/services/users";
+import { setStudentDepartments } from "@/server/services/students";
 
 async function ctx(data: FormData) {
   const uni = str(data, "uni");
@@ -91,6 +92,7 @@ export async function createBatchAction(_: ActionState, data: FormData): Promise
       meetingUrl: str(data, "meetingUrl") || null,
       slots: slotsFrom(data),
       faculty: facultyIds.map((userId) => ({ userId, role: visiting.has(userId) ? "visiting_faculty" : "permanent_faculty" })),
+      approvalRequired: str(data, "approvalRequired") === "on",
     });
     revalidatePath(`/${uni}/admin/products/courses/${courseId}`);
     return "Batch created.";
@@ -106,14 +108,42 @@ export async function updateBatchAction(_: ActionState, data: FormData): Promise
       name: str(data, "name"),
       startDate: str(data, "startDate"),
       endDate: str(data, "endDate"),
-      seatLimit: num(data, "seatLimit"),
+      ...(data.has("seatLimit") && { seatLimit: num(data, "seatLimit") }),
       meetingUrl: str(data, "meetingUrl"),
       ...(days.length > 0 && { slots: slotsFrom(data) }),
       status: (str(data, "status") || undefined) as "open" | "closed" | undefined,
+      approvalRequired: str(data, "approvalRequired") === "on",
     });
     revalidatePath(`/${uni}/admin/products/batches/${batchId}`);
     return "Batch saved. Students were notified if timings changed.";
   });
+}
+
+/** Just the seat limit, from the course or batch page, at any point in the batch's life. */
+export async function seatLimitAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const { uni, actor } = await ctx(data);
+  return attempt(async () => {
+    const r = await setSeatLimit(actor, str(data, "batchId"), num(data, "seatLimit"));
+    revalidatePath(`/${uni}/admin/products`, "layout");
+    return `${r.seatLimit} seats. ${r.taken} taken, ${r.seatLimit - r.taken} left.`;
+  });
+}
+
+/** Faculty, HOD or admin accepts or declines a student's request for a seat; the button pressed says which. */
+export async function decideEnrolmentAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const { uni, actor } = await ctx(data);
+  let done = "";
+  const res = await attempt(async () => {
+    const accept = str(data, "choice") === "accept";
+    const r = await decideEnrolment(actor, str(data, "enrolmentId"), accept, str(data, "note"));
+    revalidatePath(`/${uni}/admin`, "layout");
+    const who = str(data, "name") || "The student";
+    done = r.status === "enrolled" ? `${who} is enrolled.` : r.status === "approved" ? `${who} is accepted and can now pay.` : `Declined. ${who} has been told.`;
+  });
+  // The request disappears once answered: say what happened at the top of the page it was on.
+  const back = str(data, "back");
+  if (done && back.startsWith(`/${uni}/admin`)) redirect(`${back}${back.includes("?") ? "&" : "?"}done=${encodeURIComponent(done)}`);
+  return res;
 }
 
 export async function overrideAction(_: ActionState, data: FormData): Promise<ActionState> {
@@ -174,7 +204,7 @@ export async function addPersonAction(_: ActionState, data: FormData): Promise<A
   return attempt(async () => {
     const endsAt = str(data, "endsAt");
     const { role, customRoleId } = parseRoleChoice(str(data, "role"));
-    await addPerson(actor, {
+    const userId = await addPerson(actor, {
       name: str(data, "name"),
       email: str(data, "email"),
       phone: str(data, "phone"),
@@ -183,8 +213,21 @@ export async function addPersonAction(_: ActionState, data: FormData): Promise<A
       departmentId: str(data, "departmentId") || null,
       endsAt: endsAt ? new Date(`${endsAt}T23:59:59+05:30`) : null,
     });
+    // Students are placed in departments; they only see those departments' courses.
+    const studentDepartments = data.getAll("studentDepartmentId").map(String).filter(Boolean);
+    if (role === "student" && studentDepartments.length > 0) await setStudentDepartments(actor, userId, studentDepartments);
     revalidatePath(`/${uni}/admin/users`, "layout");
     return "Added.";
+  });
+}
+
+/** The departments a student belongs to: what they can see in the institute. */
+export async function studentDepartmentsAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const { uni, actor } = await ctx(data);
+  return attempt(async () => {
+    await setStudentDepartments(actor, str(data, "userId"), data.getAll("studentDepartmentId").map(String).filter(Boolean));
+    revalidatePath(`/${uni}/admin/users`, "layout");
+    return "Departments saved.";
   });
 }
 

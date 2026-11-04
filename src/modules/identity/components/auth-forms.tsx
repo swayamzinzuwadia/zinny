@@ -8,7 +8,7 @@
 import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
-import { buttonClass, cx, inputClass } from "@/components/ui";
+import { Select, buttonClass, cx, inputClass } from "@/components/ui";
 
 export type AuthState = { ok?: string; error?: string; code?: string; email?: string; name?: string; at?: number } | null;
 type Action = (prev: AuthState, data: FormData) => Promise<AuthState>;
@@ -226,12 +226,28 @@ export function DemoButton({ label, group }: { label: string; group: string }) {
 
 /* ───────────────────────────── Student sign-up ───────────────────────────── */
 
-export function SignUpForm({ action, uni, signInHref }: { action: Action; uni: string; signInHref: string }) {
+export function SignUpForm({
+  action,
+  uni,
+  code = "",
+  departments = [],
+  signInHref,
+}: {
+  action: Action;
+  uni: string;
+  /** An institute's joining code: the new account joins it (or asks to). */
+  code?: string;
+  /** The institute's departments, so the student can say which one they're joining. */
+  departments?: { id: string; name: string }[];
+  signInHref: string;
+}) {
   const [state, formAction] = useActionState(action, null);
   const email = state?.email ?? "";
+  const deptId = useId();
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="uni" value={uni} />
+      <input type="hidden" name="code" value={code} />
       {/* People never see this field; bots that fill in every box do. */}
       <div aria-hidden className="absolute -left-[9999px]">
         <label>
@@ -243,6 +259,20 @@ export function SignUpForm({ action, uni, signInHref }: { action: Action; uni: s
       <TextField key={`e-${state?.at ?? 0}`} name="email" label="Email" type="email" inputMode="email" autoComplete="username" defaultValue={email} />
       <PasswordField key={`p-${state?.at ?? 0}`} name="password" label="Create a password" autoComplete="new-password" hint="At least 8 characters. A short sentence works well." />
       <PasswordField key={`c-${state?.at ?? 0}`} name="confirm" label="Type it again" autoComplete="new-password" />
+      {departments.length > 0 && (
+        <div>
+          <Label htmlFor={deptId}>Your department</Label>
+          <Select id={deptId} name="departmentId" defaultValue="">
+            <option value="">I&apos;m not sure</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </Select>
+          <p className="mt-1.5 text-[13px] text-muted">Your institute confirms which departments you belong to.</p>
+        </div>
+      )}
       {state?.error && state.code === "email_taken" && (
         <Alert tone="gold" title="You may already have an account">
           <p>{state.error}</p>
@@ -262,12 +292,12 @@ export function SignUpForm({ action, uni, signInHref }: { action: Action; uni: s
   );
 }
 
-/** Asks which institute, as a plain link-style form, so sign-up never lists who uses Zinny. */
-export function InstituteCodeForm({ code, notFound }: { code: string; notFound: boolean }) {
+/** Asks for the institute's joining code, as a plain link-style form, so sign-up never lists who uses Zinny. */
+export function InstituteCodeForm({ code, notFound, action = "/signup" }: { code: string; notFound: boolean; action?: string }) {
   return (
-    <form action="/signup" method="get" className="space-y-4">
-      <TextField name="uni" label="Institute code" defaultValue={code} autoFocus placeholder="demo" hint="The short name in your institute's Zinny address. Ask them if you're not sure." />
-      {notFound && <Alert tone="danger">We can&apos;t find that institute. Check the code and try again.</Alert>}
+    <form action={action} method="get" className="space-y-4">
+      <TextField name="code" label="Joining code" defaultValue={code} autoFocus placeholder="K7M2QX" hint="Your institute gives you this 6-character code. Ask them if you don't have it." />
+      {notFound && <Alert tone="danger">We can&apos;t find an institute with that code. Check it and try again.</Alert>}
       <Submit pendingText="Finding it…">Continue</Submit>
     </form>
   );

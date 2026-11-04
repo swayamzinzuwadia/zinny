@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { ActionForm, SubmitButton, type ActionState, type FormAction } from "@/components/forms";
+import { GridLegend, PermissionGrid } from "@/components/permission-grid";
 import { ButtonLink, Field, Input, Select, buttonClass, cx } from "@/components/ui";
 import type { Reach } from "@/server/authz/abilities";
 import type { AbilityOption, RoleSummary, SectionSummary } from "@/server/authz/capabilities";
@@ -215,6 +216,7 @@ function NoAccess() {
 function RoleDetail({ role, peopleHref, actions, hidden, onEdit }: Pick<Props, "peopleHref" | "actions" | "hidden"> & { role: RoleSummary; onEdit: () => void }) {
   const open = role.sections.filter((s) => s.access);
   const closed = role.sections.filter((s) => !s.access);
+  const locked = open.some((s) => s.abilities.some((a) => a.locked && a.can));
   const facts = [
     { term: "Reach", value: role.reach },
     { term: "Sections", value: `${open.length} of ${role.sections.length}` },
@@ -253,9 +255,10 @@ function RoleDetail({ role, peopleHref, actions, hidden, onEdit }: Pick<Props, "
         </dl>
         {!role.editable && <p className="mt-4 text-[14px] text-muted">This role can&apos;t be changed, so there is always someone who can fix anything else.</p>}
       </header>
+      {open.length > 0 && <GridLegend locked={locked} className="border-b border-line px-6 py-4" />}
       <div className="divide-y divide-line">
         {open.map((s) => (
-          <SectionAbilities key={s.key} section={s} />
+          <SectionGrid key={s.key} section={s} />
         ))}
       </div>
       {closed.length > 0 && <p className="border-t border-line px-6 py-4 text-[14px] text-muted">No access to {list(closed.map((s) => s.label))}.</p>}
@@ -284,37 +287,22 @@ function RoleDetail({ role, peopleHref, actions, hidden, onEdit }: Pick<Props, "
   );
 }
 
-function SectionAbilities({ section }: { section: SectionSummary }) {
+/** One section of a role, as a read-only grid. A locked ability shows only where the role has it. */
+function SectionGrid({ section }: { section: SectionSummary }) {
+  const items = section.abilities.filter((a) => !a.locked || a.can);
+  const on = new Set(items.filter((a) => a.can).map((a) => a.key));
   return (
     <div className="px-6 py-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="text-[15px] font-medium">{section.label}</h3>
         {section.access && <Level access={section.access} long />}
       </div>
-      <ul className="mt-3 grid gap-x-8 gap-y-1.5 @xl:grid-cols-2">
-        {section.abilities.map((a) => (
-          <li key={a.label} className={cx("flex items-start gap-2.5 text-[14px] leading-snug", !a.can && "text-muted")}>
-            {a.can ? <Tick className="mt-0.5 size-3.5 shrink-0 text-brand" /> : <span aria-hidden className="mt-[9px] h-px w-3.5 shrink-0 bg-faint" />}
-            <span>
-              {!a.can && <span className="sr-only">Not allowed: </span>}
-              {a.label}
-            </span>
-          </li>
-        ))}
-      </ul>
+      <PermissionGrid items={items} on={on} label={section.label} />
     </div>
   );
 }
 
-function Tick({ className }: { className?: string }) {
-  return (
-    <svg aria-hidden viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
-    </svg>
-  );
-}
-
-function RoleEditor({
+export function RoleEditor({
   role,
   options,
   kinds,
@@ -339,8 +327,11 @@ function RoleEditor({
   const [name, setName] = useState(role?.custom ? role.label : "");
   const [state, formAction] = useActionState<ActionState, FormData>(save, null);
   const reach = role?.reachKey ?? kinds.find((k) => k.kind === kind)?.reach ?? "institute";
+  // Only what works at this reach is offered; anything else shows as a dash.
   const shown = options.filter((o) => REACH_ORDER[o.reach] >= REACH_ORDER[reach]);
-  const sections = [...new Set(shown.map((o) => o.section))];
+  // Locked abilities are never ticked or saved here; they show, with a lock, only where the role has them.
+  const locked = (role?.sections ?? []).flatMap((s) => s.abilities.filter((a) => a.locked && a.can).map((a) => ({ ...a, section: s.key })));
+  const sections = [...new Set([...shown.map((o) => o.section), ...locked.map((l) => l.section)])];
 
   useEffect(() => {
     if (state?.ok) onDone(name.trim());
@@ -401,30 +392,27 @@ function RoleEditor({
             </div>
           </fieldset>
         )}
+        <p className="mt-5 text-[13px] text-muted">Ticking Add / Edit or Delete ticks View too. Clearing View clears what depends on it.</p>
+        <GridLegend locked={locked.length > 0} className="mt-2" />
       </header>
 
       <div className="divide-y divide-line">
         {sections.map((s) => {
           const items = shown.filter((o) => o.section === s);
           const all = items.every((o) => on.has(o.key));
+          const title = titles[s] ?? s;
           return (
             <fieldset key={s} className="min-w-0 px-6 py-5">
-              <div className="flex items-center justify-between gap-3">
-                <legend className="float-left text-[15px] font-medium">{titles[s] ?? s}</legend>
-                <button type="button" onClick={() => change(items.map((o) => o.key), !all)} className="rounded-full px-2 py-0.5 text-[13px] text-brand hover:bg-brand-soft">
-                  {all ? "Clear" : "Tick all"}
-                </button>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <legend className="float-left text-[15px] font-medium">{title}</legend>
+                {items.length > 0 && (
+                  <button type="button" onClick={() => change(items.map((o) => o.key), !all)} className="rounded-full px-2 py-0.5 text-[13px] text-brand hover:bg-brand-soft">
+                    {all ? "Clear" : "Tick all"}
+                  </button>
+                )}
               </div>
-              <div className="mt-3 grid clear-both gap-x-8 gap-y-1 @xl:grid-cols-2">
-                {items.map((o) => (
-                  <label key={o.key} className="flex cursor-pointer items-start gap-2.5 rounded-lg py-1 text-[14px] leading-snug">
-                    <input type="checkbox" name="ability" value={o.key} checked={on.has(o.key)} onChange={(e) => change([o.key], e.target.checked)} className="peer sr-only" />
-                    <span className="mt-px flex size-[18px] shrink-0 items-center justify-center rounded-md border border-faint text-transparent peer-checked:border-brand peer-checked:bg-brand peer-checked:text-canvas peer-focus-visible:ring-2 peer-focus-visible:ring-gold">
-                      <Tick className="size-3" />
-                    </span>
-                    {o.label}
-                  </label>
-                ))}
+              <div className="clear-both">
+                <PermissionGrid items={[...items, ...locked.filter((l) => l.section === s)]} on={on} onChange={(key, value) => change([key], value)} label={title} />
               </div>
             </fieldset>
           );

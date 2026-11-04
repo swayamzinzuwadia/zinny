@@ -22,6 +22,7 @@ export const ACTIONS = [
   "role.manage", // make and edit roles; never given by a role that can be edited
   "user.graduate",
   "user.link_parent",
+  "user.admit", // accept join requests and choose which departments a student belongs to
   // Products
   "course.view",
   "course.create",
@@ -35,6 +36,7 @@ export const ACTIONS = [
   "batch.switch.decide",
   "batch.teach", // content, tests, grades, attendance for a batch
   "enrolment.view",
+  "enrolment.approve", // accept or decline a student's request for a seat in a batch
   // Other sections
   "leaderboard.view",
   "leaderboard.manage",
@@ -135,7 +137,7 @@ const TEACHING_MODULE_ACTIONS: Action[] = [
   "content.view_progress",
 ];
 
-const FACULTY_CORE: Action[] = ["course.view", "batch.view", "batch.teach", "enrolment.view", "user.view", ...TEACHING_MODULE_ACTIONS, "cert.view"];
+const FACULTY_CORE: Action[] = ["course.view", "batch.view", "batch.teach", "enrolment.view", "enrolment.approve", "user.view", ...TEACHING_MODULE_ACTIONS, "cert.view"];
 
 /** Learners: students, alumni and individual learners. */
 const LEARNER_MODULE_ACTIONS: Action[] = ["self.take_test", "self.learn", "self.view_certificates", "self.view_invoices"];
@@ -183,6 +185,7 @@ export const ROLE_GRANTS: Record<RoleName, readonly Action[]> = {
     "department.view",
     "user.view",
     "user.manage_roles", // teaching roles inside their own department only (enforced in the service)
+    "user.admit", // students joining their department
     "course.view",
     "course.create",
     "course.update",
@@ -195,6 +198,7 @@ export const ROLE_GRANTS: Record<RoleName, readonly Action[]> = {
     "batch.switch.decide",
     "batch.teach",
     "enrolment.view",
+    "enrolment.approve",
     "leaderboard.view",
     "leaderboard.manage",
     "marketing.manage",

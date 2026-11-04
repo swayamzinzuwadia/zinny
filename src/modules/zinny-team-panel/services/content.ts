@@ -135,7 +135,7 @@ export async function coursePreview(actor: Actor, courseId: string) {
         conn
           .select({ batchId: enrolments.batchId, n: sql<number>`count(*)`.mapWith(Number) })
           .from(enrolments)
-          .where(and(inArray(enrolments.batchId, ids), inArray(enrolments.status, ["active", "held"])))
+          .where(and(inArray(enrolments.batchId, ids), inArray(enrolments.status, ["active", "held", "approved"])))
           .groupBy(enrolments.batchId),
         conn
           .select({ batchId: roleAssignments.batchId, name: users.name, role: roleAssignments.role })

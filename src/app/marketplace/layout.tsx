@@ -25,7 +25,8 @@ export default async function MarketplaceLayout({ children }: { children: React.
     redirect("/login");
   }
 
-  const links: AccountLink[] = spaces.map((s) => ({ href: `/${s.slug}/learn`, label: s.name }));
+  // Each institute they belong to, and a way to join another with its code.
+  const links: AccountLink[] = [...spaces.map((s) => ({ href: `/${s.slug}/learn`, label: s.name })), { href: "/join", label: "Join an institute" }];
 
   return (
     <div

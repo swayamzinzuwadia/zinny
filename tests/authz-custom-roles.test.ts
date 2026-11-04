@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RoleName } from "@/db/schema";
 import { INSTITUTE_ABILITIES, PLATFORM_ABILITIES, abilitiesFor, actionsForAbilities, effectiveGrants, isEditableRole, sectionAccess } from "@/server/authz/abilities";
-import { roleSummaries } from "@/server/authz/capabilities";
+import { abilityOptions, roleSummaries } from "@/server/authz/capabilities";
 import { can, canPlatform, reach, type Actor, type Assignment } from "@/server/authz/engine";
 import { menuFor } from "@/server/authz/menu";
 import { ACTIONS, ROLE_GRANTS } from "@/server/authz/roles";
@@ -101,6 +101,22 @@ describe("the editor", () => {
   it("adds what an ability depends on", () => {
     expect(actionsForAbilities("custom_institute", ["finance.refund"]).sort()).toEqual(["finance.refund", "finance.view"]);
     expect(actionsForAbilities("custom_department", ["courses.edit"])).toContain("course.view");
+  });
+
+  it("places every option in the permission grid, and offers nothing locked", () => {
+    for (const platform of [false, true]) {
+      for (const o of abilityOptions(platform)) {
+        expect(o.rows.length, o.key).toBeGreaterThan(0);
+        expect(o.cols.length, o.key).toBeGreaterThan(0);
+      }
+      expect(abilityOptions(platform).map((o) => o.key)).not.toContain("people.roles");
+    }
+  });
+
+  it("posts the same actions whether a joined tick is sent once or twice", () => {
+    expect(actionsForAbilities("custom_institute", ["tests.manage", "tests.manage", "courses.view", "courses.view"]).sort()).toEqual(
+      actionsForAbilities("custom_institute", ["tests.manage", "courses.view"]).sort(),
+    );
   });
 
   it("ignores abilities it doesn't know or can't offer", () => {

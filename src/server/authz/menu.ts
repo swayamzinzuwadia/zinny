@@ -74,6 +74,7 @@ export const MENU: MenuSection[] = [
       { label: "Administration", href: "/users/administration" },
       { label: "Teaching", href: "/users/teaching" },
       { label: "Students", href: "/users/students" },
+      { label: "Join requests", href: "/users/requests" },
       { label: "Departments", href: "/users/departments" },
       { label: "Invitations", href: "/users/invites" },
       { label: "Bulk import", href: "/users/import" },
@@ -183,7 +184,7 @@ export function menuFor(actor: Actor, universityId: string, now = new Date()) {
         s.access === "students"
           ? ["/users/students"]
           : s.access === "dept"
-            ? ["/users/teaching", "/users/students", "/users/departments", "/users/invites"]
+            ? ["/users/teaching", "/users/students", "/users/requests", "/users/departments", "/users/invites"]
             : ["/users/administration", "/users/teaching", "/users/students", "/users/departments"];
       return { ...s, items: s.items.filter((i) => keep.includes(i.href)) };
     });

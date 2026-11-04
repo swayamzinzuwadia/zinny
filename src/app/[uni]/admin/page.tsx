@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { SlotList } from "@/components/slots";
 import { SwitchRequests } from "@/components/switch-requests";
+import { EnrolmentRequests } from "@/components/enrolment-requests";
 import { TodayBoard } from "@/components/today-board";
 import { Badge, Card, CardTitle, SeatMap, Stat, cx } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { slotsInReach } from "@/server/registry";
 import { formatDate } from "@/server/lib/dates";
 import { dashboard } from "@/server/services/dashboard";
-import { listSwitchRequests } from "@/server/services/enrolment";
+import { listEnrolmentRequests, listSwitchRequests } from "@/server/services/enrolment";
+import { canAdmit, listJoinRequests } from "@/modules/identity/joining";
+import { decideEnrolmentAction } from "./actions";
 import { formatINR } from "@/server/services/finance";
 
 export const metadata = { title: "Dashboard" };
@@ -21,12 +24,15 @@ function ago(d: Date) {
   return `${Math.round(h / 24)} d ago`;
 }
 
-export default async function Dashboard({ params }: { params: Promise<{ uni: string }> }) {
+export default async function Dashboard({ params, searchParams }: { params: Promise<{ uni: string }>; searchParams: Promise<{ done?: string }> }) {
   const { uni } = await params;
+  const { done } = await searchParams;
   const { actor, university } = await spaceContext(uni);
   const base = `/${uni}/admin`;
   const data = await dashboard(actor);
   const requests = data.canDecideSwitches ? await listSwitchRequests(actor) : [];
+  // Students asking for a seat (faculty, HODs, admins) and asking to join (admins, HODs).
+  const [enrolRequests, joinRequests] = await Promise.all([listEnrolmentRequests(actor), canAdmit(actor) ? listJoinRequests(actor) : Promise.resolve([])]);
 
   const live = data.board.find((s) => s.state === "live");
   const summary = [
@@ -39,6 +45,8 @@ export default async function Dashboard({ params }: { params: Promise<{ uni: str
         : "",
     live ? `Live now: ${live.courseTitle}` : "",
     requests.length ? `${requests.length} switch request${requests.length === 1 ? "" : "s"} waiting` : "",
+    enrolRequests.length ? `${enrolRequests.length} student${enrolRequests.length === 1 ? "" : "s"} waiting for a seat` : "",
+    joinRequests.length ? `${joinRequests.length} join request${joinRequests.length === 1 ? "" : "s"}` : "",
     data.expiring.length
       ? data.expiring.length === 1
         ? "1 batch needs faculty soon"
@@ -50,8 +58,8 @@ export default async function Dashboard({ params }: { params: Promise<{ uni: str
   // Only people who can open batches are told a batch is filling up.
   const fillingFast = data.canDecideSwitches ? data.seats.filter((s) => s.fill >= 0.8 && s.fill < 1) : [];
   const refunds = data.money?.refundsDue ?? 0;
-  const needsCount = requests.length + data.expiring.length + fillingFast.length + refunds;
-  const showNeeds = data.canDecideSwitches || !!data.money;
+  const needsCount = requests.length + enrolRequests.length + joinRequests.length + data.expiring.length + fillingFast.length + refunds;
+  const showNeeds = data.canDecideSwitches || !!data.money || enrolRequests.length > 0 || joinRequests.length > 0;
   const avgOrder = data.money && data.money.monthOrders ? Math.round(data.money.monthPaise / data.money.monthOrders / 100) * 100 : 0;
 
   return (
@@ -62,10 +70,25 @@ export default async function Dashboard({ params }: { params: Promise<{ uni: str
         {showNeeds && (
           <Card>
             <CardTitle hint={needsCount ? `${needsCount} item${needsCount === 1 ? "" : "s"}` : undefined}>Needs you</CardTitle>
-            {needsCount === 0 && (
+            {needsCount === 0 && !done && (
               <p className="rounded-2xl bg-canvas px-4 py-6 text-center text-[14px] text-muted">Nothing needs you right now.</p>
             )}
             <div className="space-y-3">
+              {done && <p className="rounded-2xl bg-brand-soft px-4 py-3 text-[14px] text-brand-strong">{done}</p>}
+              {joinRequests.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-gold-soft p-4">
+                  <div className="text-[14px]">
+                    <span className="font-medium">
+                      {joinRequests.length} student{joinRequests.length === 1 ? "" : "s"} asked to join
+                    </span>
+                    <span className="block text-muted">{joinRequests.slice(0, 3).map((q) => q.name).join(", ")}{joinRequests.length > 3 ? " and more" : ""}</span>
+                  </div>
+                  <Link href={`${base}/users/requests`} className="text-[14px] font-medium text-brand-strong hover:underline">
+                    Review requests
+                  </Link>
+                </div>
+              )}
+              {enrolRequests.length > 0 && <EnrolmentRequests requests={enrolRequests} uni={uni} action={decideEnrolmentAction} back={base} />}
               {requests.length > 0 && <SwitchRequests uni={uni} requests={requests} bare />}
               {data.expiring.map((e) => (
                 <div key={e.batchId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-gold-soft p-4">

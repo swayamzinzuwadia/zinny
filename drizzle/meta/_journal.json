@@ -50,6 +50,13 @@
       "when": 1793646359478,
       "tag": "0006_marketplace_cart",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793782622867,
+      "tag": "0007_student_joining_and_enrolment_requests",
+      "breakpoints": true
     }
   ]
 }

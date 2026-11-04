@@ -24,7 +24,7 @@ export type EnrolmentRef = {
   userId: string;
   courseId: string;
   batchId: string;
-  status: "held" | "active" | "completed" | "cancelled" | "expired" | "ended";
+  status: "held" | "active" | "completed" | "cancelled" | "expired" | "ended" | "requested" | "approved";
 };
 
 export type CourseProgressRow = typeof contentCourseProgress.$inferSelect;

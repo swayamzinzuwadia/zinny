@@ -14,7 +14,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { systemDb, type Tx } from "@/db/client";
-import { roleAssignments, sessions, universities, users, type RoleName } from "@/db/schema";
+import { departments, roleAssignments, sessions, universities, users, type RoleName } from "@/db/schema";
 import type { DomainEvent } from "@/contracts/events";
 import { audit, sendEmail, sendSms, systemActorFor, universityLite, withTenant } from "@/server/core";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
@@ -29,6 +29,7 @@ import { compactUuid, expandUuid, hmac, randomToken, sameHex, sha256, sixDigitCo
 import { mktLearners } from "@/modules/marketplace/schema";
 import { passwordChangedEmail, resetEmail, signInCodeSms } from "./emails";
 import { ADMIN_PANEL, landingFor, roleTitle } from "./labels";
+import { findInstituteByCode, joinTx, type JoinResult, type JoinTarget } from "./joining";
 import { idnInvites, idnOtpChallenges, idnSettings, idnTokens } from "./schema";
 
 const normEmail = (e: string) => e.trim().toLowerCase();
@@ -40,7 +41,7 @@ const resetUrl = () => `${appUrl()}/reset`;
 export type LoginUniversity = { id: string; slug: string; name: string; phoneSignIn: boolean; signupOpen: boolean };
 
 /** Paths that are app routes, not university slugs. */
-const RESERVED = new Set(["login", "signup", "invite", "reset", "platform", "marketplace", "api", "verify", "site", "_next", "brand", "favicon.ico"]);
+const RESERVED = new Set(["login", "signup", "join", "invite", "reset", "platform", "marketplace", "api", "verify", "site", "_next", "brand", "favicon.ico"]);
 
 /** The university slug at the start of a `next` path ("/demo/learn" → "demo"), if any. */
 export function slugFromNext(next: string | null | undefined): string | null {
@@ -152,23 +153,43 @@ export async function signUpMarketplaceLearner(input: SignUpInput): Promise<Sign
   });
 }
 
-/** A student account at one institute, for /signup?uni=<institute>. */
-export async function signUpStudent(input: SignUpInput & { slug: string }): Promise<SignUpResult> {
+/**
+ * A new account that joins an institute: straight in, or with a join request when the
+ * institute approves each student (joining.ts). Until they're in, the marketplace is theirs.
+ */
+async function signUpAndJoin(input: SignUpInput, target: JoinTarget, departmentId: string | null): Promise<SignUpResult> {
+  return createAccount(input, async (tx, userId) => {
+    const [person] = await tx.select({ id: users.id, name: users.name, email: users.email }).from(users).where(eq(users.id, userId));
+    await tx.insert(mktLearners).values({ userId }).onConflictDoNothing();
+    await audit(tx, personActor(target.id, userId), "user.self_signup", "user", userId, { joinMode: target.joinMode });
+    const r: JoinResult = await joinTx(tx, target, person, { departmentId });
+    return r.status === "joined" ? r.landing : "/join?sent=1";
+  });
+}
+
+async function joinTargetBySlug(university: LoginUniversity): Promise<JoinTarget> {
+  const [s] = await systemDb().select({ joinMode: idnSettings.joinMode }).from(idnSettings).where(eq(idnSettings.universityId, university.id));
+  const depts = await systemDb()
+    .select({ id: departments.id, name: departments.name })
+    .from(departments)
+    .where(eq(departments.universityId, university.id))
+    .orderBy(departments.name);
+  return { id: university.id, slug: university.slug, name: university.name, code: "", joinMode: (s?.joinMode as JoinTarget["joinMode"]) ?? "approval", departments: depts };
+}
+
+/** A student account at one institute, for /signup?uni=<institute> (the institute's own site links here). */
+export async function signUpStudent(input: SignUpInput & { slug: string; departmentId?: string | null }): Promise<SignUpResult> {
   const university = await loginUniversity(input.slug);
   if (!university) throw new ValidationError("We can't find that institute. Check the code and try again.", "unknown_institute");
   if (!university.signupOpen) throw new ValidationError(`${university.name} isn't taking new students here. Please contact the institute.`, "signup_closed");
+  return signUpAndJoin(input, await joinTargetBySlug(university), input.departmentId ?? null);
+}
 
-  return createAccount(input, async (tx, userId) => {
-    await tx.insert(roleAssignments).values({
-      userId,
-      role: "student",
-      scopeType: "university",
-      universityId: university.id,
-      createdBy: userId,
-    });
-    await audit(tx, personActor(university.id, userId), "user.self_signup", "user", userId, { role: "student" });
-    return landingFor(university.slug, "student");
-  });
+/** A student account made with an institute's joining code, for /signup?code=<code>. */
+export async function signUpWithCode(input: SignUpInput & { code: string; departmentId?: string | null }): Promise<SignUpResult> {
+  const target = await findInstituteByCode(input.code);
+  if (!target) throw new ValidationError("We can't find an institute with that code. Check it with your institute and try again.", "unknown_code");
+  return signUpAndJoin(input, target, input.departmentId ?? null);
 }
 
 /* ───────────────────────────── Password sign-in ───────────────────────────── */

@@ -24,6 +24,7 @@ import {
   signInWithPassword,
   signUpMarketplaceLearner,
   signUpStudent,
+  signUpWithCode,
   startPhoneSignIn,
   verifyPhoneCode,
   loginUniversity,
@@ -91,8 +92,14 @@ export async function signUpAction(_: AuthState, data: FormData): Promise<AuthSt
   try {
     const { ip } = await clientInfo();
     const slug = str(data, "uni");
+    const code = str(data, "code");
+    const departmentId = str(data, "departmentId") || null;
     const details = { name, email, password: String(data.get("password") ?? ""), confirm: String(data.get("confirm") ?? ""), ip };
-    const r = slug ? await signUpStudent({ ...details, slug }) : await signUpMarketplaceLearner(details);
+    const r = code
+      ? await signUpWithCode({ ...details, code, departmentId })
+      : slug
+        ? await signUpStudent({ ...details, slug, departmentId })
+        : await signUpMarketplaceLearner(details);
     if (r.status === "network_limited") {
       const wait = humanDuration(r.retryAt.getTime() - Date.now());
       return { error: `Too many new accounts from your network. Try again in ${wait}.`, code: "network_limited", email, name, at: Date.now() };

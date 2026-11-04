@@ -7,8 +7,9 @@ import { spaceContext } from "@/server/context";
 import { listDepartments } from "@/server/services/departments";
 import { customRoleChoices } from "@/server/services/roles";
 import { listPeople } from "@/server/services/users";
+import { studentDepartmentMap } from "@/server/services/students";
 import type { RoleName } from "@/db/schema";
-import { addPersonAction, graduateAction, linkParentAction, revokeRoleAction } from "../../actions";
+import { addPersonAction, graduateAction, linkParentAction, revokeRoleAction, studentDepartmentsAction } from "../../actions";
 
 const TITLES = {
   administration: ["Administration", "Institute Admin, Board / Owner and Accounts & Fees."],
@@ -37,6 +38,10 @@ export default async function PeoplePage({ params }: { params: Promise<{ uni: st
   const customKind = g === "administration" ? "custom_institute" : g === "teaching" ? "custom_department" : null;
   const custom = (await customRoleChoices(actor, university.id)).filter((c) => c.kind === customKind);
   const canGraduate = can(actor, "user.graduate", { universityId: university.id });
+  // Students only see the courses of their departments; Admins and HODs decide which.
+  const admit = reach(actor, "user.admit", university.id);
+  const admitDepts = depts.filter((d) => admit.all || admit.departmentIds.has(d.id));
+  const studentDepts = g === "students" ? await studentDepartmentMap(actor, people.map((p) => p.id)) : new Map<string, { id: string; name: string }[]>();
 
   return (
     <>
@@ -72,9 +77,52 @@ export default async function PeoplePage({ params }: { params: Promise<{ uni: st
                           </div>
                         );
                       })}
+                      {g === "students" && p.roles.some((r) => r.role === "student" || r.role === "alumni") && (
+                        <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                          {(studentDepts.get(p.id) ?? []).length === 0 ? (
+                            <Badge tone="gold">No department yet: sees no courses</Badge>
+                          ) : (
+                            (studentDepts.get(p.id) ?? []).map((d) => (
+                              <span key={d.id} className="rounded-full border border-line px-2.5 py-0.5 text-[13px] text-muted">
+                                {d.name}
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      )}
                     </div>
                   </Td>
                   <Td className="text-right">
+                    {g === "students" && admitDepts.length > 0 && p.roles.some((r) => r.role === "student" || r.role === "alumni") && (
+                      <details className="mb-2 text-left">
+                        <summary className="cursor-pointer text-sm text-brand">Departments</summary>
+                        <ActionForm action={studentDepartmentsAction} className="mt-3 w-64 space-y-2">
+                          <input type="hidden" name="uni" value={uni} />
+                          <input type="hidden" name="userId" value={p.id} />
+                          {admitDepts.map((d) => (
+                            <label key={d.id} className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                name="studentDepartmentId"
+                                value={d.id}
+                                defaultChecked={(studentDepts.get(p.id) ?? []).some((x) => x.id === d.id)}
+                                className="accent-brand"
+                              />
+                              {d.name}
+                            </label>
+                          ))}
+                          {/* Departments this viewer can't change stay as they are. */}
+                          {(studentDepts.get(p.id) ?? [])
+                            .filter((x) => !admitDepts.some((d) => d.id === x.id))
+                            .map((x) => (
+                              <input key={x.id} type="hidden" name="studentDepartmentId" value={x.id} />
+                            ))}
+                          <SubmitButton size="sm" variant="secondary">
+                            Save departments
+                          </SubmitButton>
+                        </ActionForm>
+                      </details>
+                    )}
                     {g === "students" && canGraduate && p.roles.some((r) => r.role === "student") && (
                       <details className="text-left">
                         <summary className="cursor-pointer text-sm text-brand">Manage</summary>
@@ -148,6 +196,22 @@ export default async function PeoplePage({ params }: { params: Promise<{ uni: st
                     <Input name="endsAt" type="date" />
                   </Field>
                 </>
+              )}
+              {g === "students" && admitDepts.length > 0 && (
+                <fieldset>
+                  <legend className="mb-1.5 text-[13px] font-medium">Departments</legend>
+                  <div className="flex flex-wrap gap-2">
+                    {admitDepts.map((d) => (
+                      <label key={d.id} className="cursor-pointer">
+                        <input type="checkbox" name="studentDepartmentId" value={d.id} className="peer sr-only" />
+                        <span className="inline-flex h-9 items-center rounded-full border border-line px-3.5 text-[13px] peer-checked:border-brand peer-checked:bg-brand-soft peer-checked:font-medium peer-checked:text-brand-strong peer-focus-visible:ring-2 peer-focus-visible:ring-gold">
+                          {d.name}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[13px] text-muted">The student sees only these departments&apos; courses.</p>
+                </fieldset>
               )}
               <SubmitButton>Add</SubmitButton>
             </ActionForm>

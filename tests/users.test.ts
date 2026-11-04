@@ -1,3 +1,4 @@
+import { setStudentDepartments } from "@/server/services/students";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeDb } from "@/db/client";
 import { loadActor } from "@/server/actor";
@@ -94,6 +95,8 @@ describe("PRD page 7: alumni and parents", () => {
     const elective = await mk("Photography elective", null);
 
     const ravi = (await listPeople(admin, "students")).find((p) => p.name === "Ravi Kumar")!;
+    // Students see (and enrol in) only their departments' courses.
+    await setStudentDepartments(admin, ravi.id, [cs.id]);
     const raviActor = await loadActor(ravi.id, uniId);
     await holdSeat(raviActor, { batchId: sem1 });
     await holdSeat(raviActor, { batchId: elective });

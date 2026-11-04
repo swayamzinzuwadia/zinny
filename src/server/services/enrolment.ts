@@ -4,6 +4,9 @@
  *  - The seat is held for 10 minutes while they pay, so two students can't get the last seat.
  *  - If the new batch clashes with one they already have, they're warned before enrolling.
  *  - After enrolling they can ask to switch; the HOD approves only if the new batch has a free seat.
+ *  - A batch can ask its faculty to accept each student first ("requested"). Accepting a free
+ *    seat enrols the student; accepting a paid one keeps the seat ("approved") until they pay.
+ *  - A student only sees the courses of the departments they belong to (students.ts).
  */
 import { and, desc, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
@@ -20,7 +23,7 @@ import {
 } from "@/db/schema";
 import { systemActorFor } from "../actor";
 import { assertCan, reach, type Actor } from "../authz/engine";
-import { AppError, ConflictError, NotFoundError, ValidationError, isUniqueViolation } from "../errors";
+import { AppError, ConflictError, ForbiddenError, NotFoundError, ValidationError, isUniqueViolation } from "../errors";
 import { earliestStart, formatDate, todayIn } from "../lib/dates";
 import { emit } from "../events";
 import { gateway } from "../payments/gateway";
@@ -29,6 +32,7 @@ import { loadBatch, scheduledBatches, seatsTaken } from "./batches";
 import { gstFor, issueInvoice } from "./finance";
 import { hodsOf, notify } from "./notifications";
 import { describeSlots, findClashes, type Clash } from "./schedule";
+import { learnerDepartmentScope } from "./students";
 
 export const SEAT_HOLD_MINUTES = 10;
 
@@ -41,20 +45,26 @@ async function universityToday(tx: Tx, universityId: string) {
   return todayIn(u?.tz ?? "Asia/Kolkata");
 }
 
-/** Marks holds that ran out as expired and frees their seats. */
+/**
+ * Marks holds that ran out as expired and frees their seats. A hold on a seat faculty had
+ * accepted goes back to "approved" instead: the student keeps the place and can pay again.
+ */
 export async function expireStaleHolds(tx: Tx, filter: { batchId?: string; userId?: string } = {}) {
-  const expired = await tx
+  const stale = and(
+    eq(enrolments.status, "held"),
+    lte(enrolments.holdExpiresAt, sql`now()`),
+    filter.batchId ? eq(enrolments.batchId, filter.batchId) : undefined,
+    filter.userId ? eq(enrolments.userId, filter.userId) : undefined,
+  );
+  const kept = await tx
     .update(enrolments)
-    .set({ status: "expired" })
-    .where(
-      and(
-        eq(enrolments.status, "held"),
-        lte(enrolments.holdExpiresAt, sql`now()`),
-        filter.batchId ? eq(enrolments.batchId, filter.batchId) : undefined,
-        filter.userId ? eq(enrolments.userId, filter.userId) : undefined,
-      ),
-    )
+    .set({ status: "approved", holdExpiresAt: null })
+    .where(and(stale, sql`${enrolments.decidedAt} is not null`))
     .returning({ id: enrolments.id });
+  const expired = [
+    ...kept,
+    ...(await tx.update(enrolments).set({ status: "expired" }).where(stale).returning({ id: enrolments.id })),
+  ];
   if (expired.length) {
     await tx
       .update(orders)
@@ -72,7 +82,10 @@ async function liveBatchIds(tx: Tx, userId: string, opts: { excludeCourseId?: st
     .where(
       and(
         eq(enrolments.userId, userId),
-        or(eq(enrolments.status, "active"), and(eq(enrolments.status, "held"), gt(enrolments.holdExpiresAt, sql`now()`))),
+        or(
+          inArray(enrolments.status, ["active", "approved"]),
+          and(eq(enrolments.status, "held"), gt(enrolments.holdExpiresAt, sql`now()`)),
+        ),
       ),
     );
   return rows
@@ -92,11 +105,13 @@ export async function browseCatalog(actor: Actor) {
   assertCan(actor, "catalog.browse", { universityId: uni(actor) });
   return withTenant(actor, async (tx) => {
     const today = await universityToday(tx, uni(actor));
+    const scope = await learnerDepartmentScope(tx, actor);
+    if (scope && scope.size === 0) return [];
     const rows = await tx
       .select({ course: courses, departmentName: departments.name })
       .from(courses)
       .innerJoin(departments, eq(departments.id, courses.departmentId))
-      .where(eq(courses.status, "published"))
+      .where(and(eq(courses.status, "published"), scope ? inArray(courses.departmentId, [...scope]) : undefined))
       .orderBy(courses.title);
     const out = [];
     for (const { course, departmentName } of rows) {
@@ -123,9 +138,14 @@ export type BatchOption = {
   faculty: string[];
   clashes: Clash[];
   mine: boolean;
+  /** Faculty accept each student before they get a seat. */
+  approvalRequired: boolean;
   /** Earliest class time, for ordering. */
   earliest: string;
 };
+
+/** The student's open request (or last answer) for a course, for the course page. */
+export type MyRequest = { enrolmentId: string; batchId: string; batchName: string; status: "requested" | "approved" | "declined"; note: string | null };
 
 /** The batch picker: every open batch, seats left, and whether it clashes with the student's timetable. */
 export async function batchOptions(actor: Actor, courseId: string) {
@@ -134,6 +154,21 @@ export async function batchOptions(actor: Actor, courseId: string) {
     const [course] = await tx.select().from(courses).where(and(eq(courses.id, courseId), eq(courses.status, "published")));
     if (!course) throw new NotFoundError("Course");
     const today = await universityToday(tx, uni(actor));
+    const scope = await learnerDepartmentScope(tx, actor);
+    if (scope && !scope.has(course.departmentId)) {
+      // Already studying it (e.g. moved out of the department later): they can still switch batch.
+      const [mine] = await tx
+        .select({ id: enrolments.id })
+        .from(enrolments)
+        .where(and(eq(enrolments.userId, actor.userId), eq(enrolments.courseId, courseId), eq(enrolments.status, "active")));
+      if (!mine) throw new NotFoundError("Course");
+    }
+    const approvalById = new Map(
+      (await tx.select({ id: batches.id, approvalRequired: batches.approvalRequired }).from(batches).where(eq(batches.courseId, courseId))).map((b) => [
+        b.id,
+        b.approvalRequired,
+      ]),
+    );
     const ids = (
       await tx
         .select({ id: batches.id })
@@ -166,11 +201,35 @@ export async function batchOptions(actor: Actor, courseId: string) {
         faculty: b.faculty ?? [],
         clashes: findClashes(b, others),
         mine: myEnrolment?.batchId === b.batchId,
+        approvalRequired: approvalById.get(b.batchId) ?? false,
         earliest: earliestStart(b.slots),
       });
     }
     options.sort((a, b) => a.startDate.localeCompare(b.startDate) || a.earliest.localeCompare(b.earliest) || a.name.localeCompare(b.name));
-    return { course, options, myEnrolment: myEnrolment ?? null };
+    const [req] = await tx
+      .select({ enrolment: enrolments, batchName: batches.name })
+      .from(enrolments)
+      .innerJoin(batches, eq(batches.id, enrolments.batchId))
+      .where(
+        and(
+          eq(enrolments.userId, actor.userId),
+          eq(enrolments.courseId, courseId),
+          // A declined request is "cancelled" with a decision on it.
+          or(inArray(enrolments.status, ["requested", "approved"]), and(eq(enrolments.status, "cancelled"), sql`${enrolments.decidedAt} is not null`)),
+        ),
+      )
+      .orderBy(desc(enrolments.createdAt))
+      .limit(1);
+    const myRequest: MyRequest | null = req
+      ? {
+          enrolmentId: req.enrolment.id,
+          batchId: req.enrolment.batchId,
+          batchName: req.batchName,
+          status: req.enrolment.status === "cancelled" ? "declined" : (req.enrolment.status as MyRequest["status"]),
+          note: req.enrolment.decisionNote,
+        }
+      : null;
+    return { course, options, myEnrolment: myEnrolment ?? null, myRequest };
   });
 }
 
@@ -179,6 +238,7 @@ export async function batchOptions(actor: Actor, courseId: string) {
 export type HoldResult =
   | { status: "clash"; clashes: Clash[] }
   | { status: "enrolled"; enrolmentId: string }
+  | { status: "requested"; enrolmentId: string }
   | {
       status: "held";
       enrolmentId: string;
@@ -210,14 +270,32 @@ export async function holdSeat(actor: Actor, input: { batchId: string; acknowled
     if (course.status !== "published" || batch.status !== "open" || batch.endDate < today) {
       throw new ConflictError("This batch is not open for enrolment.", "batch_closed");
     }
+    const scope = await learnerDepartmentScope(tx, actor);
+    if (scope && !scope.has(course.departmentId)) {
+      throw new ForbiddenError("This course isn't open to you. Your institute adds you to the departments whose courses you can join.");
+    }
     await expireStaleHolds(tx, { batchId: batch.id });
     await expireStaleHolds(tx, { userId: actor.userId });
 
     const [live] = await tx
       .select()
       .from(enrolments)
-      .where(and(eq(enrolments.userId, actor.userId), eq(enrolments.courseId, course.id), inArray(enrolments.status, ["held", "active"])));
+      .where(
+        and(
+          eq(enrolments.userId, actor.userId),
+          eq(enrolments.courseId, course.id),
+          inArray(enrolments.status, ["held", "active", "requested", "approved"]),
+        ),
+      );
     if (live?.status === "active") throw new ConflictError("You're already enrolled in this course.", "already_enrolled");
+    if (live?.status === "requested" && live.batchId === batch.id) return { status: "requested", enrolmentId: live.id };
+    // An accepted seat in this batch: paying for it now (the seat is already counted as taken).
+    const accepted = live?.status === "approved" && live.batchId === batch.id ? live : null;
+    if (live && !accepted && (live.status === "requested" || live.status === "approved")) {
+      // Asked for (or was accepted into) another batch and picked this one instead.
+      await tx.update(enrolments).set({ status: "cancelled", decidedAt: null, decidedBy: null, decisionNote: null }).where(eq(enrolments.id, live.id));
+      await audit(tx, actor, "enrolment.request_cancel", "enrolment", live.id, { movedTo: batch.id });
+    }
     if (live?.status === "held") {
       if (live.batchId === batch.id) {
         const [order] = await tx.select().from(orders).where(eq(orders.enrolmentId, live.id));
@@ -236,12 +314,27 @@ export async function holdSeat(actor: Actor, input: { batchId: string; acknowled
       await tx.update(orders).set({ status: "expired" }).where(and(eq(orders.enrolmentId, live.id), eq(orders.status, "pending")));
     }
 
-    if ((await seatsTaken(tx, batch.id)) >= batch.seatLimit) {
+    if (!accepted && (await seatsTaken(tx, batch.id)) >= batch.seatLimit) {
       throw new ConflictError("This batch is full. Pick another batch.", "batch_full");
     }
 
     const clashes = await clashesFor(tx, actor.userId, batch.id, { excludeCourseId: course.id });
     if (clashes.length > 0 && !input.acknowledgeClash) return { status: "clash", clashes };
+
+    if (batch.approvalRequired && !accepted) {
+      const [e] = await tx
+        .insert(enrolments)
+        .values({ universityId: uni(actor), userId: actor.userId, courseId: course.id, batchId: batch.id, status: "requested" })
+        .returning();
+      await notify(tx, uni(actor), await approversOf(tx, batch), {
+        kind: "enrolment.requested",
+        title: `${actor.name} asked to join ${course.title}`,
+        body: `${batch.name}: accept or decline the request.`,
+        data: { courseId: course.id, batchId: batch.id, enrolmentId: e.id },
+      });
+      await audit(tx, actor, "enrolment.request", "enrolment", e.id, { batchId: batch.id, clashAcknowledged: clashes.length > 0 });
+      return { status: "requested", enrolmentId: e.id };
+    }
 
     if (course.pricePaise === 0) {
       const [e] = await tx
@@ -260,10 +353,12 @@ export async function holdSeat(actor: Actor, input: { batchId: string; acknowled
     }
 
     const expiresAt = new Date(Date.now() + SEAT_HOLD_MINUTES * 60_000);
-    const [e] = await tx
-      .insert(enrolments)
-      .values({ universityId: uni(actor), userId: actor.userId, courseId: course.id, batchId: batch.id, status: "held", holdExpiresAt: expiresAt })
-      .returning();
+    const [e] = accepted
+      ? await tx.update(enrolments).set({ status: "held", holdExpiresAt: expiresAt }).where(eq(enrolments.id, accepted.id)).returning()
+      : await tx
+          .insert(enrolments)
+          .values({ universityId: uni(actor), userId: actor.userId, courseId: course.id, batchId: batch.id, status: "held", holdExpiresAt: expiresAt })
+          .returning();
     const gst = gstFor(course.pricePaise, course.gstRateBp);
     const [order] = await tx
       .insert(orders)
@@ -634,6 +729,133 @@ export async function listSwitchRequests(actor: Actor, status: "pending" | "appr
       out.push({ ...v, fromBatchName: fromNames.get(v.fromBatchId) ?? "", toSeatsLeft: Math.max(0, v.toSeatLimit - (await seatsTaken(tx, v.toBatchId))) });
     }
     return out;
+  });
+}
+
+/* ─────────────────────────── Enrolment requests ─────────────────────────── */
+
+/** Who is asked to accept a seat: the batch's current faculty and the department's HODs. */
+async function approversOf(tx: Tx, batch: { id: string; departmentId: string }) {
+  const now = new Date();
+  const faculty = (
+    await tx
+      .select({ userId: roleAssignments.userId, endsAt: roleAssignments.endsAt })
+      .from(roleAssignments)
+      .where(and(eq(roleAssignments.batchId, batch.id), isNull(roleAssignments.revokedAt)))
+  )
+    .filter((f) => !f.endsAt || f.endsAt > now)
+    .map((f) => f.userId);
+  return [...new Set([...faculty, ...(await hodsOf(tx, batch.departmentId))])];
+}
+
+export type EnrolmentRequest = {
+  enrolmentId: string;
+  student: { id: string; name: string; email: string };
+  course: { id: string; title: string; paid: boolean };
+  batch: { id: string; name: string; seatsLeft: number; seatLimit: number };
+  requestedAt: Date;
+};
+
+/**
+ * Requests waiting for an answer, for faculty (their batches), HODs (their department) and
+ * admins (everything). Optionally just one batch or one course.
+ */
+export async function listEnrolmentRequests(actor: Actor, filter: { batchId?: string; courseId?: string } = {}): Promise<EnrolmentRequest[]> {
+  const r = reach(actor, "enrolment.approve", uni(actor));
+  if (!r.all && r.departmentIds.size === 0 && r.batchIds.size === 0) return [];
+  return withTenant(actor, async (tx) => {
+    const rows = await tx
+      .select({ e: enrolments, b: batches, c: courses, u: { id: users.id, name: users.name, email: users.email } })
+      .from(enrolments)
+      .innerJoin(batches, eq(batches.id, enrolments.batchId))
+      .innerJoin(courses, eq(courses.id, enrolments.courseId))
+      .innerJoin(users, eq(users.id, enrolments.userId))
+      .where(
+        and(
+          eq(enrolments.status, "requested"),
+          filter.batchId ? eq(enrolments.batchId, filter.batchId) : undefined,
+          filter.courseId ? eq(enrolments.courseId, filter.courseId) : undefined,
+        ),
+      )
+      .orderBy(enrolments.createdAt);
+    const out: EnrolmentRequest[] = [];
+    for (const { e, b, c, u } of rows) {
+      if (!(r.all || r.departmentIds.has(b.departmentId) || r.batchIds.has(b.id))) continue;
+      out.push({
+        enrolmentId: e.id,
+        student: u,
+        course: { id: c.id, title: c.title, paid: c.pricePaise > 0 },
+        batch: { id: b.id, name: b.name, seatLimit: b.seatLimit, seatsLeft: Math.max(0, b.seatLimit - (await seatsTaken(tx, b.id))) },
+        requestedAt: e.createdAt,
+      });
+    }
+    return out;
+  });
+}
+
+/**
+ * Faculty, HOD or admin answers a request. Accepting needs a free seat. A free course
+ * enrols the student at once; a paid one keeps the seat until they pay.
+ */
+export async function decideEnrolment(actor: Actor, enrolmentId: string, accept: boolean, note?: string) {
+  return withTenant(actor, async (tx) => {
+    const [e] = await tx.select().from(enrolments).where(eq(enrolments.id, enrolmentId)).for("update");
+    if (!e) throw new NotFoundError("Request");
+    const { batch, target } = await loadBatch(tx, uni(actor), e.batchId, { lock: true });
+    assertCan(actor, "enrolment.approve", target);
+    if (e.status !== "requested") throw new ConflictError("This request has already been answered.", "already_decided");
+    const [course] = await tx.select().from(courses).where(eq(courses.id, e.courseId));
+    const decided = { decidedAt: new Date(), decidedBy: actor.userId || null, decisionNote: note?.trim() || null };
+
+    if (!accept) {
+      await tx.update(enrolments).set({ status: "cancelled", ...decided }).where(eq(enrolments.id, e.id));
+      await notify(tx, uni(actor), [e.userId], {
+        kind: "enrolment.declined",
+        title: `Your request for ${course.title} wasn't accepted`,
+        body: decided.decisionNote ? `${batch.name}: ${decided.decisionNote}` : `${batch.name} didn't accept this request. You can pick another batch.`,
+        data: { courseId: course.id, batchId: batch.id },
+      });
+      await audit(tx, actor, "enrolment.decline", "enrolment", e.id, { note: decided.decisionNote });
+      return { status: "declined" as const };
+    }
+
+    if ((await seatsTaken(tx, batch.id)) >= batch.seatLimit) {
+      throw new ConflictError(`${batch.name} is full. Add seats to the batch first, or decline the request.`, "batch_full");
+    }
+    const today = await universityToday(tx, uni(actor));
+    if (course.pricePaise === 0) {
+      await tx.update(enrolments).set({ status: "active", enrolledAt: new Date(), ...decided }).where(eq(enrolments.id, e.id));
+      await notify(tx, uni(actor), [e.userId], {
+        kind: "enrolment.confirmed",
+        title: `You're enrolled in ${course.title}`,
+        body: batch.startDate > today ? `${batch.name} starts on ${formatDate(batch.startDate)}. It's on your timetable.` : `${batch.name} is on your timetable now.`,
+        data: { courseId: course.id, batchId: batch.id },
+      });
+      await audit(tx, actor, "enrolment.accept", "enrolment", e.id, { free: true });
+      await emit(tx, actor, "enrolment.confirmed", { enrolmentId: e.id, userId: e.userId, courseId: course.id, batchId: batch.id });
+      return { status: "enrolled" as const };
+    }
+    await tx.update(enrolments).set({ status: "approved", ...decided }).where(eq(enrolments.id, e.id));
+    await notify(tx, uni(actor), [e.userId], {
+      kind: "enrolment.approved",
+      title: `You've been accepted into ${course.title}`,
+      body: `${batch.name}: your seat is kept for you. Pay to confirm it.`,
+      data: { courseId: course.id, batchId: batch.id },
+    });
+    await audit(tx, actor, "enrolment.accept", "enrolment", e.id, { free: false });
+    return { status: "approved" as const };
+  });
+}
+
+/** The student withdraws a request, or gives up an accepted seat they haven't paid for. */
+export async function withdrawEnrolmentRequest(actor: Actor, enrolmentId: string) {
+  return withTenant(actor, async (tx) => {
+    const [e] = await tx.select().from(enrolments).where(eq(enrolments.id, enrolmentId)).for("update");
+    if (!e || e.userId !== actor.userId) throw new NotFoundError("Request");
+    if (e.status !== "requested" && e.status !== "approved") return;
+    // No decision kept: a withdrawal must not read as "declined" on the course page.
+    await tx.update(enrolments).set({ status: "cancelled", decidedAt: null, decidedBy: null, decisionNote: null }).where(eq(enrolments.id, e.id));
+    await audit(tx, actor, "enrolment.request_cancel", "enrolment", e.id);
   });
 }
 

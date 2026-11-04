@@ -65,9 +65,41 @@ export const idnSettings = pgTable("idn_settings", {
   phoneSignIn: boolean("phone_sign_in").notNull().default(false),
   /** Students can create their own account at /signup. Institutes with a fixed list turn this off. */
   selfSignup: boolean("self_signup").notNull().default(true),
+  /** What students type to join this institute, at sign-up or later. Made the first time it's needed. */
+  joinCode: text("join_code"),
+  /** "approval": every join waits for an Admin or HOD; "instant": the code lets students straight in. */
+  joinMode: text("join_mode").notNull().default("approval"),
   updatedAt: at("updated_at").notNull().defaultNow(),
   updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
-});
+}, (t) => [
+  uniqueIndex("idn_settings_join_code_uq").on(t.joinCode),
+  check("idn_settings_join_mode", sql`${t.joinMode} in ('approval', 'instant')`),
+]);
+
+/**
+ * A learner asking to join an institute with its joining code. The person may have no role
+ * here yet, so row-level security on users would hide them: name and email are copied in.
+ * One pending request per person per institute.
+ */
+export const idnJoinRequests = pgTable("idn_join_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  universityId: universityId(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  /** The department the student said they're joining; the person accepting decides. */
+  departmentId: uuid("department_id"),
+  message: text("message"),
+  status: text("status").notNull().default("pending"),
+  decidedBy: uuid("decided_by").references(() => users.id, { onDelete: "set null" }),
+  decidedAt: at("decided_at"),
+  decisionNote: text("decision_note"),
+  createdAt: at("created_at").notNull().defaultNow(),
+}, (t) => [
+  check("idn_join_requests_status", sql`${t.status} in ('pending', 'approved', 'rejected', 'cancelled')`),
+  uniqueIndex("idn_join_requests_one_pending").on(t.universityId, t.userId).where(sql`${t.status} = 'pending'`),
+  index("idn_join_requests_user_idx").on(t.userId),
+]);
 
 /**
  * A phone sign-in in progress. The browser holds "<universityId>.<id>.<nonce>" in an

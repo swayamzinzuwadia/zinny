@@ -165,7 +165,7 @@ async function seatsTakenByBatch(tx: Tx, batchIds: string[]): Promise<Map<string
     .where(
       and(
         inArray(enrolments.batchId, batchIds),
-        or(eq(enrolments.status, "active"), and(eq(enrolments.status, "held"), gt(enrolments.holdExpiresAt, sql`now()`))),
+        or(inArray(enrolments.status, ["active", "approved"]), and(eq(enrolments.status, "held"), gt(enrolments.holdExpiresAt, sql`now()`))),
       ),
     )
     .groupBy(enrolments.batchId);

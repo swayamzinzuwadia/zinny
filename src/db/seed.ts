@@ -14,7 +14,7 @@ import bcrypt from "bcryptjs";
 import { and, eq, inArray, isNull, like, or } from "drizzle-orm";
 import type { SeedContext, SeedIds } from "../contracts/module";
 import { closeDb, systemDb } from "./client";
-import { batches, courses, departments, enrolments, roleAssignments, universities, users } from "./schema";
+import { batches, courses, departments, enrolments, roleAssignments, studentDepartments, universities, users } from "./schema";
 import { drainEvents } from "../server/events-drain";
 import { seeds } from "../server/registry";
 import { loadActor, systemActorFor } from "../server/actor";
@@ -92,6 +92,19 @@ export async function seedDemo(): Promise<SeedContext> {
   ].join("\n");
   const imported = await importPeople(admin, csv, { commit: true });
   if (imported.errors) throw new Error(JSON.stringify(imported.rows.filter((r) => !r.ok)));
+  // Students see only their departments' courses: the demo students belong to every department.
+  {
+    const studentRows = await db
+      .select({ userId: roleAssignments.userId })
+      .from(roleAssignments)
+      .where(and(eq(roleAssignments.universityId, uni.id), eq(roleAssignments.role, "student")));
+    const deptRows = await db.select({ id: departments.id }).from(departments).where(eq(departments.universityId, uni.id));
+    if (studentRows.length && deptRows.length)
+      await db
+        .insert(studentDepartments)
+        .values(studentRows.flatMap((s) => deptRows.map((d) => ({ universityId: uni.id, userId: s.userId, departmentId: d.id }))))
+        .onConflictDoNothing();
+  }
 
   const byEmail = async (email: string) => {
     const [u] = await db.select().from(users).where(eq(users.email, email));

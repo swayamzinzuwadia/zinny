@@ -8,7 +8,7 @@ import { spaceContext } from "@/server/context";
 import { ForbiddenError, ValidationError } from "@/server/errors";
 import { confirmPayment, orderForCheckout } from "@/server/core";
 import { testPaymentsAllowed } from "@/server/payments/gateway";
-import { cancelHold, cancelSwitch, holdSeat, requestSwitch } from "@/server/services/enrolment";
+import { cancelHold, cancelSwitch, holdSeat, requestSwitch, withdrawEnrolmentRequest } from "@/server/services/enrolment";
 import type { Clash } from "@/server/services/schedule";
 
 export type EnrolState = (NonNullable<ActionState> & { clashes?: Clash[]; batchId?: string }) | null;
@@ -31,6 +31,10 @@ export async function enrolAction(_: EnrolState, data: FormData): Promise<EnrolS
     if (r.status === "clash") {
       clashes = r.clashes;
       return "";
+    }
+    if (r.status === "requested") {
+      revalidatePath(`/${uni}/learn`, "layout");
+      return "Request sent. The batch's faculty will accept or decline it, and we'll let you know.";
     }
     next = r.status === "held" ? `/${uni}/learn/checkout/${r.orderId}` : `/${uni}/learn/timetable?enrolled=1`;
   });
@@ -92,5 +96,15 @@ export async function cancelSwitchAction(_: ActionState, data: FormData): Promis
     await cancelSwitch(actor, str(data, "requestId"));
     revalidatePath(`/${uni}/learn`, "layout");
     return "Request withdrawn.";
+  });
+}
+
+/** Withdraw a request for a seat, or give up an accepted seat that isn't paid for. */
+export async function withdrawEnrolmentAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const { uni, actor } = await ctx(data);
+  return attempt(async () => {
+    await withdrawEnrolmentRequest(actor, str(data, "enrolmentId"));
+    revalidatePath(`/${uni}/learn`, "layout");
+    return "Request withdrawn. You can pick another batch.";
   });
 }

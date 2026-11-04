@@ -79,6 +79,10 @@ export const enrolmentStatus = pgEnum("enrolment_status", [
   "cancelled",
   "expired", // hold ran out before payment
   "ended", // program course removed when the student became alumni
+  "requested", // waiting for the batch's faculty to accept; holds no seat
+  "approved", // faculty accepted a paid seat: it is kept for the student until they pay
+  // A request faculty turn down becomes "cancelled" with decided_at set (a student's own
+  // withdrawal leaves it empty), so the index below never needs a value added with it.
 ]);
 export const switchStatus = pgEnum("switch_status", ["pending", "approved", "rejected", "cancelled"]);
 export const orderStatus = pgEnum("order_status", [
@@ -178,6 +182,8 @@ export const batches = pgTable("batches", {
   meetingUrl: text("meeting_url"),
   /** How marketplace buyers hold a seat: no timetable, no real seat limit, never offered for enrolment. */
   recorded: boolean("recorded").notNull().default(false),
+  /** Faculty accept or decline each enrolment before the student gets a seat. */
+  approvalRequired: boolean("approval_required").notNull().default(false),
   createdAt: createdAt(),
 }, (t) => [
   check("batch_dates", sql`${t.endDate} >= ${t.startDate}`),
@@ -303,14 +309,34 @@ export const enrolments = pgTable("enrolments", {
   status: enrolmentStatus("status").notNull(),
   holdExpiresAt: timestamp("hold_expires_at", { withTimezone: true }),
   enrolledAt: timestamp("enrolled_at", { withTimezone: true }),
+  /** Set when faculty accept a request; a lapsed payment hold goes back to "approved". */
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  decidedBy: uuid("decided_by").references(() => users.id),
+  decisionNote: text("decision_note"),
   createdAt: createdAt(),
 }, (t) => [
   index("enrolments_batch_idx").on(t.batchId, t.status),
   index("enrolments_user_idx").on(t.userId),
-  // A student holds at most one live seat per course.
+  // A student holds at most one live seat (or request for one) per course: anything not finished.
+  // Only long-standing values are named, so the migration that adds new ones can build it.
   uniqueIndex("enrolments_one_live_per_course")
     .on(t.userId, t.courseId)
-    .where(sql`${t.status} in ('held', 'active')`),
+    .where(sql`${t.status} not in ('completed', 'cancelled', 'expired', 'ended')`),
+]);
+
+/**
+ * The departments a student belongs to. Inside the institute a student only sees the
+ * courses and batches of these departments; none means none (the marketplace stays open).
+ */
+export const studentDepartments = pgTable("student_departments", {
+  universityId: universityId(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  departmentId: uuid("department_id").notNull().references(() => departments.id, { onDelete: "cascade" }),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: createdAt(),
+}, (t) => [
+  uniqueIndex("student_departments_uq").on(t.userId, t.departmentId),
+  index("student_departments_uni_idx").on(t.universityId),
 ]);
 
 export const batchSwitchRequests = pgTable("batch_switch_requests", {

@@ -37,7 +37,7 @@ export async function loadBatch(tx: Tx, universityId: string, batchId: string, o
   return { batch, target };
 }
 
-/** Seats in use: paid students plus holds that haven't run out yet. */
+/** Seats in use: paid students, holds that haven't run out yet, and accepted seats waiting for payment. */
 export async function seatsTaken(tx: Tx, batchId: string, excludeEnrolmentId?: string): Promise<number> {
   const [{ n }] = await tx
     .select({ n: sql<number>`count(*)::int` })
@@ -45,7 +45,7 @@ export async function seatsTaken(tx: Tx, batchId: string, excludeEnrolmentId?: s
     .where(
       and(
         eq(enrolments.batchId, batchId),
-        or(eq(enrolments.status, "active"), and(eq(enrolments.status, "held"), gt(enrolments.holdExpiresAt, sql`now()`))),
+        or(inArray(enrolments.status, ["active", "approved"]), and(eq(enrolments.status, "held"), gt(enrolments.holdExpiresAt, sql`now()`))),
         excludeEnrolmentId ? sql`${enrolments.id} <> ${excludeEnrolmentId}` : undefined,
       ),
     );
@@ -152,6 +152,8 @@ export type BatchInput = {
   slots: Slot[];
   faculty: FacultyInput[];
   meetingUrl?: string | null;
+  /** Faculty accept each student before they get a seat (the batch form ticks this by default). */
+  approvalRequired?: boolean;
 };
 
 function validateBatch(input: Pick<BatchInput, "name" | "startDate" | "endDate" | "seatLimit">) {
@@ -200,6 +202,7 @@ export async function createBatch(actor: Actor, input: BatchInput) {
         endDate: input.endDate,
         seatLimit: input.seatLimit,
         meetingUrl: input.meetingUrl?.trim() || null,
+        approvalRequired: input.approvalRequired ?? false,
         status: "open",
       })
       .returning();
@@ -223,9 +226,11 @@ export async function createBatch(actor: Actor, input: BatchInput) {
   });
 }
 
-export type BatchPatch = Partial<Pick<BatchInput, "name" | "startDate" | "endDate" | "seatLimit" | "slots" | "meetingUrl">> & {
+export type BatchPatch = Partial<Pick<BatchInput, "name" | "startDate" | "endDate" | "seatLimit" | "slots" | "meetingUrl" | "approvalRequired">> & {
   status?: "open" | "closed" | "archived";
 };
+
+const slotKey = (s: Slot) => `${s.weekday}|${normaliseTime(s.startTime)}|${normaliseTime(s.endTime)}`;
 
 /** Changing timings or dates notifies every student in the batch; their timetable updates by itself. */
 export async function updateBatch(actor: Actor, batchId: string, patch: BatchPatch) {
@@ -249,9 +254,20 @@ export async function updateBatch(actor: Actor, batchId: string, patch: BatchPat
     }
     await tx
       .update(batches)
-      .set({ ...next, ...(patch.meetingUrl !== undefined && { meetingUrl: patch.meetingUrl || null }), ...(patch.status && { status: patch.status }) })
+      .set({
+        ...next,
+        ...(patch.meetingUrl !== undefined && { meetingUrl: patch.meetingUrl || null }),
+        ...(patch.status && { status: patch.status }),
+        ...(patch.approvalRequired !== undefined && { approvalRequired: patch.approvalRequired }),
+      })
       .where(eq(batches.id, batchId));
 
+    // The form always sends the timings: only a real change replaces them and tells students.
+    if (patch.slots) {
+      const old = await tx.select().from(batchSlots).where(eq(batchSlots.batchId, batchId));
+      const same = old.length === patch.slots.length && old.map(slotKey).sort().join() === patch.slots.map(slotKey).sort().join();
+      if (same) patch = { ...patch, slots: undefined };
+    }
     const scheduleChanged = !!patch.slots || next.startDate !== batch.startDate || next.endDate !== batch.endDate;
     if (patch.slots) {
       await tx.delete(batchSlots).where(eq(batchSlots.batchId, batchId));
@@ -275,6 +291,25 @@ export async function updateBatch(actor: Actor, batchId: string, patch: BatchPat
       });
     }
     await audit(tx, actor, "batch.update", "batch", batchId, patch as Record<string, unknown>);
+  });
+}
+
+/**
+ * Changes only the seat limit, at any point in the batch's life (even after it started or
+ * ended). It can't go below the seats already taken.
+ */
+export async function setSeatLimit(actor: Actor, batchId: string, seatLimit: number) {
+  if (!Number.isInteger(seatLimit) || seatLimit < 1) throw new ValidationError("Seat limit must be at least 1.");
+  return withTenant(actor, async (tx) => {
+    const { batch, target } = await loadBatch(tx, uni(actor), batchId, { lock: true });
+    assertCan(actor, "batch.update", target);
+    if (batch.recorded) throw new ConflictError("Marketplace buyers have no seat limit.");
+    const taken = await seatsTaken(tx, batchId);
+    if (seatLimit < taken) throw new ConflictError(`${taken} seats are already taken. The limit can't go below that.`);
+    if (seatLimit === batch.seatLimit) return { seatLimit, taken };
+    await tx.update(batches).set({ seatLimit }).where(eq(batches.id, batchId));
+    await audit(tx, actor, "batch.seats", "batch", batchId, { from: batch.seatLimit, to: seatLimit });
+    return { seatLimit, taken };
   });
 }
 
@@ -376,7 +411,7 @@ export async function batchRoster(actor: Actor, batchId: string) {
       .select({ userId: users.id, name: users.name, email: users.email, status: enrolments.status, enrolledAt: enrolments.enrolledAt })
       .from(enrolments)
       .innerJoin(users, eq(users.id, enrolments.userId))
-      .where(and(eq(enrolments.batchId, batchId), inArray(enrolments.status, ["active", "held", "completed"])))
+      .where(and(eq(enrolments.batchId, batchId), inArray(enrolments.status, ["active", "held", "approved", "completed"])))
       .orderBy(users.name);
   });
 }

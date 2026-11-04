@@ -11,11 +11,13 @@ import {
   PLATFORM_SECTIONS,
   abilitiesFor,
   effectiveGrants,
+  gridPlace,
   isEditableRole,
   reachOf,
   sectionAccess,
   worksAt,
   type Ability,
+  type GridColumn,
   type Reach,
 } from "./abilities";
 import { MENU, SECTION_ACCESS, type Access } from "./menu";
@@ -41,11 +43,21 @@ const SCOPE = { institute: "university", department: "department", batch: "batch
 
 export type RoleRow = { id: string; kind: RoleName; name: string | null; description: string; actions: readonly string[] };
 
+/** An ability placed in the permission grid: its rows (the first is its own) and the columns it ticks. */
+export type GridAbility = {
+  key: string;
+  label: string;
+  rows: string[];
+  cols: GridColumn[];
+  /** Part of the role, never switched on or off. */
+  locked?: boolean;
+};
+
 export type SectionSummary = {
   key: string;
   label: string;
   access: Access | null;
-  abilities: { label: string; can: boolean }[];
+  abilities: (GridAbility & { can: boolean })[];
 };
 
 export type RoleSummary = {
@@ -70,9 +82,11 @@ export type RoleSummary = {
   sections: SectionSummary[];
 };
 
-export type AbilityOption = Pick<Ability, "key" | "section" | "label" | "reach" | "needs">;
+export type AbilityOption = Pick<Ability, "key" | "section" | "label" | "reach" | "needs"> & Pick<GridAbility, "rows" | "cols">;
 
 const hasAll = (grants: ReadonlySet<Action>, a: Ability) => a.actions.every((x) => grants.has(x));
+
+const placed = (a: Ability, label = a.label): GridAbility => ({ key: a.key, label, ...gridPlace(a), ...(a.locked ? { locked: true } : {}) });
 
 function summarise(
   kind: RoleName,
@@ -97,7 +111,7 @@ function summarise(
       key: t.key,
       label: t.label,
       access,
-      abilities: access ? abilities.map((a) => ({ label: (kind === "hod" && a.hod) || a.label, can: hasAll(has, a) })) : [],
+      abilities: access ? abilities.map((a) => ({ ...placed(a, (kind === "hod" && a.hod) || a.label), can: hasAll(has, a) })) : [],
     };
   });
 
@@ -174,5 +188,5 @@ export function platformRoleSummaries(rows: readonly RoleRow[] = [], holders: Re
 export function abilityOptions(platform: boolean): AbilityOption[] {
   return (platform ? PLATFORM_ABILITIES : INSTITUTE_ABILITIES)
     .filter((a) => !a.locked)
-    .map(({ key, section, label, reach, needs }) => ({ key, section, label, reach, needs }));
+    .map((a) => ({ section: a.section, reach: a.reach, needs: a.needs, ...placed(a) }));
 }

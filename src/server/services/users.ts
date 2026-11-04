@@ -5,23 +5,14 @@
 import Papa from "papaparse";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
-import {
-  batches,
-  courses,
-  customRoles,
-  departments,
-  enrolments,
-  parentLinks,
-  roleAssignments,
-  users,
-  type RoleName,
-} from "@/db/schema";
+import { batches, courses, customRoles, departments, enrolments, parentLinks, roleAssignments, users, type RoleName, studentDepartments } from "@/db/schema";
 import { CUSTOM_ROLES } from "../authz/abilities";
 import { assertCan, can, reach, type Actor } from "../authz/engine";
 import { ALLOWED_SCOPES, ROLE_LABELS, USER_GROUPS } from "../authz/roles";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors";
 import { emit } from "../events";
 import { audit, withTenant } from "../tenant";
+import { addStudentDepartmentsTx } from "./students";
 import { liveCustomRole } from "./roles";
 
 /** Roles a CSV can name. Custom roles need picking by hand, because each institute's differ. */
@@ -103,6 +94,14 @@ export async function listPeople(actor: Actor, group: keyof typeof USER_GROUPS):
             ),
           );
         scoped.forEach((s) => allowedUsers.add(s.userId));
+        // Students placed in the viewer's departments, even before they enrol in anything.
+        if (r.departmentIds.size > 0) {
+          const placed = await tx
+            .select({ userId: studentDepartments.userId })
+            .from(studentDepartments)
+            .where(inArray(studentDepartments.departmentId, [...r.departmentIds]));
+          placed.forEach((s) => allowedUsers.add(s.userId));
+        }
       }
       visible = visible.filter((x) => allowedUsers.has(x.userId));
     }
@@ -325,7 +324,7 @@ export async function importPeople(actor: Actor, csv: string, opts: { commit: bo
     const depts = await tx.select().from(departments);
     const byCode = new Map(depts.map((d) => [d.code.toUpperCase(), d]));
     const seen = new Set<string>();
-    const rows: (ImportRow & { input?: NewPerson })[] = parsed.data.map((raw, i) => {
+    const rows: (ImportRow & { input?: NewPerson & { studentDepartmentId?: string | null } })[] = parsed.data.map((raw, i) => {
       const line = i + 2; // header is line 1
       const name = (raw.name ?? "").trim();
       const email = (raw.email ?? "").trim().toLowerCase();
@@ -343,6 +342,8 @@ export async function importPeople(actor: Actor, csv: string, opts: { commit: bo
       const needsDept = !scopes.includes("university");
       const dept = department ? byCode.get(department) : undefined;
       if (needsDept && !dept) return fail(department ? `No department with code ${department}.` : "This role needs a department code.");
+      // Students may name their department too: they then see its courses.
+      if (role === "student" && department && !dept) return fail(`No department with code ${department}.`);
       let endsAt: Date | null = null;
       if (raw.access_ends?.trim()) {
         endsAt = new Date(`${raw.access_ends.trim()}T23:59:59+05:30`);
@@ -352,7 +353,7 @@ export async function importPeople(actor: Actor, csv: string, opts: { commit: bo
       return {
         ...base,
         ok: true,
-        input: { name, email, phone: raw.phone?.trim(), role, departmentId: needsDept ? dept!.id : null, endsAt },
+        input: { name, email, phone: raw.phone?.trim(), role, departmentId: needsDept ? dept!.id : null, studentDepartmentId: role === "student" ? (dept?.id ?? null) : null, endsAt },
       };
     });
 
@@ -368,6 +369,7 @@ export async function importPeople(actor: Actor, csv: string, opts: { commit: bo
           endsAt: r.input!.endsAt,
         });
         if (created) await inviteIfNoPassword(tx, actor, userId, r.input!.role);
+        if (r.input!.studentDepartmentId) await addStudentDepartmentsTx(tx, actor, userId, [r.input!.studentDepartmentId]);
         saved++;
       }
       await audit(tx, actor, "user.import", "user", null, { rows: saved });

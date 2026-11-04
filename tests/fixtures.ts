@@ -1,6 +1,7 @@
+import { and, eq, inArray } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { systemDb } from "@/db/client";
-import { departments, roleAssignments, universities, users, type RoleName } from "@/db/schema";
+import { departments, roleAssignments, studentDepartments, universities, users, type RoleName } from "@/db/schema";
 import { loadActor } from "@/server/actor";
 
 // 12 hex characters: with every module's tests sharing one database, 6 collided now and then.
@@ -44,10 +45,30 @@ export async function grant(
       batchId: scope.batchId ?? null,
       endsAt,
     });
+  // Students only see the courses of their departments: like existing students on a real
+  // institute, test students are placed in every department the university has so far.
+  if ((role === "student" || role === "alumni") && scope.universityId) {
+    const depts = await systemDb().select({ id: departments.id }).from(departments).where(eq(departments.universityId, scope.universityId));
+    if (depts.length)
+      await systemDb()
+        .insert(studentDepartments)
+        .values(depts.map((d) => ({ universityId: scope.universityId!, userId, departmentId: d.id })))
+        .onConflictDoNothing();
+  }
 }
 
 export async function makeDepartment(universityId: string, code: string, name: string) {
   const [d] = await systemDb().insert(departments).values({ universityId, code, name }).returning();
+  // Test students belong to every department (see grant), including ones made after them.
+  const learners = await systemDb()
+    .select({ userId: roleAssignments.userId })
+    .from(roleAssignments)
+    .where(and(eq(roleAssignments.universityId, universityId), inArray(roleAssignments.role, ["student", "alumni"])));
+  if (learners.length)
+    await systemDb()
+      .insert(studentDepartments)
+      .values(learners.map((l) => ({ universityId, userId: l.userId, departmentId: d.id })))
+      .onConflictDoNothing();
   return d;
 }
 

@@ -18,7 +18,7 @@ import { db, EMAIL_RE, emptyUsage, isUuid, logAction, universityOrThrow, usageFo
  * level (zinny.app/<slug> would never reach the university).
  */
 export const RESERVED_SLUGS = new Set([
-  "platform", "login", "logout", "api", "invite", "reset", "verify", "site", "admin", "learn", "_next", "static",
+  "platform", "login", "logout", "signup", "join", "marketplace", "api", "invite", "reset", "verify", "site", "admin", "learn", "_next", "static",
   "public", "brand", "favicon.ico", "robots.txt", "sitemap.xml", "help", "support", "www", "app", "zinny",
 ]);
 

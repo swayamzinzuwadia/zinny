@@ -6,6 +6,10 @@
  *
  * Saved permissions always pass through effectiveGrants(), every time they are read. Whatever
  * a row in custom_roles says, it can't reach a locked action or one outside the role's reach.
+ *
+ * The Roles & permissions pages lay abilities out as a grid: one row per thing ("Courses"),
+ * with View, Add / Edit and Delete columns. `row`, `alsoRows` and `cols` only say where an
+ * ability's tick goes. They never change what it grants.
  */
 import type { RoleName, ScopeType } from "@/db/schema";
 import type { Access, SectionKey } from "./menu";
@@ -13,8 +17,13 @@ import { ROLE_GRANTS, type Action } from "./roles";
 
 export type Reach = "institute" | "department" | "batch";
 
+/** The permission grid's columns: View, Add / Edit and Delete. */
+export type GridColumn = "view" | "edit" | "delete";
+export const GRID_COLUMNS: readonly GridColumn[] = ["view", "edit", "delete"];
+
 export type Ability = {
   key: string;
+  /** The admin panel section it belongs to. sectionAccess() relies on it being a menu section. */
   section: string;
   label: string;
   actions: readonly Action[];
@@ -28,61 +37,78 @@ export type Ability = {
   locked?: boolean;
   /** What it means for a Head of Department, when that differs. */
   hod?: string;
+  /** The grid row its tick shows in, in plain words ("Courses"). Without one it gets a row named by its label. */
+  row?: string;
+  /** More rows showing the same tick, for one ability that covers several things. */
+  alsoRows?: readonly string[];
+  /**
+   * The grid columns it ticks. Several when one switch covers them all, as with "Create tests",
+   * which adds, edits and deletes. Without any: View when read only, otherwise Add / Edit.
+   */
+  cols?: readonly GridColumn[];
 };
 
+const V = ["view"] as const;
+const E = ["edit"] as const;
+const D = ["delete"] as const;
+/** Add, edit and delete go together. */
+const ED = ["edit", "delete"] as const;
+
 export const INSTITUTE_ABILITIES: readonly Ability[] = [
-  { key: "courses.view", section: "products", label: "View courses and batches", actions: ["course.view", "batch.view", "enrolment.view"], reach: "batch", readOnly: true },
-  { key: "courses.edit", section: "products", label: "Create and edit courses", actions: ["course.create", "course.update"], reach: "department", needs: ["courses.view"] },
-  { key: "courses.delete", section: "products", label: "Delete courses", actions: ["course.delete"], reach: "department", needs: ["courses.view"] },
-  { key: "courses.complete", section: "products", label: "Mark courses complete", actions: ["enrolment.complete"], reach: "department", needs: ["courses.view"] },
-  { key: "batches.edit", section: "products", label: "Create and edit batches", actions: ["batch.create", "batch.update"], reach: "department", needs: ["courses.view"] },
-  { key: "batches.delete", section: "products", label: "Delete batches", actions: ["batch.delete"], reach: "department", needs: ["courses.view"] },
-  { key: "batches.faculty", section: "products", label: "Assign faculty to batches", actions: ["batch.assign_faculty"], reach: "department", needs: ["courses.view"] },
-  { key: "batches.switch", section: "products", label: "Decide batch switch requests", actions: ["batch.switch.decide"], reach: "department", needs: ["courses.view"] },
-  { key: "programs.manage", section: "products", label: "Manage programs", actions: ["program.manage"], reach: "institute", needs: ["courses.view"] },
-  { key: "teach", section: "products", label: "Teach batches", actions: ["batch.teach"], reach: "batch", needs: ["courses.view"] },
-  { key: "content.progress", section: "products", label: "See learning progress", actions: ["content.view_progress"], reach: "batch", readOnly: true },
-  { key: "content.manage", section: "products", label: "Build lessons and content", actions: ["content.manage"], reach: "batch", needs: ["content.progress"] },
-  { key: "live.manage", section: "products", label: "Run live classes", actions: ["live.manage"], reach: "batch" },
-  { key: "attendance.view", section: "products", label: "See attendance", actions: ["attendance.view"], reach: "batch", readOnly: true },
-  { key: "attendance.mark", section: "products", label: "Mark attendance", actions: ["attendance.mark"], reach: "batch", needs: ["attendance.view"] },
-  { key: "tests.results", section: "products", label: "See test results", actions: ["assess.view_results"], reach: "batch", readOnly: true },
-  { key: "tests.manage", section: "products", label: "Create tests", actions: ["assess.manage"], reach: "batch", needs: ["tests.results"] },
-  { key: "tests.grade", section: "products", label: "Grade tests", actions: ["assess.grade"], reach: "batch", needs: ["tests.results"] },
-  { key: "assignments.view", section: "products", label: "See assignments", actions: ["assignment.view"], reach: "batch", readOnly: true },
-  { key: "assignments.manage", section: "products", label: "Set assignments", actions: ["assignment.manage"], reach: "batch", needs: ["assignments.view"] },
-  { key: "assignments.grade", section: "products", label: "Grade assignments", actions: ["assignment.grade"], reach: "batch", needs: ["assignments.view"] },
-  { key: "polls.manage", section: "products", label: "Run polls", actions: ["poll.manage"], reach: "batch" },
-  { key: "certificates.view", section: "products", label: "See certificates", actions: ["cert.view"], reach: "batch", readOnly: true },
-  { key: "certificates.issue", section: "products", label: "Issue certificates", actions: ["cert.issue"], reach: "department", needs: ["certificates.view"] },
-  { key: "certificates.manage", section: "products", label: "Set up certificate templates", actions: ["cert.manage"], reach: "department", needs: ["certificates.view"] },
+  { key: "courses.view", section: "products", label: "View courses and batches", actions: ["course.view", "batch.view", "enrolment.view"], reach: "batch", readOnly: true, row: "Courses", alsoRows: ["Batches"], cols: V },
+  { key: "courses.edit", section: "products", label: "Create and edit courses", actions: ["course.create", "course.update"], reach: "department", needs: ["courses.view"], row: "Courses", cols: E },
+  { key: "courses.delete", section: "products", label: "Delete courses", actions: ["course.delete"], reach: "department", needs: ["courses.view"], row: "Courses", cols: D },
+  { key: "batches.edit", section: "products", label: "Create and edit batches", actions: ["batch.create", "batch.update"], reach: "department", needs: ["courses.view"], row: "Batches", cols: E },
+  { key: "batches.delete", section: "products", label: "Delete batches", actions: ["batch.delete"], reach: "department", needs: ["courses.view"], row: "Batches", cols: D },
+  { key: "batches.faculty", section: "products", label: "Assign faculty to batches", actions: ["batch.assign_faculty"], reach: "department", needs: ["courses.view"], row: "Batch faculty", cols: E },
+  { key: "batches.switch", section: "products", label: "Decide batch switch requests", actions: ["batch.switch.decide"], reach: "department", needs: ["courses.view"], row: "Batch switch requests", cols: E },
+  { key: "enrolments.approve", section: "products", label: "Accept or decline students asking for a seat", actions: ["enrolment.approve"], reach: "batch", needs: ["courses.view"], row: "Enrolment requests", cols: E },
+  { key: "courses.complete", section: "products", label: "Mark courses complete", actions: ["enrolment.complete"], reach: "department", needs: ["courses.view"], row: "Course completion", cols: E },
+  { key: "programs.manage", section: "products", label: "Manage programs", actions: ["program.manage"], reach: "institute", needs: ["courses.view"], row: "Programs", cols: ED },
+  { key: "teach", section: "products", label: "Teach batches", actions: ["batch.teach"], reach: "batch", needs: ["courses.view"], row: "Teaching", cols: E },
+  { key: "content.progress", section: "products", label: "See learning progress", actions: ["content.view_progress"], reach: "batch", readOnly: true, row: "Lessons and progress", cols: V },
+  { key: "content.manage", section: "products", label: "Build lessons and content", actions: ["content.manage"], reach: "batch", needs: ["content.progress"], row: "Lessons and progress", cols: ED },
+  { key: "live.manage", section: "products", label: "Run live classes", actions: ["live.manage"], reach: "batch", row: "Live classes", cols: E },
+  { key: "attendance.view", section: "products", label: "See attendance", actions: ["attendance.view"], reach: "batch", readOnly: true, row: "Attendance", cols: V },
+  { key: "attendance.mark", section: "products", label: "Mark attendance", actions: ["attendance.mark"], reach: "batch", needs: ["attendance.view"], row: "Attendance", cols: E },
+  { key: "tests.results", section: "products", label: "See test results", actions: ["assess.view_results"], reach: "batch", readOnly: true, row: "Tests", cols: V },
+  { key: "tests.manage", section: "products", label: "Create tests", actions: ["assess.manage"], reach: "batch", needs: ["tests.results"], row: "Tests", cols: ED },
+  { key: "tests.grade", section: "products", label: "Grade tests", actions: ["assess.grade"], reach: "batch", needs: ["tests.results"], row: "Test grading", cols: E },
+  { key: "assignments.view", section: "products", label: "See assignments", actions: ["assignment.view"], reach: "batch", readOnly: true, row: "Assignments", cols: V },
+  { key: "assignments.manage", section: "products", label: "Set assignments", actions: ["assignment.manage"], reach: "batch", needs: ["assignments.view"], row: "Assignments", cols: ED },
+  { key: "assignments.grade", section: "products", label: "Grade assignments", actions: ["assignment.grade"], reach: "batch", needs: ["assignments.view"], row: "Assignment grading", cols: E },
+  { key: "polls.manage", section: "products", label: "Run polls", actions: ["poll.manage"], reach: "batch", row: "Polls", cols: ED },
+  { key: "certificates.view", section: "products", label: "See certificates", actions: ["cert.view"], reach: "batch", readOnly: true, row: "Issued certificates", cols: V },
+  { key: "certificates.issue", section: "products", label: "Issue certificates", actions: ["cert.issue"], reach: "department", needs: ["certificates.view"], row: "Issued certificates", cols: E },
+  { key: "certificates.manage", section: "products", label: "Set up certificate templates", actions: ["cert.manage"], reach: "department", needs: ["certificates.view"], row: "Certificate templates", cols: ED },
 
-  { key: "people.view", section: "users", label: "View people", actions: ["user.view"], reach: "batch", readOnly: true },
-  { key: "people.roles", section: "users", label: "Add people and change their roles", actions: ["user.manage_roles"], reach: "department", locked: true, hod: "Add teachers in their department" },
-  { key: "people.import", section: "users", label: "Import people in bulk", actions: ["user.import"], reach: "institute", needs: ["people.view"] },
-  { key: "people.graduate", section: "users", label: "Graduate students", actions: ["user.graduate"], reach: "institute", needs: ["people.view"] },
-  { key: "people.parents", section: "users", label: "Link parents to students", actions: ["user.link_parent"], reach: "institute", needs: ["people.view"] },
-  { key: "departments.manage", section: "users", label: "Manage departments", actions: ["department.manage"], reach: "institute" },
+  { key: "people.view", section: "users", label: "View people", actions: ["user.view"], reach: "batch", readOnly: true, row: "People", cols: V },
+  { key: "people.roles", section: "users", label: "Add people and change their roles", actions: ["user.manage_roles"], reach: "department", locked: true, hod: "Add teachers in their department", row: "People", cols: E },
+  { key: "people.import", section: "users", label: "Import people in bulk", actions: ["user.import"], reach: "institute", needs: ["people.view"], row: "Bulk import", cols: E },
+  { key: "people.graduate", section: "users", label: "Graduate students", actions: ["user.graduate"], reach: "institute", needs: ["people.view"], row: "Graduation", cols: E },
+  { key: "people.parents", section: "users", label: "Link parents to students", actions: ["user.link_parent"], reach: "institute", needs: ["people.view"], row: "Parent links", cols: E },
+  { key: "people.admit", section: "users", label: "Accept join requests and set students' departments", actions: ["user.admit"], reach: "department", needs: ["people.view"], row: "Join requests", cols: E },
+  { key: "departments.manage", section: "users", label: "Manage departments", actions: ["department.manage"], reach: "institute", row: "Departments", cols: ED },
 
-  { key: "leaderboard.view", section: "leaderboards", label: "View leaderboards", actions: ["leaderboard.view"], reach: "batch", readOnly: true },
-  { key: "leaderboard.manage", section: "leaderboards", label: "Change XP rules, badges and challenges", actions: ["leaderboard.manage"], reach: "department", needs: ["leaderboard.view"] },
+  { key: "leaderboard.view", section: "leaderboards", label: "View leaderboards", actions: ["leaderboard.view"], reach: "batch", readOnly: true, row: "Leaderboards and XP rules", cols: V },
+  { key: "leaderboard.manage", section: "leaderboards", label: "Change XP rules, badges and challenges", actions: ["leaderboard.manage"], reach: "department", needs: ["leaderboard.view"], row: "Leaderboards and XP rules", cols: ED },
 
-  { key: "finance.view", section: "finance", label: "View sales and reports", actions: ["finance.view"], reach: "institute", readOnly: true },
-  { key: "finance.manage", section: "finance", label: "Manage invoices and payments", actions: ["finance.manage"], reach: "institute", needs: ["finance.view"] },
-  { key: "finance.refund", section: "finance", label: "Give refunds", actions: ["finance.refund"], reach: "institute", needs: ["finance.view"] },
+  { key: "finance.view", section: "finance", label: "View sales and reports", actions: ["finance.view"], reach: "institute", readOnly: true, row: "Sales and invoices", cols: V },
+  { key: "finance.manage", section: "finance", label: "Manage invoices and payments", actions: ["finance.manage"], reach: "institute", needs: ["finance.view"], row: "Sales and invoices", cols: ED },
+  { key: "finance.refund", section: "finance", label: "Give refunds", actions: ["finance.refund"], reach: "institute", needs: ["finance.view"], row: "Refunds", cols: E },
 
-  { key: "website.manage", section: "website", label: "Edit the public website", actions: ["website.manage"], reach: "institute" },
+  { key: "website.manage", section: "website", label: "Edit the public website", actions: ["website.manage"], reach: "institute", row: "Public website", cols: ED },
 
-  { key: "marketing.manage", section: "marketing", label: "Run marketing", actions: ["marketing.manage"], reach: "department" },
+  { key: "marketing.manage", section: "marketing", label: "Run marketing", actions: ["marketing.manage"], reach: "department", row: "Marketing", cols: ED },
 
-  { key: "community.view", section: "community", label: "View the community", actions: ["community.view"], reach: "batch", readOnly: true },
-  { key: "community.manage", section: "community", label: "Manage the community", actions: ["community.manage"], reach: "batch", needs: ["community.view"] },
+  { key: "community.view", section: "community", label: "View the community", actions: ["community.view"], reach: "batch", readOnly: true, row: "Community", cols: V },
+  { key: "community.manage", section: "community", label: "Manage the community", actions: ["community.manage"], reach: "batch", needs: ["community.view"], row: "Community", cols: ED },
 
-  { key: "insights.view", section: "insights", label: "View insights", actions: ["insights.view"], reach: "department", readOnly: true },
-  { key: "activity.view", section: "insights", label: "View the activity log", actions: ["audit.view"], reach: "institute", readOnly: true },
+  { key: "insights.view", section: "insights", label: "View insights", actions: ["insights.view"], reach: "department", readOnly: true, row: "Insights", cols: V },
+  { key: "activity.view", section: "insights", label: "View the activity log", actions: ["audit.view"], reach: "institute", readOnly: true, row: "Activity log", cols: V },
 
-  { key: "settings.manage", section: "settings", label: "Change institute settings", actions: ["settings.manage"], reach: "institute" },
-  { key: "institute.edit", section: "settings", label: "Edit institute details", actions: ["university.update"], reach: "institute" },
+  { key: "settings.manage", section: "settings", label: "Change institute settings", actions: ["settings.manage"], reach: "institute", row: "Institute settings", cols: E },
+  { key: "institute.edit", section: "settings", label: "Edit institute details", actions: ["university.update"], reach: "institute", row: "Institute details", cols: E },
 ];
 
 export const PLATFORM_SECTIONS = [
@@ -95,14 +121,24 @@ export const PLATFORM_SECTIONS = [
 ] as const;
 
 export const PLATFORM_ABILITIES: readonly Ability[] = [
-  { key: "platform.institutes", section: "institutes", label: "Manage institutes", actions: ["platform.manage_universities"], reach: "institute" },
-  { key: "platform.licences", section: "institutes", label: "Manage licences", actions: ["platform.licences"], reach: "institute" },
-  { key: "platform.support", section: "support", label: "Enter institutes through support mode", actions: ["platform.support_mode"], reach: "institute" },
-  { key: "platform.content", section: "content", label: "Review course content", actions: ["platform.content_review"], reach: "institute" },
-  { key: "platform.partners", section: "partners", label: "Manage sponsors and partners", actions: ["platform.partners"], reach: "institute" },
-  { key: "platform.finance", section: "billing", label: "Manage Zinny invoices", actions: ["platform.finance"], reach: "institute" },
-  { key: "platform.analytics", section: "analytics", label: "View analytics", actions: ["platform.view_analytics"], reach: "institute", readOnly: true },
+  { key: "platform.institutes", section: "institutes", label: "Manage institutes", actions: ["platform.manage_universities"], reach: "institute", row: "Institutes", cols: E },
+  { key: "platform.licences", section: "institutes", label: "Manage licences", actions: ["platform.licences"], reach: "institute", row: "Licences", cols: E },
+  { key: "platform.support", section: "support", label: "Enter institutes through support mode", actions: ["platform.support_mode"], reach: "institute", row: "Support mode", cols: E },
+  { key: "platform.content", section: "content", label: "Review course content", actions: ["platform.content_review"], reach: "institute", row: "Course reviews", cols: E },
+  { key: "platform.partners", section: "partners", label: "Manage sponsors and partners", actions: ["platform.partners"], reach: "institute", row: "Sponsors and partners", cols: ED },
+  { key: "platform.finance", section: "billing", label: "Manage Zinny invoices", actions: ["platform.finance"], reach: "institute", row: "Zinny invoices", cols: E },
+  { key: "platform.analytics", section: "analytics", label: "View analytics", actions: ["platform.view_analytics"], reach: "institute", readOnly: true, row: "Analytics", cols: V },
 ];
+
+/**
+ * Where an ability's tick shows in the permission grid: the rows (the first is its own) and
+ * the columns it fills. An ability without grid details still shows, in a row of its own.
+ */
+export function gridPlace(a: Pick<Ability, "label" | "readOnly" | "row" | "alsoRows" | "cols">): { rows: string[]; cols: GridColumn[] } {
+  const cols = GRID_COLUMNS.filter((c) => a.cols?.includes(c));
+  const row = a.row?.trim() || a.label;
+  return { rows: [...new Set([row, ...(a.alsoRows ?? [])])], cols: cols.length > 0 ? cols : [a.readOnly ? "view" : "edit"] };
+}
 
 /** How far each role that can be edited reaches. Institute Admin and Super Admin aren't here. */
 const ROLE_REACH: Partial<Record<RoleName, Reach>> = {

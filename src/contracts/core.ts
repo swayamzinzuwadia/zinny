@@ -40,7 +40,7 @@ export type BatchLite = {
   target: Target;
 };
 
-export type EnrolmentStatus = "held" | "active" | "completed" | "cancelled" | "expired" | "ended";
+export type EnrolmentStatus = "held" | "active" | "completed" | "cancelled" | "expired" | "ended" | "requested" | "approved";
 
 export type StudentEnrolment = { enrolmentId: string; courseId: string; batchId: string; status: EnrolmentStatus };
 

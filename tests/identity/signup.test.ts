@@ -7,6 +7,7 @@ import { addPerson } from "@/server/services/users";
 import { verifyPassword } from "@/server/auth/passwords";
 import { loginUniversity, signInWithPassword, signUpStudent } from "@/modules/identity/auth";
 import { setSelfSignup } from "@/modules/identity/settings";
+import { idnSettings } from "@/modules/identity/schema";
 import { setupCourse, uniqueCode } from "../fixtures";
 import { useIdentityOnly } from "./helpers";
 
@@ -32,6 +33,8 @@ afterAll(async () => {
 describe("student sign-up", () => {
   it("creates a student at that institute who can sign in, and logs it", async () => {
     const { uni } = await setupCourse({ name: "Sunrise Institute" });
+    // This institute lets students with its code (or site link) straight in.
+    await systemDb().insert(idnSettings).values({ universityId: uni.id, joinMode: "instant" });
     const input = form(uni.slug);
     const r = await signUpStudent(input);
     if (r.status !== "created") throw new Error("expected an account");

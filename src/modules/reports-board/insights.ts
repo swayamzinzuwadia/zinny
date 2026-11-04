@@ -188,7 +188,7 @@ export async function loadInsights(actor: Actor, asOf = new Date()): Promise<Ins
           .select({
             batchId: enrolments.batchId,
             taken: sql<number>`count(*) filter (where ${enrolments.status} = 'active')::int`,
-            held: sql<number>`count(*) filter (where ${enrolments.status} = 'held' and ${enrolments.holdExpiresAt} > now())::int`,
+            held: sql<number>`count(*) filter (where ${enrolments.status} = 'approved' or (${enrolments.status} = 'held' and ${enrolments.holdExpiresAt} > now()))::int`,
           })
           .from(enrolments)
           .where(inArray(enrolments.batchId, liveIds))

@@ -45,6 +45,14 @@ describe("roles and permissions page data", () => {
     expect(can("permanent_faculty", "community")).toContain("Manage the community");
   });
 
+  it("says where each ability sits in the permission grid", () => {
+    const products = section("hod", "products").abilities;
+    expect(products.find((a) => a.key === "courses.view")).toMatchObject({ rows: ["Courses", "Batches"], cols: ["view"], can: true });
+    expect(products.find((a) => a.key === "tests.manage")).toMatchObject({ rows: ["Tests"], cols: ["edit", "delete"] });
+    expect(section("hod", "users").abilities.find((a) => a.key === "people.roles")).toMatchObject({ rows: ["People"], cols: ["edit"], locked: true, can: true });
+    expect(section("board_owner", "finance").abilities.find((a) => a.key === "finance.refund")).toMatchObject({ rows: ["Refunds"], cols: ["edit"], can: false });
+  });
+
   it("never lists an open section with nothing the role can do in it", () => {
     for (const r of roleSummaries()) {
       for (const s of r.sections) if (s.access) expect(s.abilities.some((a) => a.can), `${r.key} / ${s.key}`).toBe(true);

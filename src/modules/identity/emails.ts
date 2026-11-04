@@ -110,3 +110,20 @@ export function signInCodeSms(o: { code: string; institute: string; validMinutes
 export function verifyPhoneSms(o: { code: string; validMinutes: number }) {
   return `${o.code} is your Zinny code to confirm this mobile number. It expires in ${o.validMinutes} minutes. Never share it with anyone.`;
 }
+
+/** The answer to a request to join an institute with its joining code. */
+export function joinDecisionEmail(o: { name: string; institute: string; accepted: boolean; note: string | null; url: string }) {
+  const first = o.name.split(/\s+/)[0] || o.name;
+  const subject = o.accepted ? `You've joined ${o.institute} on Zinny` : `Your request to join ${o.institute}`;
+  const lines = o.accepted
+    ? [`Hello ${first},`, `${o.institute} accepted your request. You can now see their courses and pick a batch.`]
+    : [`Hello ${first},`, `${o.institute} didn't accept your request to join.${o.note ? ` They said: "${o.note}"` : ""}`, "If you think this is a mistake, please contact the institute."];
+  const text = [...lines, "", o.accepted ? `Open ${o.institute}: ${o.url}` : `Zinny: ${o.url}`, "", "—", "Zinny"].join("\n");
+  const html = layout({
+    heading: o.accepted ? `Welcome to ${o.institute}` : `About your request to join ${o.institute}`,
+    paragraphs: lines.map(esc),
+    button: { label: o.accepted ? `Open ${o.institute}` : "Open Zinny", url: o.url },
+    footer: "You asked to join this institute on Zinny.",
+  });
+  return { subject, text, html };
+}

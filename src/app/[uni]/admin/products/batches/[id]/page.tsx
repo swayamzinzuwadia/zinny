@@ -3,6 +3,7 @@ import { DayTimePicker } from "@/components/day-picker";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Table, Td } from "@/components/ui";
 import { SlotList } from "@/components/slots";
+import { EnrolmentRequests, SeatLimitForm } from "@/components/enrolment-requests";
 import { WeekView } from "@/components/week-view";
 import { can } from "@/server/authz/engine";
 import { ROLE_LABELS } from "@/server/authz/roles";
@@ -10,20 +11,23 @@ import { spaceContext } from "@/server/context";
 import { visibleSlots } from "@/server/registry";
 import { addDays, formatDate, formatTime, todayIn, weekStart } from "@/server/lib/dates";
 import { batchRoster, getBatchDetail } from "@/server/services/batches";
+import { listEnrolmentRequests } from "@/server/services/enrolment";
 import { describeSlots, expandSessions } from "@/server/services/schedule";
 import { teachersForDepartment } from "@/server/services/users";
-import { addFacultyAction, overrideAction, removeFacultyAction, updateBatchAction } from "../../../actions";
+import { addFacultyAction, decideEnrolmentAction, overrideAction, removeFacultyAction, seatLimitAction, updateBatchAction } from "../../../actions";
 
-export default async function BatchPage({ params }: { params: Promise<{ uni: string; id: string }> }) {
+export default async function BatchPage({ params, searchParams }: { params: Promise<{ uni: string; id: string }>; searchParams: Promise<{ done?: string }> }) {
   const { uni, id } = await params;
+  const { done } = await searchParams;
   const { actor, university } = await spaceContext(uni);
   const { batch, course, schedule, faculty, seatsTaken, target } = await getBatchDetail(actor, id);
   const canEdit = can(actor, "batch.update", target);
   const canStaff = can(actor, "batch.assign_faculty", target);
   const canRoster = can(actor, "enrolment.view", target);
-  const [roster, teachers] = await Promise.all([
+  const [roster, teachers, enrolRequests] = await Promise.all([
     canRoster ? batchRoster(actor, id) : Promise.resolve([]),
     canStaff ? teachersForDepartment(actor, batch.departmentId) : Promise.resolve([]),
+    listEnrolmentRequests(actor, { batchId: id }),
   ]);
 
   const today = todayIn(university.timezone);
@@ -88,6 +92,14 @@ export default async function BatchPage({ params }: { params: Promise<{ uni: str
             }}
           />
 
+          {done && <p className="rounded-2xl bg-brand-soft px-4 py-3 text-[14px] text-brand-strong">{done}</p>}
+          {enrolRequests.length > 0 && (
+            <Card>
+              <CardTitle>Waiting for a seat</CardTitle>
+              <EnrolmentRequests requests={enrolRequests} uni={uni} action={decideEnrolmentAction} back={`/${uni}/admin/products/batches/${id}`} showCourse={false} />
+            </Card>
+          )}
+
           {canRoster && (
             <div>
               <h2 className="mb-3 text-[17px] font-semibold">Students</h2>
@@ -100,7 +112,9 @@ export default async function BatchPage({ params }: { params: Promise<{ uni: str
                       <Td className="font-medium">{r.name}</Td>
                       <Td className="text-muted">{r.email}</Td>
                       <Td>
-                        <Badge tone={r.status === "active" ? "brand" : "warn"}>{r.status === "held" ? "Paying now" : r.status}</Badge>
+                        <Badge tone={r.status === "active" ? "brand" : "warn"}>
+                          {r.status === "held" ? "Paying now" : r.status === "approved" ? "Accepted, not paid yet" : r.status}
+                        </Badge>
                       </Td>
                       <Td className="text-muted">{r.enrolledAt ? r.enrolledAt.toLocaleDateString("en-IN") : "—"}</Td>
                     </tr>
@@ -196,6 +210,16 @@ export default async function BatchPage({ params }: { params: Promise<{ uni: str
             </Card>
           )}
 
+          {canEdit && !batch.recorded && (
+            <Card>
+              <CardTitle>Seats</CardTitle>
+              <p className="mb-3 text-sm text-muted">
+                {seatsTaken} of {batch.seatLimit} taken. Change it any time; it can&apos;t go below the seats already taken.
+              </p>
+              <SeatLimitForm uni={uni} batchId={id} seatLimit={batch.seatLimit} taken={seatsTaken} action={seatLimitAction} />
+            </Card>
+          )}
+
           {canEdit && (
             <Card>
               <CardTitle>Batch details</CardTitle>
@@ -224,10 +248,8 @@ export default async function BatchPage({ params }: { params: Promise<{ uni: str
                     <Input type="date" name="endDate" defaultValue={batch.endDate} />
                   </Field>
                 </div>
+                {/* Seats are changed in the Seats card above, so this form can't overwrite them. */}
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Seat limit">
-                    <Input type="number" name="seatLimit" min={1} defaultValue={batch.seatLimit} />
-                  </Field>
                   <Field label="Enrolment">
                     <Select name="status" defaultValue={batch.status === "closed" ? "closed" : "open"}>
                       <option value="open">Open</option>
@@ -238,6 +260,13 @@ export default async function BatchPage({ params }: { params: Promise<{ uni: str
                 <Field label="Live class link">
                   <Input name="meetingUrl" type="url" defaultValue={batch.meetingUrl ?? ""} />
                 </Field>
+                <label className="flex items-start gap-2.5 text-sm">
+                  <input type="checkbox" name="approvalRequired" defaultChecked={batch.approvalRequired} className="mt-0.5 accent-brand" />
+                  <span>
+                    <span className="font-medium">Faculty approve each enrolment</span>
+                    <span className="block text-muted">Students ask for a seat, and you accept or decline.</span>
+                  </span>
+                </label>
                 <SubmitButton>Save</SubmitButton>
               </ActionForm>
             </Card>
