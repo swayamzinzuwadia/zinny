@@ -59,7 +59,8 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
   const fillingFast = data.canDecideSwitches ? data.seats.filter((s) => s.fill >= 0.8 && s.fill < 1) : [];
   const refunds = data.money?.refundsDue ?? 0;
   const needsCount = requests.length + enrolRequests.length + joinRequests.length + data.expiring.length + fillingFast.length + refunds;
-  const showNeeds = data.canDecideSwitches || !!data.money || enrolRequests.length > 0 || joinRequests.length > 0;
+  // Kept while it shows a confirmation, e.g. for faculty who just answered their last request.
+  const showNeeds = data.canDecideSwitches || !!data.money || enrolRequests.length > 0 || joinRequests.length > 0 || !!done;
   const avgOrder = data.money && data.money.monthOrders ? Math.round(data.money.monthPaise / data.money.monthOrders / 100) * 100 : 0;
 
   return (
