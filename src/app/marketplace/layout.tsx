@@ -7,7 +7,6 @@ import { CartLink } from "@/modules/marketplace/components/cart-link";
 import { marketplaceAccess } from "@/modules/marketplace/service";
 import { loadActor } from "@/server/actor";
 import { currentUserId, homeSpacesFor, signOut } from "@/server/auth/session";
-import { demoHref } from "@/modules/marketing/config";
 import { display } from "@/modules/marketing/fonts";
 
 const navLink = "rounded-full px-2.5 py-2 sm:px-3 whitespace-nowrap text-canvas/75 [transition-property:color,background-color] duration-150 hover:bg-canvas/10 hover:text-canvas";
@@ -71,20 +70,23 @@ export default async function MarketplaceLayout({ children }: { children: React.
         </div>
       </header>
       <main className="flex-1 pb-20">{children}</main>
-      <footer className="bg-brand-deep text-canvas">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:flex-row sm:items-end sm:justify-between sm:px-6">
-          <div className="max-w-md">
-            <p className={`${display.className} text-[26px] leading-tight font-semibold`}>Run an institute?</p>
-            <p className="mt-2 text-[15px] leading-relaxed text-canvas/70">Put your recorded courses on these shelves and sell them to learners everywhere, straight from your own Zinny space.</p>
+      {/* The pitch to institutes is for visitors; people shopping or watching don't need it. */}
+      {!person && (
+        <footer className="bg-brand-deep text-canvas">
+          <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+            <div className="max-w-md">
+              <h2 className="text-[26px] leading-tight font-semibold">Run an institute?</h2>
+              <p className="mt-2 text-[15px] leading-relaxed text-canvas/70">Put your recorded courses on these shelves and sell them to learners everywhere, straight from your own Zinny space.</p>
+            </div>
+            <Link
+              href="/book-a-demo"
+              className="self-start rounded-full bg-gold px-5 py-2.5 text-[15px] font-medium text-brand-deep [transition-property:background-color] duration-150 hover:bg-canvas sm:self-auto"
+            >
+              Book a demo
+            </Link>
           </div>
-          <a
-            href={demoHref}
-            className="self-start rounded-full bg-gold px-5 py-2.5 text-[15px] font-medium text-brand-deep [transition-property:background-color] duration-150 hover:bg-canvas sm:self-auto"
-          >
-            Book a demo
-          </a>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }

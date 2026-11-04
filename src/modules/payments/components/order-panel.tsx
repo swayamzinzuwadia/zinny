@@ -146,7 +146,9 @@ export function OrderPanel({ uni, d, closeHref }: { uni: string; d: Detail; clos
               <>
                 <p className="text-[13px] text-muted">
                   {o.status === "refund_due"
-                    ? "This student paid after the batch filled up and wasn't enrolled. Refund the full amount."
+                    ? o.paidTwice
+                      ? "This student paid twice for the same course and already has a seat. Refund the full amount."
+                      : "This student paid after the batch filled up and wasn't enrolled. Refund the full amount."
                     : `Refunding doesn't remove the student from the batch. Up to ${inr(d.refundablePaise)} can be refunded.`}
                 </p>
                 <Field label="Amount in rupees" hint={`Full amount: ${decimal(d.refundablePaise)}`}>

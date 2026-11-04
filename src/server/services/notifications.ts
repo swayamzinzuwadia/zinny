@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { notifications, roleAssignments } from "@/db/schema";
 import type { Actor } from "../authz/engine";
@@ -15,6 +15,19 @@ export async function notify(
   await tx.insert(notifications).values(
     unique.map((userId) => ({ universityId, userId, kind: n.kind, title: n.title, body: n.body ?? "", data: n.data ?? {} })),
   );
+}
+
+/**
+ * Once a request is answered, the notifications that asked people to answer it say what
+ * happened instead ("Accepted by Arjun Rao."), and count as read: nobody is left with an
+ * "accept or decline" for something already done. `key` is the field in `data` that names
+ * the request, e.g. { kind: "join.requested", key: "requestId", id }.
+ */
+export async function settleNotifications(tx: Tx, request: { kind: string; key: string; id: string }, body: string) {
+  await tx
+    .update(notifications)
+    .set({ body, readAt: new Date() })
+    .where(and(eq(notifications.kind, request.kind), sql`${notifications.data} ->> ${request.key} = ${request.id}`));
 }
 
 /** Everyone who heads a department (for approvals and alerts). */

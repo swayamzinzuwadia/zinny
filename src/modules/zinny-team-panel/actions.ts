@@ -15,12 +15,10 @@ import { addRole, inviteMember, removeRole } from "./services/team";
 import { createInvoice, markInvoicePaid, markInvoiceUnpaid } from "./services/billing";
 import { flagCourse, markReviewed, resolveFlag } from "./services/content";
 import { acknowledgeAlert, saveLicence, syncAllAlerts, type LicenceInput } from "./services/licences";
-import { addContact, addNote, createPartner, makePrimaryContact, removeContact, updatePartner } from "./services/partners";
 import { forceEndSupport, leaveSupport, startSupport } from "./services/support";
 import { startViewAs, stopViewAs } from "./services/view-as";
 import { clearViewAs, readViewAs, writeViewAs } from "@/server/auth/view-as";
 import { createUniversityWithLicence, setUniversityStatus, updateBasics } from "./services/universities";
-import { assertSuperAdmin } from "./lib/access";
 import { PLATFORM_ROLE_LABELS, isPlatformRole } from "./lib/constants";
 import { ValidationError } from "@/server/errors";
 
@@ -80,7 +78,7 @@ export async function updateBasicsAction(_: ActionState, data: FormData): Promis
       invoicePrefix: str(data, "invoicePrefix"),
     });
     revalidatePath("/platform", "layout");
-    return "Saved. The change is in the institute's audit log.";
+    return "Saved. The change is in the institute's audit log with your name.";
   });
 }
 
@@ -133,18 +131,6 @@ export async function startSupportAction(_: ActionState, data: FormData): Promis
   let slug = "";
   const res = await attempt(async () => {
     ({ slug } = await startSupport(actor, str(data, "universityId"), str(data, "reason")));
-  });
-  if (slug) redirect(`/${slug}/admin`);
-  return res;
-}
-
-/** One-click entry for Super Admins. It's still a support session, so it's time-boxed and logged. */
-export async function openInstituteAction(_: ActionState, data: FormData): Promise<ActionState> {
-  const actor = await platformContext();
-  let slug = "";
-  const res = await attempt(async () => {
-    assertSuperAdmin(actor);
-    ({ slug } = await startSupport(actor, str(data, "universityId"), "Opened by a Super Admin from the Zinny team panel"));
   });
   if (slug) redirect(`/${slug}/admin`);
   return res;
@@ -215,93 +201,6 @@ export async function resolveFlagAction(_: ActionState, data: FormData): Promise
     await resolveFlag(actor, str(data, "flagId"), str(data, "resolution"));
     revalidatePath("/platform", "layout");
     return "Flag resolved.";
-  });
-}
-
-/* ── Partners ── */
-
-function partnerFrom(data: FormData) {
-  return {
-    name: str(data, "name"),
-    kind: str(data, "kind"),
-    status: str(data, "status"),
-    website: str(data, "website"),
-    industry: str(data, "industry"),
-    city: str(data, "city"),
-    summary: str(data, "summary"),
-    ownerUserId: str(data, "ownerUserId"),
-  };
-}
-
-export async function createPartnerAction(_: ActionState, data: FormData): Promise<ActionState> {
-  const actor = await platformContext();
-  let id = "";
-  const res = await attempt(async () => {
-    const p = await createPartner(actor, partnerFrom(data));
-    const contactName = str(data, "contactName");
-    if (contactName) {
-      await addContact(actor, p.id, { name: contactName, title: str(data, "contactTitle"), email: str(data, "contactEmail"), phone: str(data, "contactPhone") });
-    }
-    id = p.id;
-  });
-  if (id) {
-    revalidatePath("/platform/partners");
-    redirect(`/platform/partners/${id}`);
-  }
-  return res;
-}
-
-export async function updatePartnerAction(_: ActionState, data: FormData): Promise<ActionState> {
-  const actor = await platformContext();
-  const id = str(data, "partnerId");
-  return attempt(async () => {
-    await updatePartner(actor, id, partnerFrom(data));
-    revalidatePath("/platform/partners", "layout");
-    return "Partner saved.";
-  });
-}
-
-export async function addContactAction(_: ActionState, data: FormData): Promise<ActionState> {
-  const actor = await platformContext();
-  const id = str(data, "partnerId");
-  return attempt(async () => {
-    await addContact(actor, id, {
-      name: str(data, "name"),
-      title: str(data, "title"),
-      email: str(data, "email"),
-      phone: str(data, "phone"),
-      isPrimary: data.get("isPrimary") === "on",
-    });
-    revalidatePath("/platform/partners", "layout");
-    return "Contact added.";
-  });
-}
-
-export async function makePrimaryContactAction(_: ActionState, data: FormData): Promise<ActionState> {
-  const actor = await platformContext();
-  return attempt(async () => {
-    await makePrimaryContact(actor, str(data, "contactId"));
-    revalidatePath("/platform/partners", "layout");
-    return "Primary contact changed.";
-  });
-}
-
-export async function removeContactAction(_: ActionState, data: FormData): Promise<ActionState> {
-  const actor = await platformContext();
-  return attempt(async () => {
-    await removeContact(actor, str(data, "contactId"));
-    revalidatePath("/platform/partners", "layout");
-    return "Contact removed.";
-  });
-}
-
-export async function addNoteAction(_: ActionState, data: FormData): Promise<ActionState> {
-  const actor = await platformContext();
-  const id = str(data, "partnerId");
-  return attempt(async () => {
-    await addNote(actor, id, str(data, "body"));
-    revalidatePath(`/platform/partners/${id}`);
-    return "Note added.";
   });
 }
 

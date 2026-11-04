@@ -1,16 +1,25 @@
 import Link from "next/link";
-import { Avatar, Badge, Empty, PageHeader, Select, Table, Td } from "@/components/ui";
+import { Avatar, Badge, Empty, PageHeader, Select, Td, cx } from "@/components/ui";
 import { ROLE_LABELS } from "@/server/authz/roles";
 import { platformContext } from "@/server/context";
-import { NoAccess } from "@/modules/zinny-team-panel/components/bits";
+import { NoAccess, PanelTable, WIDE_ONLY } from "@/modules/zinny-team-panel/components/bits";
 import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
 import { formatCount, formatDate } from "@/modules/zinny-team-panel/lib/format";
-import { PEOPLE_GROUPS, isPeopleGroup, listPeople, peopleCounts, type PeopleGroup } from "@/modules/zinny-team-panel/services/people";
+import { PEOPLE_GROUPS, isPeopleGroup, listPeople, peopleCounts, type PeopleGroup, type PersonRow } from "@/modules/zinny-team-panel/services/people";
 import { universityOptions } from "@/modules/zinny-team-panel/services/universities";
 
 export const metadata = { title: "People" };
 
 type Search = { q?: string; university?: string; group?: string; page?: string };
+
+const CUSTOM = new Set<string>(["custom_institute", "custom_department", "custom_platform"]);
+
+/** Role labels for a row, with custom roles by their own names. */
+function roleNames(p: PersonRow): string[] {
+  const builtIn = p.roles.filter((r) => !CUSTOM.has(r)).map((r) => ROLE_LABELS[r]);
+  const custom = p.customRoleNames.length ? p.customRoleNames : p.roles.some((r) => CUSTOM.has(r)) ? [ROLE_LABELS.custom_institute] : [];
+  return [...new Set([...builtIn, ...custom])];
+}
 
 export default async function PeoplePage({ searchParams }: { searchParams: Promise<Search> }) {
   const actor = await platformContext();
@@ -38,12 +47,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
     <>
       <PageHeader
         title="People"
-        subtitle="Every account at every institute. Only Super Admins can open this page, and each view is kept in the activity log."
-        actions={
-          <Link href="/platform/institutes" className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
-            Institutes
-          </Link>
-        }
+        subtitle="Every account at every institute. Learners are students, alumni and individual learners. Only Super Admins can open this page, and each view is kept in the activity log."
       />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -83,7 +87,9 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
       {rows.length === 0 ? (
         <Empty title="No one matches">Try another search, or clear the filters.</Empty>
       ) : (
-        <Table head={["Person", "Institute", "Role", "Phone", "Account", "Joined"]}>
+        <PanelTable
+          head={["Person", "Institute", "Role", { label: "Phone", className: WIDE_ONLY }, "Account", { label: "Joined", className: WIDE_ONLY }]}
+        >
           {rows.map((p) => (
             <tr key={`${p.userId}-${p.universityId}`} className="hover:bg-canvas/60">
               <Td>
@@ -102,19 +108,19 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
               </Td>
               <Td>
                 <span className="flex flex-wrap gap-1">
-                  {p.roles.map((r) => (
-                    <Badge key={r} tone={r === "student" ? "brand" : "neutral"}>
-                      {ROLE_LABELS[r]}
+                  {roleNames(p).map((label) => (
+                    <Badge key={label} tone={label === ROLE_LABELS.student ? "brand" : "neutral"}>
+                      {label}
                     </Badge>
                   ))}
                 </span>
               </Td>
-              <Td className="whitespace-nowrap tabular">{p.phone ?? <span className="text-faint">Not set</span>}</Td>
+              <Td className={cx(WIDE_ONLY, "whitespace-nowrap tabular")}>{p.phone ?? <span className="text-faint">Not set</span>}</Td>
               <Td className="whitespace-nowrap">{p.canSignIn ? "Active" : <span className="text-gold-strong">Invited</span>}</Td>
-              <Td className="whitespace-nowrap tabular">{formatDate(p.joinedAt.toISOString().slice(0, 10))}</Td>
+              <Td className={cx(WIDE_ONLY, "whitespace-nowrap tabular")}>{formatDate(p.joinedAt.toISOString().slice(0, 10))}</Td>
             </tr>
           ))}
-        </Table>
+        </PanelTable>
       )}
 
       {(page > 1 || hasMore) && (

@@ -1,14 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { closeDb, systemDb } from "@/db/client";
-import { courses, enrolments } from "@/db/schema";
+import { batches, courses, enrolments } from "@/db/schema";
+import { ensureRecordedBatch, systemActorFor, withTenant } from "@/server/core";
+import { addDays } from "@/modules/content-progress/lib/dates";
 import { reports } from "@/server/registry";
 import { markLessonComplete, recordLessonOpened } from "@/modules/content-progress/learn";
 import { contentCourseProgress, contentLessonProgress } from "@/modules/content-progress/schema";
 import { batchProgress, markStudentComplete, progressOverview } from "@/modules/content-progress/staff";
 import { expectTenantIsolated } from "../helpers/isolation";
 import { makeDepartment, makeUser, person, uniqueCode } from "../fixtures";
-import { otherFaculty, setupLearning, tempStorage } from "./helpers";
+import { otherFaculty, setupLearning, tempStorage, today } from "./helpers";
 
 let restore: () => void;
 beforeAll(() => {
@@ -137,6 +139,34 @@ describe("report: course and batch progress", () => {
     await expect(report.run(ctx.admin, { from: "yesterday" })).rejects.toThrow(/Dates must look like/);
     await expect(report.run(ctx.admin, { from: "2026-02-01", to: "2026-01-01" })).rejects.toThrow(/end date/);
     await expect(report.run(ctx.admin, { courseId: "x" })).rejects.toThrow(/from the list/);
+  });
+});
+
+describe("report dates and the recorded batch", () => {
+  it("keeps every batch that runs during the range, and shows the recorded batch as Recorded lessons", async () => {
+    const { ctx } = await classroom("Report Range U");
+    await otherFaculty(ctx); // "Other batch" starts today
+    const sys = systemActorFor(ctx.uni.id);
+    const recorded = await withTenant(sys, (tx) => ensureRecordedBatch(tx, sys, ctx.course));
+    await systemDb().update(batches).set({ name: "Marketplace buyers" }).where(eq(batches.id, recorded.id));
+    const report = reports().find((x) => x.id === "content-progress.course-batch-progress")!;
+
+    // The running batch started 10 days ago: a range starting later still includes it.
+    const recent = await report.run(ctx.admin, { from: addDays(today(), -3), to: today() });
+    expect(recent.rows.map((r) => r.batch)).toEqual(expect.arrayContaining(["Running batch", "Other batch", "Recorded lessons"]));
+    // A range that ends before a batch starts leaves it out.
+    const earlier = await report.run(ctx.admin, { from: addDays(today(), -5), to: addDays(today(), -1) });
+    expect(earlier.rows.map((r) => r.batch)).toContain("Running batch");
+    expect(earlier.rows.map((r) => r.batch)).not.toContain("Other batch");
+
+    // The recorded batch: its own label, no placeholder date, listed after the course's real batches.
+    expect(recent.rows.find((r) => r.batch === "Recorded lessons")!.startDate).toBeNull();
+    expect(JSON.stringify(recent.rows)).not.toContain("Marketplace buyers");
+    const course = await progressOverview(ctx.admin, { courseId: ctx.course.id });
+    expect(course.map((b) => [b.batchName, b.recorded])).toEqual([
+      ["Running batch", false],
+      ["Recorded lessons", true],
+    ]);
   });
 });
 

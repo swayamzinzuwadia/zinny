@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Empty, PageHeader, Stat, Table, Td } from "@/components/ui";
+import { Badge, Empty, PageHeader, Stat, Td, cx } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { checkLicencesAction } from "@/modules/zinny-team-panel/actions";
-import { NoAccess, PlanBadge, RenewalText, StatusBadge, UsageMeter } from "@/modules/zinny-team-panel/components/bits";
+import { NoAccess, PanelTable, PlanBadge, RenewalText, StatusBadge, UsageMeter, WIDE_ONLY } from "@/modules/zinny-team-panel/components/bits";
 import { MODULE_LABEL, PLAN_LABELS, PLANS } from "@/modules/zinny-team-panel/lib/constants";
 import { formatCount, formatDate } from "@/modules/zinny-team-panel/lib/format";
 import { listAlerts, listLicences } from "@/modules/zinny-team-panel/services/licences";
@@ -44,7 +44,17 @@ export default async function LicencesPage() {
       {rows.length === 0 ? (
         <Empty title="No institutes yet">Create an institute first, then set up its licence.</Empty>
       ) : (
-        <Table head={["Institute", "Plan", "Students", "Staff", "Modules", "Term", ""]}>
+        <PanelTable
+          head={[
+            "Institute",
+            { label: "Plan", className: WIDE_ONLY },
+            "Students",
+            { label: "Staff", className: WIDE_ONLY },
+            { label: "Modules", className: WIDE_ONLY },
+            "Term",
+            { label: <span className="sr-only">Actions</span> },
+          ]}
+        >
           {rows.map((r) => (
             <tr key={r.universityId} className="hover:bg-canvas/60">
               <Td>
@@ -56,17 +66,20 @@ export default async function LicencesPage() {
                     <StatusBadge status={r.status} />
                   </div>
                 )}
+                <div className="mt-1 xl:hidden">
+                  <PlanBadge plan={r.licence?.plan ?? null} />
+                </div>
               </Td>
-              <Td>
+              <Td className={WIDE_ONLY}>
                 <PlanBadge plan={r.licence?.plan ?? null} />
               </Td>
               <Td>
                 <UsageMeter used={r.usage.students} cap={r.licence?.studentCap ?? null} compact />
               </Td>
-              <Td>
+              <Td className={WIDE_ONLY}>
                 <UsageMeter used={r.usage.staff} cap={r.licence?.staffCap ?? null} compact />
               </Td>
-              <Td className="text-[13px] text-muted">
+              <Td className={cx(WIDE_ONLY, "text-[13px] text-muted")}>
                 {r.licence ? (
                   <span title={r.licence.modules.map((m) => MODULE_LABEL[m] ?? m).join(", ")}>
                     {r.licence.modules.length} of {Object.keys(MODULE_LABEL).length}
@@ -89,21 +102,21 @@ export default async function LicencesPage() {
                   <span className="text-faint">Not set</span>
                 )}
               </Td>
-              <Td className="whitespace-nowrap text-right">
-                {r.openAlerts > 0 && (
-                  <span className="mr-3">
+              <Td>
+                <div className="flex flex-col items-end gap-1.5 whitespace-nowrap">
+                  {r.openAlerts > 0 && (
                     <Badge tone="gold">
                       {r.openAlerts} warning{r.openAlerts === 1 ? "" : "s"}
                     </Badge>
-                  </span>
-                )}
-                <Link href={`/platform/licences/${r.universityId}`} className="text-[13px] font-medium text-brand hover:underline">
-                  {r.licence ? "Edit" : "Set up"}
-                </Link>
+                  )}
+                  <Link href={`/platform/licences/${r.universityId}`} className="text-[13px] font-medium text-brand hover:underline">
+                    {r.licence ? "Edit" : "Set up"}
+                  </Link>
+                </div>
               </Td>
             </tr>
           ))}
-        </Table>
+        </PanelTable>
       )}
     </>
   );

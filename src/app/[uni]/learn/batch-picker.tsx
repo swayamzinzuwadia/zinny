@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { buttonClass, cx } from "@/components/ui";
 import type { BatchOption } from "@/server/services/enrolment";
 import { enrolAction, requestSwitchAction, type EnrolState } from "./actions";
+import { clashLines } from "./clash-lines";
 
 function Go({ label, variant = "primary" }: { label: string; variant?: "primary" | "secondary" }) {
   const { pending } = useFormStatus();
@@ -15,7 +16,7 @@ function Go({ label, variant = "primary" }: { label: string; variant?: "primary"
   );
 }
 
-const fmtDate = (d: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "UTC", day: "numeric", month: "long" }).format(new Date(`${d}T00:00:00Z`));
+const fmtDate = (d: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "UTC", day: "numeric", month: "short" }).format(new Date(`${d}T00:00:00Z`));
 
 /**
  * PRD page 5, "What the student sees": every open batch as a card with timings,
@@ -27,6 +28,7 @@ export function BatchPicker({
   mode,
   enrolmentId,
   acceptedBatchId,
+  today,
 }: {
   uni: string;
   options: BatchOption[];
@@ -34,6 +36,8 @@ export function BatchPicker({
   enrolmentId?: string;
   /** Faculty accepted the student into this batch (from before acceptance enrolled them at once). */
   acceptedBatchId?: string;
+  /** The institute's date (YYYY-MM-DD): a batch that already started says it's running. */
+  today: string;
 }) {
   const [picked, setPicked] = useState<string>("");
   const [reason, setReason] = useState("");
@@ -79,12 +83,13 @@ export function BatchPicker({
               />
               <div className="font-medium">{o.name}</div>
               <div className="mt-1 text-sm text-muted">{o.timings}</div>
-              <div className="text-sm text-muted">Starts {fmtDate(o.startDate)}</div>
+              <div className="text-sm text-muted">
+                {o.startDate <= today ? `Started ${fmtDate(o.startDate)}, running now` : `Starts ${fmtDate(o.startDate)}`}
+              </div>
               <div className={cx("mt-3 text-sm font-medium", disabled ? "text-muted" : "text-brand")}>
                 {disabled ? "Full" : `${o.seatsLeft} seat${o.seatsLeft === 1 ? "" : "s"} left`}
               </div>
               {o.faculty.length > 0 && <div className="mt-1 truncate text-xs text-faint">with {o.faculty.join(", ")}</div>}
-              {o.mine && <div className="mt-2 rounded-lg bg-brand-soft px-2 py-1 text-xs text-brand-strong">Your seat is held. Pick it to join.</div>}
               {o.batchId === acceptedBatchId && (
                 <div className="mt-2 rounded-lg bg-brand-soft px-2 py-1 text-xs text-brand-strong">You&apos;re accepted. Pick it to join.</div>
               )}
@@ -114,10 +119,8 @@ export function BatchPicker({
         <div className="mt-5 rounded-2xl bg-warn-soft p-4 text-sm text-warn">
           <div className="font-semibold">This batch clashes with your timetable</div>
           <ul className="mt-1 list-disc pl-5">
-            {clashes.map((c, i) => (
-              <li key={i}>
-                {c.courseTitle} ({c.batchName}), {c.when}
-              </li>
+            {clashLines(clashes).map((line) => (
+              <li key={line}>{line}</li>
             ))}
           </ul>
           <div className="mt-3 flex flex-wrap gap-2">

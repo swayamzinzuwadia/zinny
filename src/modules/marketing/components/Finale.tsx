@@ -3,12 +3,11 @@
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import Image from "next/image";
 import Link from "next/link";
 import { useRef } from "react";
-import { demoHref } from "../config";
 import { display } from "../fonts";
 import css from "../landing.module.css";
+import { Footer } from "./Footer";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -70,19 +69,19 @@ function Everything() {
 function Doors() {
   return (
     <section aria-label="Choose your way in" className={css.doors}>
-      <a href={demoHref} className={`${css.door} ${css.chalkboard} text-canvas`}>
+      <Link href="/book-a-demo" className={`${css.door} ${css.chalkboard} text-canvas`}>
         <span className="text-[16px] text-canvas/70">I run an institute</span>
         <span className={`${display.className} ${css.headline} ${css.doorTitle}`}>
           Put it <em className="text-gold">in order.</em>
         </span>
         <span className="inline-flex h-14 w-fit items-center rounded-full bg-canvas px-8 text-[16px] font-medium text-brand-deep">Book a demo</span>
-      </a>
+      </Link>
       <Link href="/signup" className={`${css.door} bg-gold text-brand-deep`}>
         <span className="text-[16px] text-brand-deep/70">I want to learn</span>
         <span className={`${display.className} ${css.headline} ${css.doorTitle}`}>
           Walk <em>in.</em>
         </span>
-        <span className="inline-flex h-14 w-fit items-center rounded-full bg-brand-deep px-8 text-[16px] font-medium text-canvas">Create a student account</span>
+        <span className="inline-flex h-14 w-fit items-center rounded-full bg-brand-deep px-8 text-[16px] font-medium text-canvas">Create a free account</span>
       </Link>
     </section>
   );
@@ -93,24 +92,7 @@ export function Finale() {
     <>
       <Everything />
       <Doors />
-      <footer className="flex flex-col items-center justify-between gap-4 bg-brand-deep px-6 py-7 text-[13px] text-canvas/55 sm:flex-row sm:px-10">
-        <Image src="/brand/zinny-wordmark-cream.png" alt="Zinny" width={407} height={183} className="h-6 w-auto opacity-90" />
-        <nav aria-label="Footer" className="flex flex-wrap justify-center gap-x-6 gap-y-2">
-          <Link href="/marketplace" className="hover:text-canvas">
-            Marketplace
-          </Link>
-          <Link href="/verify" className="hover:text-canvas">
-            Verify a certificate
-          </Link>
-          <Link href="/login" className="hover:text-canvas">
-            Sign in
-          </Link>
-          <Link href="/signup" className="hover:text-canvas">
-            Sign up
-          </Link>
-        </nav>
-        <p>© 2026 Zinny</p>
-      </footer>
+      <Footer />
     </>
   );
 }

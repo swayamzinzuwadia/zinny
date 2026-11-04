@@ -44,7 +44,13 @@ export function StateBadge({ state }: { state: ClassSession["state"] }) {
 
 /** A percentage, or a dash when nothing has been recorded. Below the threshold reads in the attention colour. */
 export function Pct({ value, threshold, className }: { value: number | null; threshold?: number; className?: string }) {
-  if (value === null) return <span className={cx("text-faint", className)}>No classes yet</span>;
+  if (value === null)
+    return (
+      <span className={cx("text-faint", className)}>
+        <span aria-hidden>–</span>
+        <span className="sr-only">No classes yet</span>
+      </span>
+    );
   const low = threshold !== undefined && value < threshold;
   return <span className={cx("tabular font-medium", low ? "text-gold-strong" : "text-ink", className)}>{value}%</span>;
 }

@@ -35,6 +35,12 @@ export type Ability = {
   needs?: readonly string[];
   /** Part of the role, never switched on or off. */
   locked?: boolean;
+  /**
+   * For a part of the admin panel that isn't built yet. It isn't offered in the editor or shown in
+   * the grid, but saved permissions keep it as they are (and a role saved now keeps its default),
+   * so nothing changes for anyone when that part ships and the flag comes off.
+   */
+  hidden?: boolean;
   /** What it means for a Head of Department, when that differs. */
   hod?: string;
   /** The grid row its tick shows in, in plain words ("Courses"). Without one it gets a row named by its label. */
@@ -64,7 +70,7 @@ export const INSTITUTE_ABILITIES: readonly Ability[] = [
   { key: "batches.switch", section: "products", label: "Decide batch switch requests", actions: ["batch.switch.decide"], reach: "department", needs: ["courses.view"], row: "Batch switch requests", cols: E },
   { key: "enrolments.approve", section: "products", label: "Accept or decline students asking for a seat", actions: ["enrolment.approve"], reach: "batch", needs: ["courses.view"], row: "Enrolment requests", cols: E },
   { key: "courses.complete", section: "products", label: "Mark courses complete", actions: ["enrolment.complete"], reach: "department", needs: ["courses.view"], row: "Course completion", cols: E },
-  { key: "programs.manage", section: "products", label: "Manage programs", actions: ["program.manage"], reach: "institute", needs: ["courses.view"], row: "Programs", cols: ED },
+  { key: "programs.manage", section: "products", label: "Manage programs", actions: ["program.manage"], reach: "institute", needs: ["courses.view"], row: "Programs", cols: ED, hidden: true },
   { key: "teach", section: "products", label: "Teach batches", actions: ["batch.teach"], reach: "batch", needs: ["courses.view"], row: "Teaching", cols: E },
   { key: "content.progress", section: "products", label: "See learning progress", actions: ["content.view_progress"], reach: "batch", readOnly: true, row: "Lessons and progress", cols: V },
   { key: "content.manage", section: "products", label: "Build lessons and content", actions: ["content.manage"], reach: "batch", needs: ["content.progress"], row: "Lessons and progress", cols: ED },
@@ -99,13 +105,13 @@ export const INSTITUTE_ABILITIES: readonly Ability[] = [
 
   { key: "website.manage", section: "website", label: "Edit the public website", actions: ["website.manage"], reach: "institute", row: "Public website", cols: ED },
 
-  { key: "marketing.manage", section: "marketing", label: "Run marketing", actions: ["marketing.manage"], reach: "department", row: "Marketing", cols: ED },
+  { key: "marketing.manage", section: "marketing", label: "Run marketing", actions: ["marketing.manage"], reach: "department", row: "Marketing", cols: ED, hidden: true },
 
-  { key: "community.view", section: "community", label: "View the community", actions: ["community.view"], reach: "batch", readOnly: true, row: "Community", cols: V },
-  { key: "community.manage", section: "community", label: "Manage the community", actions: ["community.manage"], reach: "batch", needs: ["community.view"], row: "Community", cols: ED },
+  { key: "community.view", section: "community", label: "View the community", actions: ["community.view"], reach: "batch", readOnly: true, row: "Community", cols: V, hidden: true },
+  { key: "community.manage", section: "community", label: "Manage the community", actions: ["community.manage"], reach: "batch", needs: ["community.view"], row: "Community", cols: ED, hidden: true },
 
   { key: "insights.view", section: "insights", label: "View insights", actions: ["insights.view"], reach: "department", readOnly: true, row: "Insights", cols: V },
-  { key: "activity.view", section: "insights", label: "View the activity log", actions: ["audit.view"], reach: "institute", readOnly: true, row: "Activity log", cols: V },
+  { key: "activity.view", section: "insights", label: "View the activity log", actions: ["audit.view"], reach: "institute", readOnly: true, row: "Activity log", cols: V, hidden: true },
 
   { key: "settings.manage", section: "settings", label: "Change institute settings", actions: ["settings.manage"], reach: "institute", row: "Institute settings", cols: E },
   { key: "institute.edit", section: "settings", label: "Edit institute details", actions: ["university.update"], reach: "institute", row: "Institute details", cols: E },
@@ -125,7 +131,8 @@ export const PLATFORM_ABILITIES: readonly Ability[] = [
   { key: "platform.licences", section: "institutes", label: "Manage licences", actions: ["platform.licences"], reach: "institute", row: "Licences", cols: E },
   { key: "platform.support", section: "support", label: "Enter institutes through support mode", actions: ["platform.support_mode"], reach: "institute", row: "Support mode", cols: E },
   { key: "platform.content", section: "content", label: "Review course content", actions: ["platform.content_review"], reach: "institute", row: "Course reviews", cols: E },
-  { key: "platform.partners", section: "partners", label: "Manage sponsors and partners", actions: ["platform.partners"], reach: "institute", row: "Sponsors and partners", cols: ED },
+  // Partners left the team panel; kept (hidden) so roles that hold it still load.
+  { key: "platform.partners", section: "partners", label: "Manage sponsors and partners", actions: ["platform.partners"], reach: "institute", row: "Sponsors and partners", cols: ED, hidden: true },
   { key: "platform.finance", section: "billing", label: "Manage Zinny invoices", actions: ["platform.finance"], reach: "institute", row: "Zinny invoices", cols: E },
   { key: "platform.analytics", section: "analytics", label: "View analytics", actions: ["platform.view_analytics"], reach: "institute", readOnly: true, row: "Analytics", cols: V },
 ];
@@ -166,12 +173,18 @@ export const worksAt = (ability: Ability, reach: Reach) => REACH_ORDER[ability.r
 
 const catalogue = (role: RoleName) => (isPlatformKind(role) ? PLATFORM_ABILITIES : INSTITUTE_ABILITIES);
 
+/** Everything that can be saved for this role, including abilities for parts that aren't built yet. */
+const switchableFor = (role: RoleName) => catalogue(role).filter((a) => !a.locked && worksAt(a, reachOf(role)));
+
 /** What can be switched on or off for this role. */
 export function abilitiesFor(role: RoleName): readonly Ability[] {
-  return catalogue(role).filter((a) => !a.locked && worksAt(a, reachOf(role)));
+  return switchableFor(role).filter((a) => !a.hidden);
 }
 
-/** The chosen abilities as actions, with whatever they depend on added. Unknown keys are dropped. */
+/**
+ * The chosen abilities as actions, with whatever they depend on added. Unknown keys are dropped.
+ * Abilities that aren't offered yet (hidden) keep the role's default, since nobody could choose them.
+ */
 export function actionsForAbilities(role: RoleName, keys: readonly string[]): Action[] {
   const offered = new Map(abilitiesFor(role).map((a) => [a.key, a]));
   const chosen = new Set<string>();
@@ -182,7 +195,9 @@ export function actionsForAbilities(role: RoleName, keys: readonly string[]): Ac
     a.needs?.forEach(add);
   };
   keys.forEach(add);
-  return [...new Set([...chosen].flatMap((k) => offered.get(k)!.actions))];
+  const defaults = new Set<Action>(ROLE_GRANTS[role]);
+  const unbuilt = switchableFor(role).filter((a) => a.hidden && a.actions.every((x) => defaults.has(x)));
+  return [...new Set([...[...chosen].flatMap((k) => offered.get(k)!.actions), ...unbuilt.flatMap((a) => a.actions)])];
 }
 
 /**
@@ -195,7 +210,7 @@ export function effectiveGrants(role: RoleName, stored: readonly string[] | null
   if (!isEditableRole(role)) return undefined;
   if (!stored) return CUSTOM_ROLES.has(role) ? ROLE_GRANTS[role] : undefined;
   const switchable = new Set(catalogue(role).filter((a) => !a.locked).flatMap((a) => a.actions));
-  const allowed = new Set<string>(abilitiesFor(role).flatMap((a) => a.actions));
+  const allowed = new Set<string>(switchableFor(role).flatMap((a) => a.actions));
   const kept = ROLE_GRANTS[role].filter((a) => !switchable.has(a));
   return [...new Set([...kept, ...(stored.filter((a) => allowed.has(a)) as Action[])])];
 }
@@ -206,7 +221,7 @@ export function sectionAccess(grants: readonly Action[], scope: ScopeType): Part
   const out: Partial<Record<SectionKey, Access>> = {};
   const scoped = (section: string): Access => (scope === "department" ? "dept" : section === "users" ? "students" : "batches");
   for (const a of INSTITUTE_ABILITIES) {
-    if (!a.actions.every((x) => has.has(x))) continue;
+    if (a.hidden || !a.actions.every((x) => has.has(x))) continue;
     const section = a.section as SectionKey;
     if (scope !== "university") out[section] = scoped(a.section);
     else if (!a.readOnly) out[section] = "full";

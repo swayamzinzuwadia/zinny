@@ -30,7 +30,7 @@ import { gateway } from "../payments/gateway";
 import { audit, withTenant } from "../tenant";
 import { loadBatch, scheduledBatches, seatsTaken } from "./batches";
 import { gstFor, issueInvoice } from "./finance";
-import { hodsOf, notify } from "./notifications";
+import { hodsOf, notify, settleNotifications } from "./notifications";
 import { describeSlots, findClashes, type Clash } from "./schedule";
 import { learnerDepartmentScope } from "./students";
 
@@ -74,7 +74,11 @@ export async function expireStaleHolds(tx: Tx, filter: { batchId?: string; userI
   return expired.length;
 }
 
-/** Batch ids the student currently holds a seat in (paid, or held and not yet expired). */
+/**
+ * Batch ids that count for clash warnings: the ones on the student's timetable (active),
+ * plus a seat held and not yet expired. A batch they only asked for, were accepted into but
+ * haven't joined, or asked to switch to isn't on their timetable, so it never clashes.
+ */
 async function liveBatchIds(tx: Tx, userId: string, opts: { excludeCourseId?: string; excludeEnrolmentId?: string } = {}) {
   const rows = await tx
     .select({ batchId: enrolments.batchId, courseId: enrolments.courseId, id: enrolments.id })
@@ -82,10 +86,7 @@ async function liveBatchIds(tx: Tx, userId: string, opts: { excludeCourseId?: st
     .where(
       and(
         eq(enrolments.userId, userId),
-        or(
-          inArray(enrolments.status, ["active", "approved"]),
-          and(eq(enrolments.status, "held"), gt(enrolments.holdExpiresAt, sql`now()`)),
-        ),
+        or(eq(enrolments.status, "active"), and(eq(enrolments.status, "held"), gt(enrolments.holdExpiresAt, sql`now()`))),
       ),
     );
   return rows
@@ -303,6 +304,7 @@ export async function holdSeat(actor: Actor, input: { batchId: string; acknowled
     if (live && !accepted && (live.status === "requested" || live.status === "approved")) {
       // Asked for (or was accepted into) another batch and picked this one instead.
       await tx.update(enrolments).set({ status: "cancelled", decidedAt: null, decidedBy: null, decisionNote: null }).where(eq(enrolments.id, live.id));
+      await settleNotifications(tx, { kind: "enrolment.requested", key: "enrolmentId", id: live.id }, `Withdrawn: ${actor.name} picked another batch.`);
       await audit(tx, actor, "enrolment.request_cancel", "enrolment", live.id, { movedTo: batch.id });
     }
     if (live?.status === "held") {
@@ -780,6 +782,7 @@ export async function decideEnrolment(actor: Actor, enrolmentId: string, accept:
 
     if (!accept) {
       await tx.update(enrolments).set({ status: "cancelled", ...decided }).where(eq(enrolments.id, e.id));
+      await settleNotifications(tx, { kind: "enrolment.requested", key: "enrolmentId", id: e.id }, `Declined by ${actor.name}.`);
       await notify(tx, uni(actor), [e.userId], {
         kind: "enrolment.declined",
         title: `Your request for ${course.title} wasn't accepted`,
@@ -795,6 +798,7 @@ export async function decideEnrolment(actor: Actor, enrolmentId: string, accept:
     }
     const today = await universityToday(tx, uni(actor));
     await tx.update(enrolments).set({ status: "active", enrolledAt: new Date(), ...decided }).where(eq(enrolments.id, e.id));
+    await settleNotifications(tx, { kind: "enrolment.requested", key: "enrolmentId", id: e.id }, `Accepted by ${actor.name}.`);
     await notify(tx, uni(actor), [e.userId], {
       kind: "enrolment.confirmed",
       title: `You're enrolled in ${course.title}`,
@@ -820,6 +824,7 @@ export async function withdrawEnrolmentRequest(actor: Actor, enrolmentId: string
     if (e.status !== "requested" && e.status !== "approved") return;
     // No decision kept: a withdrawal must not read as "declined" on the course page.
     await tx.update(enrolments).set({ status: "cancelled", decidedAt: null, decidedBy: null, decisionNote: null }).where(eq(enrolments.id, e.id));
+    await settleNotifications(tx, { kind: "enrolment.requested", key: "enrolmentId", id: e.id }, "Withdrawn by the student.");
     await audit(tx, actor, "enrolment.request_cancel", "enrolment", e.id);
   });
 }

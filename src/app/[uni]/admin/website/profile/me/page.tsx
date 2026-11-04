@@ -1,5 +1,6 @@
 import { ActionForm } from "@/components/forms";
 import { Badge, Card, CardTitle, Empty, Field, Input, Notice, PageHeader, Textarea } from "@/components/ui";
+import { can } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { saveMyProfileAction } from "@/modules/website-builder/actions";
 import { ProfileTabs, Thumb } from "@/modules/website-builder/components/admin";
@@ -23,7 +24,11 @@ export default async function MyProfilePage({ params }: { params: Promise<{ uni:
       <>
         <PageHeader title="My profile page" />
         <ProfileTabs uni={uni} actor={actor} active="me" />
-        <Empty title="Public profiles are for teaching staff">If you teach here, ask an Institute Admin to add you as faculty.</Empty>
+        <Empty title="Public profiles are for teaching staff">
+          {can(actor, "user.manage_roles", { universityId: university.id })
+            ? "Faculty and Heads of Department write their own profile here. To have one yourself, add yourself as faculty under Users, Teaching."
+            : "If you teach here, ask an Institute Admin to add you as faculty."}
+        </Empty>
       </>
     );
   }

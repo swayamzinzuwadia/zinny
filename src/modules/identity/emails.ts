@@ -3,6 +3,7 @@
  * phone), with a simple HTML version in brand colours. Every link is a full URL.
  */
 
+import { firstName } from "@/server/lib/names";
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
@@ -33,7 +34,7 @@ ${(o.after ?? []).map(p).join("")}
 }
 
 export function inviteEmail(o: { name: string; institute: string; roleLabel: string; url: string; expiresAt: Date; timeZone: string }) {
-  const first = o.name.split(/\s+/)[0] || o.name;
+  const first = firstName(o.name);
   const when = formatWhen(o.expiresAt, o.timeZone);
   const subject = `Join ${o.institute} on Zinny`;
   const text = [
@@ -59,7 +60,7 @@ export function inviteEmail(o: { name: string; institute: string; roleLabel: str
 }
 
 export function resetEmail(o: { name: string; url: string; validMinutes: number }) {
-  const first = o.name.split(/\s+/)[0] || o.name;
+  const first = firstName(o.name);
   const subject = "Reset your Zinny password";
   const text = [
     `Hello ${first},`,
@@ -82,7 +83,7 @@ export function resetEmail(o: { name: string; url: string; validMinutes: number 
 }
 
 export function passwordChangedEmail(o: { name: string; when: Date; how: "reset" | "profile"; resetUrl: string }) {
-  const first = o.name.split(/\s+/)[0] || o.name;
+  const first = firstName(o.name);
   const when = formatWhen(o.when);
   const subject = "Your Zinny password was changed";
   const how = o.how === "reset" ? "with a password reset link" : "from your profile";
@@ -113,7 +114,7 @@ export function verifyPhoneSms(o: { code: string; validMinutes: number }) {
 
 /** The answer to a request to join an institute with its joining code. */
 export function joinDecisionEmail(o: { name: string; institute: string; accepted: boolean; note: string | null; url: string }) {
-  const first = o.name.split(/\s+/)[0] || o.name;
+  const first = firstName(o.name);
   const subject = o.accepted ? `You've joined ${o.institute} on Zinny` : `Your request to join ${o.institute}`;
   const lines = o.accepted
     ? [`Hello ${first},`, `${o.institute} accepted your request. You can now see their courses and pick a batch.`]

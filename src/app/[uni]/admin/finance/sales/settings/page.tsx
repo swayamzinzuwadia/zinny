@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Card, CardTitle, Empty, Field, Input, Notice, PageHeader, Textarea } from "@/components/ui";
 import { spaceContext } from "@/server/context";
@@ -12,18 +11,9 @@ export const dynamic = "force-dynamic";
 export default async function InvoiceSettingsPage({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
   const { actor, university } = await spaceContext(uni);
-  const back = (
-    <div className="mb-2 text-sm text-muted">
-      <Link href={`/${uni}/admin/finance/sales`} className="hover:text-ink">
-        Sales
-      </Link>{" "}
-      / Invoice settings
-    </div>
-  );
   if (!can(actor, "finance.view", { universityId: university.id })) {
     return (
       <>
-        {back}
         <PageHeader title="Invoice settings" />
         <Empty title="You don't have access to invoice settings">Your role doesn&apos;t include them. Ask an Institute Admin if you need them.</Empty>
       </>
@@ -33,7 +23,6 @@ export default async function InvoiceSettingsPage({ params }: { params: Promise<
 
   return (
     <>
-      {back}
       <PageHeader title="Invoice settings" subtitle="What every GST invoice of this institute shows. Invoices already issued keep what they were issued with." />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

@@ -48,10 +48,11 @@ async function viewedLearner(signedIn: Actor, universityId: string): Promise<Act
 
 /** Signed-in person working inside one university. Redirects to sign-in if needed. */
 export const spaceContext = cache(async (slug: string) => {
-  const userId = await currentUserId();
-  if (!userId) redirect(`/login?next=/${slug}`);
+  // An address that isn't an institute is "not found" even when signed out, rather than a sign-in page.
   const university = await universityBySlug(slug);
   if (!university) notFound();
+  const userId = await currentUserId();
+  if (!userId) redirect(`/login?next=/${slug}`);
   const signedIn = await loadActor(userId, university.id);
   const viewed = await viewedLearner(signedIn, university.id);
   // Nothing can be changed while viewing as someone: this stops every action, whatever it writes to.

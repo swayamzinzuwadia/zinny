@@ -79,7 +79,7 @@ export function boardOptions(actor: Actor, dir: Directory): BoardOptionGroup[] {
     const options: BoardOption[] = [];
     if (can(actor, "leaderboard.view", courseTargetFrom(u, dir, c.id))) options.push({ scope: { kind: "course", id: c.id }, label: `${c.title}: whole course` });
     const batches = [...dir.batches.values()]
-      .filter((b) => b.courseId === c.id && b.status !== "draft" && can(actor, "leaderboard.view", batchTarget(u, b)))
+      .filter((b) => b.courseId === c.id && !b.recorded && b.status !== "draft" && can(actor, "leaderboard.view", batchTarget(u, b)))
       .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.name.localeCompare(b.name));
     for (const b of batches) options.push({ scope: { kind: "batch", id: b.id }, label: `${c.title}: ${b.name}` });
     if (options.length) groups.push({ courseId: c.id, courseTitle: c.title, options });

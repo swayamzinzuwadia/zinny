@@ -22,8 +22,8 @@ export default async function Library({ searchParams }: { searchParams: Promise<
   return (
     <>
       <section aria-labelledby="library" className="overflow-hidden bg-brand-deep text-canvas">
-        <div className={cx(shell, "grid gap-8 pt-10 sm:pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14")}>
-          <div className="pb-2 lg:pb-16">
+        <div className={cx(shell, "grid gap-8 pt-10 sm:pt-14", items.length === 0 && "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14")}>
+          <div className={items.length === 0 ? "pb-2 lg:pb-16" : "pb-12 sm:pb-14"}>
             <h1 id="library" className="text-[clamp(2.6rem,6vw,4.25rem)] leading-[1.02] font-semibold">
               My library
             </h1>
@@ -36,10 +36,8 @@ export default async function Library({ searchParams }: { searchParams: Promise<
               <p className="mt-5 inline-flex rounded-full bg-gold px-4 py-1.5 text-[14px] font-medium text-brand-deep">Payment confirmed. {items[0].title} is ready to watch.</p>
             )}
           </div>
-          <ShopShelf
-            items={items.map((i) => ({ id: i.listingId, kind: i.kind, title: i.title, institute: i.institute, lessons: i.lessons, percentOff: null }))}
-            empty="Your books will stand here."
-          />
+          {/* The books themselves are just below, so the shelf up here only stands in for them while there are none. */}
+          {items.length === 0 && <ShopShelf items={[]} empty="Your books will stand here." />}
         </div>
       </section>
 

@@ -34,7 +34,7 @@ export async function cartCount(userId: string) {
 }
 
 export async function addToCart(userId: string, listingId: string) {
-  if (!(await marketplaceAccess(userId)).canShop) throw new ForbiddenError("Buying is open to learners: students, alumni and people with a marketplace account.");
+  if (!(await marketplaceAccess(userId)).canShop) throw new ForbiddenError("Buying is open to learners: students, alumni and people with a free Zinny account.");
   const [item] = await liveListingsByIds([listingId]);
   if (!item) throw new NotFoundError("Listing");
   if ((await ownedCourseIds(userId, [item.courseId])).size) throw new ConflictError("This is already on your shelf.", "already_owned");

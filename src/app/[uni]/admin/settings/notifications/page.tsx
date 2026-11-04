@@ -93,10 +93,12 @@ async function LogTab({ uni, base, timezone, status, channel }: { uni: string; b
 async function SetupTab({ uni }: { uni: string }) {
   const { actor } = await spaceContext(uni);
   const settings = await getInstituteSettings(actor);
+  // Provider names and their configuration are for the Zinny team (in support mode); the institute sees whether each channel works.
+  const team = !!actor.supportSessionId;
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
       <Card>
-        <CardTitle>Providers</CardTitle>
+        <CardTitle>{team ? "Providers" : "Channels"}</CardTitle>
         <ul className="divide-y divide-line">
           {CHANNELS.map((c) => {
             const p = settings.providers[c];
@@ -104,16 +106,19 @@ async function SetupTab({ uni }: { uni: string }) {
               <li key={c} className="flex flex-wrap items-start justify-between gap-2 py-3 first:pt-0 last:pb-0">
                 <div>
                   <div className="font-medium">{CHANNEL_LABEL[c]}</div>
-                  <div className="text-[13px] text-muted">{p.note}</div>
+                  {team && <div className="text-[13px] text-muted">{p.note}</div>}
                 </div>
-                <span className={p.live ? "text-[13px] font-medium text-brand" : "text-[13px] text-muted"}>{p.provider}</span>
+                <span className={p.live ? "text-[13px] font-medium text-brand" : "text-[13px] text-muted"}>
+                  {team ? p.provider : p.live ? "Set up by Zinny" : "Not set up yet"}
+                </span>
               </li>
             );
           })}
         </ul>
         <p className="mt-4 text-[12.5px] leading-relaxed text-muted">
-          Zinny&apos;s team connects the providers for the whole platform. Emails come from Zinny&apos;s sending address with your institute&apos;s name, logo and
-          colour. SMS in India needs a DLT-registered template for each notification: add its MSG91 template id on that notification&apos;s page.
+          Zinny&apos;s team connects email, SMS and WhatsApp for the whole platform{team ? "" : ": ask them if a channel you need isn't set up yet"}. Emails come
+          from Zinny&apos;s sending address with your institute&apos;s name, logo and colour. SMS in India needs a DLT-registered template for each
+          notification: add its template id on that notification&apos;s page.
         </p>
       </Card>
       <Card className="h-fit">

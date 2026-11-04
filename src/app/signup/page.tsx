@@ -38,15 +38,16 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
 
   if (!code && !slug && sp.join === undefined) {
     return (
-      <AuthShell title="Create your account" subtitle="Buy recorded courses and lectures from institutes on Zinny, and watch them at your own pace.">
+      <AuthShell title="Create a free account" subtitle="Buy recorded courses and lectures from institutes on Zinny, and watch them at your own pace.">
+        {/* Students of an institute need its joining code, so that way in comes before the form. */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border border-line bg-surface px-4 py-3 text-[14px]">
+          <span>Studying at an institute on Zinny?</span>
+          <Link href="/signup?join=1" className="font-medium text-brand hover:underline">
+            Use your joining code
+          </Link>
+        </div>
         <SignUpForm action={signUpAction} uni="" signInHref={signInHref} />
         {signIn}
-        <p className="mt-2 text-[14px] text-muted">
-          Have a joining code from your institute?{" "}
-          <Link href="/signup?join=1" className="text-brand hover:underline">
-            Join your institute
-          </Link>
-        </p>
       </AuthShell>
     );
   }
@@ -82,7 +83,7 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
         <p className="mt-2 text-[14px] text-muted">
           Not with an institute?{" "}
           <Link href="/signup" className="text-brand hover:underline">
-            Create a marketplace account
+            Create a free account
           </Link>
         </p>
       </AuthShell>

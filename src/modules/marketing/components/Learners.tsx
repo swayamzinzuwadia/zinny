@@ -6,6 +6,9 @@ import { Reveal } from "./Reveal";
 
 const SERIF = display.className;
 
+/** A handful of recordings reads as an empty shop, so the count only shows from this many. */
+const COUNT_FROM = 12;
+
 const POINTS = [
   ["Straight from the institute", "Every recording is sold by the institute that teaches it, at the price it sets."],
   ["One cart, one payment", "Buy from several institutes at once and pay with UPI, a card or netbanking."],
@@ -54,7 +57,7 @@ export function Learners({ shelf, count }: { shelf: ReactNode; count: number }) 
         {count > 0 && (
           <div className="mt-16">
             <p className="mb-6 text-[14px] text-canvas/60">
-              On the shelf right now: {count} {count === 1 ? "recording" : "recordings"}. Prices are before GST, which is added at checkout.
+              {count >= COUNT_FROM ? `On the shelf right now: ${count} recordings. ` : "On the shelf right now. "}Prices are before GST, which is added at checkout.
             </p>
             <div data-drop className="rounded-[20px] bg-canvas p-5 text-ink sm:p-8">
               {shelf}

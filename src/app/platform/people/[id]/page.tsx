@@ -60,7 +60,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                         {roles.some((r) => r.universityId === u.universityId && !r.revokedAt && LEARNER.has(r.role)) && (
                           <ViewAsButton universityId={u.universityId!} userId={p.id} label={roles.some((r) => r.universityId === u.universityId && r.role === "parent") ? "View as parent" : "View as student"} />
                         )}
-                        <OpenInstitute universityId={u.universityId!} slug={u.universitySlug!} inside={inside.has(u.universityId!)} variant="secondary" />
+                        <OpenInstitute universityId={u.universityId!} slug={u.universitySlug!} inside={inside.has(u.universityId!)} size="sm" />
                       </span>
                     </div>
                     <ul className="mt-3 space-y-1.5 text-[14px]">
@@ -70,7 +70,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                           const ended = !!r.revokedAt || (!!r.endsAt && r.endsAt <= now);
                           return (
                             <li key={r.id} className="flex flex-wrap items-center gap-2">
-                              <Badge tone={ended ? "neutral" : "brand"}>{ROLE_LABELS[r.role]}</Badge>
+                              <Badge tone={ended ? "neutral" : "brand"}>{r.customRoleName ?? ROLE_LABELS[r.role]}</Badge>
                               {r.departmentName && <span className="text-muted">{r.departmentName}</span>}
                               {r.batchName && <span className="text-muted">{r.batchName}</span>}
                               {ended && <span className="text-[12.5px] text-faint">Ended</span>}

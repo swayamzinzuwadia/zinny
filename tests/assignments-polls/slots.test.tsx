@@ -6,7 +6,8 @@ import { SlotList, SlotOutlet } from "@/components/slots";
 import { universityLite, withTenant, type UniversityLite } from "@/server/core";
 import { setTestModules, slot, slotsInReach, visibleSlots } from "@/server/registry";
 import assignmentsPolls from "@/modules/assignments-polls";
-import { createAssignment, gradeSubmission, submitAssignment } from "@/modules/assignments-polls/service/assignments";
+import { createAssignment, gradeSubmission, gradingQueue, submitAssignment } from "@/modules/assignments-polls/service/assignments";
+import { GradingView } from "@/modules/assignments-polls/components/grading";
 import { createPoll } from "@/modules/assignments-polls/service/polls";
 import { person } from "../fixtures";
 import { assignmentInput, tempStorage, twoBatches, type Two } from "./setup";
@@ -162,5 +163,41 @@ describe("slot rendering", () => {
     const zoyaOwn = { universityId: c.uni.id, ownerUserId: c.zoya.userId };
     const empty = await html(<SlotList slot="learnerHubSections" entries={visibleSlots("learnerHubSections", c.zoya, zoyaOwn)} props={{ uni: c.uni.slug, actor: c.zoya, university, enrolments: [] }} />);
     expect(empty).toBe("");
+  });
+});
+
+describe("grading view", () => {
+  const view = async (assignmentId: string, selected?: string) =>
+    html(<GradingView uni={c.uni.slug} q={await gradingQueue(c.farah, assignmentId, c.batchA.id)} selected={selected} tz={university.timezone} />);
+
+  it("opens waiting work, then says all handed-in work is graded instead of opening someone who handed nothing in", async () => {
+    const now = new Date();
+    const a = await createAssignment(c.hod, assignmentInput(c.course.id, { title: "Grading view check", ...dueIn(3) }), { now });
+    await submitAssignment(c.riya, { assignmentId: a.id, text: "First line\nSecond line" }, { now });
+
+    const waiting = await view(a.id);
+    expect(waiting).toContain("Save grade");
+    expect(waiting).toContain("First line\nSecond line");
+    // Written answers read as prose, not code.
+    expect(waiting).not.toContain("font-mono");
+    expect(waiting).not.toContain('name="pinned"');
+
+    await gradeSubmission(c.farah, { assignmentId: a.id, studentId: c.riya.userId, marks: 8 });
+    const done = await view(a.id);
+    expect(done).toContain("All handed-in work is graded");
+    expect(done).toContain("1 student hasn");
+    expect(done).not.toContain("Save grade");
+
+    // Picking a student from the queue still opens them, and saving keeps them open.
+    const picked = await view(a.id, c.kabir.userId);
+    expect(picked).toContain("Save grade");
+    expect(picked).toContain('name="pinned"');
+  });
+
+  it("says nothing is handed in yet when no one has", async () => {
+    const a = await createAssignment(c.hod, assignmentInput(c.course.id, { title: "Nothing in yet", ...dueIn(4) }), { now: new Date() });
+    const out = await view(a.id);
+    expect(out).toContain("Nothing handed in yet");
+    expect(out).not.toContain("Save grade");
   });
 });

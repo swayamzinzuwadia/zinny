@@ -5,8 +5,11 @@ import { formatDate } from "@/modules/content-progress/lib/dates";
 import { batchProgressPath, curriculumPath } from "@/modules/content-progress/paths";
 import { progressOverview } from "@/modules/content-progress/staff";
 import { spaceContext } from "@/server/context";
+import { RECORDED_BATCH_LABEL, isRecordedSpan } from "@/server/lib/recorded-batch";
 
 export const metadata = { title: "Learning progress" };
+
+const STATUS_LABEL: Record<string, string> = { closed: "Closed", archived: "Archived", draft: "Draft" };
 
 /** Progress by course and batch for everything the viewer may see (content.view_progress). */
 export default async function ProgressOverviewPage({ params }: { params: Promise<{ uni: string }> }) {
@@ -40,14 +43,21 @@ export default async function ProgressOverviewPage({ params }: { params: Promise
                     <tr key={b.batchId} className="hover:bg-canvas/60">
                       <Td>
                         <Link href={batchProgressPath(uni, b.batchId)} className="font-medium hover:text-brand">
-                          {b.batchName}
+                          {isRecordedSpan(b.startDate, b.endDate) ? RECORDED_BATCH_LABEL : b.batchName}
                         </Link>
                         <div className="text-[12.5px] text-muted">
-                          {formatDate(b.startDate)} to {formatDate(b.endDate)}
-                          {b.batchStatus !== "open" && (
-                            <span className="ml-2">
-                              <Badge>{b.batchStatus}</Badge>
-                            </span>
+                          {/* Marketplace buyers' recorded batch has placeholder dates and no status worth showing. */}
+                          {isRecordedSpan(b.startDate, b.endDate) ? (
+                            "Marketplace buyers, at their own pace"
+                          ) : (
+                            <>
+                              {formatDate(b.startDate)} to {formatDate(b.endDate)}
+                              {b.batchStatus !== "open" && (
+                                <span className="ml-2">
+                                  <Badge>{STATUS_LABEL[b.batchStatus] ?? b.batchStatus}</Badge>
+                                </span>
+                              )}
+                            </>
                           )}
                         </div>
                       </Td>

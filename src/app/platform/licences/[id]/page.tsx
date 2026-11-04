@@ -6,7 +6,7 @@ import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { acknowledgeAlertAction, saveLicenceAction } from "@/modules/zinny-team-panel/actions";
-import { BackLink, NoAccess, RenewalText, StatusBadge, UsageMeter } from "@/modules/zinny-team-panel/components/bits";
+import { NoAccess, RenewalText, StatusBadge, UsageMeter } from "@/modules/zinny-team-panel/components/bits";
 import { LicenceFields } from "@/modules/zinny-team-panel/components/licence-fields";
 import { CAP_WARNING_RATIO, END_WARNING_DAYS, LICENSABLE_MODULES, PLAN_DEFAULTS, type Plan } from "@/modules/zinny-team-panel/lib/constants";
 import { addDays, addMonths, formatDate, formatDateTime, todayIST } from "@/modules/zinny-team-panel/lib/format";
@@ -39,7 +39,6 @@ export default async function LicencePage({ params }: { params: Promise<{ id: st
 
   return (
     <>
-      <BackLink href="/platform/licences">Licences</BackLink>
       <PageHeader
         title={`${u.name} licence`}
         subtitle={
@@ -56,7 +55,7 @@ export default async function LicencePage({ params }: { params: Promise<{ id: st
         }
         actions={
           canPlatform(actor, "platform.manage_universities") ? (
-            <Link href={`/platform/institutes/${u.id}`} className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
+            <Link href={`/platform/institutes/${u.id}`} className="inline-flex h-10 items-center whitespace-nowrap rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
               Institute details
             </Link>
           ) : undefined

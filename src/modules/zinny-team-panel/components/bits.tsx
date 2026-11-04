@@ -84,6 +84,37 @@ export function Fact({ label, children }: { label: string; children: ReactNode }
   );
 }
 
+/** Hides a table column below 1280 px, so a tablet keeps the columns that matter. Put it on the column's cells too. */
+export const WIDE_ONLY = "hidden xl:table-cell";
+
+export type Column = string | { label: ReactNode; className?: string };
+
+/**
+ * The panel's tables: like `Table` from `@/components/ui`, but a column can carry a class
+ * (usually {@link WIDE_ONLY}) so tablets see the key columns without scrolling sideways.
+ */
+export function PanelTable({ head, children }: { head: Column[]; children: ReactNode }) {
+  return (
+    <div className="relative overflow-x-auto rounded-[22px] border border-line bg-surface">
+      <table className="w-full min-w-[560px] text-left text-[14px]">
+        <thead className="border-b border-line text-[13px] text-muted">
+          <tr>
+            {head.map((h, i) => {
+              const col = typeof h === "string" ? { label: h } : h;
+              return (
+                <th key={i} className={cx("px-5 py-3 font-normal", col.className)}>
+                  {col.label}
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line">{children}</tbody>
+      </table>
+    </div>
+  );
+}
+
 /** A plain link styled as a back link above a page header. */
 export function BackLink({ href, children }: { href: string; children: ReactNode }) {
   return (

@@ -4,10 +4,11 @@ import { Avatar, Badge, Empty, PageHeader, Stat, Table, Td } from "@/components/
 import { ProgressBar } from "@/modules/content-progress/components/bits";
 import { MarkCompleteButton } from "@/modules/content-progress/components/mark-complete-button";
 import { formatDate, formatMoment, relativeDay } from "@/modules/content-progress/lib/dates";
-import { curriculumPath, progressOverviewPath } from "@/modules/content-progress/paths";
+import { curriculumPath } from "@/modules/content-progress/paths";
 import { batchProgress } from "@/modules/content-progress/staff";
 import { spaceContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
+import { batchLabel, isRecordedBatch } from "@/server/lib/recorded-batch";
 
 export const metadata = { title: "Batch progress" };
 
@@ -28,15 +29,14 @@ export default async function BatchProgressPage({ params }: { params: Promise<{ 
   return (
     <>
       <div className="mb-2 text-sm text-muted">
-        <Link href={progressOverviewPath(uni)} className="hover:text-ink">
-          Learning progress
-        </Link>{" "}
-        /{" "}
         <Link href={curriculumPath(uni, course.id)} className="hover:text-ink">
           {course.title}
         </Link>
       </div>
-      <PageHeader title={`${batch.name} progress`} subtitle={`${course.title} · ${formatDate(batch.startDate)} to ${formatDate(batch.endDate)}`} />
+      <PageHeader
+        title={`${batchLabel(batch)} progress`}
+        subtitle={isRecordedBatch(batch) ? `${course.title} · marketplace buyers, at their own pace` : `${course.title} · ${formatDate(batch.startDate)} to ${formatDate(batch.endDate)}`}
+      />
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Students" value={summary.students} />

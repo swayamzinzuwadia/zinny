@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { closeDb, systemDb } from "@/db/client";
 import { loadActor } from "@/server/actor";
-import { ForbiddenError, NotFoundError } from "@/server/errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "@/server/errors";
 import { createBatch } from "@/server/services/batches";
 import { createProgram } from "@/server/services/departments";
 import { graduate } from "@/server/services/users";
@@ -18,6 +18,7 @@ import {
   issueCandidates,
   issueCertificate,
   myCertificates,
+  revokeCertificate,
   searchCertificates,
 } from "@/modules/certificates/service";
 import { slots, WEEKDAYS } from "../fixtures";
@@ -54,6 +55,20 @@ describe("learners see and download their own certificates", () => {
     await expect(certificateSvg(riya.actor, kabirs.id)).rejects.toBeInstanceOf(NotFoundError);
     // Staff without self.view_certificates get nothing from the learner list.
     await expect(myCertificates(w.hod)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it("a revoked certificate can't be downloaded by its holder, even from a saved link; staff still can", async () => {
+    const w = await certWorld("Revoked Download U");
+    const s = await w.enrolled("Revoked Rahul");
+    await w.complete(s.enrolmentId);
+    const [cert] = (await myCertificates(s.actor)).rows;
+    expect(signedOk(await certificateDownloadUrl(s.actor, cert.id))).toBe(true);
+
+    await revokeCertificate(w.hod, cert.id, "Plagiarised final project");
+    const refused = certificateDownloadUrl(s.actor, cert.id);
+    await expect(refused).rejects.toBeInstanceOf(ConflictError);
+    await expect(certificateDownloadUrl(s.actor, cert.id)).rejects.toThrow(/revoked this certificate, so it can't be downloaded/);
+    expect(signedOk(await certificateDownloadUrl(w.hod, cert.id))).toBe(true);
   });
 
   it("alumni keep full access after graduating, even when the course's enrolment ended", async () => {

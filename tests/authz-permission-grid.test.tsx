@@ -207,11 +207,13 @@ describe("the role editor", () => {
     expect(new Set(posted(out))).toEqual(new Set(abilitiesFor("custom_institute").map((a) => a.key)));
   });
 
-  it("lays out the Zinny team's abilities too", () => {
-    const partners = platformRoleSummaries().find((r) => r.key === "partnerships")!;
-    const out = editor(partners, abilityOptions(true));
-    expect(new Set(posted(out))).toEqual(new Set(PLATFORM_ABILITIES.map((a) => a.key)));
-    expect(out).toContain("Manage sponsors and partners. Add, edit and delete go together.");
+  it("lays out the Zinny team's abilities too, without the ones that aren't offered", () => {
+    const finance = platformRoleSummaries().find((r) => r.key === "finance_admin")!;
+    const out = editor(finance, abilityOptions(true));
+    expect(new Set(posted(out))).toEqual(new Set(PLATFORM_ABILITIES.filter((a) => !a.hidden).map((a) => a.key)));
+    expect(out).toContain("Manage licences");
+    // Partners left the team panel.
+    expect(out).not.toContain("Manage sponsors and partners");
   });
 });
 

@@ -3,7 +3,7 @@
  * my badges and my challenges. Every function checks self.view_xp on the viewer's own
  * record, and a learner only ever sees boards of batches and courses they belong to.
  */
-import { desc, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { assertCan, studentEnrolments, todayFor, withTenant, type Actor, type StudentEnrolment } from "@/server/core";
 import { ForbiddenError } from "@/server/errors";
@@ -172,12 +172,6 @@ export async function myXpPage(actor: Actor, opts: { period?: string | null } = 
       const rows = await rankedBoard(tx, { kind: "batch", id: e.batchId }, dir, from, names);
       boards.push({ enrolmentId: e.enrolmentId, status: e.status, ...scopeTitle(dir, { kind: "batch", id: e.batchId }), ...placeOf(rows, actor.userId) });
     }
-    const recent = await tx
-      .select({ id: gamXpLedger.id, points: gamXpLedger.points, reason: gamXpLedger.reason, awardDate: gamXpLedger.awardDate, courseId: gamXpLedger.courseId })
-      .from(gamXpLedger)
-      .where(eq(gamXpLedger.userId, actor.userId))
-      .orderBy(desc(gamXpLedger.awardDate), desc(gamXpLedger.occurredAt))
-      .limit(12);
     return {
       today,
       period,
@@ -185,7 +179,6 @@ export async function myXpPage(actor: Actor, opts: { period?: string | null } = 
       boards,
       badges: await myBadges(tx, actor.userId, deptIds, today),
       challenges: await myChallenges(tx, actor, enrolments, dir, today, names),
-      recent: recent.map((r) => ({ ...r, courseTitle: r.courseId ? (dir.courses.get(r.courseId)?.title ?? null) : null })),
     };
   });
 }

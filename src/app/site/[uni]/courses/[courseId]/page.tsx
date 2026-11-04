@@ -40,6 +40,8 @@ export default async function CoursePage({ params }: Props) {
   const total = course.pricePaise + Math.round((course.pricePaise * course.gstRateBp) / 10_000);
   const avg = course.reviews.length ? course.reviews.reduce((n, r) => n + r.rating, 0) / course.reviews.length : null;
   const anyOpen = course.batches.some((b) => b.seatsLeft > 0);
+  // Through the site's own enrol step, which sends each visitor the right way and keeps this course after sign-in.
+  const enrol = `/site/${uni}/courses/${course.id}/enrol`;
 
   return (
     <>
@@ -79,7 +81,7 @@ export default async function CoursePage({ params }: Props) {
               </div>
             )}
             {anyOpen ? (
-              <a href={course.enrolHref} className="mt-6 flex h-12 items-center justify-center rounded-full bg-[var(--site-on-primary)] text-[15px] font-medium text-[var(--site-deep)] hover:opacity-90">
+              <a href={enrol} className="mt-6 flex h-12 items-center justify-center rounded-full bg-[var(--site-on-primary)] text-[15px] font-medium text-[var(--site-deep)] hover:opacity-90">
                 Enrol
               </a>
             ) : (
@@ -136,7 +138,7 @@ export default async function CoursePage({ params }: Props) {
                     <SeatsLeft n={b.seatsLeft} limit={b.seatLimit} />
                   </span>
                   {b.seatsLeft > 0 && (
-                    <a href={course.enrolHref} className="inline-flex h-10 items-center rounded-full bg-[var(--site-primary)] px-5 text-[14px] font-medium text-[var(--site-on-primary)] hover:opacity-90">
+                    <a href={enrol} className="inline-flex h-10 items-center rounded-full bg-[var(--site-primary)] px-5 text-[14px] font-medium text-[var(--site-on-primary)] hover:opacity-90">
                       Enrol
                     </a>
                   )}

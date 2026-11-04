@@ -53,7 +53,7 @@ export function AccountMenu({
         <Avatar name={name} size={34} />
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 z-40 mt-2 w-60 rounded-2xl border border-line bg-surface p-2 text-[14px] shadow-[0_16px_40px_-12px_rgb(20_38_31/0.25)]">
+        <div role="menu" className="absolute right-0 z-40 mt-2 w-60 rounded-2xl border border-line bg-surface p-2 text-[14px] text-ink shadow-[0_16px_40px_-12px_rgb(20_38_31/0.25)]">
           <div className="px-3 pt-2 pb-3">
             <div className="truncate font-medium">{name}</div>
             <div className="truncate text-[12.5px] text-muted">{email}</div>

@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Badge, Empty, PageHeader, Select, Table, Tabs, Td, buttonClass } from "@/components/ui";
+import { Badge, Empty, PageHeader, Select, Tabs, Td, buttonClass, cx } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
-import { NoAccess } from "@/modules/zinny-team-panel/components/bits";
+import { NoAccess, PanelTable, WIDE_ONLY } from "@/modules/zinny-team-panel/components/bits";
 import { canSeeContentFlags } from "@/modules/zinny-team-panel/lib/access";
 import { formatCount, formatINR, timeAgo } from "@/modules/zinny-team-panel/lib/format";
 import { QUEUE_TABS, reviewQueue, reviewUniversityOptions, type QueueTab } from "@/modules/zinny-team-panel/services/content";
@@ -13,7 +13,7 @@ const TAB_LABELS: Record<QueueTab, string> = { "to-review": "To review", flagged
 
 export default async function ContentReviewPage({ searchParams }: { searchParams: Promise<{ tab?: string; university?: string }> }) {
   const actor = await platformContext();
-  if (!canSeeContentFlags(actor)) return <NoAccess section="content review" />;
+  if (!canSeeContentFlags(actor)) return <NoAccess section="Content review" />;
   const sp = await searchParams;
   const canReview = canPlatform(actor, "platform.content_review");
   const fallback: QueueTab = canReview ? "to-review" : "flagged";
@@ -56,7 +56,17 @@ export default async function ContentReviewPage({ searchParams }: { searchParams
           {tab === "to-review" ? "New courses appear here as soon as an institute publishes them." : undefined}
         </Empty>
       ) : (
-        <Table head={["Course", "Institute", "Batches", "Students", "Price", tab === "cleared" ? "Reviewed" : "Created", ""]}>
+        <PanelTable
+          head={[
+            "Course",
+            "Institute",
+            { label: "Batches", className: WIDE_ONLY },
+            "Students",
+            "Price",
+            { label: tab === "cleared" ? "Reviewed" : "Created", className: WIDE_ONLY },
+            { label: <span className="sr-only">Actions</span> },
+          ]}
+        >
           {rows.map((r) => (
             <tr key={r.courseId} className="hover:bg-canvas/60">
               <Td>
@@ -66,10 +76,10 @@ export default async function ContentReviewPage({ searchParams }: { searchParams
                 <div className="text-[12.5px] text-muted">{r.departmentName}</div>
               </Td>
               <Td>{r.universityName}</Td>
-              <Td className="tabular">{formatCount(r.batches)}</Td>
+              <Td className={cx(WIDE_ONLY, "tabular")}>{formatCount(r.batches)}</Td>
               <Td className="tabular">{formatCount(r.students)}</Td>
               <Td className="tabular whitespace-nowrap">{r.pricePaise ? formatINR(r.pricePaise) : "Free"}</Td>
-              <Td className="whitespace-nowrap text-muted">
+              <Td className={cx(WIDE_ONLY, "whitespace-nowrap text-muted")}>
                 {tab === "cleared" && r.reviewedAt ? (
                   <>
                     {timeAgo(r.reviewedAt)}
@@ -79,26 +89,22 @@ export default async function ContentReviewPage({ searchParams }: { searchParams
                   timeAgo(r.createdAt)
                 )}
               </Td>
-              <Td className="whitespace-nowrap text-right">
-                {r.openFlags > 0 && (
-                  <span className="mr-3">
+              <Td>
+                <div className="flex flex-col items-end gap-1.5 whitespace-nowrap">
+                  {r.openFlags > 0 && (
                     <Badge tone="gold">
                       {r.openFlags} open flag{r.openFlags === 1 ? "" : "s"}
                     </Badge>
-                  </span>
-                )}
-                {r.status !== "published" && (
-                  <span className="mr-3">
-                    <Badge>{r.status === "archived" ? "Archived" : "Draft"}</Badge>
-                  </span>
-                )}
-                <Link href={`/platform/content/${r.courseId}`} className="text-[13px] font-medium text-brand hover:underline">
-                  {canReview && tab === "to-review" ? "Review" : "Open"}
-                </Link>
+                  )}
+                  {r.status !== "published" && <Badge>{r.status === "archived" ? "Archived" : "Draft"}</Badge>}
+                  <Link href={`/platform/content/${r.courseId}`} className="text-[13px] font-medium text-brand hover:underline">
+                    {canReview && tab === "to-review" ? "Review" : "Open"}
+                  </Link>
+                </div>
               </Td>
             </tr>
           ))}
-        </Table>
+        </PanelTable>
       )}
     </>
   );

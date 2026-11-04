@@ -5,7 +5,7 @@ import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { flagCourseAction, markReviewedAction, resolveFlagAction } from "@/modules/zinny-team-panel/actions";
-import { BackLink, Fact, NoAccess } from "@/modules/zinny-team-panel/components/bits";
+import { Fact, NoAccess } from "@/modules/zinny-team-panel/components/bits";
 import { canSeeContentFlags } from "@/modules/zinny-team-panel/lib/access";
 import { FLAG_CATEGORIES, FLAG_LABEL } from "@/modules/zinny-team-panel/lib/constants";
 import { formatDate, formatDateTime, formatINR } from "@/modules/zinny-team-panel/lib/format";
@@ -18,7 +18,7 @@ const hm = (t: string) => t.slice(0, 5);
 
 export default async function CoursePreviewPage({ params }: { params: Promise<{ courseId: string }> }) {
   const actor = await platformContext();
-  if (!canSeeContentFlags(actor)) return <NoAccess section="content review" />;
+  if (!canSeeContentFlags(actor)) return <NoAccess section="Content review" />;
   const { courseId } = await params;
   const p = await coursePreview(actor, courseId).catch((e) => {
     if (e instanceof NotFoundError) notFound();
@@ -30,7 +30,6 @@ export default async function CoursePreviewPage({ params }: { params: Promise<{ 
 
   return (
     <>
-      <BackLink href="/platform/content">Content review</BackLink>
       <PageHeader
         title={c.title}
         subtitle={

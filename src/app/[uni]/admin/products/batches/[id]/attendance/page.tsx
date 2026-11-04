@@ -40,8 +40,7 @@ export default async function AttendancePage({ params }: { params: Promise<{ uni
         /{" "}
         <Link href={`/${uni}/admin/products/batches/${id}`} className="hover:text-ink">
           {data.batch.name}
-        </Link>{" "}
-        / Attendance
+        </Link>
       </div>
       <PageHeader title={`Attendance, ${data.batch.name}`} subtitle={`${data.courseTitle}. Students below ${data.threshold}% are highlighted and get a reminder each Monday.`} />
 

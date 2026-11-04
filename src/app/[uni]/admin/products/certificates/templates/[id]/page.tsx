@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Badge, Card, CardTitle, Empty, Notice, PageHeader, buttonClass } from "@/components/ui";
@@ -44,13 +43,6 @@ export default async function TemplatePage({ params }: { params: Promise<{ uni: 
 
   return (
     <>
-      <div className="mb-2 text-sm text-muted">
-        Products /{" "}
-        <Link href={base} className="hover:text-ink">
-          Certificates
-        </Link>{" "}
-        / Templates
-      </div>
       <PageHeader
         title={t.name}
         subtitle={

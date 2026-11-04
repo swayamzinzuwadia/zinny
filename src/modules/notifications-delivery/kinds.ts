@@ -257,6 +257,51 @@ export const MODULE_KINDS: KindDefinition[] = [
 
 const BY_KIND = new Map([...CORE_KINDS, ...SECURITY_KINDS_CATALOGUE, ...MODULE_KINDS].map((k) => [k.kind, k]));
 
+/**
+ * What each kind means to the learner who gets it, for their own notification settings.
+ * The descriptions in the catalogue above are written for the institute's staff.
+ */
+export const LEARNER_DESCRIPTION: Readonly<Record<string, string>> = {
+  "enrolment.confirmed": "You get a seat in a batch, and its classes go on your timetable.",
+  "enrolment.declined": "Faculty don't accept your request to join a batch.",
+  "timetable.changed": "A class of yours is cancelled, moved or added, or your batch's timings change.",
+  "switch.approved": "Your request to move to another batch is approved.",
+  "switch.rejected": "Your request to move to another batch isn't approved.",
+  "payment.refund_due": "A batch fills up before your payment goes through, so your money comes back to you.",
+  "assess.test.published": "A new test or quiz is set for your batch.",
+  "assess.result.ready": "Your teacher finishes marking a test and your score is ready.",
+  "assignment.new": "New work is set for your batch.",
+  "assignment.due_soon": "A reminder the day before work is due, if you haven't handed it in yet.",
+  "assignment.graded": "Your work is graded.",
+  "poll.open": "A poll opens in one of your courses.",
+  "attendance.low": "Your attendance in a batch falls below what your institute asks for. Checked weekly.",
+  "certificate.issued": "You receive a certificate.",
+  "certificate.revoked": "Your institute revokes one of your certificates.",
+  "certificate.expiring": "One of your certificates expires soon and can be renewed.",
+  "certificate.expired": "One of your certificates has expired.",
+  "gamification.badge": "You earn a badge.",
+  "gamification.challenge_won": "You finish a challenge among its winners.",
+  "payment.refunded": "A refund of your payment is on its way to you.",
+  "payments.invoice": "The GST invoice for something you paid for is ready.",
+};
+
+/** Kinds about money. Institute courses are free for their students, so most learners never get one. */
+export const PAYMENT_KINDS: ReadonlySet<string> = new Set(["payment.refund_due", "payment.refunded", "payments.invoice"]);
+
+/**
+ * Whether a kind belongs on a learner's own settings page: never a staff kind, and a payment
+ * kind only for a learner who has paid for something here (has an invoice).
+ */
+export function forLearnerSettings(kind: string, hasPaid: boolean): boolean {
+  if (kindDefinition(kind).audience === "staff") return false;
+  return hasPaid || !PAYMENT_KINDS.has(kind);
+}
+
+/** The learner-facing description of a kind; empty for kinds this catalogue doesn't describe. */
+export function learnerDescription(kind: string): string {
+  return LEARNER_DESCRIPTION[kind] ?? "";
+}
+
 /** "assignment.graded" → "Assignment graded". */
 export function humanizeKind(kind: string): string {
   const words = kind.replace(/[._-]+/g, " ").trim();

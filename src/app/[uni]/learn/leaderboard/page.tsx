@@ -5,9 +5,10 @@ import { can } from "@/server/core";
 import type { Period } from "@/modules/gamification/catalog";
 import { BadgeIcon } from "@/modules/gamification/components/badge-icon";
 import { PeriodSwitch } from "@/modules/gamification/components/board";
-import { BadgeShelf, BatchRanks, ChallengeTile, RecentXp, XpHero } from "@/modules/gamification/components/learner";
+import { BadgeShelf, BatchRanks, ChallengeTile, XpHero } from "@/modules/gamification/components/learner";
 import { myXpPage } from "@/modules/gamification/learner";
 import { periodLabel } from "@/modules/gamification/leaderboards";
+import { sendParentsHome } from "../view";
 
 export const metadata = { title: "XP and leaderboard" };
 
@@ -17,6 +18,7 @@ export default async function LearnerLeaderboard({ params, searchParams }: { par
   const { uni } = await params;
   const sp = await searchParams;
   const { actor, university } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
   if (!can(actor, "self.view_xp", { universityId: university.id, ownerUserId: actor.userId })) {
     return (
       <>
@@ -100,8 +102,6 @@ export default async function LearnerLeaderboard({ params, searchParams }: { par
           </div>
         </section>
       )}
-
-      <RecentXp items={data.recent} />
     </div>
   );
 }

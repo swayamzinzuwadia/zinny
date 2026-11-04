@@ -19,10 +19,11 @@ const NOTES = [
 export default async function TeamRolesPage() {
   const actor = await platformContext();
   if (!isSuperAdmin(actor)) return <NoAccess section="Roles & permissions" who="Only Super Admins" />;
-  const roles = await listRoles(actor, null);
+  // Partnerships went with the Partners pages; it only shows while someone still holds it.
+  const roles = (await listRoles(actor, null)).filter((r) => r.kind !== "partnerships" || r.holders > 0);
   return (
     <>
-      <PageHeader title="Roles & permissions" subtitle="What each Zinny team role can open. Changes apply on each person's next page." />
+      <PageHeader title="Roles & permissions" subtitle="What each Zinny team role can open. Changes apply straight away." />
       <RolesExplorer
         roles={roles}
         options={abilityOptions(true)}

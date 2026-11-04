@@ -26,7 +26,7 @@ export async function LearnerAssignmentsTab({ uni, actor, course, university }: 
         <section>
           <div className="mb-2 flex items-baseline justify-between">
             <h2 className="text-[17px] font-medium">Polls</h2>
-            <Link href={pollsBase(uni)} className="text-[13px] text-brand">
+            <Link href={pollsBase(uni)} className="inline-block py-1.5 text-[13px] text-brand">
               All polls
             </Link>
           </div>
@@ -71,7 +71,7 @@ export async function AssignmentGradesSection({ uni, actor, university }: HubSec
             <Link href={learnAssignment(uni, a.id)} className="flex items-center justify-between gap-3 py-3 hover:text-brand">
               <div className="min-w-0">
                 <div className="truncate text-[15px] font-medium">{a.title}</div>
-                <div className="truncate text-[13px] text-muted">
+                <div className="text-[13px] text-muted">
                   {a.courseTitle}
                   {a.gradedAt && ` · ${formatWhen(a.gradedAt, tz)}`}
                   {a.late && " · Late"}
@@ -82,7 +82,7 @@ export async function AssignmentGradesSection({ uni, actor, university }: HubSec
           </li>
         ))}
       </ul>
-      <Link href={learnBase(uni)} className="mt-2 inline-block text-[13px] font-medium text-brand hover:underline">
+      <Link href={learnBase(uni)} className="mt-1 inline-block py-1.5 text-[13px] font-medium text-brand hover:underline">
         See all assignments
       </Link>
     </Card>
@@ -125,7 +125,7 @@ export async function DueSoonCard({ uni, actor, university }: HomeCardProps) {
         ))}
       </ul>
       {(due.length > 5 || due.some((a) => isDueSoon(a, tz, now))) && (
-        <Link href={learnBase(uni)} className="mt-3 inline-block text-[13px] font-medium text-brand hover:underline">
+        <Link href={learnBase(uni)} className="mt-2 inline-block py-1.5 text-[13px] font-medium text-brand hover:underline">
           See all assignments
         </Link>
       )}

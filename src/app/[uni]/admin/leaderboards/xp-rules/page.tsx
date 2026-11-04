@@ -39,7 +39,7 @@ export default async function XpRulesPage({ params }: { params: Promise<{ uni: s
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className={cx("text-[16px] font-medium", !r.active && "text-muted")}>{r.name}</h2>
                     <Badge tone={r.departmentId ? "neutral" : "brand"}>{r.scopeName}</Badge>
-                    {!r.active && <Badge tone="warn">Off</Badge>}
+                    {!r.active && <Badge tone="neutral">Off</Badge>}
                   </div>
                   <p className="mt-1 text-[14px] text-muted">
                     {r.description}

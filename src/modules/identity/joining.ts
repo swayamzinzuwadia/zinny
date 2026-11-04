@@ -26,6 +26,7 @@ import {
   notify,
   reach,
   sendEmail,
+  settleNotifications,
   withTenant,
   type Actor,
 } from "@/server/core";
@@ -186,6 +187,7 @@ export async function cancelJoinRequest(userId: string, requestId: string) {
     if (!req || req.userId !== userId) throw new NotFoundError("Request");
     if (req.status !== "pending") return;
     await tx.update(idnJoinRequests).set({ status: "cancelled", decidedAt: new Date() }).where(eq(idnJoinRequests.id, requestId));
+    await settleNotifications(tx, { kind: "join.requested", key: "requestId", id: requestId }, "Withdrawn by the student.");
     await audit(tx, personActor(req.universityId, userId), "user.join_request_cancel", "idn_join_request", requestId);
   });
 }
@@ -245,6 +247,7 @@ export async function decideJoinRequest(actor: Actor, requestId: string, input: 
       .update(idnJoinRequests)
       .set({ status: input.accept ? "approved" : "rejected", decidedBy: actor.userId || null, decidedAt: new Date(), decisionNote: note })
       .where(eq(idnJoinRequests.id, requestId));
+    await settleNotifications(tx, { kind: "join.requested", key: "requestId", id: requestId }, `${input.accept ? "Accepted" : "Declined"} by ${actor.name}.`);
     if (input.accept) {
       await notify(tx, uni(actor), [req.userId], {
         kind: "join.approved",

@@ -37,13 +37,6 @@ export default async function IssuedCertificatePage({ params }: { params: Promis
 
   return (
     <>
-      <div className="mb-2 text-sm text-muted">
-        Products /{" "}
-        <Link href={`${base}#issued`} className="hover:text-ink">
-          Certificates
-        </Link>{" "}
-        / <span className="font-mono">{c.displayCode}</span>
-      </div>
       <PageHeader
         title={c.studentName}
         subtitle={

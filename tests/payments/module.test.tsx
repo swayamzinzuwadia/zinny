@@ -1,12 +1,14 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ReactNode } from "react";
 import { prerenderToNodeStream } from "react-dom/static.node";
-import { closeDb } from "@/db/client";
+import { closeDb, systemDb } from "@/db/client";
 import { systemActorFor, universityLite, withTenant } from "@/server/core";
 import { eventHandlers, jobs, slotsInReach, visibleSlots } from "@/server/registry";
 import payments from "@/modules/payments";
 import { payInTestMode } from "@/modules/payments/checkout";
 import { RefundsDueCard } from "@/modules/payments/components/finance-card";
+import { payRefunds } from "@/modules/payments/schema";
+import { orderDetail } from "@/modules/payments/sales";
 import { InvoicesHubSection } from "@/modules/payments/components/invoices-hub-section";
 import { reconcilePayments } from "@/modules/payments/jobs";
 import { abandonCheckout } from "@/modules/payments/checkout";
@@ -48,17 +50,23 @@ describe("what payments registers", () => {
     expect(out).toContain(`/${university.slug}/learn/invoices/`);
   });
 
-  it("the dashboard card shows refund_due orders, gold, only when there are some", async () => {
+  it("the dashboard card shows only refunds that failed; refunds still to send are in Needs you", async () => {
     const c = await paidCourse("Card U");
     const university = await withTenant(c.accounts, (tx) => universityLite(tx));
     const props = { uni: university.slug, actor: c.accounts, university, today: "2030-01-01" };
     expect(await RefundsDueCard(props)).toBeNull();
     const s = await c.student("Two Checkouts");
-    await paidTwice(s, c.batch.id);
+    const { first, second } = await paidTwice(s, c.batch.id);
+    expect(await RefundsDueCard(props)).toBeNull();
+    // Sales says why the refund is due: the student already has a seat from the other payment.
+    expect((await orderDetail(c.accounts, first.orderId)).order.paidTwice).toBe(true);
+    expect((await orderDetail(c.accounts, second.orderId)).order.paidTwice).toBe(false);
+    await systemDb()
+      .insert(payRefunds)
+      .values({ universityId: university.id, orderId: first.orderId, amountPaise: 1000, reason: "Paid twice", status: "failed", gateway: "mock" });
     const out = await html(await RefundsDueCard(props));
-    expect(out).toContain("Refunds to send");
-    expect(out).toContain("Two Checkouts");
-    expect(out).toContain("₹11,800");
+    expect(out).toContain("Refunds that failed");
+    expect(out).toContain("Open sales");
     expect(out).toContain("border-gold");
     // The HOD gets nothing even if the card were rendered for them.
     expect(await RefundsDueCard({ ...props, actor: c.hod })).toBeNull();

@@ -4,7 +4,7 @@ import { Badge, Card, CardTitle, Empty, Field, PageHeader, Select, Table, Td } f
 import { spaceContext } from "@/server/context";
 import { formatINR } from "@/server/services/finance";
 import { createListingAction, setListingStatusAction } from "@/modules/marketplace/actions";
-import { KIND_LABEL, ListingFieldsInputs, MarketplaceTabs } from "@/modules/marketplace/components/admin";
+import { KIND_LABEL, ListingFieldsInputs } from "@/modules/marketplace/components/admin";
 import { listableSources, listListings } from "@/modules/marketplace/listings";
 
 export const metadata = { title: "Marketplace" };
@@ -26,7 +26,6 @@ export default async function MarketplaceListings({ params }: { params: Promise<
           </Link>
         }
       />
-      <MarketplaceTabs uni={uni} active="listings" />
       <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
         <div>
           {listings.length === 0 ? (

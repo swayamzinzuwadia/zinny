@@ -5,12 +5,15 @@
 import { assertPlatform, canPlatform, type Action, type Actor } from "@/server/core";
 import { ForbiddenError } from "@/server/errors";
 
+/**
+ * What opens a part of the panel. `platform.partners` isn't here: Partners was taken out of
+ * the panel, so that permission on its own no longer opens anything.
+ */
 export const PLATFORM_ACTIONS = [
   "platform.manage_universities",
   "platform.support_mode",
   "platform.licences",
   "platform.content_review",
-  "platform.partners",
   "platform.finance",
   "platform.view_analytics",
 ] as const satisfies readonly Action[];
@@ -75,14 +78,15 @@ const SECTIONS: Section[] = [
       { label: "Activity log", href: "/support/log", allowed: can("platform.support_mode") },
     ],
   },
+  // A section with one page is labelled like that page, so the menu, the page title and
+  // the way back all use the same name.
   {
     key: "content",
-    label: "Content",
-    entries: [{ label: "Review queue", href: "/content", allowed: canSeeContentFlags }],
+    label: "Content review",
+    entries: [{ label: "Content review", href: "/content", allowed: canSeeContentFlags }],
     access: (actor) => (canPlatform(actor, "platform.content_review") ? undefined : "View"),
   },
-  { key: "partners", label: "Partners", entries: [{ label: "Sponsors and partners", href: "/partners", allowed: can("platform.partners") }] },
-  { key: "billing", label: "Billing", entries: [{ label: "Zinny invoices", href: "/billing", allowed: can("platform.finance") }] },
+  { key: "billing", label: "Zinny invoices", entries: [{ label: "Zinny invoices", href: "/billing", allowed: can("platform.finance") }] },
   { key: "analytics", label: "Analytics", entries: [{ label: "Analytics", href: "/analytics", allowed: can("platform.view_analytics") }] },
   {
     key: "team",

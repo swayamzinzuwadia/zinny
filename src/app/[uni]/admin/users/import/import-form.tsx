@@ -5,9 +5,14 @@ import { Badge, buttonClass, Textarea } from "@/components/ui";
 import { importAction, type ImportState } from "../../actions";
 
 const SAMPLE = `name,email,phone,role,department,access_ends
-Ravi Kumar,ravi@example.edu,9800000001,student,,
+Ravi Kumar,ravi@example.edu,9800000001,student,CS,
 Neha Shah,neha@example.edu,,permanent_faculty,CS,
 Dev Rao,dev@example.edu,,visiting_faculty,CS,2027-03-31`;
+
+/** A file to start from: the header row and one example to replace. */
+const TEMPLATE = `name,email,phone,role,department,access_ends
+Ravi Kumar,ravi@example.edu,9800000001,student,CS,
+`;
 
 export function ImportForm({ uni }: { uni: string }) {
   const [state, action] = useActionState<ImportState, FormData>(importAction, null);
@@ -15,8 +20,19 @@ export function ImportForm({ uni }: { uni: string }) {
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="uni" value={uni} />
-      <input type="file" name="file" accept=".csv,text/csv" className="block text-sm file:mr-3 file:rounded-full file:border-0 file:bg-brand-soft file:px-4 file:py-2 file:text-brand-strong" />
-      <Textarea name="csv" rows={8} defaultValue={state?.csv ?? SAMPLE} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <label className="block text-sm">
+          <span className="mb-1.5 block text-[13px] font-medium">CSV file</span>
+          <input type="file" name="file" accept=".csv,text/csv" className="block text-sm file:mr-3 file:rounded-full file:border-0 file:bg-brand-soft file:px-4 file:py-2 file:text-brand-strong" />
+        </label>
+        <a href={`data:text/csv;charset=utf-8,${encodeURIComponent(TEMPLATE)}`} download="zinny-people-template.csv" className={buttonClass("ghost", "sm")}>
+          Download template
+        </a>
+      </div>
+      <label className="block">
+        <span className="mb-1.5 block text-[13px] font-medium">Or paste the rows</span>
+        <Textarea name="csv" rows={8} defaultValue={state?.csv ?? ""} placeholder={SAMPLE} />
+      </label>
       <div className="flex gap-2">
         <button name="mode" value="check" className={buttonClass("secondary")}>
           Check file
@@ -30,13 +46,13 @@ export function ImportForm({ uni }: { uni: string }) {
       {rows.length > 0 && (
         <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
           <table className="w-full text-sm">
-            <thead className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
+            <thead className="border-b border-line text-left text-[13px] text-muted">
               <tr>
-                <th className="px-3 py-2">Line</th>
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Email</th>
-                <th className="px-3 py-2">Role</th>
-                <th className="px-3 py-2">Result</th>
+                <th className="px-3 py-2 font-normal">Line</th>
+                <th className="px-3 py-2 font-normal">Name</th>
+                <th className="px-3 py-2 font-normal">Email</th>
+                <th className="px-3 py-2 font-normal">Role</th>
+                <th className="px-3 py-2 font-normal">Result</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">

@@ -5,14 +5,13 @@ import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { acknowledgeAlertAction, startSupportAction } from "@/modules/zinny-team-panel/actions";
 import { canSeeContentFlags } from "@/modules/zinny-team-panel/lib/access";
-import { PARTNER_STATUS_LABELS, PARTNER_STATUSES } from "@/modules/zinny-team-panel/lib/constants";
-import { formatCount, formatDate, formatINR, formatINRShort, timeAgo, timeUntil, todayIST, ZINNY_TZ } from "@/modules/zinny-team-panel/lib/format";
+import { formatCount, formatDate, formatINR, formatINRShort, timeAgo, timeUntil, ZINNY_TZ } from "@/modules/zinny-team-panel/lib/format";
 import { analytics } from "@/modules/zinny-team-panel/services/analytics";
 import { overdueInvoices } from "@/modules/zinny-team-panel/services/billing";
 import { reviewCounts } from "@/modules/zinny-team-panel/services/content";
 import { listAlerts, listLicences } from "@/modules/zinny-team-panel/services/licences";
-import { listPartners } from "@/modules/zinny-team-panel/services/partners";
 import { activeSessions, activityLog, actionLabel, supportPicker } from "@/modules/zinny-team-panel/services/support";
+import { firstName } from "@/server/lib/names";
 
 export const metadata = { title: "Home" };
 
@@ -23,18 +22,16 @@ function greeting() {
 
 export default async function PlatformHome() {
   const actor = await platformContext();
-  const today = todayIST();
   const can = {
     licences: canPlatform(actor, "platform.licences"),
     support: canPlatform(actor, "platform.support_mode"),
     flags: canSeeContentFlags(actor),
     review: canPlatform(actor, "platform.content_review"),
     finance: canPlatform(actor, "platform.finance"),
-    partners: canPlatform(actor, "platform.partners"),
     analytics: canPlatform(actor, "platform.view_analytics"),
   };
 
-  const [alerts, licences, sessions, log, picker, review, overdue, partners, stats] = await Promise.all([
+  const [alerts, licences, sessions, log, picker, review, overdue, stats] = await Promise.all([
     can.licences ? listAlerts(actor, { handled: false }) : [],
     can.licences ? listLicences(actor) : [],
     can.support ? activeSessions(actor) : [],
@@ -42,25 +39,31 @@ export default async function PlatformHome() {
     can.support ? supportPicker(actor) : null,
     can.flags ? reviewCounts(actor) : null,
     can.finance ? overdueInvoices(actor) : [],
-    can.partners ? listPartners(actor) : null,
     can.analytics ? analytics(actor, { weeks: 4, months: 3 }) : null,
   ]);
   const unlicensed = licences.filter((l) => !l.licence && l.status === "active");
   const showNeeds = can.licences || can.flags || can.finance;
-  const needsCount = alerts.length + unlicensed.length + overdue.length + (review ? review.openFlags + (can.review ? review.toReview : 0) : 0);
+  const showFlags = !!review && review.openFlags > 0;
+  const showToReview = can.review && !!review && review.toReview > 0;
+  // One per card below, so the count matches what you see.
+  const needsCount = alerts.length + unlicensed.length + overdue.length + (showFlags ? 1 : 0) + (showToReview ? 1 : 0);
 
   const summary = [
     alerts.length ? `${alerts.length} licence warning${alerts.length === 1 ? "" : "s"}` : "",
+    unlicensed.length ? `${unlicensed.length} without a licence` : "",
     sessions.length ? `${sessions.length} in support mode now` : "",
-    can.review && review?.toReview ? `${review.toReview} course${review.toReview === 1 ? "" : "s"} to review` : "",
+    showFlags ? `${review!.openFlags} open content flag${review!.openFlags === 1 ? "" : "s"}` : "",
+    showToReview ? `${review!.toReview} course${review!.toReview === 1 ? "" : "s"} to review` : "",
     overdue.length ? `${overdue.length} overdue invoice${overdue.length === 1 ? "" : "s"}` : "",
   ].filter(Boolean);
+  // "Nothing needs attention" is only true for someone who can see every kind of warning.
+  const seesEverything = can.licences && can.support && can.flags && can.review && can.finance;
 
   return (
     <>
       <PageHeader
-        title={`${greeting()}, ${actor.name.split(" ")[0]}`}
-        subtitle={summary.length ? summary.join(" · ") : "Everything is calm across the institutes right now."}
+        title={`${greeting()}, ${firstName(actor.name)}`}
+        subtitle={summary.length ? summary.join(" · ") : seesEverything ? "Nothing needs attention across the institutes right now." : undefined}
       />
 
       <div className="grid gap-6 xl:grid-cols-[1.55fr_1fr]">
@@ -117,7 +120,7 @@ export default async function PlatformHome() {
                       </Link>
                     </div>
                   ))}
-                  {review && review.openFlags > 0 && (
+                  {showFlags && review && (
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-canvas p-4 text-[14px]">
                       <div>
                         <div className="font-medium">
@@ -130,7 +133,7 @@ export default async function PlatformHome() {
                       </Link>
                     </div>
                   )}
-                  {can.review && review && review.toReview > 0 && (
+                  {showToReview && review && (
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-canvas p-4 text-[14px]">
                       <div>
                         <div className="font-medium">
@@ -194,10 +197,7 @@ export default async function PlatformHome() {
                       <div className="min-w-0">
                         <span className="font-medium">{e.actorName ?? "Zinny system"}</span> <span className="text-muted">{actionLabel(e.action).toLowerCase()}</span>
                         {e.universityName && <span className="text-muted"> at {e.universityName}</span>}
-                        <div className="truncate text-[12.5px] text-faint">
-                          <code className="font-mono">{e.action}</code>
-                          {e.sessionReason ? ` · ${e.sessionReason}` : ""}
-                        </div>
+                        {e.sessionReason && <div className="truncate text-[12.5px] text-faint">{e.sessionReason}</div>}
                       </div>
                       <span className="whitespace-nowrap text-[12.5px] text-muted">{timeAgo(e.at)}</span>
                     </li>
@@ -217,7 +217,10 @@ export default async function PlatformHome() {
               ) : (
                 <ActionForm action={startSupportAction} className="space-y-3" resetOnSuccess={false}>
                   <Field label="Institute">
-                    <Select name="universityId" defaultValue={picker.lastUniversityId ?? undefined} required>
+                    <Select name="universityId" defaultValue="" required>
+                      <option value="" disabled>
+                        Pick an institute
+                      </option>
                       {picker.universities.map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.name}
@@ -238,30 +241,10 @@ export default async function PlatformHome() {
           {stats && (
             <div className="grid grid-cols-2 gap-4">
               <Stat label="Institutes" value={formatCount(stats.universities.active)} hint={stats.universities.suspended ? `${stats.universities.suspended} suspended` : "All active"} />
-              <Stat label="Active students" value={formatCount(stats.activeStudents)} hint="With an active enrolment" />
+              <Stat label="Active students" value={formatCount(stats.activeStudents)} hint={`Of ${formatCount(stats.students)} students, with an active enrolment`} />
               <Stat label="Enrolments, 4 weeks" value={formatCount(stats.weeks.reduce((s, w) => s + w.enrolments, 0))} hint={`${formatCount(stats.weeks.at(-1)?.enrolments ?? 0)} this week`} />
-              <Stat label="Collected this month" value={formatINRShort(stats.months.at(-1)?.paise ?? 0)} hint="By all institutes" />
+              <Stat label="Student fees this month" value={formatINRShort(stats.months.at(-1)?.paise ?? 0)} hint="Paid by students to institutes" />
             </div>
-          )}
-
-          {partners && (
-            <Card>
-              <CardTitle hint={<Link href="/platform/partners" className="hover:text-brand">All partners</Link>}>Partners</CardTitle>
-              <dl className="grid grid-cols-3 gap-3">
-                {PARTNER_STATUSES.filter((s) => s !== "ended").map((s) => (
-                  <div key={s} className="rounded-2xl bg-canvas px-3 py-2.5">
-                    <dt className="text-[12px] text-muted">{PARTNER_STATUS_LABELS[s]}</dt>
-                    <dd className="tabular text-[20px] font-semibold">{formatCount(partners.byStatus[s] ?? 0)}</dd>
-                  </div>
-                ))}
-              </dl>
-            </Card>
-          )}
-
-          {can.licences && (
-            <p className="px-1 text-[12.5px] text-muted">
-              Licence warnings are checked every hour, and straight away when a licence changes. Today is {formatDate(today)}.
-            </p>
           )}
         </div>
       </div>

@@ -5,6 +5,7 @@ import { spaceContext } from "@/server/context";
 import { joinPath } from "@/server/lib/links";
 import { addDays, formatDate, formatTime, weekStart } from "@/server/lib/dates";
 import { studentTimetable } from "@/server/services/timetable";
+import { sendParentsHome } from "../view";
 
 export const metadata = { title: "Timetable" };
 
@@ -12,6 +13,7 @@ export default async function Timetable({ params, searchParams }: { params: Prom
   const { uni } = await params;
   const { week, enrolled } = await searchParams;
   const { actor } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
   const from = week && /^\d{4}-\d{2}-\d{2}$/.test(week) ? weekStart(week) : undefined;
   const t = await studentTimetable(actor, from ? { from, to: addDays(from, 6) } : undefined);
   const base = `/${uni}/learn/timetable`;
@@ -29,18 +31,18 @@ export default async function Timetable({ params, searchParams }: { params: Prom
         <h1 className="text-[26px] font-semibold tracking-tight">Timetable</h1>
         <div className="flex items-center gap-2 text-sm">
           <Link className={buttonClass("secondary", "sm")} href={`${base}?week=${addDays(t.from, -7)}`}>
-            ← Previous
+            Previous
           </Link>
           <Link className={buttonClass("secondary", "sm")} href={base}>
             This week
           </Link>
           <Link className={buttonClass("secondary", "sm")} href={`${base}?week=${addDays(t.from, 7)}`}>
-            Next →
+            Next
           </Link>
         </div>
       </div>
       <p className="mb-4 text-sm text-muted">
-        Week of {new Date(`${t.from}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}. Built from the batches you picked, and updated when anything changes.
+        Week of {new Date(`${t.from}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
       </p>
       <WeekView from={t.from} today={t.today} sessions={t.sessions} />
       {upcoming.length > 0 && (

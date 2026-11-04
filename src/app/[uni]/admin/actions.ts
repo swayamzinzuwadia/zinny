@@ -10,7 +10,7 @@ import { ValidationError } from "@/server/errors";
 import { addSessionOverride, assignFaculty, createBatch, removeFaculty, setSeatLimit, updateBatch } from "@/server/services/batches";
 import { createCourse, updateCourse } from "@/server/services/courses";
 import { createDepartment, setHod } from "@/server/services/departments";
-import { decideEnrolment, decideSwitch } from "@/server/services/enrolment";
+import { decideEnrolment, decideSwitch, listSwitchRequests } from "@/server/services/enrolment";
 import { deleteRole, parseRoleChoice, resetRole, roleDraft, saveRole } from "@/server/services/roles";
 import type { Slot } from "@/server/services/schedule";
 import { addPerson, graduate, importPeople, linkParent, revokeRole } from "@/server/services/users";
@@ -190,10 +190,13 @@ export async function decideSwitchAction(_: ActionState, data: FormData): Promis
   const { uni, actor } = await ctx(data);
   return attempt(async () => {
     const [decision, requestId] = str(data, "choice").split("|");
+    // Named in the confirmation, which stays on screen after the request leaves the list.
+    const req = (await listSwitchRequests(actor)).find((x) => x.id === requestId);
     const r = await decideSwitch(actor, requestId, { approve: decision === "approve", note: str(data, "note") });
     revalidatePath(`/${uni}/admin`, "layout");
-    if (r.status === "approved") return "Approved. The student's timetable is updated.";
-    return r.reason === "batch_full" ? "Couldn't approve: that batch has no free seat. The student was told." : "Request declined.";
+    const who = req?.student ?? "The student";
+    if (r.status === "approved") return req ? `${who} moved to ${req.toBatchName}. Their timetable is updated.` : "Approved. The student's timetable is updated.";
+    return r.reason === "batch_full" ? `Couldn't approve: ${req?.toBatchName ?? "that batch"} has no free seat. ${who} was told.` : `Declined. ${who} has been told.`;
   });
 }
 

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { display, text } from "./fonts";
 import css from "./landing.module.css";
-import { Cursor } from "./components/Cursor";
 import { Features } from "./components/Features";
 import { Film } from "./components/Film";
 import { Finale } from "./components/Finale";
@@ -10,7 +9,6 @@ import { India } from "./components/India";
 import { Learners } from "./components/Learners";
 import { Loop } from "./components/Loop";
 import { Nav } from "./components/Nav";
-import { SmoothScroll } from "./components/SmoothScroll";
 
 /**
  * The public landing page, shown at "/" to anyone who isn't signed in. It pitches both sides:
@@ -21,8 +19,6 @@ import { SmoothScroll } from "./components/SmoothScroll";
 export function LandingPage({ shelf, onSale }: { shelf: ReactNode; onSale: number }) {
   return (
     <div className={`min-h-dvh overflow-x-clip text-ink ${text.className} ${display.variable} ${css.canvas}`}>
-      <SmoothScroll />
-      <Cursor />
       <Nav />
       <main>
         <Hero />

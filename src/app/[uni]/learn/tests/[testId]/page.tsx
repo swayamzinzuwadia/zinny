@@ -5,9 +5,10 @@ import { spaceContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { whenLine } from "@/modules/assessments/components/learner-cards";
 import { StartTest } from "@/modules/assessments/components/start-button";
-import { KIND_LABEL, SHOW_ANSWERS_LABEL, fmtPercent, plural } from "@/modules/assessments/lib/labels";
+import { KIND_LABEL, LEARNER_SHOW_ANSWERS, fmtPercent, plural } from "@/modules/assessments/lib/labels";
 import { formatMinutes, formatMoment } from "@/modules/assessments/lib/time";
 import { myTest } from "@/modules/assessments/learner";
+import { sendParentsHome } from "../../view";
 
 export const metadata = { title: "Test" };
 
@@ -15,6 +16,7 @@ export const metadata = { title: "Test" };
 export default async function LearnerTest({ params }: { params: Promise<{ uni: string; testId: string }> }) {
   const { uni, testId } = await params;
   const { actor } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
   const { test: t, row, series, timezone } = await myTest(actor, testId).catch((e) => {
     if (e instanceof NotFoundError) notFound();
     throw e;
@@ -32,15 +34,18 @@ export default async function LearnerTest({ params }: { params: Promise<{ uni: s
         ? "Leaving the test (switching tab or app) submits it straight away."
         : `You may leave the test (switch tab or app) ${plural(row.tabSwitchLimit, "time")}. One more submits it.`
       : null,
-    `Answers are shown: ${SHOW_ANSWERS_LABEL[row.showAnswers].toLowerCase()}.`,
+    LEARNER_SHOW_ANSWERS[row.showAnswers],
   ].filter(Boolean) as string[];
 
   return (
     <>
-      <Link href={series ? `/${uni}/learn/tests/series/${series.id}` : `/${uni}/learn/tests`} className="text-sm text-muted">
-        {series ? series.title : "Tests"}
-      </Link>
-      <div className="mb-5 mt-2">
+      {/* The back pill above leads to Tests; a test in a series also links to its series. */}
+      {series && (
+        <Link href={`/${uni}/learn/tests/series/${series.id}`} className="mb-2 inline-block py-1 text-sm text-muted">
+          {series.title}
+        </Link>
+      )}
+      <div className="mb-5">
         <div className="text-[13px] text-muted">
           {KIND_LABEL[t.kind]} · {t.courseTitle}
         </div>

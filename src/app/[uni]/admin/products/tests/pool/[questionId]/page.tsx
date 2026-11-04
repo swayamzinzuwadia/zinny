@@ -38,10 +38,6 @@ export default async function EditQuestionPage({ params, searchParams }: { param
   return (
     <>
       <div className="mb-2 text-sm text-muted">
-        <Link href={`/${uni}/admin/products/tests`} className="hover:text-ink">
-          Tests
-        </Link>{" "}
-        /{" "}
         <Link href={poolHref} className="hover:text-ink">
           Question pool
         </Link>

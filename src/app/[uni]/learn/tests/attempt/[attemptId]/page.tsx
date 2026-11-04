@@ -3,6 +3,7 @@ import { spaceContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { paperFor } from "@/modules/assessments/attempts";
 import { TestPlayer } from "@/modules/assessments/components/test-player";
+import { sendParentsHome } from "../../../view";
 
 export const metadata = { title: "Taking a test" };
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function AttemptPage({ params }: { params: Promise<{ uni: string; attemptId: string }> }) {
   const { uni, attemptId } = await params;
   const { actor } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
   const res = await paperFor(actor, attemptId).catch((e) => {
     if (e instanceof NotFoundError) notFound();
     throw e;

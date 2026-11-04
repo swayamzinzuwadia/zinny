@@ -23,6 +23,7 @@ import {
   type Actor,
 } from "@/server/core";
 import { NotFoundError, ValidationError } from "@/server/errors";
+import { RECORDED_BATCH_LABEL } from "@/server/lib/recorded-batch";
 import { isUuid, uni } from "./internal";
 import { isDate } from "./lib/dates";
 import { coursePercent } from "./lib/kinds";
@@ -143,7 +144,10 @@ export async function markStudentComplete(actor: Actor, batchId: string, enrolme
 
 export type BatchOverview = {
   batchId: string;
+  /** "Recorded lessons" for the course's recorded batch (marketplace buyers). */
   batchName: string;
+  /** The recorded batch: no classes, placeholder dates, buyers learn at their own pace. */
+  recorded: boolean;
   batchStatus: string;
   startDate: string;
   endDate: string;
@@ -184,6 +188,7 @@ export async function progressOverview(actor: Actor, params: ReportParams = {}):
       .select({
         batchId: batches.id,
         batchName: batches.name,
+        recorded: batches.recorded,
         batchStatus: batches.status,
         startDate: batches.startDate,
         endDate: batches.endDate,
@@ -201,12 +206,13 @@ export async function progressOverview(actor: Actor, params: ReportParams = {}):
           params.courseId ? eq(batches.courseId, params.courseId) : undefined,
           params.batchId ? eq(batches.id, params.batchId) : undefined,
           params.departmentId ? eq(batches.departmentId, params.departmentId) : undefined,
-          // A date range keeps the batches that run during it.
+          // A date range keeps the batches that run during it (start on or before its end, end on
+          // or after its start), whenever they started. The recorded batch always runs.
           params.to ? sql`${batches.startDate} <= ${params.to}` : undefined,
           params.from ? sql`${batches.endDate} >= ${params.from}` : undefined,
         ),
       )
-      .orderBy(asc(courses.title), asc(batches.startDate), asc(batches.name));
+      .orderBy(asc(courses.title), asc(batches.recorded), asc(batches.startDate), asc(batches.name));
     if (rows.length === 0) return [];
 
     const batchIds = rows.map((b) => b.batchId);
@@ -241,6 +247,7 @@ export async function progressOverview(actor: Actor, params: ReportParams = {}):
       const percents = mine.map((p) => (p.status === "completed" ? 100 : coursePercent(Math.min(p.done, total), total)));
       return {
         ...b,
+        batchName: b.recorded ? RECORDED_BATCH_LABEL : b.batchName,
         students: mine.length,
         notStarted: active.filter((p) => p.started === 0).length,
         inProgress: active.filter((p) => p.started > 0).length,
@@ -274,7 +281,8 @@ export async function runProgressReport(actor: Actor, params: ReportParams): Pro
       course: r.courseTitle,
       batch: r.batchName,
       department: r.departmentName,
-      startDate: r.startDate,
+      // The recorded batch's dates are placeholders.
+      startDate: r.recorded ? null : r.startDate,
       requiredLessons: r.requiredLessons,
       students: r.students,
       notStarted: r.notStarted,

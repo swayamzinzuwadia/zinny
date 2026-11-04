@@ -121,8 +121,8 @@ export async function ToGradeCard({ uni, actor }: DashboardCardProps) {
                 className="flex items-center justify-between gap-3 rounded-2xl bg-canvas p-3.5 hover:bg-brand-soft"
               >
                 <div className="min-w-0 text-[14px]">
-                  <div className="truncate font-medium">{i.title}</div>
-                  <div className="truncate text-[13px] text-muted">
+                  <div className="font-medium">{i.title}</div>
+                  <div className="text-[13px] text-muted">
                     {i.courseTitle}, {i.batchName}. Oldest handed in {relative(i.oldest)}.
                   </div>
                 </div>

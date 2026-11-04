@@ -50,7 +50,6 @@ export default async function CertificatesPage({ params, searchParams }: { param
 
   return (
     <>
-      <div className="mb-2 text-sm text-muted">Products / Certificates</div>
       <PageHeader
         title="Certificates"
         subtitle="Your certificate templates and every certificate issued. Each course picks its template, validity and reminders on its own Certificates tab."

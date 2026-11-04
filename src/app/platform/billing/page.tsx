@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Badge, ButtonLink, Empty, PageHeader, Stat, Table, Tabs, Td } from "@/components/ui";
+import { Badge, ButtonLink, Empty, PageHeader, Stat, Tabs, Td, cx } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
-import { NoAccess } from "@/modules/zinny-team-panel/components/bits";
+import { NoAccess, PanelTable, WIDE_ONLY } from "@/modules/zinny-team-panel/components/bits";
 import { formatCount, formatDate, formatINR, formatINRShort } from "@/modules/zinny-team-panel/lib/format";
 import { listInvoices } from "@/modules/zinny-team-panel/services/billing";
 
@@ -10,7 +10,7 @@ export const metadata = { title: "Zinny invoices" };
 
 export default async function BillingPage({ searchParams }: { searchParams: Promise<{ status?: string; university?: string }> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.finance")) return <NoAccess section="Zinny billing" />;
+  if (!canPlatform(actor, "platform.finance")) return <NoAccess section="Zinny invoices" />;
   const f = await searchParams;
   const { filter, invoices, summary } = await listInvoices(actor, { status: f.status, universityId: f.university });
   const href = (s: string) => `/platform/billing?status=${s}${f.university ? `&university=${f.university}` : ""}`;
@@ -39,26 +39,37 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       {invoices.length === 0 ? (
         <Empty title="No invoices here">Issue one from New invoice.</Empty>
       ) : (
-        <Table head={["Number", "Institute", "Period", "Amount", "GST", "Total", "Due", "Status"]}>
+        <PanelTable
+          head={[
+            "Number",
+            "Institute",
+            { label: "Period", className: WIDE_ONLY },
+            { label: "Amount", className: WIDE_ONLY },
+            { label: "GST", className: WIDE_ONLY },
+            "Total",
+            "Due",
+            "Status",
+          ]}
+        >
           {invoices.map((i) => (
             <tr key={i.id} className="hover:bg-canvas/60">
-              <Td>
-                <Link href={`/platform/billing/${i.id}`} className="font-mono text-[13px] font-medium text-ink hover:text-brand">
+              <Td className="whitespace-nowrap">
+                <Link href={`/platform/billing/${i.id}`} className="tabular text-[13px] font-medium text-ink hover:text-brand">
                   {i.number}
                 </Link>
               </Td>
               <Td>{i.universityName}</Td>
-              <Td className="whitespace-nowrap text-[13px] text-muted">
+              <Td className={cx(WIDE_ONLY, "whitespace-nowrap text-[13px] text-muted")}>
                 {formatDate(i.periodStart, { year: false })} to {formatDate(i.periodEnd)}
               </Td>
-              <Td className="tabular whitespace-nowrap">{formatINR(i.basePaise)}</Td>
-              <Td className="tabular whitespace-nowrap text-muted">{formatINR(i.cgstPaise + i.sgstPaise + i.igstPaise)}</Td>
+              <Td className={cx(WIDE_ONLY, "tabular whitespace-nowrap")}>{formatINR(i.basePaise)}</Td>
+              <Td className={cx(WIDE_ONLY, "tabular whitespace-nowrap text-muted")}>{formatINR(i.cgstPaise + i.sgstPaise + i.igstPaise)}</Td>
               <Td className="tabular whitespace-nowrap font-medium">{formatINR(i.totalPaise)}</Td>
               <Td className="whitespace-nowrap">{formatDate(i.dueDate)}</Td>
               <Td>{i.status === "paid" ? <Badge tone="brand">Paid</Badge> : i.overdue ? <Badge tone="danger">Overdue</Badge> : <Badge tone="gold">Unpaid</Badge>}</Td>
             </tr>
           ))}
-        </Table>
+        </PanelTable>
       )}
     </>
   );

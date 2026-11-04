@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { SiteInfo } from "../../public";
 import { container, Monogram, SocialLinks, telHref } from "./bits";
+import { SiteMenu } from "./menu";
 
 export function SiteHeader({ site }: { site: SiteInfo }) {
   const home = `/site/${site.slug}`;
@@ -35,7 +36,7 @@ export function SiteHeader({ site }: { site: SiteInfo }) {
           )}
         </nav>
 
-        <details className="group relative lg:hidden">
+        <SiteMenu className="group relative lg:hidden">
           <summary className="flex h-10 cursor-pointer list-none items-center gap-2 rounded-full border border-[var(--site-line)] px-4 text-[14px] [&::-webkit-details-marker]:hidden">
             Menu
             <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden className="transition-transform group-open:rotate-180">
@@ -60,7 +61,7 @@ export function SiteHeader({ site }: { site: SiteInfo }) {
               </Link>
             )}
           </div>
-        </details>
+        </SiteMenu>
       </div>
     </header>
   );

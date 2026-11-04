@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { BatchSectionProps, CourseTabProps, DashboardCardProps } from "@/contracts/module";
 import { Badge, buttonClass, Card, CardTitle, cx, Empty } from "@/components/ui";
 import { attendanceHref, registerHref, startHref } from "../links";
-import { batchAttendance, courseLive, todaysClasses } from "../overview";
+import { batchAttendance, courseLive, todaysClasses, type TodayClass } from "../overview";
 import { formatTime, relativeDay, startable } from "../time";
 import { KindNote, LinkText, Pct, PctBar, StateBadge, when } from "./bits";
 import { StartClassButton } from "./client";
@@ -22,26 +22,31 @@ export async function BatchAttendanceSection({ uni, actor, batch }: BatchSection
     <Card>
       <CardTitle hint={`Minimum ${data.threshold}%`}>Attendance</CardTitle>
       <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
-        <div>
-          <div className="text-[13px] text-muted">Across {data.recordedClasses} class{data.recordedClasses === 1 ? "" : "es"}</div>
-          <div className="mt-1 text-[34px] font-semibold leading-none">
-            <Pct value={data.overall} threshold={data.threshold} />
+        {data.overall === null ? (
+          <div className="h-fit rounded-2xl bg-canvas px-4 py-4">
+            <div className="text-[14px] font-medium">No attendance yet</div>
+            <div className="mt-1 text-[13px] text-muted">Numbers appear once classes are started or joined here.</div>
           </div>
-          <div className="mt-3">
-            <PctBar value={data.overall} threshold={data.threshold} />
+        ) : (
+          <div>
+            <div className="text-[13px] text-muted">Across {data.recordedClasses} class{data.recordedClasses === 1 ? "" : "es"}</div>
+            <div className="mt-1 text-[34px] font-semibold leading-none">
+              <Pct value={data.overall} threshold={data.threshold} />
+            </div>
+            <div className="mt-3">
+              <PctBar value={data.overall} threshold={data.threshold} />
+            </div>
+            <div className="mt-3 text-[13px]">
+              {below.length ? (
+                <span className="font-medium text-gold-strong">
+                  {below.length} student{below.length === 1 ? "" : "s"} below {data.threshold}%
+                </span>
+              ) : (
+                <span className="text-muted">Everyone is at or above {data.threshold}%.</span>
+              )}
+            </div>
           </div>
-          <div className="mt-3 text-[13px]">
-            {below.length ? (
-              <span className="font-medium text-gold-strong">
-                {below.length} student{below.length === 1 ? "" : "s"} below {data.threshold}%
-              </span>
-            ) : data.recordedClasses ? (
-              <span className="text-muted">Everyone is at or above {data.threshold}%.</span>
-            ) : (
-              <span className="text-muted">Numbers appear once classes are started or joined here.</span>
-            )}
-          </div>
-        </div>
+        )}
         <div className="min-w-0">
           {today && (
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-gold-soft px-4 py-3 text-[14px]">
@@ -63,7 +68,7 @@ export async function BatchAttendanceSection({ uni, actor, batch }: BatchSection
             <ul className="divide-y divide-line">
               {recent.map((s) => (
                 <li key={s.key} className="flex items-center gap-4 py-2.5 text-[14px]">
-                  <Link href={registerHref(uni, batch.id, s.date, s.startTime)} className="min-w-0 flex-1 truncate hover:text-brand">
+                  <Link href={registerHref(uni, batch.id, s.date, s.startTime)} className="min-w-0 flex-1 hover:text-brand">
                     {relativeDay(s.date, data.today)}, {formatTime(s.startTime)}
                   </Link>
                   <span className="w-28 shrink-0">
@@ -75,7 +80,7 @@ export async function BatchAttendanceSection({ uni, actor, batch }: BatchSection
                       <span className="text-[12px] text-faint">Not recorded</span>
                     )}
                   </span>
-                  <span className="tabular w-20 shrink-0 text-right text-[13px] text-muted">
+                  <span className="tabular w-12 shrink-0 text-right text-[13px] text-muted">
                     {s.counts ? `${s.present + s.late}/${s.total}` : ""}
                   </span>
                   {s.live?.lockedAt && <Badge>Locked</Badge>}
@@ -118,14 +123,22 @@ export async function CourseLiveTab({ uni, actor, course }: CourseTabProps) {
                   {b.batch.status !== "open" && `, ${b.batch.status}`}
                 </div>
               </div>
-              <div className="text-right">
-                <Pct value={b.overall} threshold={data.threshold} className="text-[20px]" />
-                <div className="text-[12px] text-muted">{b.recordedClasses ? `${b.recordedClasses} classes recorded` : "attendance"}</div>
+              {b.overall === null ? (
+                <div className="shrink-0 text-[13px] text-muted">No attendance yet</div>
+              ) : (
+                <div className="text-right">
+                  <Pct value={b.overall} threshold={data.threshold} className="text-[20px]" />
+                  <div className="text-[12px] text-muted">
+                    {b.recordedClasses} class{b.recordedClasses === 1 ? "" : "es"} recorded
+                  </div>
+                </div>
+              )}
+            </div>
+            {b.overall !== null && (
+              <div className="mt-3">
+                <PctBar value={b.overall} threshold={data.threshold} />
               </div>
-            </div>
-            <div className="mt-3">
-              <PctBar value={b.overall} threshold={data.threshold} />
-            </div>
+            )}
             {b.below > 0 && (
               <div className="mt-2 text-[13px] font-medium text-gold-strong">
                 {b.below} below {data.threshold}%
@@ -170,6 +183,12 @@ export async function CourseLiveTab({ uni, actor, course }: CourseTabProps) {
 
 /* ─────────────── Dashboard card ─────────────── */
 
+/** Locked: read it. Has marks or joins: change them. Nothing yet: take it. */
+export function registerButton(s: TodayClass) {
+  if (s.live?.lockedAt) return "View register";
+  return s.entries.some((e) => e.row) ? "Edit attendance" : "Take attendance";
+}
+
 export async function AttendanceTodayCard({ uni, actor }: DashboardCardProps) {
   const { classes } = await todaysClasses(actor);
   return (
@@ -212,7 +231,7 @@ export async function AttendanceTodayCard({ uni, actor }: DashboardCardProps) {
                   {s.canStart && s.link && <StartClassButton action={startHref(uni, s.batchId, s.date)} startTime={s.startTime} />}
                   {s.canMark && s.state !== "upcoming" && (
                     <Link href={registerHref(uni, s.batchId, s.date, s.startTime)} className={buttonClass("secondary", "sm")}>
-                      {s.live?.lockedAt ? "View register" : "Take attendance"}
+                      {registerButton(s)}
                     </Link>
                   )}
                 </div>

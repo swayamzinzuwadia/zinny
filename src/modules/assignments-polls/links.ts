@@ -3,7 +3,8 @@ export const staffBase = (uni: string) => `/${uni}/admin/products/assignments`;
 export const learnBase = (uni: string) => `/${uni}/learn/assignments`;
 export const pollsBase = (uni: string) => `/${uni}/learn/polls`;
 
-export const staffAssignment = (uni: string, id: string, q: { batch?: string; student?: string } = {}) => {
+/** `saved` names the student whose grade was just saved, so the grading view can confirm it. */
+export const staffAssignment = (uni: string, id: string, q: { batch?: string; student?: string; saved?: string } = {}) => {
   const p = new URLSearchParams(Object.entries(q).filter(([, v]) => !!v) as [string, string][]);
   return `${staffBase(uni)}/${id}${p.size ? `?${p}` : ""}`;
 };

@@ -14,7 +14,16 @@ import { batchRoster, getBatchDetail } from "@/server/services/batches";
 import { listEnrolmentRequests } from "@/server/services/enrolment";
 import { describeSlots, expandSessions } from "@/server/services/schedule";
 import { teachersForDepartment } from "@/server/services/users";
+import { RECORDED_BATCH_LABEL } from "@/server/lib/recorded-batch";
 import { addFacultyAction, decideEnrolmentAction, overrideAction, removeFacultyAction, seatLimitAction, updateBatchAction } from "../../../actions";
+
+/** A student's place in the batch, in words; only the in-between states (paying, accepted) need attention. */
+const ROSTER_STATUS: Record<string, { label: string; tone: "brand" | "neutral" | "warn" }> = {
+  active: { label: "Active", tone: "brand" },
+  completed: { label: "Completed", tone: "neutral" },
+  held: { label: "Paying now", tone: "warn" },
+  approved: { label: "Accepted, not paid yet", tone: "warn" },
+};
 
 export default async function BatchPage({ params, searchParams }: { params: Promise<{ uni: string; id: string }>; searchParams: Promise<{ done?: string }> }) {
   const { uni, id } = await params;
@@ -34,22 +43,35 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
   const from = weekStart(today < batch.startDate ? batch.startDate : today);
   const sessions = expandSessions([schedule], from, addDays(from, 6));
   const uniform = schedule.slots.every((s) => s.startTime === schedule.slots[0]?.startTime && s.endTime === schedule.slots[0]?.endTime);
+  const day = (d: Date) => formatDate(todayIn(university.timezone, d));
+  const seatsLeft = batch.seatLimit - seatsTaken;
+  const rosterCount = (status: string) => roster.filter((r) => r.status === status).length;
+  const rosterSummary = [
+    `${rosterCount("active")} active`,
+    rosterCount("completed") ? `${rosterCount("completed")} completed` : "",
+    rosterCount("held") + rosterCount("approved") ? `${rosterCount("held") + rosterCount("approved")} not paid yet` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <>
-      <div className="mb-2 text-sm text-muted">
-        <Link href={`/${uni}/admin/products/courses/${course.id}?tab=batches`} className="hover:text-ink">
-          {course.title}
-        </Link>{" "}
-        / Batch
-      </div>
       <PageHeader
-        title={batch.name}
-        subtitle={`${describeSlots(schedule.slots)} · ${formatDate(batch.startDate)} to ${formatDate(batch.endDate)}`}
+        title={batch.recorded ? RECORDED_BATCH_LABEL : batch.name}
+        subtitle={
+          <>
+            <Link href={`/${uni}/admin/products/courses/${course.id}?tab=batches`} className="text-brand hover:underline">
+              {course.title}
+            </Link>
+            {batch.recorded ? " · marketplace buyers, at their own pace" : ` · ${describeSlots(schedule.slots)} · ${formatDate(batch.startDate)} to ${formatDate(batch.endDate)}`}
+          </>
+        }
         actions={
-          <Badge tone={seatsTaken >= batch.seatLimit ? "danger" : "brand"}>
-            {seatsTaken >= batch.seatLimit ? "Full" : `${batch.seatLimit - seatsTaken} seats left`} · {seatsTaken}/{batch.seatLimit}
-          </Badge>
+          batch.recorded ? undefined : (
+            <Badge tone={seatsLeft <= 0 ? "danger" : "brand"}>
+              {seatsLeft <= 0 ? "Full" : `${seatsLeft} ${seatsLeft === 1 ? "seat" : "seats"} left`} · {seatsTaken}/{batch.seatLimit} taken
+            </Badge>
+          )
         }
       />
 
@@ -102,7 +124,10 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
 
           {canRoster && (
             <div>
-              <h2 className="mb-3 text-[17px] font-semibold">Students</h2>
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-[17px] font-semibold">Students</h2>
+                {roster.length > 0 && <span className="text-[13px] text-muted">{rosterSummary}</span>}
+              </div>
               {roster.length === 0 ? (
                 <Empty title="No students yet" />
               ) : (
@@ -112,11 +137,9 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
                       <Td className="font-medium">{r.name}</Td>
                       <Td className="text-muted">{r.email}</Td>
                       <Td>
-                        <Badge tone={r.status === "active" ? "brand" : "warn"}>
-                          {r.status === "held" ? "Paying now" : r.status === "approved" ? "Accepted, not paid yet" : r.status}
-                        </Badge>
+                        <Badge tone={ROSTER_STATUS[r.status]?.tone ?? "neutral"}>{ROSTER_STATUS[r.status]?.label ?? r.status}</Badge>
                       </Td>
-                      <Td className="text-muted">{r.enrolledAt ? r.enrolledAt.toLocaleDateString("en-IN") : "—"}</Td>
+                      <Td className="whitespace-nowrap text-muted">{r.enrolledAt ? day(r.enrolledAt) : "—"}</Td>
                     </tr>
                   ))}
                 </Table>
@@ -133,9 +156,9 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
                 <li key={f.userId} className="flex items-center justify-between py-2 text-sm">
                   <span>
                     <span className="font-medium">{f.name}</span>{" "}
-                    <span className="text-faint">
+                    <span className="text-muted">
                       {ROLE_LABELS[f.role]}
-                      {f.endsAt && ` · until ${f.endsAt.toLocaleDateString("en-IN")}`}
+                      {f.endsAt && ` · until ${day(f.endsAt)}`}
                     </span>
                   </span>
                   {canStaff && faculty.length > 1 && (
@@ -167,7 +190,7 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
                 </Select>
                 <input type="hidden" name="role" value="permanent_faculty" />
                 <SubmitButton size="sm" variant="secondary">
-                  Add
+                  Add faculty
                 </SubmitButton>
               </ActionForm>
             )}
@@ -191,10 +214,10 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
                     <Input type="date" name="date" required />
                   </Field>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <Field label="Moved to">
-                    <Input type="date" name="newDate" />
-                  </Field>
+                <Field label="Moved to" hint="For a moved class.">
+                  <Input type="date" name="newDate" />
+                </Field>
+                <div className="grid grid-cols-2 gap-3">
                   <Field label="From">
                     <Input type="time" name="startTime" />
                   </Field>
@@ -267,7 +290,7 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
                     <span className="block text-muted">Students ask for a seat, and you accept or decline.</span>
                   </span>
                 </label>
-                <SubmitButton>Save</SubmitButton>
+                <SubmitButton>Save batch details</SubmitButton>
               </ActionForm>
             </Card>
           )}

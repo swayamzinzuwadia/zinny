@@ -31,6 +31,8 @@ export function learnSections(base: string, view: LearnView, canShop: boolean): 
     ],
     more: [
       { href: `${base}/assignments`, label: "Assignments" },
+      { href: `${base}/tests`, label: "Tests" },
+      { href: `${base}/polls`, label: "Polls" },
       { href: `${base}/leaderboard`, label: "Leaderboard" },
       { href: `${base}/certificates`, label: "Certificates" },
       ...(canShop
@@ -55,7 +57,7 @@ export const LEARN_PARENTS: TrailParent[] = [
   { prefix: "/leaderboard", href: "/leaderboard", label: "Leaderboard" },
   { prefix: "/certificates", href: "/certificates", label: "Certificates" },
   { prefix: "/invoices", href: "/invoices", label: "Invoices" },
-  { prefix: "/polls", href: "", label: "Today" },
+  { prefix: "/polls", href: "/polls", label: "Polls" },
   { prefix: "/settings", href: "", label: "Today" },
   { prefix: "/join", href: "/timetable", label: "Timetable" },
 ];
@@ -69,6 +71,8 @@ function useActive(base: string) {
 export function LearnTabs({ base, view, canShop, className }: { base: string; view: LearnView; canShop: boolean; className?: string }) {
   const active = useActive(base);
   const { primary, more } = learnSections(base, view, canShop);
+  // A single tab (a parent's Home) is no navigation: the logo already leads home.
+  if (primary.length + more.length < 2) return null;
   return (
     <nav aria-label="Learner app" className={cx("min-w-0", className)}>
       <ul className="-mx-1 flex gap-1 overflow-x-auto px-1 [scrollbar-width:none]">
@@ -108,6 +112,7 @@ const ICONS: Record<string, React.ReactNode> = {
 export function LearnBottomBar({ base, view, canShop }: { base: string; view: LearnView; canShop: boolean }) {
   const active = useActive(base);
   const { primary } = learnSections(base, view, canShop);
+  if (primary.length < 2) return null;
   return (
     <nav
       data-learn-chrome

@@ -41,8 +41,15 @@ describe("roles and permissions page data", () => {
     const abilities = can("visiting_faculty", "products");
     expect(abilities).toContain("Grade tests");
     expect(abilities).not.toContain("Create and edit courses");
-    expect(section("visiting_faculty", "community").access).toBeNull();
-    expect(can("permanent_faculty", "community")).toContain("Manage the community");
+  });
+
+  it("leaves parts of the panel that aren't built yet out of the grid", () => {
+    for (const r of roleSummaries()) {
+      expect(r.sections.map((s) => s.key)).not.toContain("marketing");
+      expect(r.sections.map((s) => s.key)).not.toContain("community");
+      const rows = r.sections.flatMap((s) => s.abilities.flatMap((a) => a.rows));
+      for (const row of ["Programs", "Activity log", "Marketing", "Community"]) expect(rows, `${r.key} / ${row}`).not.toContain(row);
+    }
   });
 
   it("says where each ability sits in the permission grid", () => {

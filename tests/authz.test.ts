@@ -40,7 +40,8 @@ describe("PRD page 3: who sees what in the admin menu", () => {
 
   it("Institute Admin sees everything, in full", () => {
     const m = sections(admin);
-    expect(Object.keys(m)).toHaveLength(11);
+    // Marketing and Community aren't built yet, so they have no menu entry.
+    expect(Object.keys(m)).toHaveLength(9);
     expect(new Set(Object.values(m))).toEqual(new Set(["full"]));
   });
   it("Marketplace goes to whoever edits courses: admin and HOD, not faculty or the board", () => {
@@ -58,17 +59,18 @@ describe("PRD page 3: who sees what in the admin menu", () => {
   });
   it("HOD: own department, no finance, website or settings", () => {
     const m = sections(hodCS);
-    expect(m).toMatchObject({ products: "dept", users: "dept", leaderboards: "dept", community: "dept", insights: "dept" });
+    expect(m).toMatchObject({ products: "dept", users: "dept", leaderboards: "dept", insights: "dept" });
     expect(m.finance).toBeUndefined();
     expect(m.website).toBeUndefined();
     expect(m.settings).toBeUndefined();
   });
-  it("Permanent faculty: own batches, own students, leaderboard view, community", () => {
-    expect(sections(facultyB1)).toMatchObject({ products: "batches", users: "students", leaderboards: "view", community: "full" });
+  it("Permanent faculty: own batches and leaderboard view; their students are on their batch pages", () => {
+    expect(sections(facultyB1)).toMatchObject({ products: "batches", leaderboards: "view" });
+    expect(sections(facultyB1).users).toBeUndefined();
   });
-  it("Visiting faculty: only products and users", () => {
+  it("Visiting faculty: only products", () => {
     const m = sections(actor({ role: "visiting_faculty", scopeType: "batch", batchId: "b1" }));
-    expect(Object.keys(m).sort()).toEqual(["dashboard", "products", "users"]);
+    expect(Object.keys(m).sort()).toEqual(["dashboard", "products"]);
   });
   it("Students don't get the admin panel at all", () => {
     expect(menuFor(student, U)).toHaveLength(0);
@@ -82,8 +84,18 @@ describe("PRD page 3: who sees what in the admin menu", () => {
   const items = (a: Actor, key: string) => (menuFor(a, U).find((s) => s.key === key)?.items ?? []).map((i) => i.href);
   it("Products lists assignments, learning progress and certificates", () => {
     for (const a of [admin, board, hodCS, facultyB1]) {
-      expect(items(a, "products")).toEqual(expect.arrayContaining(["/products/assignments", "/products/content", "/products/certificates"]));
+      expect(items(a, "products")).toEqual(expect.arrayContaining(["/products/assignments", "/products/content"]));
     }
+    for (const a of [admin, board, hodCS]) expect(items(a, "products")).toContain("/products/certificates");
+  });
+  it("Faculty don't get the Certificates page: they can't issue certificates or change templates", () => {
+    expect(items(facultyB1, "products")).not.toContain("/products/certificates");
+    expect(items(actor({ role: "visiting_faculty", scopeType: "batch", batchId: "b1" }), "products")).not.toContain("/products/certificates");
+  });
+  it("No menu item leads to a page that isn't built", () => {
+    const hrefs = menuFor(admin, U).flatMap((s) => s.items.map((i) => i.href));
+    for (const gone of ["/products/categories", "/products/more", "/marketing", "/community"]) expect(hrefs).not.toContain(gone);
+    expect(menuFor(admin, U).find((s) => s.key === "leaderboards")?.label).toBe("Leaderboard");
   });
   it("Invitations: Institute Admin and HOD, not Board or faculty", () => {
     expect(items(admin, "users")).toContain("/users/invites");
@@ -98,8 +110,8 @@ describe("PRD page 3: who sees what in the admin menu", () => {
     expect(items(admin, "finance")).toContain("/finance/reports");
     expect(items(board, "insights")).not.toContain("/finance/reports");
   });
-  it("Settings lists Notifications for the Institute Admin", () => {
-    expect(items(admin, "settings")).toContain("/settings/notifications");
+  it("Settings lists the settings hub and Notifications for the Institute Admin", () => {
+    expect(items(admin, "settings")).toEqual(["/settings", "/settings/notifications"]);
   });
 });
 

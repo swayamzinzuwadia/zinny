@@ -8,6 +8,8 @@ import { SalesStatusBadge } from "@/modules/payments/components/status-badge";
 import { inr } from "@/modules/payments/money";
 import { invoiceDate } from "@/modules/payments/pdf/invoice-pdf";
 import { SALES_STATUSES, STATUS_LABEL, orderDetail, parseFilters, salesOverview, type SalesFilters } from "@/modules/payments/sales";
+import { batchLabel } from "@/server/lib/recorded-batch";
+import { OrderPanelFrame, OrderRow } from "./order-row";
 
 export const metadata = { title: "Sales" };
 export const dynamic = "force-dynamic";
@@ -104,7 +106,7 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
                 <optgroup key={c.id} label={c.title}>
                   {bs.map((b) => (
                     <option key={b.id} value={b.id}>
-                      {b.name}
+                      {c.title} · {batchLabel(b)}
                     </option>
                   ))}
                 </optgroup>
@@ -128,16 +130,16 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
       </form>
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Gross collected" value={inr(t.grossPaise)} hint={`${t.paidOrders} paid ${t.paidOrders === 1 ? "order" : "orders"}`} />
-        <Stat label="GST" value={inr(t.gstPaise)} hint="On gross sales" />
+        <Stat label="Gross collected" value={inr(t.grossPaise)} hint={`Including GST, ${t.paidOrders} paid ${t.paidOrders === 1 ? "order" : "orders"}`} />
+        <Stat label="GST" value={inr(t.gstPaise)} hint="Part of gross collected" />
         <Stat label="Refunds" value={inr(t.refundsPaise)} hint="Sent back to students" />
-        <Stat label="Net" value={inr(t.netPaise)} hint="Gross minus refunds" />
+        <Stat label="After refunds" value={inr(t.netPaise)} hint="Gross minus refunds, including GST" />
       </div>
 
       {t.refundDue > 0 && f.status !== "refund_due" && (
         <div className="mb-6">
           <Notice tone="gold">
-            {t.refundDue === 1 ? "One student" : `${t.refundDue} students`} paid after their batch filled up and {t.refundDue === 1 ? "needs" : "need"} a refund.{" "}
+            {t.refundDue === 1 ? "One order needs" : `${t.refundDue} orders need`} a full refund: the student paid for a seat they can&apos;t use.{" "}
             <Link href={`${base}${query({ ...f, status: "refund_due" })}`} className="font-medium underline underline-offset-2">
               Show them
             </Link>
@@ -148,9 +150,9 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
       <div className={cx("grid gap-6", detail && "xl:grid-cols-[minmax(0,1fr)_400px]")}>
         {detail && (
           <div className="xl:order-2">
-            <div className="xl:sticky xl:top-6">
+            <OrderPanelFrame orderId={detail.order.id}>
               <OrderPanel uni={uni} d={detail} closeHref={`${base}${query(f, { page: pageQ })}`} />
-            </div>
+            </OrderPanelFrame>
           </div>
         )}
         <div className="min-w-0 xl:order-1">
@@ -167,7 +169,7 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
                 {data.rows.map((r) => {
                   const href = `${base}${query(f, { page: pageQ, order: r.id })}`;
                   return (
-                    <tr key={r.id} className={cx("hover:bg-canvas/60", r.id === selected && "bg-brand-soft/50")}>
+                    <OrderRow key={r.id} selected={r.id === selected}>
                       <Td>
                         <Link href={href} scroll={false} className="font-medium hover:text-brand">
                           {r.studentName}
@@ -176,7 +178,7 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
                       </Td>
                       <Td>
                         <div>{r.course}</div>
-                        <div className="text-[13px] text-muted">{r.batch}</div>
+                        <div className="text-[13px] text-muted">{batchLabel({ name: r.batch, recorded: r.batchRecorded })}</div>
                       </Td>
                       <Td className="whitespace-nowrap text-muted">{invoiceDate(r.day)}</Td>
                       <Td className="whitespace-nowrap">
@@ -187,7 +189,7 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
                         <SalesStatusBadge status={r.display} />
                         {r.invoiceNumber && <div className="mt-1 font-mono text-[12px] text-muted">{r.invoiceNumber}</div>}
                       </Td>
-                    </tr>
+                    </OrderRow>
                   );
                 })}
               </Table>
@@ -216,7 +218,7 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
         </div>
       </div>
       {!detail && data.rows.length > 0 && (
-        <Card className="mt-6 p-4 text-[13px] text-muted">Select a student to see the payment ids, the GST invoice and refunds{data.can.refund ? ", and to send a refund" : ""}.</Card>
+        <Card className="mt-6 p-4 text-[13px] text-muted">Select an order to see the payment ids, the GST invoice and refunds{data.can.refund ? ", and to send a refund" : ""}.</Card>
       )}
     </>
   );

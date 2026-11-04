@@ -100,12 +100,16 @@ export async function gradeAction(_: ActionState, data: FormData): Promise<Actio
   const { uni, actor } = await ctx(data);
   const assignmentId = str(data, "assignmentId");
   const batchId = str(data, "batchId");
+  const studentId = str(data, "studentId");
   const next = str(data, "next");
+  // Opened from the queue (pinned): stay with this student. Otherwise move on to the next
+  // piece of work waiting, or to "all graded" when there is none.
+  const pinned = data.get("pinned") === "1";
   let saved = false;
   const res = await attempt(async () => {
     await gradeSubmission(actor, {
       assignmentId,
-      studentId: str(data, "studentId"),
+      studentId,
       marks: str(data, "marks"),
       feedback: String(data.get("feedback") ?? ""),
       returnedFileIds: all(data, "fileIds"),
@@ -116,7 +120,8 @@ export async function gradeAction(_: ActionState, data: FormData): Promise<Actio
   });
   if (saved) {
     revalidatePath(staffBase(uni), "layout");
-    if (next) redirect(staffAssignment(uni, assignmentId, { batch: batchId, student: next }));
+    // The view changes student after a save, so the confirmation travels in the address.
+    redirect(staffAssignment(uni, assignmentId, { batch: batchId, student: next || (pinned ? studentId : undefined), saved: studentId }));
   }
   return res;
 }

@@ -46,7 +46,7 @@ export async function XpHomeCard({ uni, actor }: HomeCardProps) {
     <Card>
       <CardTitle
         hint={
-          <Link href={`/${uni}/learn/leaderboard`} className="font-medium text-brand hover:underline">
+          <Link href={`/${uni}/learn/leaderboard`} className="inline-block py-1.5 font-medium text-brand hover:underline">
             Open leaderboard
           </Link>
         }
@@ -80,7 +80,7 @@ export async function XpHubSection({ uni, actor }: HubSectionProps) {
     <Card>
       <CardTitle
         hint={
-          <Link href={`/${uni}/learn/leaderboard`} className="font-medium text-brand hover:underline">
+          <Link href={`/${uni}/learn/leaderboard`} className="inline-block py-1.5 font-medium text-brand hover:underline">
             See all
           </Link>
         }
@@ -93,10 +93,10 @@ export async function XpHubSection({ uni, actor }: HubSectionProps) {
           <div className="mt-1 text-[13px] text-muted">XP in all, +{s.week.toLocaleString("en-IN")} this week</div>
         </div>
         {s.ranks.length > 0 && (
-          <ul className="space-y-2">
+          <ul className="space-y-0.5">
             {s.ranks.map((r) => (
               <li key={r.enrolmentId}>
-                <Link href={`/${uni}/learn/my/${r.enrolmentId}?tab=leaderboard`} className="group flex items-center justify-between gap-3 text-[14px]">
+                <Link href={`/${uni}/learn/my/${r.enrolmentId}?tab=leaderboard`} className="group flex items-center justify-between gap-3 py-1 text-[14px]">
                   <span className="min-w-0 truncate group-hover:text-brand">
                     {r.title}, <span className="text-muted">{r.subtitle}</span>
                   </span>

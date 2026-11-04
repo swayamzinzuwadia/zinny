@@ -99,7 +99,7 @@ export default async function Cart() {
                   </div>
                 </dl>
                 <ActionForm action={checkoutCartAction} resetOnSuccess={false} className="mt-5 space-y-3">
-                  <Input name="code" placeholder="Discount code" aria-label="Discount code" maxLength={24} autoComplete="off" className="uppercase" />
+                  <Input name="code" placeholder="Discount code" aria-label="Discount code" maxLength={24} autoComplete="off" className="uppercase placeholder:normal-case" />
                   <SubmitButton pendingText="Getting checkout ready…">Check out</SubmitButton>
                 </ActionForm>
                 <p className="mt-4 text-[13px] leading-relaxed text-muted">A code takes effect on the recordings it was made for. The final amount shows at checkout, before you pay.</p>

@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { Empty } from "@/components/ui";
 import { can } from "@/server/core";
 import { spaceContext } from "@/server/context";
 import { PollCard } from "@/modules/assignments-polls/components/learner-bits";
-import { learnBase } from "@/modules/assignments-polls/links";
 import { myPolls } from "@/modules/assignments-polls/service/polls";
+import { sendParentsHome } from "../view";
 
 export const metadata = { title: "Polls" };
 
@@ -12,6 +11,7 @@ export const metadata = { title: "Polls" };
 export default async function PollsPage({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
   const { actor, university } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
   if (!can(actor, "self.vote", { universityId: university.id, ownerUserId: actor.userId })) {
     return <Empty title="Polls are for current students" />;
   }
@@ -24,10 +24,7 @@ export default async function PollsPage({ params }: { params: Promise<{ uni: str
 
   return (
     <>
-      <Link href={learnBase(uni)} className="text-sm text-muted">
-        Assignments
-      </Link>
-      <h1 className="mb-5 mt-2 text-[26px] font-semibold tracking-tight">Polls</h1>
+      <h1 className="mb-5 text-[26px] font-semibold tracking-tight">Polls</h1>
       {sections.length === 0 ? (
         <Empty title="No polls yet">When a teacher asks your batch a question, you vote here.</Empty>
       ) : (

@@ -2,10 +2,11 @@ import { ActionForm, SubmitButton } from "@/components/forms";
 import { Avatar, Badge, ButtonLink, Card, CardTitle, Field, Input, PageHeader, Select } from "@/components/ui";
 import { platformContext } from "@/server/context";
 import { customRoleChoices } from "@/server/core";
-import { addRoleAction, inviteMemberAction, removeRoleAction } from "@/modules/zinny-team-panel/actions";
+import { inviteMemberAction, removeRoleAction } from "@/modules/zinny-team-panel/actions";
+import { AddRoleForm } from "@/modules/zinny-team-panel/components/add-role-form";
 import { NoAccess } from "@/modules/zinny-team-panel/components/bits";
 import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
-import { PLATFORM_ROLE_HINTS, PLATFORM_ROLE_LABELS, PLATFORM_ROLES } from "@/modules/zinny-team-panel/lib/constants";
+import { ASSIGNABLE_PLATFORM_ROLES, PLATFORM_ROLE_HINTS, PLATFORM_ROLE_LABELS } from "@/modules/zinny-team-panel/lib/constants";
 import { formatDate } from "@/modules/zinny-team-panel/lib/format";
 import { listTeam } from "@/modules/zinny-team-panel/services/team";
 
@@ -20,18 +21,22 @@ export default async function TeamPage() {
     <>
       <PageHeader
         title="Team and roles"
-        subtitle="The Zinny team and what each person can open. Roles take effect on their next page load."
+        subtitle="The Zinny team and what each person can open. Role changes apply straight away."
         actions={
           <ButtonLink href="/platform/team/roles" variant="secondary">
-            Roles & permissions
+            <span className="whitespace-nowrap">Roles & permissions</span>
           </ButtonLink>
         }
       />
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="min-w-0 space-y-3">
           {team.map((m) => {
-            const missing = PLATFORM_ROLES.filter((r) => !m.roles.some((x) => x.role === r));
+            const missing = ASSIGNABLE_PLATFORM_ROLES.filter((r) => !m.roles.some((x) => x.role === r));
             const missingCustom = custom.filter((c) => !m.roles.some((x) => x.customRoleId === c.id));
+            const choices = [
+              ...missing.map((r) => ({ value: r as string, label: PLATFORM_ROLE_LABELS[r] })),
+              ...missingCustom.map((c) => ({ value: `custom:${c.id}`, label: c.name })),
+            ];
             return (
               <Card key={m.userId} className="p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -45,25 +50,9 @@ export default async function TeamPage() {
                     </div>
                     {m.invited && <Badge tone="gold">Invite not accepted yet</Badge>}
                   </div>
-                  {missing.length + missingCustom.length > 0 && (
-                    <ActionForm action={addRoleAction} className="flex gap-2">
-                      <input type="hidden" name="userId" value={m.userId} />
-                      <Select name="role" aria-label={`Role to give ${m.name}`} className="h-8 w-44 text-[13px]">
-                        {missing.map((r) => (
-                          <option key={r} value={r}>
-                            {PLATFORM_ROLE_LABELS[r]}
-                          </option>
-                        ))}
-                        {missingCustom.map((c) => (
-                          <option key={c.id} value={`custom:${c.id}`}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </Select>
-                      <SubmitButton size="sm" variant="secondary">
-                        Add role
-                      </SubmitButton>
-                    </ActionForm>
+                  {choices.length > 0 && (
+                    // Keyed by what's left to give, so it starts on "Pick a role" again after adding one.
+                    <AddRoleForm key={choices.map((c) => c.value).join()} userId={m.userId} name={m.name} choices={choices} />
                   )}
                 </div>
                 <ul className="mt-3 flex flex-wrap gap-2">
@@ -103,7 +92,7 @@ export default async function TeamPage() {
               </Field>
               <Field label="Role">
                 <Select name="role" defaultValue="support_agent">
-                  {PLATFORM_ROLES.map((r) => (
+                  {ASSIGNABLE_PLATFORM_ROLES.map((r) => (
                     <option key={r} value={r}>
                       {PLATFORM_ROLE_LABELS[r]}
                     </option>
@@ -121,7 +110,7 @@ export default async function TeamPage() {
           <Card className="h-fit">
             <CardTitle>What each role opens</CardTitle>
             <dl className="space-y-2 text-[13px]">
-              {PLATFORM_ROLES.map((r) => (
+              {ASSIGNABLE_PLATFORM_ROLES.map((r) => (
                 <div key={r}>
                   <dt className="font-medium">{PLATFORM_ROLE_LABELS[r]}</dt>
                   <dd className="text-muted">{PLATFORM_ROLE_HINTS[r]}</dd>

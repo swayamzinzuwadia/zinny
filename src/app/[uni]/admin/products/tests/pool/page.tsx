@@ -35,12 +35,6 @@ export default async function PoolPage({ params, searchParams }: { params: Promi
 
   return (
     <>
-      <div className="mb-2 text-sm text-muted">
-        <Link href={`/${uni}/admin/products/tests`} className="hover:text-ink">
-          Tests
-        </Link>{" "}
-        / Question pool
-      </div>
       <PageHeader
         title="Question pool"
         subtitle="Every question lives here and is pulled into tests and quizzes. Each department has its own pool."

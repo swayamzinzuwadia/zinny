@@ -13,10 +13,15 @@ import { myLearning } from "@/server/services/enrolment";
 import { myNotifications } from "@/server/services/notifications";
 import { myChildren, studentTimetable } from "@/server/services/timetable";
 import { DayAgenda } from "./day-agenda";
+import { firstName } from "@/server/lib/names";
 
 export const metadata = { title: "Today" };
 
-const COURSE_DOT = ["bg-brand", "bg-gold", "bg-[#2f4a72]", "bg-[#7a3d66]"];
+/** The timetable's course colours (src/components/week-view.tsx), as dots. No gold: it marks "now". */
+const COURSE_DOT = ["bg-brand", "bg-[#2f4a72]", "bg-[#7a3d66]", "bg-[#7a4a2d]"];
+
+/** Home cards from this order on come after the student's own learning (the marketplace). */
+const LATER_CARDS_FROM = 900;
 
 function startsIn(mins: number) {
   if (mins < 60) return `in ${mins} min`;
@@ -30,7 +35,7 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
   const { actor, university } = await spaceContext(uni);
   if (!hasRole(actor, ["student", "alumni", "parent"])) redirect("/marketplace/library");
   const isStudent = hasRole(actor, ["student", "alumni"]);
-  const first = actor.name.split(" ")[0];
+  const first = firstName(actor.name);
   const nowMin = minutesNowIn(university.timezone);
 
   if (!isStudent) {
@@ -61,14 +66,10 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
     myNotifications(actor, 4),
   ]);
   const active = learning.filter((l) => l.status === "active");
-  const held = learning.filter((l) => l.status === "held");
-  const colorOf = (courseId: string) =>
-    COURSE_DOT[
-      Math.max(
-        0,
-        active.findIndex((l) => l.course.id === courseId),
-      ) % COURSE_DOT.length
-    ];
+  // Same order as the timetable (this week's courses as they come), then the rest.
+  const courseOrder = [...new Set([...week.sessions.map((s) => s.courseId), ...active.map((l) => l.course.id)])];
+  const colorOf = (courseId: string) => COURSE_DOT[Math.max(0, courseOrder.indexOf(courseId)) % COURSE_DOT.length];
+  const cards = visibleSlots("learnerHomeCards", actor, { universityId: university.id, ownerUserId: actor.userId });
 
   const next = ahead.sessions.find((s) => s.date > today || toMinutes(s.endTime) > nowMin);
   const isLive = next && next.date === today && toMinutes(next.startTime) <= nowMin;
@@ -120,7 +121,7 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
                 ) : null}
                 <Link
                   href={`/${uni}/learn/timetable`}
-                  className={cx("text-[14px] underline-offset-4 hover:underline", isLive ? "text-brand-deep" : "text-canvas/80")}
+                  className={cx("inline-block py-1 text-[14px] underline-offset-4 hover:underline", isLive ? "text-brand-deep" : "text-canvas/80")}
                 >
                   See the full timetable
                 </Link>
@@ -136,20 +137,6 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
           )}
         </div>
       </section>
-
-      {held.map((h) => (
-        <div
-          key={h.enrolmentId}
-          className="flex flex-wrap items-center justify-between gap-3 rounded-[22px] bg-gold-soft px-5 py-4 text-[14px]"
-        >
-          <span className="text-ink">
-            Your seat in {h.course.title}, {h.batch.name} is held for a few more minutes.
-          </span>
-          <Link className={buttonClass("primary", "sm")} href={`/${uni}/learn/courses/${h.course.id}`}>
-            Finish enrolling
-          </Link>
-        </div>
-      ))}
 
       {/* This week: tap a day to see its classes */}
       <DayAgenda
@@ -180,14 +167,14 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
       <SlotList
         slot="learnerHomeCards"
         className="grid gap-6 lg:grid-cols-2"
-        entries={visibleSlots("learnerHomeCards", actor, { universityId: university.id, ownerUserId: actor.userId })}
+        entries={cards.filter((c) => c.order < LATER_CARDS_FROM)}
         props={{ uni, actor, university, today }}
       />
 
       <section>
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-[17px] font-medium">My courses</h2>
-          <Link href={`/${uni}/learn/courses`} className="text-[13px] text-brand">
+          <Link href={`/${uni}/learn/courses`} className="inline-block py-1 text-[13px] text-brand">
             Browse courses
           </Link>
         </div>
@@ -214,6 +201,13 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
           </div>
         )}
       </section>
+
+      <SlotList
+        slot="learnerHomeCards"
+        className="grid gap-6 lg:grid-cols-2"
+        entries={cards.filter((c) => c.order >= LATER_CARDS_FROM)}
+        props={{ uni, actor, university, today }}
+      />
     </div>
   );
 }

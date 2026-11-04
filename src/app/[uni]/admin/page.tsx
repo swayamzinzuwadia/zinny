@@ -14,6 +14,7 @@ import { canAdmit, getJoinSettings, listJoinRequests } from "@/modules/identity/
 import { InviteStrip } from "@/modules/identity/components/invite-strip";
 import { decideEnrolmentAction } from "./actions";
 import { formatINR } from "@/server/services/finance";
+import { firstName } from "@/server/lib/names";
 
 export const metadata = { title: "Dashboard" };
 
@@ -60,20 +61,29 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
         ? "1 batch needs faculty soon"
         : `${data.expiring.length} batches need faculty soon`
       : "",
-    data.money?.refundsDue ? `${data.money.refundsDue} refund${data.money.refundsDue === 1 ? "" : "s"} due` : "",
   ].filter(Boolean);
 
   // Only people who can open batches are told a batch is filling up.
   const fillingFast = data.canDecideSwitches ? data.seats.filter((s) => s.fill >= 0.8 && s.fill < 1) : [];
-  const refunds = data.money?.refundsDue ?? 0;
+  // Refunds show once, in "Needs you", and only to people who can send them (not the Board).
+  const canRefund = can(actor, "finance.refund", { universityId: university.id });
+  const refunds = canRefund ? (data.money?.refundsDue ?? 0) : 0;
+  const refundReasons = new Set(data.money?.refundReasons ?? []);
+  const refundWhy =
+    refundReasons.size !== 1
+      ? "Students paid for a seat they can't use. Refund them in full."
+      : refundReasons.has("paid_twice")
+        ? `Paid twice for the same course: ${refunds === 1 ? "the student already has" : "each student already has"} a seat. Refund in full.`
+        : "Paid after the seat hold ran out and the batch had filled. Refund in full.";
   const needsCount = requests.length + enrolRequests.length + joinRequests.length + data.expiring.length + fillingFast.length + refunds;
   // Kept while it shows a confirmation, e.g. for faculty who just answered their last request.
-  const showNeeds = data.canDecideSwitches || !!data.money || enrolRequests.length > 0 || joinRequests.length > 0 || !!done;
+  const showNeeds = data.canDecideSwitches || canRefund || enrolRequests.length > 0 || joinRequests.length > 0 || !!done;
   const avgOrder = data.money && data.money.monthOrders ? Math.round(data.money.monthPaise / data.money.monthOrders / 100) * 100 : 0;
+  const seatsFilled = Math.round((data.seats.reduce((n, s) => n + s.taken, 0) / Math.max(1, data.seats.reduce((n, s) => n + s.limit, 0))) * 100);
 
   return (
     <div className="space-y-6">
-      <TodayBoard data={data} firstName={actor.name.split(" ")[0]} base={base} summary={summary} />
+      <TodayBoard data={data} firstName={firstName(actor.name)} base={base} summary={summary} />
       {joining && (
         <InviteStrip uni={uni} institute={university.name} code={joining.code} mode={joining.mode} canManage={can(actor, "settings.manage", { universityId: university.id })} />
       )}
@@ -101,7 +111,8 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
                 </div>
               )}
               {enrolRequests.length > 0 && <EnrolmentRequests requests={enrolRequests} uni={uni} action={decideEnrolmentAction} back={base} />}
-              {requests.length > 0 && <SwitchRequests uni={uni} requests={requests} bare />}
+              {/* Kept on the page with an empty list, so its "moved to …" confirmation stays after the last request is answered. */}
+              {data.canDecideSwitches && <SwitchRequests uni={uni} requests={requests} bare />}
               {data.expiring.map((e) => (
                 <div key={e.batchId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-gold-soft p-4">
                   <div className="text-[14px]">
@@ -139,9 +150,9 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
                     <div className="font-medium text-ink">
                       {refunds} refund{refunds === 1 ? "" : "s"} to process
                     </div>
-                    <div className="text-danger">Paid after the seat hold ran out and the batch had filled.</div>
+                    <div className="text-danger">{refundWhy}</div>
                   </div>
-                  <Link href={`${base}/finance/sales`} className="text-[13px] font-medium text-brand hover:underline">
+                  <Link href={`${base}/finance/sales?status=refund_due`} className="text-[13px] font-medium text-brand hover:underline">
                     Open sales
                   </Link>
                 </div>
@@ -153,15 +164,15 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
         <div className={cx("grid grid-cols-2 gap-4 self-start", !showNeeds && "xl:grid-cols-4")}>
           {!data.canSeeBatches && data.money ? (
             <>
+              <Stat label="Collected this month" value={formatINR(data.money.monthPaise)} hint="Including GST" />
               <Stat label="Paid orders this month" value={data.money.monthOrders} />
               <Stat label="Average order" value={formatINR(avgOrder)} hint="Including GST" />
               <Stat label="Payments in progress" value={data.money.pending} hint="Seats held while students pay" />
-              <Stat label="Refunds due" value={refunds} hint={refunds ? "Paid after the batch filled" : "All clear"} />
             </>
           ) : (
             <>
               <Stat
-                label="Active students"
+                label="Enrolled students"
                 value={data.students}
                 hint={data.thisWeek ? `${data.thisWeek} joined this week` : "No new joins this week"}
               />
@@ -171,29 +182,14 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
                   <Stat
                     label="Collected this month"
                     value={formatINR(data.money.monthPaise)}
-                    hint={`${data.money.monthOrders} paid orders`}
+                    hint={`Including GST, ${data.money.monthOrders} paid order${data.money.monthOrders === 1 ? "" : "s"}`}
                   />
-                  <Stat
-                    label="Refunds due"
-                    value={data.money.refundsDue}
-                    hint={data.money.refundsDue ? "Paid after the batch filled" : "All clear"}
-                  />
+                  <Stat label="Seats filled" value={`${seatsFilled}%`} hint="Across your open batches" />
                 </>
               ) : (
                 <>
                   <Stat label="Classes today" value={data.board.length} hint={live ? `Live: ${live.courseTitle}` : undefined} />
-                  <Stat
-                    label="Seats filled"
-                    value={`${Math.round(
-                      (data.seats.reduce((n, s) => n + s.taken, 0) /
-                        Math.max(
-                          1,
-                          data.seats.reduce((n, s) => n + s.limit, 0),
-                        )) *
-                        100,
-                    )}%`}
-                    hint="Across your open batches"
-                  />
+                  <Stat label="Seats filled" value={`${seatsFilled}%`} hint="Across your open batches" />
                 </>
               )}
             </>

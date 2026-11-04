@@ -70,7 +70,8 @@ export function TodayBoard({
 
       {data.canSeeBatches ? (
         <div className="relative mt-8 overflow-x-auto px-7 pb-8 sm:px-9">
-          <div className="relative min-w-[760px]">
+          {/* Fits a tablet beside the sidebar; only phones scroll the day sideways. */}
+          <div className="relative min-w-[560px]">
             {/* hour rail */}
             <div className="relative h-6 text-[12px] text-canvas/50">
               {hours.map((h, i) =>

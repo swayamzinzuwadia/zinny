@@ -71,7 +71,7 @@ const TONES: Record<Tone, string> = {
 };
 
 export function Badge({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
-  return <span className={cx("inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-medium", TONES[tone])}>{children}</span>;
+  return <span className={cx("inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-medium whitespace-nowrap", TONES[tone])}>{children}</span>;
 }
 
 export function Notice({ tone = "brand", children }: { tone?: Tone; children: ReactNode }) {
@@ -163,8 +163,9 @@ export function Td({ children, className }: { children: ReactNode; className?: s
 }
 
 export function Tabs({ tabs, active }: { tabs: { key: string; label: string; href: string; count?: number }[]; active: string }) {
+  // Tabs wrap onto a second row rather than hide off the edge: every section stays visible.
   return (
-    <nav className="mb-7 flex gap-1 overflow-x-auto rounded-full border border-line bg-surface p-1">
+    <nav className="mb-7 flex flex-wrap gap-1 rounded-[22px] border border-line bg-surface p-1">
       {tabs.map((t) => (
         <Link
           key={t.key}

@@ -11,7 +11,8 @@ const marketplace: ZinnyModule = {
   eventHandlers: handlers,
   seed,
   adminCourseTabs: [{ key: "marketplace", label: "Marketplace", order: 150, action: "course.update", component: MarketplaceCourseTab }],
-  learnerHomeCards: [{ key: "library", order: 50, action: "self.view_learning", component: LibraryHomeCard }],
+  // Last on the learner home (900 and up come after "My courses"): the student's own learning comes first.
+  learnerHomeCards: [{ key: "library", order: 900, action: "self.view_learning", component: LibraryHomeCard }],
   dashboardCards: [{ key: "marketplace-sales", order: 150, action: "course.update", component: MarketplaceDashboardCard }],
 };
 

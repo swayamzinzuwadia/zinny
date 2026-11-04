@@ -152,7 +152,15 @@ describe("the engine", () => {
     const target = { universityId: UNI, departmentIds: [DEPT] };
     expect(can(hod, "course.view", target)).toBe(true);
     expect(can(hod, "course.delete", target)).toBe(false);
-    expect(can(hod, "marketing.manage", target)).toBe(false);
+    expect(can(hod, "batch.delete", target)).toBe(false);
+  });
+
+  it("keeps a built-in role's default for parts of the panel that aren't built yet", () => {
+    // Nobody can tick Marketing or Community today, so saving an edit mustn't take them away.
+    const hod = actor(assignment("hod", actionsForAbilities("hod", ["courses.view"]), { scopeType: "department", departmentId: DEPT }));
+    expect(can(hod, "marketing.manage", { universityId: UNI, departmentIds: [DEPT] })).toBe(true);
+    expect(actionsForAbilities("custom_institute", ["finance.view"])).not.toContain("marketing.manage");
+    expect(abilitiesFor("hod").map((a) => a.key)).not.toContain("marketing.manage");
   });
 
   it("still gives everyone their own profile", () => {
@@ -175,7 +183,7 @@ describe("the menu", () => {
 
   it("closes a section when an edit takes it away", () => {
     const hod = assignment("hod", actionsForAbilities("hod", ["courses.view"]), { scopeType: "department", departmentId: DEPT });
-    expect(sections(actor(hod))).not.toContain("marketing");
+    expect(sections(actor(hod))).not.toContain("leaderboards");
     expect(sections(actor(hod))).toContain("products");
   });
 
@@ -198,7 +206,7 @@ describe("the roles page", () => {
     const hod = roleSummaries(rows).find((r) => r.key === "hod")!;
     expect(hod.edited).toBe(true);
     expect(hod.on).toEqual(["courses.view"]);
-    expect(hod.sections.find((s) => s.key === "marketing")?.access).toBeNull();
+    expect(hod.sections.find((s) => s.key === "leaderboards")?.access).toBeNull();
   });
 
   it("lists custom roles after the built-in ones, with who holds them", () => {

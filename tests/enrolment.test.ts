@@ -269,3 +269,27 @@ describe("guard rails", () => {
     await expect(updateBatch(hod, evening, { seatLimit: 1 })).rejects.toThrow(/already taken/);
   });
 });
+
+describe("clash warnings count only the student's timetable", () => {
+  it("a batch they were accepted into but haven't joined doesn't clash; once on the timetable it does", async () => {
+    const f = [{ userId: facultyId, role: "permanent_faculty" as const }];
+    const stats = (await createCourse(hod, { departmentId: csId, title: "Statistics", pricePaise: 0 })).id;
+    const statsEvening = (
+      await createBatch(hod, { courseId: stats, name: "Evening", startDate: "2030-11-04", endDate: "2030-12-31", seatLimit: 10, slots: slots([1, 3], "18:00", "20:00"), faculty: f })
+    ).id;
+    const excel = (await createCourse(hod, { departmentId: csId, title: "Excel", pricePaise: 0 })).id;
+    await createBatch(hod, { courseId: excel, name: "Monday evening", startDate: "2030-11-04", endDate: "2030-12-31", seatLimit: 10, slots: slots([1], "19:00", "20:00"), faculty: f });
+    await updateCourse(hod, stats, { status: "published" });
+    await updateCourse(hod, excel, { status: "published" });
+
+    const s = await newStudent("Accepted Ananya");
+    const [e] = await systemDb()
+      .insert(enrolments)
+      .values({ universityId: uniId, userId: s.userId, courseId: stats, batchId: statsEvening, status: "approved", decidedAt: new Date() })
+      .returning();
+    expect((await batchOptions(s, excel)).options[0].clashes).toEqual([]);
+
+    await systemDb().update(enrolments).set({ status: "active", enrolledAt: new Date() }).where(eq(enrolments.id, e.id));
+    expect((await batchOptions(s, excel)).options[0].clashes.map((c) => `${c.courseTitle} ${c.when}`)).toEqual(["Statistics Mon 6 pm–8 pm"]);
+  });
+});

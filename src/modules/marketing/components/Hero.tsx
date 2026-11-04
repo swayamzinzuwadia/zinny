@@ -6,7 +6,6 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { SplitText } from "gsap/SplitText";
 import Link from "next/link";
 import { useRef } from "react";
-import { demoHref } from "../config";
 import { display } from "../fonts";
 import css from "../landing.module.css";
 
@@ -295,15 +294,15 @@ export function Hero() {
             recorded. Built for Indian institutes, with UPI and GST invoices.
           </p>
           <div data-rise className="mt-9 grid max-w-[34rem] gap-3 sm:grid-cols-2">
-            <a
-              href={demoHref}
+            <Link
+              href="/book-a-demo"
               className="group rounded-2xl bg-brand-deep px-5 py-4 text-canvas [transition-property:transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_30px_-16px_rgb(6_58_47/0.8)]"
             >
               <span className="block text-[13px] text-canvas/65">I run an institute</span>
               <span className="mt-1 block text-[17px] font-semibold">
                 Book a demo
               </span>
-            </a>
+            </Link>
             <Link
               href="/marketplace"
               className="group rounded-2xl bg-gold px-5 py-4 text-brand-deep [transition-property:transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[0_18px_30px_-16px_rgb(168_127_18/0.9)]"
@@ -317,7 +316,7 @@ export function Hero() {
         </div>
         <div data-rise className="relative pb-16 lg:pb-10">
           <Scene />
-          <p className="mt-40 text-center text-[12px] text-muted sm:mt-16">An illustration of Zinny at work. The names and numbers are examples.</p>
+          <p className="mt-40 text-center text-[12px] text-muted sm:mt-16">The screens on this page are illustrations. Names and numbers are examples.</p>
         </div>
       </div>
     </section>

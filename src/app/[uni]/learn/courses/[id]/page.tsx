@@ -1,17 +1,33 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Notice } from "@/components/ui";
+import { ButtonLink, Notice } from "@/components/ui";
 import { hasRole } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
+import { todayIn } from "@/server/lib/dates";
 import { batchOptions } from "@/server/services/enrolment";
 import { BatchPicker } from "../../batch-picker";
 import { withdrawEnrolmentAction } from "../../actions";
+import { sendParentsHome } from "../../view";
 
 export default async function CoursePage({ params }: { params: Promise<{ uni: string; id: string }> }) {
   const { uni, id } = await params;
-  const { actor } = await spaceContext(uni);
-  if (!hasRole(actor, ["student", "alumni"])) redirect("/marketplace");
+  const { actor, university } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
+  // Someone here who isn't a student (they bought a recording from this institute, say): say how to get in, rather than sending them away.
+  if (!hasRole(actor, ["student", "alumni"])) {
+    return (
+      <div className="max-w-lg">
+        <h1 className="text-[26px] font-semibold tracking-tight">Join {university.name} to enrol</h1>
+        <p className="mt-2 text-muted">Batches are for {university.name}&apos;s students. Enter the joining code the institute gave you, then come back here to pick your batch.</p>
+        <div className="mt-6 flex flex-wrap items-center gap-4">
+          <ButtonLink href="/join">Enter a joining code</ButtonLink>
+          <Link href="/marketplace" className="text-[14px] font-medium text-brand hover:underline">
+            Back to the marketplace
+          </Link>
+        </div>
+      </div>
+    );
+  }
   const { course, options, myEnrolment, myRequest } = await batchOptions(actor, id);
 
   return (
@@ -60,6 +76,7 @@ export default async function CoursePage({ params }: { params: Promise<{ uni: st
           options={options}
           mode="enrol"
           acceptedBatchId={myRequest?.status === "approved" ? myRequest.batchId : undefined}
+          today={todayIn(university.timezone)}
         />
       )}
     </>

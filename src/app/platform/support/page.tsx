@@ -1,20 +1,24 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Table, Td } from "@/components/ui";
+import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Td } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { forceEndSupportAction, leaveSupportAction, startSupportAction } from "@/modules/zinny-team-panel/actions";
-import { NoAccess } from "@/modules/zinny-team-panel/components/bits";
+import { NoAccess, PanelTable } from "@/modules/zinny-team-panel/components/bits";
 import { formatCount, formatDateTime, timeAgo, timeUntil } from "@/modules/zinny-team-panel/lib/format";
 import { activeSessions, recentSessions, sessionState, supportPicker } from "@/modules/zinny-team-panel/services/support";
+import { firstName } from "@/server/lib/names";
 
 export const metadata = { title: "Support mode" };
 
-export default async function SupportPage() {
+export default async function SupportPage({ searchParams }: { searchParams: Promise<{ university?: string }> }) {
   const actor = await platformContext();
   if (!canPlatform(actor, "platform.support_mode")) return <NoAccess section="Support mode" />;
+  const { university } = await searchParams;
   const [active, recent, picker] = await Promise.all([activeSessions(actor), recentSessions(actor, 25), supportPicker(actor)]);
   const now = new Date();
+  // An institute's page links here with it picked; otherwise you pick one yourself.
+  const picked = picker.universities.some((u) => u.id === university) ? university! : "";
 
   return (
     <>
@@ -22,7 +26,7 @@ export default async function SupportPage() {
         title="Support mode"
         subtitle="The Zinny team only enters an institute's space through support mode. You act as yourself with Institute Admin powers for up to 2 hours, and every change is logged with who, what and when."
         actions={
-          <Link href="/platform/support/log" className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
+          <Link href="/platform/support/log" className="inline-flex h-10 items-center whitespace-nowrap rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
             Activity log
           </Link>
         }
@@ -95,17 +99,23 @@ export default async function SupportPage() {
             {recent.length === 0 ? (
               <Empty title="No support sessions yet" />
             ) : (
-              <Table head={["Started", "Who", "Institute", "Reason", "Changes", "Status"]}>
+              <PanelTable head={["Started", "Who and where", "Reason", "Changes", "Status"]}>
                 {recent.map((s) => {
                   const state = sessionState(s, now);
                   return (
                     <tr key={s.id}>
-                      <Td className="whitespace-nowrap text-muted">{formatDateTime(s.startedAt)}</Td>
-                      <Td>{s.staffName}</Td>
-                      <Td>{s.universityName}</Td>
-                      <Td className="max-w-[260px] text-muted">{s.reason}</Td>
+                      <Td className="text-muted 2xl:whitespace-nowrap">{formatDateTime(s.startedAt)}</Td>
+                      <Td>
+                        <div className="whitespace-nowrap">{s.staffName}</div>
+                        <div className="text-[12.5px] text-muted">{s.universityName}</div>
+                      </Td>
+                      <Td className="min-w-[180px] text-muted">{s.reason}</Td>
                       <Td className="tabular">
-                        <Link href={`/platform/support/log?scope=all&university=${s.universityId}&person=${s.staffUserId}`} className="hover:text-brand">
+                        <Link
+                          href={`/platform/support/log?scope=all&university=${s.universityId}&person=${s.staffUserId}`}
+                          className="text-brand hover:underline"
+                          aria-label={`See the ${formatCount(s.actions)} changes in the activity log`}
+                        >
                           {formatCount(s.actions)}
                         </Link>
                       </Td>
@@ -116,7 +126,7 @@ export default async function SupportPage() {
                           <Badge>Timed out</Badge>
                         ) : s.forcedByName ? (
                           <span title={`Ended by ${s.forcedByName}`}>
-                            <Badge tone="warn">Ended by {s.forcedByName.split(" ")[0]}</Badge>
+                            <Badge tone="warn">Ended by {firstName(s.forcedByName)}</Badge>
                           </span>
                         ) : (
                           <Badge tone="brand">Left</Badge>
@@ -125,7 +135,7 @@ export default async function SupportPage() {
                     </tr>
                   );
                 })}
-              </Table>
+              </PanelTable>
             )}
           </div>
         </div>
@@ -137,7 +147,10 @@ export default async function SupportPage() {
           ) : (
             <ActionForm action={startSupportAction} className="space-y-4" resetOnSuccess={false}>
               <Field label="Institute">
-                <Select name="universityId" defaultValue={picker.lastUniversityId ?? undefined} required>
+                <Select name="universityId" defaultValue={picked} required>
+                  <option value="" disabled>
+                    Pick an institute
+                  </option>
                   {picker.universities.map((u) => (
                     <option key={u.id} value={u.id}>
                       {u.name}

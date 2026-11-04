@@ -2,12 +2,15 @@ import type { Session } from "@/server/services/schedule";
 import { addDays, formatTime, isoWeekday, weekdayLabel } from "@/server/lib/dates";
 import { cx } from "./ui";
 
-/** Brand green and gold first, then two quiet companions that sit well on cream. */
+/**
+ * Course colours: brand green first, then three quiet companions that sit well on cream.
+ * No gold: it marks "now" and "needs attention" (today's column), never a course.
+ */
 const PALETTE = [
   "bg-brand text-canvas border-brand",
-  "bg-gold-soft text-gold-strong border-gold/40",
   "bg-[#e6ebf3] text-[#2f4a72] border-[#2f4a72]/15",
   "bg-[#f1e6ee] text-[#7a3d66] border-[#7a3d66]/15",
+  "bg-[#f4e9e1] text-[#7a4a2d] border-[#7a4a2d]/15",
 ];
 
 /** Week grid like PRD page 6: one column per day, today highlighted. */

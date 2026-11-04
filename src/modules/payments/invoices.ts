@@ -139,6 +139,24 @@ export type MyInvoice = {
   refundInFlightPaise: number;
 };
 
+/**
+ * Whether the learner has any GST invoice here (a marketplace purchase, or a payment from
+ * before institute courses were free). The learner app shows Invoices, and the payment
+ * notification settings, only then. False without `self.view_invoices`.
+ */
+export async function hasInvoices(actor: Actor): Promise<boolean> {
+  if (!can(actor, "self.view_invoices", { universityId: uni(actor), ownerUserId: actor.userId })) return false;
+  return withTenant(actor, async (tx) => {
+    const [row] = await tx
+      .select({ id: invoices.id })
+      .from(invoices)
+      .innerJoin(orders, eq(orders.id, invoices.orderId))
+      .where(eq(orders.userId, actor.userId))
+      .limit(1);
+    return !!row;
+  });
+}
+
 /** The learner's own GST invoices, newest first. Needs `self.view_invoices`. */
 export async function myInvoices(actor: Actor): Promise<MyInvoice[]> {
   assertCan(actor, "self.view_invoices", { universityId: uni(actor), ownerUserId: actor.userId });

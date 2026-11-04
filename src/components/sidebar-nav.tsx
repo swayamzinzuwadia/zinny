@@ -50,12 +50,12 @@ function Single({ section, href, active }: { section: SidebarSection; href: stri
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
+      title={section.access}
       className={cx(row, active ? "bg-canvas/[0.12] font-medium text-canvas" : "text-canvas/70 hover:bg-canvas/[0.06] hover:text-canvas")}
     >
       {active && <Marker />}
       <Icon name={section.key} active={active} />
       <span className="truncate">{section.label}</span>
-      {section.access && <Access text={section.access} />}
     </Link>
   );
 }
@@ -71,12 +71,12 @@ function Group({ section, base, current }: { section: SidebarSection; base: stri
         type="button"
         aria-expanded={open}
         aria-controls={id}
+        title={section.access}
         onClick={() => setOpen((o) => !o)}
         className={cx(row, holdsCurrent ? "text-canvas" : "text-canvas/70 hover:bg-canvas/[0.06] hover:text-canvas")}
       >
         <Icon name={section.key} active={holdsCurrent} />
         <span className="truncate">{section.label}</span>
-        {section.access && <Access text={section.access} />}
         <svg
           aria-hidden
           viewBox="0 0 16 16"
@@ -135,9 +135,6 @@ function Marker() {
   );
 }
 
-function Access({ text }: { text: string }) {
-  return <span className="shrink-0 rounded-full bg-canvas/10 px-1.5 py-px text-[10px] leading-4 text-canvas/55">{text}</span>;
-}
 
 /* Simple line icons, one per section. Unknown sections get a small dot. */
 const PATHS: Record<string, React.ReactNode> = {

@@ -38,6 +38,20 @@ export const END_WARNING_DAYS = 30;
 /** Everyone who counts against a licence's staff cap, custom roles included. */
 export const STAFF_ROLES = ["institute_admin", "board_owner", "accounts_fees", "hod", "permanent_faculty", "visiting_faculty", "custom_institute", "custom_department"] as const satisfies readonly RoleName[];
 
+/**
+ * Audit entries written by background jobs (XP awards and backfills, automatic absences,
+ * reminders and expiries). They carry whoever triggered them, but they aren't something
+ * that person did, so a person's activity leaves them out.
+ */
+export const AUTOMATED_ACTIONS = [
+  "gamification.award",
+  "gamification.backfill_all",
+  "gamification.rule_backfill",
+  "attendance.auto_absent",
+  "attendance.weekly_alerts",
+  "certificate.expire",
+] as const;
+
 /* ── Zinny team ── */
 
 /** The built-in roles, for pickers. Custom ones are listed by name from custom_roles. */
@@ -63,6 +77,9 @@ export const PLATFORM_ROLE_HINTS: Record<PlatformRole, string> = {
   partnerships: "Sponsors and corporate partners",
   custom_platform: "What this role allows is set under Roles & permissions",
 };
+
+/** The roles the Team page offers. Partnerships isn't one: Partners was taken out of the panel, so it would open nothing. */
+export const ASSIGNABLE_PLATFORM_ROLES = PLATFORM_ROLES.filter((r) => r !== "partnerships");
 
 export const isPlatformRole = (r: string): r is PlatformRole => r === "custom_platform" || (PLATFORM_ROLES as readonly string[]).includes(r);
 

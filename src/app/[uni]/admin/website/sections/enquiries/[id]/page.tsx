@@ -28,10 +28,12 @@ export default async function EnquiryPage({ params }: { params: Promise<{ uni: s
 
   return (
     <>
-      <Link href={`/${uni}/admin/website/sections/enquiries`} className="text-sm text-muted hover:text-ink">
-        ← Enquiries
-      </Link>
-      <div className="mb-8 mt-2 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-2 text-sm text-muted">
+        <Link href={`/${uni}/admin/website/sections/enquiries`} className="hover:text-ink">
+          Enquiries
+        </Link>
+      </div>
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-[30px] font-semibold leading-tight">{e.name}</h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[15px] text-muted">
@@ -133,7 +135,7 @@ export default async function EnquiryPage({ params }: { params: Promise<{ uni: s
                 ))}
               </Select>
               <SubmitButton variant="secondary" size="sm" pendingText="Saving…">
-                Save
+                Assign enquiry
               </SubmitButton>
             </ActionForm>
             <p className="mt-3 text-[12px] text-muted">They get a notification. Only people who manage the website can be picked.</p>

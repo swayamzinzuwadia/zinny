@@ -26,6 +26,8 @@ export function Film() {
 
   useGSAP(
     () => {
+      // Phones: don't recalculate the film when the address bar slides away, or it jumps.
+      ScrollTrigger.config({ ignoreMobileResize: true });
       const mm = gsap.matchMedia();
       mm.add("(prefers-reduced-motion: no-preference)", () => {
         const stage = root.current!.querySelector<HTMLElement>("[data-stage]")!;
@@ -182,11 +184,12 @@ export function Film() {
             Your institute is held together by WhatsApp.
           </h2>
           <p data-desk-line className="mx-auto mt-5 max-w-[34rem] text-[17px] leading-relaxed text-ink/75">
-            Fees in a spreadsheet, the timetable on paper, parents in a group chat, recordings nobody watches again. Keep scrolling and Zinny sorts it out.
+            Fees in a spreadsheet, the timetable on paper, parents in a group chat, recordings nobody watches again.
           </p>
         </div>
-        <div data-cue className="absolute inset-x-0 bottom-6 z-20 flex flex-col items-center gap-1 text-[15px] font-medium text-ink">
-          <span className="rounded-full bg-gold px-5 py-2.5 text-brand-deep shadow-[0_10px_24px_-10px_rgb(168_127_18/0.9)]">Scroll to sort it out</span>
+        {/* A hint, not a control: plain text, so it isn't mistaken for a button. */}
+        <div data-cue aria-hidden className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex flex-col items-center gap-1 text-[14px] font-medium text-ink/70">
+          <span>Keep scrolling to sort it out</span>
           <svg data-cue-arrow aria-hidden viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M5 8l5 5 5-5" />
           </svg>

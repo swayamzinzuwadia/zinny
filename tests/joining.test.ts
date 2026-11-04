@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { closeDb, systemDb } from "@/db/client";
-import { batches, enrolments, orders, roleAssignments, studentDepartments } from "@/db/schema";
+import { batches, enrolments, notifications, orders, roleAssignments, studentDepartments } from "@/db/schema";
 import { loadActor } from "@/server/actor";
 import { createBatch, seatsTaken, setSeatLimit } from "@/server/services/batches";
 import { createCourse, updateCourse } from "@/server/services/courses";
@@ -78,6 +78,17 @@ describe("joining an institute with its code", () => {
     const placed = await systemDb().select().from(studentDepartments).where(eq(studentDepartments.userId, learner.id));
     expect(placed.map((p) => p.departmentId)).toEqual([dept.id]);
     await expect(decideJoinRequest(admin, r.requestId, { accept: false, departmentIds: [] })).rejects.toThrow(/already/);
+
+    // Everyone who was asked to answer now reads who did, instead of "accept or decline".
+    const asked = await systemDb()
+      .select()
+      .from(notifications)
+      .where(and(eq(notifications.kind, "join.requested"), inArray(notifications.userId, [admin.userId, hod.userId])));
+    expect(asked.length).toBeGreaterThanOrEqual(2);
+    for (const n of asked.filter((x) => (x.data as { requestId?: string }).requestId === r.requestId)) {
+      expect(n.body).toBe(`Accepted by ${hod.name}.`);
+      expect(n.readAt).not.toBeNull();
+    }
   });
 
   it("a declined request gives no role; asking again while one waits reuses it", async () => {
@@ -146,6 +157,13 @@ describe("faculty accept each student", () => {
     expect((await decideEnrolment(faculty, waiting[0].enrolmentId, true)).status).toBe("enrolled");
     const [e] = await systemDb().select().from(enrolments).where(eq(enrolments.id, waiting[0].enrolmentId));
     expect(e.status).toBe("active");
+    // The faculty member's "accept or decline" now says it was done.
+    const [asked] = await systemDb()
+      .select()
+      .from(notifications)
+      .where(and(eq(notifications.kind, "enrolment.requested"), eq(notifications.userId, faculty.userId)));
+    expect(asked).toMatchObject({ body: `Accepted by ${faculty.name}.` });
+    expect(asked.readAt).not.toBeNull();
   });
 
   it("accepting enrols the student even when the course has a price: no checkout", async () => {

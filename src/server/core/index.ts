@@ -29,7 +29,7 @@ export type { ScheduledBatch, Session, Slot, Override } from "../services/schedu
 export { studentTimetable } from "../services/timetable";
 
 // Messages and files
-export { notify, hodsOf } from "../services/notifications";
+export { notify, hodsOf, settleNotifications } from "../services/notifications";
 // Students and their departments (join requests admit students through these)
 export { admitStudentTx, ensureStudentRoleTx, addStudentDepartmentsTx } from "../services/students";
 export { storage, sendEmail, sendSms } from "../messaging";

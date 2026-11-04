@@ -23,14 +23,16 @@ export async function CertificatesHubSection({ uni, actor }: HubSectionProps) {
             </div>
             <div className="flex shrink-0 items-center gap-3">
               <StatusBadge status={c.status} />
-              <a href={`/${uni}/learn/certificates/${c.id}/download`} className="text-[13px] font-medium text-brand hover:underline">
-                Download
-              </a>
+              {c.status !== "revoked" && (
+                <a href={`/${uni}/learn/certificates/${c.id}/download`} className="inline-block py-1 text-[13px] font-medium text-brand hover:underline">
+                  Download
+                </a>
+              )}
             </div>
           </li>
         ))}
       </ul>
-      <Link href={`/${uni}/learn/certificates`} className="mt-4 inline-block text-[14px] font-medium text-brand hover:underline">
+      <Link href={`/${uni}/learn/certificates`} className="mt-3 inline-block py-1 text-[14px] font-medium text-brand hover:underline">
         See all certificates
       </Link>
     </Card>

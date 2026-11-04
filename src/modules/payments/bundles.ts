@@ -37,7 +37,9 @@ async function bundleOrders(bundleId: string) {
       gstPaise: orders.gstPaise,
       totalPaise: orders.totalPaise,
       gatewayPaymentId: orders.gatewayPaymentId,
+      /** The course's own name. The checkout page shows the marketplace listing's title, found by this batch. */
       title: courses.title,
+      batchId: orders.batchId,
       institute: universities.name,
       instituteSlug: universities.slug,
     })

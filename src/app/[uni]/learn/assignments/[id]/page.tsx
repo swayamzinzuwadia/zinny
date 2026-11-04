@@ -9,9 +9,10 @@ import { isDueSoon } from "@/modules/assignments-polls/components/learner-bits";
 import { ACCEPT, MAX_TEXT_CHARS } from "@/modules/assignments-polls/lib/files";
 import { formatMarks } from "@/modules/assignments-polls/lib/grading";
 import { dueLabel, formatWhen, relative } from "@/modules/assignments-polls/lib/time";
-import { fileHref, learnBase, uploadHref } from "@/modules/assignments-polls/links";
+import { fileHref, uploadHref } from "@/modules/assignments-polls/links";
 import { orNotFound } from "@/modules/assignments-polls/pages";
 import { myAssignment } from "@/modules/assignments-polls/service/assignments";
+import { sendParentsHome } from "../../view";
 
 export const metadata = { title: "Assignment" };
 
@@ -20,6 +21,7 @@ const HANDS_IN: Record<string, string> = { text: "A written answer", files: "Fil
 export default async function LearnerAssignmentPage({ params }: { params: Promise<{ uni: string; id: string }> }) {
   const { uni, id } = await params;
   const { actor } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
   const a = await orNotFound(myAssignment(actor, id));
   const tz = a.timezone;
   const now = new Date();
@@ -29,12 +31,9 @@ export default async function LearnerAssignmentPage({ params }: { params: Promis
 
   return (
     <div className="mx-auto max-w-2xl">
-      <Link href={learnBase(uni)} className="text-sm text-muted">
-        Assignments
-      </Link>
-      <div className="mb-5 mt-2">
+      <div className="mb-5">
         <div className="text-[13px] text-muted">
-          <Link href={`/${uni}/learn/my/${a.enrolmentId}?tab=assignments`} className="hover:text-brand">
+          <Link href={`/${uni}/learn/my/${a.enrolmentId}?tab=assignments`} className="inline-block py-1 hover:text-brand">
             {a.courseTitle}
           </Link>
         </div>

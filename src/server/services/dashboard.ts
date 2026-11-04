@@ -12,6 +12,7 @@ import { listCourses } from "./courses";
 import { expandSessions, type Session } from "./schedule";
 
 export type BoardSession = Session & { lane: number; students: number; state: "past" | "live" | "next" | "later" };
+export type RefundReason = "paid_twice" | "batch_full";
 
 export function greetingFor(minutes: number) {
   if (minutes < 4 * 60) return "Hello";
@@ -51,7 +52,7 @@ export async function dashboard(actor: Actor) {
     const courseIds = courses.map((c) => c.id);
     const rows = courseIds.length
       ? await tx
-          .select({ id: batches.id, departmentId: batches.departmentId, status: batches.status, endDate: batches.endDate })
+          .select({ id: batches.id, courseId: batches.courseId, departmentId: batches.departmentId, status: batches.status, endDate: batches.endDate })
           .from(batches)
           .where(and(inArray(batches.courseId, courseIds), eq(batches.recorded, false)))
       : [];
@@ -138,13 +139,22 @@ export async function dashboard(actor: Actor) {
       ? await tx
           .select({
             students: sql<number>`count(distinct ${enrolments.userId}) filter (where ${enrolments.status} = 'active')::int`,
-            thisWeek: sql<number>`count(*) filter (where ${enrolments.status} = 'active' and ${enrolments.enrolledAt} > now() - interval '7 days')::int`,
+            // People, like "students": someone who joined two batches this week counts once.
+            thisWeek: sql<number>`count(distinct ${enrolments.userId}) filter (where ${enrolments.status} = 'active' and ${enrolments.enrolledAt} > now() - interval '7 days')::int`,
           })
           .from(enrolments)
           .where(inArray(enrolments.batchId, scopedIds))
       : [{ students: 0, thisWeek: 0 }];
 
-    let money: { monthPaise: number; monthOrders: number; refundsDue: number; pending: number; days: { date: string; paise: number }[] } | null = null;
+    let money: {
+      monthPaise: number;
+      monthOrders: number;
+      refundsDue: number;
+      pending: number;
+      days: { date: string; paise: number }[];
+      /** Why each refund is due: a second payment for a course the student already has a seat in, or a batch that filled first. */
+      refundReasons: RefundReason[];
+    } | null = null;
     if (canSeeFinance) {
       const [m] = await tx
         .select({
@@ -166,7 +176,13 @@ export async function dashboard(actor: Actor) {
         date: d,
         paise: daily.find((x) => x.date === d)?.paise ?? 0,
       }));
-      money = { ...m, days };
+      const due = await tx
+        .select({
+          paidTwice: sql<boolean>`exists (select 1 from ${enrolments} e where e.user_id = ${orders.userId} and e.course_id = ${orders.courseId} and e.status in ('active', 'completed') and e.id is distinct from ${orders.enrolmentId})`,
+        })
+        .from(orders)
+        .where(eq(orders.status, "refund_due"));
+      money = { ...m, days, refundReasons: due.map((d) => (d.paidTwice ? "paid_twice" : "batch_full")) };
     }
 
     const updates = await tx
@@ -189,7 +205,8 @@ export async function dashboard(actor: Actor) {
       nextDay,
       seats,
       expiring,
-      courses: courses.length,
+      // Courses with an open batch, so the count matches the Courses page (courses sold only on the marketplace have none).
+      courses: new Set(live.filter((b) => b.status === "open").map((b) => b.courseId)).size,
       openBatches: live.filter((b) => b.status === "open").length,
       students,
       thisWeek,

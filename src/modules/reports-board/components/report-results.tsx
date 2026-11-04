@@ -59,6 +59,7 @@ export function ReportResults({ run, query, basePath }: { run: ReportRun; query:
         </div>
       ) : (
         <>
+          {run.columns.length > 7 && <p className="mb-2 text-[13px] text-muted">{run.columns.length} columns: scroll the table sideways to see them all.</p>}
           <div className="overflow-x-auto rounded-[22px] border border-line bg-surface">
             <table className="w-full min-w-[640px] text-left text-[14px]">
               <caption className="sr-only">
@@ -67,7 +68,7 @@ export function ReportResults({ run, query, basePath }: { run: ReportRun; query:
               <thead className="border-b border-line text-[13px] text-muted">
                 <tr>
                   {run.columns.map((c) => (
-                    <th key={c.key} scope="col" className={cx("whitespace-nowrap px-4 py-3 font-normal", isNumericType(c.type) && "text-right")}>
+                    <th key={c.key} scope="col" className={cx("px-4 py-3 align-bottom font-normal", isNumericType(c.type) ? "min-w-[6rem] text-right" : "min-w-[8rem]")}>
                       {c.label}
                     </th>
                   ))}
@@ -142,24 +143,28 @@ export function ReportResults({ run, query, basePath }: { run: ReportRun; query:
   );
 }
 
+/** Recorded batches (marketplace buyers) carry a placeholder start date: 1 Jan 2000. It isn't a real date, so it shows as a dash. */
+const PLACEHOLDER_DATE = "2000-01-01";
+
 function Cell({ column, value }: { column: ReportColumn; value: unknown }) {
-  const text = formatCell(value, column.type);
+  const text = column.type === "date" && typeof value === "string" && value.slice(0, 10) <= PLACEHOLDER_DATE ? "—" : formatCell(value, column.type);
   const numeric = isNumericType(column.type);
   const negative = numeric && typeof value === "number" && value < 0;
-  // One line per row, so wide reports scroll sideways instead of wrapping into tall rows.
+  // Numbers and dates stay on one line; text wraps within a column so wide reports need less sideways scrolling.
   // Very long text is cut with an ellipsis; the full value is in the tooltip and the downloads.
   const long = !numeric && text.length > 48;
   return (
     <td
       className={cx(
-        "whitespace-nowrap px-4 py-2.5 align-top",
+        "px-4 py-2.5 align-top",
+        numeric || column.type === "date" ? "whitespace-nowrap" : "max-w-[16rem]",
         numeric && "tabular text-right",
         negative && "text-danger",
         text === "—" && "text-faint",
       )}
       title={long ? text : undefined}
     >
-      {long ? <span className="block max-w-[24rem] truncate">{text}</span> : text}
+      {long ? <span className="line-clamp-2">{text}</span> : text}
     </td>
   );
 }

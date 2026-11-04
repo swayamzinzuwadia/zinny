@@ -6,7 +6,7 @@
 import { and, desc, eq, gte, ilike, inArray, isNotNull, lt, lte, or, sql, type SQL } from "drizzle-orm";
 import { enrolments } from "@/db/schema";
 import { assertCan, can, courseTarget, getCourseLite, listCourseBatches, peopleLite, storage, todayFor, universityLite, withTenant, type Actor } from "@/server/core";
-import { ForbiddenError, NotFoundError } from "@/server/errors";
+import { ConflictError, ForbiddenError, NotFoundError } from "@/server/errors";
 import { addDays, downloadName, effectiveStatus, formatCode, monthStart, normalizeCode, verifyPath, verifyUrl, type EffectiveStatus } from "../lib";
 import { renderCertificateSvg } from "../render";
 import { certCertificates } from "../schema";
@@ -257,9 +257,15 @@ async function loadVisible(actor: Actor, id: string) {
   });
 }
 
-/** A short-lived link to the stored PDF, downloaded with a readable file name. */
+/**
+ * A short-lived link to the stored PDF, downloaded with a readable file name. Once revoked,
+ * the certificate is no longer its holder's to download (staff still can, for their records).
+ */
 export async function certificateDownloadUrl(actor: Actor, id: string): Promise<string> {
   const { c } = await loadVisible(actor, id);
+  if (c.status === "revoked" && c.userId === actor.userId) {
+    throw new ConflictError("Your institute revoked this certificate, so it can't be downloaded. Ask your institute if you have questions.", "revoked");
+  }
   return storage().signedUrl(c.pdfKey, 300, { downloadName: downloadName("Certificate", c.courseTitle, c.studentName) });
 }
 

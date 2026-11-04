@@ -278,11 +278,16 @@ export function Features() {
         const screenEl = stage.current!.firstElementChild as HTMLElement;
         const q = (sel: string) => screenEl.querySelectorAll<HTMLElement>(sel);
         const tl = gsap.timeline();
-        tl.fromTo(screenEl, { opacity: 0, y: 24, rotateX: 10, scale: 0.97 }, { opacity: 1, y: 0, rotateX: 0, scale: 1, duration: 0.6, ease: "power3.out" }, 0)
-          .from(q("[data-row]"), { opacity: 0, x: -14, duration: 0.4, stagger: 0.06, ease: "power2.out" }, 0.15)
-          .from(q("[data-pop]"), { opacity: 0, scale: 0.4, duration: 0.35, stagger: 0.035, ease: "back.out(2.2)" }, 0.15)
-          .from(q("[data-bar]"), { scaleY: 0, duration: 0.7, stagger: 0.06, ease: "power3.out" }, 0.2)
-          .from(q("[data-stamp]"), { opacity: 0, scale: 2.2, rotate: -12, duration: 0.45, stagger: 0.08, ease: "back.out(2.4)" }, 0.45);
+        tl.fromTo(screenEl, { opacity: 0, y: 24, rotateX: 10, scale: 0.97 }, { opacity: 1, y: 0, rotateX: 0, scale: 1, duration: 0.6, ease: "power3.out" }, 0);
+        // Not every screen has every kind of mark; GSAP warns about an empty target, so skip those.
+        const from = (sel: string, vars: gsap.TweenVars, at: number) => {
+          const els = q(sel);
+          if (els.length) tl.from(els, vars, at);
+        };
+        from("[data-row]", { opacity: 0, x: -14, duration: 0.4, stagger: 0.06, ease: "power2.out" }, 0.15);
+        from("[data-pop]", { opacity: 0, scale: 0.4, duration: 0.35, stagger: 0.035, ease: "back.out(2.2)" }, 0.15);
+        from("[data-bar]", { scaleY: 0, duration: 0.7, stagger: 0.06, ease: "power3.out" }, 0.2);
+        from("[data-stamp]", { opacity: 0, scale: 2.2, rotate: -12, duration: 0.45, stagger: 0.08, ease: "back.out(2.4)" }, 0.45);
         q("[data-count]").forEach((n) => {
           const to = Number(n.dataset.count);
           const suffix = n.dataset.suffix ?? "";
@@ -339,7 +344,6 @@ export function Features() {
               </div>
             </div>
             <p className="mt-4 text-[14px] text-muted lg:hidden">{PARTS[active].line}</p>
-            <p className="mt-3 text-[12px] text-muted">Illustrations of Zinny. The names and numbers are examples.</p>
           </div>
         </div>
       </div>

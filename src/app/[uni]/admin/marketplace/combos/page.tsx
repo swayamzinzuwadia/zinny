@@ -4,7 +4,7 @@ import { Badge, Card, CardTitle, Empty, Field, PageHeader, Table, Td } from "@/c
 import { spaceContext } from "@/server/context";
 import { formatINR } from "@/server/services/finance";
 import { createComboAction } from "@/modules/marketplace/actions";
-import { ListingFieldsInputs, MarketplaceTabs } from "@/modules/marketplace/components/admin";
+import { ListingFieldsInputs } from "@/modules/marketplace/components/admin";
 import { comboSources, listListings } from "@/modules/marketplace/listings";
 
 export const metadata = { title: "Combos" };
@@ -17,8 +17,7 @@ export default async function Combos({ params }: { params: Promise<{ uni: string
 
   return (
     <>
-      <PageHeader title="Marketplace" subtitle="A combo sells several of your courses together at one price, as a single course with a section for each." />
-      <MarketplaceTabs uni={uni} active="combos" />
+      <PageHeader title="Combos" subtitle="A combo sells several of your courses together at one price, as a single course with a section for each." />
       <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
         <div>
           {combos.length === 0 ? (
@@ -49,7 +48,7 @@ export default async function Combos({ params }: { params: Promise<{ uni: string
           )}
           <p className="mt-4 text-[13px] text-muted">
             A combo copies the recorded lessons its courses have today. Lessons you add to those courses later don&apos;t reach people who bought the combo. Pause or
-            reprice a combo from the Listings tab.
+            reprice a combo under Marketplace, Listings.
           </p>
         </div>
 

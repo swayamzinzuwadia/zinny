@@ -30,10 +30,10 @@ const SECTIONS = [
   { href: "/challenges", label: "Challenges" },
 ];
 
-/** The four pages of User Leaderboards, so staff can move between them on a tablet too. */
+/** The four Leaderboard pages, so staff can move between them on a small screen too. */
 export function SectionNav({ uni, active }: { uni: string; active: string }) {
   return (
-    <nav aria-label="User Leaderboards" className="mb-6 flex gap-1 overflow-x-auto rounded-full border border-line bg-surface p-1 md:hidden">
+    <nav aria-label="Leaderboard" className="mb-6 flex gap-1 overflow-x-auto rounded-full border border-line bg-surface p-1 md:hidden">
       {SECTIONS.map((s) => (
         <Link
           key={s.href}

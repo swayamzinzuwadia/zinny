@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeDb } from "@/db/client";
 import type { Actor } from "@/server/authz/engine";
-import { navFor } from "@/modules/zinny-team-panel/lib/access";
+import { isZinnyTeam, navFor } from "@/modules/zinny-team-panel/lib/access";
 import { analytics } from "@/modules/zinny-team-panel/services/analytics";
 import { listInvoices } from "@/modules/zinny-team-panel/services/billing";
 import { flagCourse, listOpenFlags, markReviewed, reviewQueue } from "@/modules/zinny-team-panel/services/content";
@@ -96,14 +96,16 @@ describe("each section allows its roles and refuses everyone else", () => {
 describe("the sidebar shows only the sections a person's roles allow", () => {
   const keys = (a: Actor) => navFor(a).map((s) => s.key);
   it("per role", () => {
-    expect(keys(sa)).toEqual(["overview", "universities", "support", "content", "partners", "billing", "analytics", "team"]);
+    expect(keys(sa)).toEqual(["overview", "universities", "people", "support", "content", "billing", "analytics", "team"]);
     expect(keys(sup)).toEqual(["overview", "support", "analytics"]);
     expect(keys(qa)).toEqual(["overview", "content"]);
     expect(keys(fin)).toEqual(["overview", "universities", "billing"]);
     expect(navFor(fin).find((s) => s.key === "universities")!.items.map((i) => i.label)).toEqual(["Licences"]);
     expect(keys(am)).toEqual(["overview", "universities", "content", "analytics"]);
     expect(navFor(am).find((s) => s.key === "content")!.access).toBe("View");
-    expect(keys(par)).toEqual(["overview", "partners"]);
+    // Partners was taken out of the panel, so the Partnerships role on its own opens nothing.
+    expect(keys(par)).toEqual([]);
+    expect(isZinnyTeam(par)).toBe(false);
     expect(keys(student)).toEqual([]);
   });
 });

@@ -1,26 +1,24 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { spaceContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { TestCard } from "@/modules/assessments/components/learner-cards";
 import { plural } from "@/modules/assessments/lib/labels";
 import { mySeries } from "@/modules/assessments/learner";
+import { sendParentsHome } from "../../../view";
 
 export const metadata = { title: "Test series" };
 
 export default async function LearnerSeries({ params }: { params: Promise<{ uni: string; seriesId: string }> }) {
   const { uni, seriesId } = await params;
   const { actor } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
   const { series: s, timezone } = await mySeries(actor, seriesId).catch((e) => {
     if (e instanceof NotFoundError) notFound();
     throw e;
   });
   return (
     <>
-      <Link href={`/${uni}/learn/tests`} className="text-sm text-muted">
-        Tests
-      </Link>
-      <div className="mb-5 mt-2">
+      <div className="mb-5">
         <div className="text-[13px] text-muted">Test series · {s.courseTitle}</div>
         <h1 className="text-[26px] font-semibold leading-tight tracking-tight">{s.title}</h1>
         <div className="mt-1 text-[14px] text-muted">

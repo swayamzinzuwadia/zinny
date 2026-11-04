@@ -152,12 +152,21 @@ function ResultsList({ uni, rows, timezone }: { uni: string; rows: ResultRow[]; 
   );
 }
 
+/** The learner cards' way to every test, with a hit area big enough for a thumb. */
+function AllTestsLink({ uni }: { uni: string }) {
+  return (
+    <Link href={`/${uni}/learn/tests`} className="inline-block py-1.5 font-medium text-brand hover:underline">
+      All tests
+    </Link>
+  );
+}
+
 export async function TestResultsHub({ uni, actor }: HubSectionProps) {
   const { rows, timezone } = await myResults(actor, 8);
   if (rows.length === 0) return null;
   return (
     <Card>
-      <CardTitle hint={<Link href={`/${uni}/learn/tests`}>All tests</Link>}>Test results</CardTitle>
+      <CardTitle hint={<AllTestsLink uni={uni} />}>Test results</CardTitle>
       <ResultsList uni={uni} rows={rows} timezone={timezone} />
     </Card>
   );
@@ -174,7 +183,7 @@ export async function UpcomingTestsCard({ uni, actor }: HomeCardProps) {
   if (shown.length === 0) return null;
   return (
     <Card>
-      <CardTitle hint={<Link href={`/${uni}/learn/tests`}>All tests</Link>}>Tests</CardTitle>
+      <CardTitle hint={<AllTestsLink uni={uni} />}>Tests</CardTitle>
       <ul className="space-y-3">
         {shown.map((t) => (
           <li key={t.id}>

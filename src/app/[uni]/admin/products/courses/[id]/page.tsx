@@ -18,6 +18,8 @@ import { createBatchAction, decideEnrolmentAction, seatLimitAction, setCourseSta
 
 type Search = Record<string, string | string[] | undefined>;
 
+const STATUS_LABEL: Record<string, string> = { published: "Published", draft: "Draft", archived: "Archived", open: "Open", closed: "Closed" };
+
 export default async function CoursePage({ params, searchParams }: { params: Promise<{ uni: string; id: string }>; searchParams: Promise<Search> }) {
   const { uni, id } = await params;
   const search = await searchParams;
@@ -30,7 +32,8 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
   const tabs = [
     { key: "batches", label: "Batches", order: 150 },
     ...moduleTabs.map((t) => ({ key: t.key, label: t.label, order: t.order })),
-    { key: "settings", label: "Settings", order: 10_000 },
+    // Only people who can change the course get its Settings tab; there's nothing to do there otherwise.
+    ...(canEdit ? [{ key: "settings", label: "Settings", order: 10_000 }] : []),
   ].sort((a, b) => a.order - b.order);
   const requested = typeof search.tab === "string" ? search.tab : "batches";
   const tab = tabs.some((t) => t.key === requested) ? requested : "batches";
@@ -46,18 +49,13 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
 
   return (
     <>
-      <div className="mb-2 text-sm text-muted">
-        <Link href={`/${uni}/admin/products/courses`} className="hover:text-ink">
-          Courses
-        </Link>{" "}
-        / {department.name}
-      </div>
       <PageHeader
         title={course.title}
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
-            <Badge tone={course.status === "published" ? "brand" : "neutral"}>{course.status}</Badge>
+            <Badge tone={course.status === "published" ? "brand" : "neutral"}>{STATUS_LABEL[course.status] ?? course.status}</Badge>
             <span>{course.pricePaise ? `${formatINR(course.pricePaise)} + ${course.gstRateBp / 100}% GST` : "Free"}</span>
+            <span>· {department.name}</span>
           </span>
         }
         actions={
@@ -85,13 +83,13 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
                     <Link href={`/${uni}/admin/products/batches/${b.batchId}`} className="block">
                       <div className="flex items-start justify-between gap-2">
                         <div className="font-semibold">{b.batchName}</div>
-                        {b.status !== "open" && <Badge>{b.status}</Badge>}
+                        {b.status !== "open" && <Badge>{STATUS_LABEL[b.status] ?? b.status}</Badge>}
                       </div>
                       <div className="mt-1 text-sm text-muted">{b.timings}</div>
                       <div className="text-sm text-muted">Starts {new Date(b.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "long" })}</div>
                       <div className="mt-3 flex items-center justify-between text-sm">
                         <span className={b.seatsLeft === 0 ? "font-medium text-danger" : "font-medium text-brand"}>
-                          {b.seatsLeft === 0 ? "Full" : `${b.seatsLeft} seats left`}
+                          {b.seatsLeft === 0 ? "Full" : `${b.seatsLeft} ${b.seatsLeft === 1 ? "seat" : "seats"} left`}
                         </span>
                         <span className="tabular text-faint">
                           {b.seatsTaken}/{b.seatLimit}
@@ -175,24 +173,24 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
         </div>
       )}
 
-      {tab === "settings" && (
+      {tab === "settings" && canEdit && (
         <Card className="max-w-xl">
           <CardTitle>Course settings</CardTitle>
           <ActionForm action={updateCourseAction} className="space-y-4" resetOnSuccess={false}>
             <input type="hidden" name="uni" value={uni} />
             <input type="hidden" name="courseId" value={id} />
             <Field label="Title">
-              <Input name="title" defaultValue={course.title} disabled={!canEdit} />
+              <Input name="title" defaultValue={course.title} />
             </Field>
             <Field label="Description">
-              <Input name="description" defaultValue={course.description} disabled={!canEdit} />
+              <Input name="description" defaultValue={course.description} />
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Price (₹)" hint="Shown on your website. Your own students join for free.">
-                <Input name="price" defaultValue={course.pricePaise / 100} disabled={!canEdit} />
+                <Input name="price" defaultValue={course.pricePaise / 100} />
               </Field>
               <Field label="GST">
-                <Select name="gst" defaultValue={course.gstRateBp / 100} disabled={!canEdit}>
+                <Select name="gst" defaultValue={course.gstRateBp / 100}>
                   {[0, 5, 12, 18, 28].map((g) => (
                     <option key={g} value={g}>
                       {g}%
@@ -202,17 +200,17 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
               </Field>
             </div>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="certificate" defaultChecked={course.certificateEnabled} disabled={!canEdit} className="accent-brand" />
+              <input type="checkbox" name="certificate" defaultChecked={course.certificateEnabled} className="accent-brand" />
               Issue a certificate on completion
             </label>
-            {canEdit && <SubmitButton>Save</SubmitButton>}
+            <SubmitButton>Save course settings</SubmitButton>
           </ActionForm>
-          {canEdit && course.status === "published" && (
+          {course.status === "published" && (
             <ActionForm action={setCourseStatusAction} className="mt-6 border-t border-line pt-4" resetOnSuccess={false}>
               <input type="hidden" name="uni" value={uni} />
               <input type="hidden" name="courseId" value={id} />
               <input type="hidden" name="status" value="draft" />
-              <SubmitButton variant="secondary">Unpublish</SubmitButton>
+              <SubmitButton variant="secondary">Unpublish course</SubmitButton>
             </ActionForm>
           )}
         </Card>

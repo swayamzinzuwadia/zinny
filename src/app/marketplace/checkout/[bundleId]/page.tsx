@@ -8,6 +8,7 @@ import { cancelBundleAction, payBundleTestModeAction } from "@/modules/payments/
 import { bundleView } from "@/modules/payments/bundles";
 import { BundleCheckout } from "@/modules/payments/components/bundle-checkout";
 import { inr } from "@/modules/payments/money";
+import { listingTitlesByBatch } from "@/modules/marketplace/service";
 
 export const metadata = { title: "Checkout" };
 export const dynamic = "force-dynamic";
@@ -23,6 +24,8 @@ export default async function BundleCheckoutPage({ params }: { params: Promise<{
     if (e instanceof NotFoundError) notFound();
     throw e;
   });
+  // Each line reads as it did on the shelf, not by the name of the course behind it.
+  const titles = await listingTitlesByBatch(b.items.map((i) => i.batchId));
   const subtotal = b.items.reduce((n, i) => n + i.basePaise, 0);
   const gst = b.items.reduce((n, i) => n + i.gstPaise, 0);
 
@@ -45,7 +48,7 @@ export default async function BundleCheckoutPage({ params }: { params: Promise<{
             {b.items.map((i) => (
               <li key={i.id} className="flex items-baseline justify-between gap-4 py-4">
                 <div className="min-w-0">
-                  <div className="text-[15px] font-medium">{i.title}</div>
+                  <div className="text-[15px] font-medium">{titles.get(i.batchId) ?? i.title}</div>
                   <div className="mt-0.5 text-[13px] text-muted">
                     {i.institute} · {inr(i.basePaise)} + GST {inr(i.gstPaise)}
                   </div>

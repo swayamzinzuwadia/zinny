@@ -1,5 +1,5 @@
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Card, Empty, Input, PageHeader, cx } from "@/components/ui";
+import { Card, Empty, PageHeader, Textarea, cx } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { canManageSite } from "@/modules/website-builder/access";
 import { addGalleryPhotosAction, saveGalleryCaptionAction } from "@/modules/website-builder/actions";
@@ -47,12 +47,13 @@ export default async function GalleryPage({ params }: { params: Promise<{ uni: s
                     <VisibilityBadge visible={item.visible} />
                   </span>
                 </div>
-                <ActionForm action={saveGalleryCaptionAction} resetOnSuccess={false} className="flex gap-2">
+                {/* Two lines, so the whole caption shows instead of being cut off in a one-line box. */}
+                <ActionForm action={saveGalleryCaptionAction} resetOnSuccess={false} className="flex flex-col items-end gap-2">
                   <input type="hidden" name="uni" value={uni} />
                   <input type="hidden" name="id" value={item.id} />
-                  <Input name="caption" defaultValue={item.caption} maxLength={160} placeholder="Caption (also read aloud by screen readers)" aria-label="Caption" className="h-9 text-[13px]" />
+                  <Textarea name="caption" defaultValue={item.caption} maxLength={160} rows={2} placeholder="Caption (also read aloud by screen readers)" aria-label="Caption" className="min-h-16" />
                   <SubmitButton variant="secondary" size="sm">
-                    Save
+                    Save caption
                   </SubmitButton>
                 </ActionForm>
                 <div className="mt-auto">

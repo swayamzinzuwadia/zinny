@@ -146,7 +146,8 @@ describe("the learner's own XP", () => {
     const page = await myXpPage(ishaan.actor);
     expect(page).toMatchObject({ total: 25, week: 10, month: 10, period: "all" });
     expect(page.boards).toEqual([expect.objectContaining({ rank: 4, of: 5, points: 25 })]);
-    expect(page.recent.map((r) => r.points).sort()).toEqual([10, 15]);
+    // No log of every "+10 Lesson finished": the page shows totals, ranks, badges and challenges.
+    expect(page).not.toHaveProperty("recent");
     const summary = await myXpSummary(rohan.actor);
     expect(summary.total).toBe(60);
     expect(summary.ranks.map((r) => r.points).sort()).toEqual([20, 40]);

@@ -4,6 +4,7 @@ import { can } from "@/server/core";
 import { myInvoices } from "@/modules/payments/invoices";
 import { inr } from "@/modules/payments/money";
 import { invoiceDate } from "@/modules/payments/pdf/invoice-pdf";
+import { sendParentsHome } from "../view";
 
 export const metadata = { title: "Invoices" };
 export const dynamic = "force-dynamic";
@@ -11,11 +12,12 @@ export const dynamic = "force-dynamic";
 export default async function InvoicesPage({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
   const { actor, university } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
   if (!can(actor, "self.view_invoices", { universityId: university.id, ownerUserId: actor.userId })) {
     return (
       <>
         <h1 className="mb-5 text-[26px] font-semibold tracking-tight">Invoices</h1>
-        <Empty title="Invoices are for learners">Your account doesn&apos;t pay for courses, so there are no invoices here.</Empty>
+        <Empty title="Invoices are for learners">Your account doesn&apos;t buy anything here, so there are no invoices.</Empty>
       </>
     );
   }
@@ -24,9 +26,11 @@ export default async function InvoicesPage({ params }: { params: Promise<{ uni: 
   return (
     <>
       <h1 className="text-[26px] font-semibold tracking-tight">Invoices</h1>
-      <p className="mb-5 mt-1 text-[14px] text-muted">GST invoices for the courses you paid for. Download them as PDF for your records or reimbursement.</p>
+      <p className="mb-5 mt-1 text-[14px] text-muted">
+        GST invoices for what you bought on the marketplace, and for any earlier payments. Download them as PDF for your records or reimbursement.
+      </p>
       {invoices.length === 0 ? (
-        <Empty title="No invoices yet">When you pay for a course, its GST invoice appears here.</Empty>
+        <Empty title="No invoices yet">When you buy something on the marketplace, its GST invoice appears here.</Empty>
       ) : (
         <div className="space-y-3">
           {invoices.map((i) => {

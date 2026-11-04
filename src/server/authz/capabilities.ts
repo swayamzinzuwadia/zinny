@@ -98,7 +98,8 @@ function summarise(
   const reachKey = reachOf(kind);
   const grants = effectiveGrants(kind, stored) ?? ROLE_GRANTS[kind];
   const has = new Set<Action>(grants);
-  const list = platform ? PLATFORM_ABILITIES : INSTITUTE_ABILITIES;
+  // Abilities for parts of the panel that aren't built yet stay out of the grid.
+  const list = (platform ? PLATFORM_ABILITIES : INSTITUTE_ABILITIES).filter((a) => !a.hidden);
   const derived = custom || base.edited ? sectionAccess(grants, SCOPE[reachKey]) : null;
   // Marketplace has no abilities of its own: it opens with "Create and edit courses" (menuFor), so it isn't listed here.
   const titles: { key: string; label: string }[] = platform ? [...PLATFORM_SECTIONS] : MENU.filter((m) => m.key !== "dashboard" && m.key !== "marketplace");
@@ -187,6 +188,6 @@ export function platformRoleSummaries(rows: readonly RoleRow[] = [], holders: Re
 /** Everything the editor can offer. It narrows these down by the role's reach. */
 export function abilityOptions(platform: boolean): AbilityOption[] {
   return (platform ? PLATFORM_ABILITIES : INSTITUTE_ABILITIES)
-    .filter((a) => !a.locked)
+    .filter((a) => !a.locked && !a.hidden)
     .map((a) => ({ section: a.section, reach: a.reach, needs: a.needs, ...placed(a) }));
 }

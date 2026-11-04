@@ -19,6 +19,13 @@ export const SHOW_ANSWERS_LABEL: Record<ShowAnswers, string> = {
   after_close: "After the test window closes",
 };
 
+/** The same setting as the student reads it on the test's own page. */
+export const LEARNER_SHOW_ANSWERS: Record<ShowAnswers, string> = {
+  never: "The right answers aren't shared after the test.",
+  after_submit: "You see the answers as soon as you submit.",
+  after_close: "You see the answers once the test closes.",
+};
+
 export const SUBMIT_REASON_LABEL: Record<SubmitReason, string> = {
   student: "Submitted",
   time_up: "Time ran out",

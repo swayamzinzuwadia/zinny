@@ -105,19 +105,34 @@ const SORTS: Record<Exclude<CatalogSort, "new">, (a: CatalogItem, b: CatalogItem
   deals: (a, b) => (b.percentOff ?? 0) - (a.percentOff ?? 0),
 };
 
-/** `institute` is a university slug: only what that institute sells. Newest first unless `sort` says otherwise. */
-export async function browseMarketplace(filter: { q?: string; kind?: ListingKind; institute?: string; sort?: CatalogSort; limit?: number } = {}) {
+/**
+ * `institute` is a university slug: only what that institute sells. `onOffer` keeps only
+ * listings with a deal running. Newest first unless `sort` says otherwise.
+ */
+export async function browseMarketplace(filter: { q?: string; kind?: ListingKind; institute?: string; onOffer?: boolean; sort?: CatalogSort; limit?: number } = {}) {
   const q = filter.q?.trim().slice(0, 80);
   const like = q ? `%${q.replace(/[\\%_]/g, "\\$&")}%` : null;
-  const items = await liveListings(
+  const listed = await liveListings(
     and(
       filter.kind ? eq(mktListings.kind, filter.kind) : undefined,
       filter.institute ? eq(universities.slug, filter.institute) : undefined,
       like ? or(ilike(mktListings.title, like), ilike(universities.name, like)) : undefined,
     ),
   );
+  const items = filter.onOffer ? listed.filter((i) => i.percentOff) : listed;
   if (filter.sort && filter.sort !== "new") items.sort(SORTS[filter.sort]);
   return filter.limit ? items.slice(0, filter.limit) : items;
+}
+
+/**
+ * The marketplace title of each listing sold through these batches, by batch: what the buyer
+ * saw on the shelf, for checkout to show instead of the course's own name.
+ */
+export async function listingTitlesByBatch(batchIds: string[]): Promise<Map<string, string>> {
+  const ids = [...new Set(batchIds)].filter((id) => UUID.test(id));
+  if (ids.length === 0) return new Map();
+  const rows = await systemDb().select({ batchId: mktListings.batchId, title: mktListings.title }).from(mktListings).where(inArray(mktListings.batchId, ids));
+  return new Map(rows.map((r) => [r.batchId, r.title]));
 }
 
 /** Institutes with something on sale, most listings first: the catalogue's shelves. */
@@ -207,7 +222,7 @@ export async function startPurchase(
   opts: { skipCodeThatDoesNotFit?: boolean } = {},
 ): Promise<{ slug: string; orderId: string; codeApplied: boolean }> {
   const access = await marketplaceAccess(userId);
-  if (!access.canShop) throw new ForbiddenError("Buying is open to learners: students, alumni and people with a marketplace account.");
+  if (!access.canShop) throw new ForbiddenError("Buying is open to learners: students, alumni and people with a free Zinny account.");
   const item = await liveListing(listingId);
   const deal = code?.trim()
     ? await applyCode(item, code).catch((e) => {

@@ -179,11 +179,27 @@ export type PollResult = {
   closesAt: Date;
   state: PollState;
   totalVotes: number;
-  /** Students the poll reaches now (active seats). */
+  /** Students the poll reaches: active or completed seats in its batches, plus anyone who already voted. Never below totalVotes. */
   eligible: number;
   options: { id: string; label: string; votes: number; percent: number; voters: string[] }[];
   canManage: boolean;
 };
+
+/**
+ * How many students the poll reaches, counted like the votes are: an active or a completed
+ * seat (someone who voted and then finished the course keeps their vote). Anyone who voted
+ * and has since left still counts, so "voted" never runs past "eligible".
+ */
+async function eligibleVoters(tx: Tx, pollId: string, batchIds: string[]): Promise<number> {
+  const seats = batchIds.length
+    ? await tx
+        .select({ userId: enrolments.userId })
+        .from(enrolments)
+        .where(and(inArray(enrolments.batchId, batchIds), inArray(enrolments.status, ["active", "completed"])))
+    : [];
+  const voted = await tx.select({ userId: pollVoters.userId }).from(pollVoters).where(eq(pollVoters.pollId, pollId));
+  return new Set([...seats, ...voted].map((r) => r.userId)).size;
+}
 
 async function results(tx: Tx, actor: Actor | null, list: PollRow[], now: Date, withNames: boolean): Promise<PollResult[]> {
   if (list.length === 0) return [];
@@ -200,7 +216,7 @@ async function results(tx: Tx, actor: Actor | null, list: PollRow[], now: Date, 
   const out: PollResult[] = [];
   for (const p of list) {
     const bs = await pollBatchIds(tx, p);
-    const eligible = new Set((await Promise.all(bs.map((b) => batchStudentIds(tx, b)))).flat()).size;
+    const eligible = await eligibleVoters(tx, p.id, bs);
     // Names only for students in batches the viewer manages.
     let visibleVoters: Set<string> | null = null;
     if (withNames && actor && !p.anonymous) {

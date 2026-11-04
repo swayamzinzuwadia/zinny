@@ -6,7 +6,7 @@
 import type { RoleName } from "@/db/schema";
 import { sectionAccess } from "./abilities";
 import type { Actor } from "./engine";
-import { can, isActive } from "./engine";
+import { can, isActive, reach } from "./engine";
 import { GRANTS_ONLY_AT } from "./roles";
 
 export type SectionKey =
@@ -52,8 +52,6 @@ export const MENU: MenuSection[] = [
       { label: "Assignments", href: "/products/assignments" },
       { label: "Learning progress", href: "/products/content" },
       { label: "Certificates", href: "/products/certificates" },
-      { label: "Categories & utilities", href: "/products/categories" },
-      { label: "More products", href: "/products/more" },
     ],
   },
   {
@@ -83,7 +81,7 @@ export const MENU: MenuSection[] = [
   },
   {
     key: "leaderboards",
-    label: "User Leaderboards",
+    label: "Leaderboard",
     hint: "The XP system",
     items: [
       { label: "XP rules", href: "/leaderboards/xp-rules" },
@@ -110,15 +108,14 @@ export const MENU: MenuSection[] = [
       { label: "Website sections", href: "/website/sections" },
     ],
   },
-  { key: "marketing", label: "Marketing", hint: "Unchanged", items: [{ label: "Marketing", href: "/marketing" }] },
-  { key: "community", label: "Community", hint: "Unchanged", items: [{ label: "Community", href: "/community" }] },
+  // Marketing and Community aren't built yet: they keep their keys (roles still carry the access) but have no menu entry.
   { key: "insights", label: "Insights", hint: "Unchanged", items: [{ label: "Insights", href: "/insights" }] },
   {
     key: "settings",
     label: "Settings",
-    hint: "Unchanged",
+    hint: "Where each institute setting lives",
     items: [
-      { label: "Settings", href: "/settings" },
+      { label: "All settings", href: "/settings" },
       { label: "Notifications", href: "/settings/notifications" },
     ],
   },
@@ -173,19 +170,32 @@ export function menuFor(actor: Actor, universityId: string, now = new Date()) {
   // Selling on the marketplace is editing courses, so whoever edits courses (all of them, or their department's) gets the section.
   const products = best.get("products");
   if (products === "full" || products === "dept") best.set("marketplace", products);
-  return MENU.filter((s) => best.has(s.key))
-    .map((s) => ({ ...s, access: best.get(s.key)! }))
-    .map((s) => (s.key === "insights" && !best.has("finance") ? { ...s, items: [...s.items, REPORTS_ITEM] } : s))
-    // Scoped viewers only get the people lists they can actually use.
-    .map((s) => {
-      if (s.key !== "users") return s;
-      if (s.access === "full") return can(actor, "role.manage", { universityId }, now) ? s : { ...s, items: s.items.filter((i) => i.href !== "/users/roles") };
-      const keep =
-        s.access === "students"
-          ? ["/users/students"]
-          : s.access === "dept"
-            ? ["/users/teaching", "/users/students", "/users/requests", "/users/departments", "/users/invites"]
-            : ["/users/administration", "/users/teaching", "/users/students", "/users/departments"];
-      return { ...s, items: s.items.filter((i) => keep.includes(i.href)) };
-    });
+  const reaches = (action: Parameters<typeof reach>[1]) => {
+    const r = reach(actor, action, universityId, now);
+    return r.all || r.departmentIds.size > 0 || r.batchIds.size > 0;
+  };
+  return (
+    MENU.filter((s) => best.has(s.key))
+      .map((s) => ({ ...s, access: best.get(s.key)! }))
+      .map((s) => (s.key === "insights" && !best.has("finance") ? { ...s, items: [...s.items, REPORTS_ITEM] } : s))
+      // Faculty see certificates on each course's Certificates tab; the Certificates page is for people who issue them or set up templates.
+      .map((s) =>
+        s.key === "products" && s.access === "batches" && !reaches("cert.issue") && !reaches("cert.manage")
+          ? { ...s, items: s.items.filter((i) => i.href !== "/products/certificates") }
+          : s,
+      )
+      // Scoped viewers only get the people lists they can actually use. Faculty find their students on their batch pages.
+      .map((s) => {
+        if (s.key !== "users") return s;
+        if (s.access === "full") return can(actor, "role.manage", { universityId }, now) ? s : { ...s, items: s.items.filter((i) => i.href !== "/users/roles") };
+        const keep =
+          s.access === "students"
+            ? []
+            : s.access === "dept"
+              ? ["/users/teaching", "/users/students", "/users/requests", "/users/departments", "/users/invites"]
+              : ["/users/administration", "/users/teaching", "/users/students", "/users/departments"];
+        return { ...s, items: s.items.filter((i) => keep.includes(i.href)) };
+      })
+      .filter((s) => s.items.length > 0)
+  );
 }

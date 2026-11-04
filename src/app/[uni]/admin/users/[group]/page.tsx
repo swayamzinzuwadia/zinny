@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Table, Td } from "@/components/ui";
+import Link from "next/link";
+import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Table, Td, buttonClass } from "@/components/ui";
 import { can, reach } from "@/server/authz/engine";
 import { ROLE_LABELS, USER_GROUPS } from "@/server/authz/roles";
 import { spaceContext } from "@/server/context";
+import { formatDate, todayIn } from "@/server/lib/dates";
 import { listDepartments } from "@/server/services/departments";
 import { customRoleChoices } from "@/server/services/roles";
 import { listPeople } from "@/server/services/users";
@@ -23,12 +25,16 @@ const ADDABLE: Record<keyof typeof USER_GROUPS, RoleName[]> = {
   students: ["student"],
 };
 
-export default async function PeoplePage({ params }: { params: Promise<{ uni: string; group: string }> }) {
+export default async function PeoplePage({ params, searchParams }: { params: Promise<{ uni: string; group: string }>; searchParams: Promise<{ q?: string }> }) {
   const { uni, group } = await params;
   if (!(group in USER_GROUPS)) notFound();
   const g = group as keyof typeof USER_GROUPS;
   const { actor, university } = await spaceContext(uni);
-  const people = await listPeople(actor, g);
+  const q = ((await searchParams).q ?? "").trim();
+  const everyone = await listPeople(actor, g);
+  const needle = q.toLowerCase();
+  const people = needle ? everyone.filter((p) => p.name.toLowerCase().includes(needle) || p.email.toLowerCase().includes(needle)) : everyone;
+  const listHref = `/${uni}/admin/users/${g}`;
   const isAdmin = can(actor, "user.manage_roles", { universityId: university.id });
   const hodReach = reach(actor, "user.manage_roles", university.id);
   const depts = await listDepartments(actor);
@@ -48,8 +54,24 @@ export default async function PeoplePage({ params }: { params: Promise<{ uni: st
       <PageHeader title={TITLES[g][0]} subtitle={TITLES[g][1]} />
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
         <div>
+          {everyone.length > 0 && (
+            <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
+              <Input type="search" name="q" defaultValue={q} placeholder="Search by name or email" aria-label="Search by name or email" className="max-w-xs" />
+              <button type="submit" className={buttonClass("secondary")}>
+                Search
+              </button>
+              {q && (
+                <Link href={listHref} className={buttonClass("ghost")}>
+                  Clear
+                </Link>
+              )}
+              <span className="text-[13px] text-muted">
+                {q ? `${people.length} of ${everyone.length}` : everyone.length} {everyone.length === 1 ? "person" : "people"}
+              </span>
+            </form>
+          )}
           {people.length === 0 ? (
-            <Empty title="Nobody here yet" />
+            <Empty title={q ? `Nobody matches “${q}”` : "Nobody here yet"}>{q ? "Check the spelling, or search by email instead." : undefined}</Empty>
           ) : (
             <Table head={["Name", "Roles", ""]}>
               {people.map((p) => (
@@ -66,14 +88,23 @@ export default async function PeoplePage({ params }: { params: Promise<{ uni: st
                           <div key={r.assignmentId} className="flex flex-wrap items-center gap-2 text-sm">
                             <Badge tone={ended ? "danger" : r.role === "alumni" ? "neutral" : "brand"}>{r.label}</Badge>
                             <span className="text-muted">{r.scope}</span>
-                            {r.endsAt && <span className="text-xs text-faint">{ended ? "access ended" : `until ${r.endsAt.toLocaleDateString("en-IN")}`}</span>}
-                            {(isAdmin || ["permanent_faculty", "visiting_faculty"].includes(r.role)) && canAdd && (
-                              <ActionForm action={revokeRoleAction} confirm={`Remove ${r.label} from ${p.name}?`}>
-                                <input type="hidden" name="uni" value={uni} />
-                                <input type="hidden" name="assignmentId" value={r.assignmentId} />
-                                <button className="text-xs text-faint hover:text-danger">remove</button>
-                              </ActionForm>
+                            {r.endsAt && (
+                              <span className="text-[13px] text-muted">
+                                {ended ? "Access ended" : `Until ${formatDate(todayIn(university.timezone, r.endsAt))}`}
+                              </span>
                             )}
+                            {/* Your own Institute Admin role can't be removed (the server refuses), so there's no button for it. */}
+                            {(isAdmin || ["permanent_faculty", "visiting_faculty"].includes(r.role)) &&
+                              canAdd &&
+                              !(r.role === "institute_admin" && p.id === actor.userId) && (
+                                <ActionForm action={revokeRoleAction} confirm={`Remove ${r.label} from ${p.name}?`}>
+                                  <input type="hidden" name="uni" value={uni} />
+                                  <input type="hidden" name="assignmentId" value={r.assignmentId} />
+                                  <button aria-label={`Remove ${r.label} from ${p.name}`} className="text-[13px] text-muted underline underline-offset-2 hover:text-danger">
+                                    Remove
+                                  </button>
+                                </ActionForm>
+                              )}
                           </div>
                         );
                       })}
@@ -155,7 +186,7 @@ export default async function PeoplePage({ params }: { params: Promise<{ uni: st
 
         {canAdd && (
           <Card className="h-fit">
-            <CardTitle>Add someone</CardTitle>
+            <CardTitle>Add a person</CardTitle>
             <ActionForm action={addPersonAction} className="space-y-4">
               <input type="hidden" name="uni" value={uni} />
               <Field label="Name">
@@ -213,7 +244,7 @@ export default async function PeoplePage({ params }: { params: Promise<{ uni: st
                   <p className="mt-1.5 text-[13px] text-muted">The student sees only these departments&apos; courses.</p>
                 </fieldset>
               )}
-              <SubmitButton>Add</SubmitButton>
+              <SubmitButton>Add person</SubmitButton>
             </ActionForm>
           </Card>
         )}

@@ -104,7 +104,7 @@ export function DayAgenda({
                 </span>
               )}
               {picked !== today && (
-                <button type="button" onClick={() => setPicked(today)} className="text-brand hover:underline">
+                <button type="button" onClick={() => setPicked(today)} className="py-1 text-brand hover:underline">
                   Back to today
                 </button>
               )}
@@ -142,7 +142,7 @@ export function DayAgenda({
               })}
             </ol>
           )}
-          <Link href={timetableHref} className="mt-5 inline-block text-[13px] text-brand hover:underline">
+          <Link href={timetableHref} className="mt-4 inline-block py-1 text-[13px] text-brand hover:underline">
             See the full timetable
           </Link>
         </section>

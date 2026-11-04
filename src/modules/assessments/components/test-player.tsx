@@ -238,19 +238,28 @@ export function TestPlayer({ uni, paper }: { uni: string; paper: PaperView }) {
               </div>
             )}
           </div>
-          <div className="mt-2 flex h-1 gap-0.5" aria-hidden>
+          {/* One thin bar per question; each sits in a 24px-tall button so it's easy to tap on a phone. */}
+          <div className="mt-1 flex gap-0.5" aria-hidden>
             {items.map((i, k) => (
               <button
                 key={i.id}
                 type="button"
                 tabIndex={-1}
-                onClick={() => paper.onePerPage && setPage(k)}
-                className={cx(
-                  "flex-1 rounded-full",
-                  isAnswered(responses[i.id]) ? "bg-brand" : "bg-line",
-                  paper.onePerPage && k === page && "ring-2 ring-gold",
-                )}
-              />
+                onClick={() =>
+                  paper.onePerPage
+                    ? setPage(k)
+                    : document.getElementById(`q-${i.id}-label`)?.scrollIntoView({ block: "center", behavior: "smooth" })
+                }
+                className="flex h-6 flex-1 items-center"
+              >
+                <span
+                  className={cx(
+                    "h-1 w-full rounded-full",
+                    isAnswered(responses[i.id]) ? "bg-brand" : "bg-line",
+                    paper.onePerPage && k === page && "ring-2 ring-gold",
+                  )}
+                />
+              </button>
             ))}
           </div>
         </div>

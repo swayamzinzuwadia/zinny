@@ -57,6 +57,13 @@
       "when": 1793782622867,
       "tag": "0007_student_joining_and_enrolment_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793807834868,
+      "tag": "0008_recorded_batch_name",
+      "breakpoints": true
     }
   ]
 }

@@ -4,8 +4,10 @@ import { prerenderToNodeStream } from "react-dom/static.node";
 import { closeDb } from "@/db/client";
 import liveClasses from "@/modules/live-classes";
 import { joinClass } from "@/modules/live-classes/join";
-import { startClass } from "@/modules/live-classes/staff";
-import { courseTarget, universityLite, withTenant } from "@/server/core";
+import { lockRegister, startClass } from "@/modules/live-classes/staff";
+import { registerButton } from "@/modules/live-classes/components/staff";
+import { courseTarget, ensureRecordedBatch, systemActorFor, universityLite, withTenant } from "@/server/core";
+import { courseLive } from "@/modules/live-classes/overview";
 import { setTestModules, slotsInReach, visibleSlots } from "@/server/registry";
 import { makeDepartment, person } from "../fixtures";
 import { liveSetup } from "./helpers";
@@ -76,15 +78,27 @@ describe("live-classes: slots", () => {
     };
     const base = { uni: university.slug, university };
 
+    // The course's recorded batch (marketplace buyers) has no classes: the tab leaves it out.
+    const sys = systemActorFor(ctx.uni.id);
+    const recorded = await withTenant(sys, (tx) => ensureRecordedBatch(tx, sys, { id: ctx.course.id, departmentId: ctx.dept.id }));
+    expect((await courseLive(ctx.hod, ctx.course.id)).batches.map((b) => b.batch.id)).toEqual([ctx.batch.id]);
+    expect(recorded.recorded).toBe(true);
+
     const tab = liveClasses.adminCourseTabs![0].component;
     const tabHtml = await html(await tab({ ...base, actor: ctx.hod, course, target: batch.target, searchParams: {} }));
     expect(tabHtml).toContain("Weekday morning");
     expect(tabHtml).toContain("meet.google.com/live-test");
+    expect(tabHtml).not.toContain("Recorded lessons");
+    expect(tabHtml).not.toContain("Not added");
 
     const section = liveClasses.adminBatchSections![0].component;
     const sectionHtml = await html(await section({ ...base, actor: ctx.faculty, batch, course, target: batch.target }));
     expect(sectionHtml).toContain("Attendance");
     expect(sectionHtml).toContain("No classes held yet");
+    // Nothing recorded: plain text, not "No classes yet" in the big number.
+    expect(sectionHtml).toContain("No attendance yet");
+    expect(sectionHtml).not.toContain("Across 0 classes");
+    expect(tabHtml).toContain("No attendance yet");
 
     const learner = liveClasses.learnerCourseTabs![0].component;
     const learnerHtml = await html(
@@ -109,14 +123,28 @@ describe("live-classes: slots", () => {
     expect(await html(await dash({ ...base, actor: ctx.faculty, today: "2026-10-29" }))).toContain("Attendance today");
   });
 
+  it("a register that filled itself (students joined through Zinny, no marks) offers Edit attendance", async () => {
+    const ctx = await liveSetup("Slots Self U", { students: 1 });
+    const { ist, MON } = await import("./helpers");
+    await joinClass(ctx.students[0], ctx.batch.id, MON, null, ist(MON, "09:02"));
+    const { todaysClasses } = await import("@/modules/live-classes/overview");
+    const [s] = (await todaysClasses(ctx.faculty, ist(MON, "11:30"))).classes;
+    expect(s).toMatchObject({ state: "ended", present: 1 });
+    expect(registerButton(s)).toBe("Edit attendance");
+  });
+
   it("join and start leave the expected trail for the dashboard card", async () => {
     // Uses fixed instants: the service functions take `now`, the components use the clock.
     const ctx = await liveSetup("Slots Trail U", { students: 1 });
     const { ist, MON } = await import("./helpers");
-    await startClass(ctx.faculty, { batchId: ctx.batch.id, date: MON }, ist(MON, "08:55"));
-    await joinClass(ctx.students[0], ctx.batch.id, MON, null, ist(MON, "09:00"));
     const { todaysClasses } = await import("@/modules/live-classes/overview");
+    await startClass(ctx.faculty, { batchId: ctx.batch.id, date: MON }, ist(MON, "08:55"));
+    expect(registerButton((await todaysClasses(ctx.faculty, ist(MON, "08:58"))).classes[0])).toBe("Take attendance");
+    await joinClass(ctx.students[0], ctx.batch.id, MON, null, ist(MON, "09:00"));
     const t = await todaysClasses(ctx.faculty, ist(MON, "09:30"));
     expect(t.classes[0]).toMatchObject({ present: 1, total: 1, recorded: true });
+    expect(registerButton(t.classes[0])).toBe("Edit attendance");
+    await lockRegister(ctx.faculty, { batchId: ctx.batch.id, date: MON }, ist(MON, "11:30"));
+    expect(registerButton((await todaysClasses(ctx.faculty, ist(MON, "11:35"))).classes[0])).toBe("View register");
   });
 });

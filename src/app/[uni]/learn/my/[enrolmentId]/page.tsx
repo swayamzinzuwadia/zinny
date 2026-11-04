@@ -4,10 +4,11 @@ import { Badge, Card, Empty, Tabs } from "@/components/ui";
 import { SlotOutlet } from "@/components/slots";
 import { spaceContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
-import { formatDate } from "@/server/lib/dates";
+import { formatDate, todayIn } from "@/server/lib/dates";
 import { visibleSlots } from "@/server/registry";
 import { myEnrolment } from "@/server/services/enrolment";
 import { SwitchBatch } from "../switch-batch";
+import { sendParentsHome } from "../../view";
 
 export const metadata = { title: "Course" };
 
@@ -22,6 +23,7 @@ export default async function CourseHub({ params, searchParams }: { params: Prom
   const { uni, enrolmentId } = await params;
   const search = await searchParams;
   const { actor, university } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
   const e = await myEnrolment(actor, enrolmentId).catch((err) => {
     if (err instanceof NotFoundError) notFound();
     throw err;
@@ -36,10 +38,13 @@ export default async function CourseHub({ params, searchParams }: { params: Prom
 
   return (
     <>
-      <Link href={b.recorded ? "/marketplace/library" : `/${uni}/learn/my`} className="text-sm text-muted">
-        {b.recorded ? "My library" : "My learning"}
-      </Link>
-      <div className="mb-6 mt-2">
+      {/* The back pill above leads to My learning; a marketplace purchase belongs to My library instead. */}
+      {b.recorded && (
+        <Link href="/marketplace/library" className="mb-2 inline-block py-1 text-sm text-muted">
+          My library
+        </Link>
+      )}
+      <div className="mb-6">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-[26px] font-semibold leading-tight tracking-tight">{e.course.title}</h1>
           {e.status === "completed" && <Badge tone="brand">Completed</Badge>}
@@ -67,7 +72,14 @@ export default async function CourseHub({ params, searchParams }: { params: Prom
             </div>
           </dl>
           {e.status === "active" && (
-            <SwitchBatch uni={uni} enrolmentId={e.enrolmentId} switchRequest={e.switchRequest} lastDecision={e.lastDecision} options={e.allOptions} />
+            <SwitchBatch
+              uni={uni}
+              enrolmentId={e.enrolmentId}
+              switchRequest={e.switchRequest}
+              lastDecision={e.lastDecision}
+              options={e.allOptions}
+              today={todayIn(university.timezone)}
+            />
           )}
         </Card>
         )}

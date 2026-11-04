@@ -125,15 +125,16 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                 <span aria-hidden className="h-px flex-1 bg-line" />
               </div>
               <Link href={university ? `/signup?uni=${university.slug}` : "/signup"} className={cx(buttonClass("secondary"), "w-full")}>
-                Create a student account
+                {university ? "Create a student account" : "Create a free account"}
               </Link>
             </>
           )}
           <p className="mt-3 text-[14px] text-muted">
-            Staff get an invitation email from their institute.{" "}
+            Staff get an invitation email from their institute. If yours didn&apos;t arrive,{" "}
             <Link href="/reset" className="text-brand hover:underline">
-              Didn&apos;t get it?
+              set your password with your work email
             </Link>
+            .
           </p>
         </div>
       )}

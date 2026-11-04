@@ -18,12 +18,6 @@ export default async function GradingPage({ params }: { params: Promise<{ uni: s
 
   return (
     <>
-      <div className="mb-2 text-sm text-muted">
-        <Link href={`/${uni}/admin/products/tests`} className="hover:text-ink">
-          Tests
-        </Link>{" "}
-        / Grading
-      </div>
       <PageHeader title="Grading" subtitle="Short answers from your batches, oldest first. Students get their result once every answer in the attempt is graded." />
       {byAttempt.size === 0 ? (
         <Empty title="Nothing to grade">New short answers show up here as students submit.</Empty>

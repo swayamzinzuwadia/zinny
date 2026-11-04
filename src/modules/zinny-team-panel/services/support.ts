@@ -11,7 +11,8 @@ import { and, asc, desc, eq, gt, gte, isNull, lt, sql, type SQL } from "drizzle-
 import { auditLog, roleAssignments, supportSessions, universities, users } from "@/db/schema";
 import { assertPlatform, enterSupportMode, exitSupportMode, type Actor } from "@/server/core";
 import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
-import { formatDateTime, isDate } from "../lib/format";
+import { FLAG_LABEL, MODULE_LABEL, PLAN_LABELS, PLATFORM_ROLE_LABELS, isPlatformRole, type Plan } from "../lib/constants";
+import { formatDate, formatDateTime, formatINR, isDate } from "../lib/format";
 import { db, isUuid, logAction, universityOrThrow } from "./shared";
 
 /* ─────────────────────────── Sessions ─────────────────────────── */
@@ -160,6 +161,7 @@ export async function forceEndSupport(actor: Actor, sessionId: string, reason: s
 /* ─────────────────────────── Activity log ─────────────────────────── */
 
 export const ACTION_LABELS: Record<string, string> = {
+  "plat.demo_request": "Requested a demo on the website",
   "support.enter": "Entered support mode",
   "support.exit": "Left support mode",
   "support.force_end": "Force-ended a support session",
@@ -199,6 +201,72 @@ export const ACTION_LABELS: Record<string, string> = {
 /** "course.add_lesson" → "Course add lesson" for actions without a label. */
 export function actionLabel(action: string) {
   return ACTION_LABELS[action] ?? (action.charAt(0).toUpperCase() + action.slice(1)).replace(/[._]/g, " ");
+}
+
+/** What the log calls each detail it shows. Anything else is left out of the summary (the CSV keeps it all). */
+const DETAIL_LABELS: Record<string, string> = {
+  institute: "Institute",
+  reason: "Reason",
+  endReason: "Reason",
+  name: "Name",
+  title: "Course",
+  number: "Invoice",
+  totalPaise: "Total",
+  dueDate: "Due",
+  paidOn: "Paid on",
+  reference: "Reference",
+  wasPaidOn: "Was paid on",
+  plan: "Plan",
+  studentCap: "Student cap",
+  staffCap: "Staff cap",
+  startDate: "Starts",
+  endDate: "Ends",
+  modules: "Modules",
+  role: "Role",
+  admin: "Admin",
+  partner: "Partner",
+  slug: "Web address",
+  kind: "Kind",
+  status: "Status",
+  category: "Issue",
+  note: "Note",
+  q: "Search",
+  rows: "Rows",
+};
+
+const sentence = (v: string) => (v.charAt(0).toUpperCase() + v.slice(1)).replace(/_/g, " ");
+
+function detailValue(key: string, v: unknown): string | null {
+  if (v === null || v === undefined || v === "" || typeof v === "boolean") return null;
+  if (key.endsWith("Paise") && typeof v === "number") return formatINR(v);
+  if (key === "modules" && Array.isArray(v)) return `${v.length} of ${Object.keys(MODULE_LABEL).length}`;
+  if (Array.isArray(v) || typeof v === "object") return null;
+  const s = String(v);
+  if (isDate(s)) return formatDate(s);
+  if (key === "plan") return PLAN_LABELS[s as Plan] ?? sentence(s);
+  if (key === "role") return isPlatformRole(s) ? PLATFORM_ROLE_LABELS[s] : sentence(s);
+  if (key === "category") return FLAG_LABEL[s] ?? sentence(s);
+  if (key === "kind" || key === "status") return sentence(s);
+  return s;
+}
+
+/**
+ * A short, readable summary of a log entry's details: labelled, with money and dates
+ * formatted, and without ids. `skipReason` leaves out a reason already shown beside it.
+ */
+export function describeDetails(data: Record<string, unknown> | null | undefined, opts: { action?: string; skipReason?: string | null } = {}): string {
+  // A licence warning's title says it all ("Demo Institute is at 92% of its student cap").
+  if (opts.action?.startsWith("plat.alert.")) return typeof data?.title === "string" ? data.title : "";
+  const parts: string[] = [];
+  for (const [key, raw] of Object.entries(data ?? {})) {
+    const label = DETAIL_LABELS[key];
+    if (!label) continue;
+    if ((key === "reason" || key === "endReason") && opts.skipReason && String(raw).trim() === opts.skipReason.trim()) continue;
+    const value = detailValue(key, raw);
+    if (value) parts.push(`${label}: ${value}`);
+    if (parts.length === 4) break;
+  }
+  return parts.join(" · ");
 }
 
 export type LogScope = "support" | "all";

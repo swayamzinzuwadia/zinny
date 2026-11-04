@@ -219,13 +219,24 @@ export async function invoiceDraft(actor: Actor, universityId: string | undefine
   if (!u) return base;
   const [l] = await db().select().from(platLicences).where(eq(platLicences.universityId, universityId));
   if (!l) return { ...base, universityId: u.id, description: "Zinny licence" };
+  return { ...base, universityId: u.id, ...licenceTerms(l) };
+}
+
+export type InvoiceTerms = { description: string; periodStart: string; periodEnd: string };
+
+function licenceTerms(l: typeof platLicences.$inferSelect): InvoiceTerms {
   return {
-    ...base,
-    universityId: u.id,
     periodStart: l.startDate,
     periodEnd: l.endDate,
     description: `Zinny ${PLAN_LABELS[l.plan as Plan]} licence, up to ${l.studentCap.toLocaleString("en-IN")} students and ${l.staffCap.toLocaleString("en-IN")} staff`,
   };
+}
+
+/** Each licensed university's term and description, so the new-invoice form can fill them in as you pick. */
+export async function invoiceTermsByUniversity(actor: Actor): Promise<Record<string, InvoiceTerms>> {
+  assertPlatform(actor, "platform.finance");
+  const rows = await db().select().from(platLicences);
+  return Object.fromEntries(rows.map((l) => [l.universityId, licenceTerms(l)]));
 }
 
 /** Unpaid invoices past their due date, oldest first. For the platform home. */

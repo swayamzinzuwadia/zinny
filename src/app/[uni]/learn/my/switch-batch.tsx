@@ -13,12 +13,15 @@ export function SwitchBatch({
   switchRequest,
   lastDecision,
   options,
+  today,
 }: {
   uni: string;
   enrolmentId: string;
   switchRequest: Request;
   lastDecision: Decision;
   options: BatchOption[] | null;
+  /** The institute's date, so batches already running say so. */
+  today: string;
 }) {
   return (
     <>
@@ -38,10 +41,10 @@ export function SwitchBatch({
         options &&
         options.filter((o) => !o.mine).length > 0 && (
           <details className="mt-3">
-            <summary className="cursor-pointer text-sm font-medium text-brand">Switch batch</summary>
+            <summary className="cursor-pointer py-1 text-sm font-medium text-brand">Switch batch</summary>
             <div className="mt-3">
-              <p className="mb-3 text-sm text-muted">Your HOD approves the move. It only goes through if the new batch has a free seat.</p>
-              <BatchPicker uni={uni} options={options} mode="switch" enrolmentId={enrolmentId} />
+              <p className="mb-3 text-sm text-muted">Your Head of Department approves the move. It only goes through if the new batch has a free seat.</p>
+              <BatchPicker uni={uni} options={options} mode="switch" enrolmentId={enrolmentId} today={today} />
             </div>
           </details>
         )

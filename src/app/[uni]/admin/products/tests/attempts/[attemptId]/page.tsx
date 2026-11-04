@@ -35,10 +35,6 @@ export default async function StaffAttemptPage({ params }: { params: Promise<{ u
   return (
     <>
       <div className="mb-2 text-sm text-muted">
-        <Link href={`/${uni}/admin/products/tests`} className="hover:text-ink">
-          Tests
-        </Link>{" "}
-        /{" "}
         <Link href={`/${uni}/admin/products/tests/${d.test.id}?tab=results`} className="hover:text-ink">
           {d.test.title}
         </Link>

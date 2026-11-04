@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Field, Input, Notice, PageHeader, Select, Textarea } from "@/components/ui";
+import { Badge, Card, CardTitle, Field, Input, Notice, PageHeader, Select, Textarea, buttonClass, cx } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { setStatusAction, updateBasicsAction } from "@/modules/zinny-team-panel/actions";
-import { BackLink, Fact, NoAccess, PlanBadge, RenewalText, StatusBadge, UsageMeter } from "@/modules/zinny-team-panel/components/bits";
+import { Fact, NoAccess, PlanBadge, RenewalText, StatusBadge, UsageMeter } from "@/modules/zinny-team-panel/components/bits";
 import { OpenInstitute } from "@/modules/zinny-team-panel/components/open-institute";
 import { canSeeContentFlags, isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
 import { COMMON_TIMEZONES, FLAG_LABEL, GST_STATES, MODULE_LABEL, STATE_NAME } from "@/modules/zinny-team-panel/lib/constants";
@@ -36,11 +36,10 @@ export default async function UniversityPage({ params, searchParams }: { params:
   const invoices = can.finance ? await invoicesForUniversity(actor, u.id) : [];
   const suspended = u.status === "suspended";
   const superAdmin = isSuperAdmin(actor);
-  const inside = superAdmin && (await activeSessions(actor)).some((s) => s.staffUserId === actor.userId && s.universityId === u.id);
+  const inside = can.support && (await activeSessions(actor)).some((s) => s.staffUserId === actor.userId && s.universityId === u.id);
 
   return (
     <>
-      <BackLink href="/platform/institutes">Institutes</BackLink>
       <PageHeader
         title={u.name}
         subtitle={
@@ -53,19 +52,19 @@ export default async function UniversityPage({ params, searchParams }: { params:
         }
         actions={
           <>
-            {superAdmin && <OpenInstitute universityId={u.id} slug={u.slug} inside={inside} />}
+            {can.support && <OpenInstitute universityId={u.id} slug={u.slug} inside={inside} />}
             {superAdmin && (
-              <Link href={`/platform/people?university=${u.id}`} className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
+              <Link href={`/platform/people?university=${u.id}`} className={cx(buttonClass("secondary"), "whitespace-nowrap")}>
                 People
               </Link>
             )}
             {can.support && (
-              <Link href={`/platform/support/log?scope=all&university=${u.id}`} className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
+              <Link href={`/platform/support/log?scope=all&university=${u.id}`} className={cx(buttonClass("secondary"), "whitespace-nowrap")}>
                 Activity log
               </Link>
             )}
             {can.licences && (
-              <Link href={`/platform/licences/${u.id}`} className="inline-flex h-10 items-center rounded-full bg-brand px-5 text-[14px] font-medium text-canvas hover:bg-brand-strong">
+              <Link href={`/platform/licences/${u.id}`} className={cx(buttonClass("primary"), "whitespace-nowrap")}>
                 {licence ? "Edit licence" : "Set up licence"}
               </Link>
             )}
@@ -83,14 +82,17 @@ export default async function UniversityPage({ params, searchParams }: { params:
       )}
       {suspended && (
         <div className="mb-6">
-          <Notice tone="danger">This institute is suspended. Its licence warnings are paused until it is reactivated.</Notice>
+          <Notice tone="danger">
+            This institute is suspended. Its people can&apos;t sign in to it and its licence warnings are paused until you reactivate it. The Zinny team can still get in
+            through support mode.
+          </Notice>
         </div>
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <div className="min-w-0 space-y-6">
           <Card>
-            <CardTitle hint="Changes go through core and land in the institute's audit log">Basics</CardTitle>
+            <CardTitle hint="Changes are saved in the institute's audit log with your name">Basics</CardTitle>
             <ActionForm action={updateBasicsAction} resetOnSuccess={false} className="space-y-4">
               <input type="hidden" name="universityId" value={u.id} />
               <div className="grid gap-4 sm:grid-cols-2">
@@ -169,7 +171,7 @@ export default async function UniversityPage({ params, searchParams }: { params:
                 <ul className="divide-y divide-line text-[14px]">
                   {invoices.slice(0, 6).map((i) => (
                     <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
-                      <Link href={`/platform/billing/${i.id}`} className="font-mono text-[13px] text-ink hover:text-brand">
+                      <Link href={`/platform/billing/${i.id}`} className="tabular whitespace-nowrap text-[13px] text-ink hover:text-brand">
                         {i.number}
                       </Link>
                       <span className="tabular">{formatINR(i.totalPaise)}</span>
@@ -250,7 +252,7 @@ export default async function UniversityPage({ params, searchParams }: { params:
               <ActionForm action={setStatusAction} className="space-y-3" confirm={`Reactivate ${u.name}?`}>
                 <input type="hidden" name="universityId" value={u.id} />
                 <input type="hidden" name="status" value="active" />
-                <p className="text-[14px] text-muted">Reactivating turns its licence warnings back on. The change is logged with your name.</p>
+                <p className="text-[14px] text-muted">Reactivating lets its people sign in again and turns its licence warnings back on. The change is logged with your name.</p>
                 <Field label="Note" hint="Optional">
                   <Input name="reason" placeholder="Renewal signed on 28 Oct" maxLength={300} />
                 </Field>
@@ -261,8 +263,9 @@ export default async function UniversityPage({ params, searchParams }: { params:
                 <input type="hidden" name="universityId" value={u.id} />
                 <input type="hidden" name="status" value="suspended" />
                 <p className="text-[14px] text-muted">
-                  Marks the institute as suspended, for example when a licence lapses unpaid, and pauses its licence warnings. The reason goes into its
-                  audit log with your name. Its people can still sign in until sign-in blocking for suspended institutes ships.
+                  Closes the institute&apos;s space, for example when a licence lapses unpaid. Its people can&apos;t sign in until you reactivate it, and
+                  their work is kept. The Zinny team can still get in through support mode. Its licence warnings pause, and the reason goes into its
+                  audit log with your name.
                 </p>
                 <Field label="Reason">
                   <Input name="reason" placeholder="Licence unpaid since 1 Oct" required minLength={5} maxLength={300} />

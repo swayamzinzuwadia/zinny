@@ -167,7 +167,7 @@ export function RegisterForm({
       </ul>
       {editable && (
         <div className="sticky bottom-3 z-10 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-full border border-line bg-surface/95 px-4 py-2 backdrop-blur">
-          <span className="text-[13px] text-muted">{dirty ? "Unsaved changes are highlighted." : "Statuses update when students join."}</span>
+          <span className="text-[13px] text-muted">{dirty ? "Unsaved changes are highlighted." : "Students who join through Zinny are marked automatically."}</span>
           <SaveButton dirty={dirty} />
         </div>
       )}

@@ -4,7 +4,6 @@ import { reach } from "@/server/core";
 import { spaceContext } from "@/server/context";
 import { formatINR } from "@/server/services/finance";
 import { createCodeAction, setCodeStatusAction } from "@/modules/marketplace/actions";
-import { MarketplaceTabs } from "@/modules/marketplace/components/admin";
 import { listCodes, listListings } from "@/modules/marketplace/listings";
 
 export const metadata = { title: "Discount codes" };
@@ -27,8 +26,7 @@ export default async function Codes({ params }: { params: Promise<{ uni: string 
 
   return (
     <>
-      <PageHeader title="Marketplace" subtitle="Codes buyers type on a listing before they pay. They come off the price before GST, and the price never drops below ₹1." />
-      <MarketplaceTabs uni={uni} active="codes" />
+      <PageHeader title="Discount codes" subtitle="Codes buyers type on a listing before they pay. They come off the price before GST, and the price never drops below ₹1." />
       <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
         <div>
           {codes.length === 0 ? (

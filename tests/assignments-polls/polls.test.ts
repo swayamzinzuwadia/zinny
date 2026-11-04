@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { closeDb, systemDb } from "@/db/client";
-import { auditLog, notifications } from "@/db/schema";
+import { auditLog, enrolments, notifications } from "@/db/schema";
 import { systemActorFor } from "@/server/core";
 import { person } from "../fixtures";
 import { announceOpenedPolls, closePoll, createPoll, deletePoll, listCoursePolls, myPolls, vote, type PollInput } from "@/modules/assignments-polls/service/polls";
 import { pollVoters, pollVotes } from "@/modules/assignments-polls/schema";
-import { twoBatches, type Two } from "./setup";
+import { enrol, twoBatches, type Two } from "./setup";
 
 afterAll(closeDb);
 
@@ -133,6 +133,21 @@ describe("results", () => {
     const farahView = (await listCoursePolls(c.farah, c.course.id, { now: OPEN })).find((x) => x.id === p.id)!;
     expect(farahView.options[0]).toMatchObject({ votes: 2, voters: ["Riya Student"] });
     expect(farahView.canManage).toBe(false);
+  });
+
+  it("counts completed students and past voters as eligible, so votes never pass it", async () => {
+    const p = await createPoll(c.hod, input({ batchId: c.batchA.id, question: "Who can vote?" }), { now: BEFORE });
+    const sara = await c.student("Sara Student");
+    const leo = await c.student("Leo Student");
+    const saraSeat = await enrol(sara, c.batchA.id);
+    const leoSeat = await enrol(leo, c.batchA.id);
+    const opts = (await myPolls(c.riya, { now: OPEN })).find((x) => x.id === p.id)!.options;
+    for (const s of [c.riya, c.kabir, sara, leo]) await vote(s, p.id, opts[0].id, { now: OPEN });
+    // After voting, Sara finishes the course and Leo leaves the batch.
+    await systemDb().update(enrolments).set({ status: "completed" }).where(eq(enrolments.id, saraSeat));
+    await systemDb().update(enrolments).set({ status: "cancelled" }).where(eq(enrolments.id, leoSeat));
+    const r = (await listCoursePolls(c.hod, c.course.id, { now: OPEN })).find((x) => x.id === p.id)!;
+    expect(r).toMatchObject({ totalVotes: 4, eligible: 4 });
   });
 
   it("students see results only after the poll closes, and only when allowed", async () => {

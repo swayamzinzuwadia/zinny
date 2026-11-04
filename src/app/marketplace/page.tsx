@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { cx } from "@/components/ui";
 import { currentUserId } from "@/server/auth/session";
@@ -5,10 +6,20 @@ import { BookCard, ShopShelf } from "@/modules/marketplace/components/jacket";
 import { browseMarketplace, marketplaceAccess, marketplaceInstitute, marketplaceInstitutes, type CatalogItem, type CatalogSort } from "@/modules/marketplace/service";
 import { getSite } from "@/modules/website-builder/cached";
 
-export const metadata = { title: "Marketplace" };
 export const dynamic = "force-dynamic";
 
-type Search = { q?: string; kind?: string; institute?: string; sort?: string };
+type Search = { q?: string; kind?: string; institute?: string; offer?: string; sort?: string };
+
+export async function generateMetadata({ searchParams }: { searchParams: Promise<Search> }): Promise<Metadata> {
+  const sp = await searchParams;
+  const institute = sp.institute ? await marketplaceInstitute(sp.institute) : null;
+  return { title: institute ? `${institute.name} on the marketplace` : "Marketplace" };
+}
+
+/** Below this many recordings, the shop front doesn't say how many there are. */
+const COUNT_FROM = 12;
+/** Up to this many recordings (or with one institute selling), one grid instead of rows by deal and institute. */
+const ONE_GRID_UP_TO = 8;
 
 const shell = "mx-auto max-w-6xl px-4 sm:px-6";
 
@@ -55,22 +66,24 @@ export default async function Marketplace({ searchParams }: { searchParams: Prom
   const q = (sp.q ?? "").trim();
   const kind = sp.kind === "course" || sp.kind === "lecture" || sp.kind === "combo" ? sp.kind : undefined;
   const sort = SORTS.some((s) => s.key === sp.sort) ? (sp.sort as CatalogSort) : undefined;
+  const onOffer = sp.offer === "1";
   const institute = sp.institute ? await marketplaceInstitute(sp.institute) : null;
-  const browsing = Boolean(q || kind || sort || institute);
+  const browsing = Boolean(q || kind || sort || onOffer || institute);
 
   const [{ canShop }, all, institutes, site, results] = await Promise.all([
     userId ? marketplaceAccess(userId) : { canShop: false },
     browseMarketplace(),
     marketplaceInstitutes(),
     institute ? getSite(institute.slug) : null,
-    browsing ? browseMarketplace({ q, kind, institute: institute?.slug, sort }) : null,
+    browsing ? browseMarketplace({ q, kind, institute: institute?.slug, onOffer, sort }) : null,
   ]);
 
-  const href = (over: Partial<Record<"kind" | "sort", string>>) => {
+  const href = (over: Partial<Record<"kind" | "offer" | "sort", string>>) => {
     const p = new URLSearchParams({
       ...(institute ? { institute: institute.slug } : {}),
       ...(q ? { q } : {}),
       ...(kind ? { kind } : {}),
+      ...(onOffer ? { offer: "1" } : {}),
       ...(sort ? { sort } : {}),
       ...over,
     });
@@ -119,7 +132,7 @@ export default async function Marketplace({ searchParams }: { searchParams: Prom
                 type="search"
                 name="q"
                 defaultValue={q}
-                placeholder={institute ? `Search ${institute.name}` : "Search courses or institutes"}
+                placeholder="Search courses"
                 aria-label="Search the marketplace"
                 className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-[16px] text-ink outline-none placeholder:text-muted [&:focus-visible]:outline-none"
               />
@@ -145,12 +158,13 @@ export default async function Marketplace({ searchParams }: { searchParams: Prom
                   </Link>
                 );
               })}
-              {deals.length > 0 && (
+              {(deals.length > 0 || onOffer) && (
                 <Link
-                  href={href({ sort: "deals" })}
+                  href={href({ offer: onOffer ? "" : "1" })}
+                  aria-current={onOffer ? "page" : undefined}
                   className={cx(
-                    "rounded-full px-4 py-1.5 font-medium [transition-property:background-color] duration-150",
-                    sort === "deals" ? "bg-canvas text-brand-deep" : "bg-gold text-brand-deep hover:bg-canvas",
+                    "rounded-full px-4 py-1.5 [transition-property:background-color,color] duration-150",
+                    onOffer ? "bg-canvas font-medium text-brand-deep" : "text-canvas/80 ring-1 ring-canvas/25 hover:bg-canvas/10 hover:text-canvas",
                   )}
                 >
                   On offer
@@ -161,7 +175,7 @@ export default async function Marketplace({ searchParams }: { searchParams: Prom
             <p className="mt-7 text-[14px] text-canvas/60">
               {all.length === 0
                 ? "The shelves are being stocked."
-                : `${all.length} ${all.length === 1 ? "recording" : "recordings"} from ${institutes.length} ${institutes.length === 1 ? "institute" : "institutes"}. Prices are before GST, which is added at checkout.`}
+                : `${all.length >= COUNT_FROM ? `${all.length} recordings from ${institutes.length} ${institutes.length === 1 ? "institute" : "institutes"}. ` : ""}Prices are before GST, which is added at checkout.`}
             </p>
             {!userId ? (
               <p className="mt-2 text-[14px] text-canvas/75">
@@ -190,9 +204,10 @@ export default async function Marketplace({ searchParams }: { searchParams: Prom
               <div>
                 <h2 id="results" className="text-[clamp(1.7rem,3.4vw,2.4rem)] leading-tight font-semibold">
                   {results.length} {results.length === 1 ? "recording" : "recordings"}
+                  {onOffer && " on offer"}
                   {q && <span className="text-muted"> for &ldquo;{q}&rdquo;</span>}
                 </h2>
-                {(q || kind || sort) && (
+                {(q || kind || sort || onOffer) && (
                   <Link href={institute ? `/marketplace?institute=${institute.slug}` : "/marketplace"} className="mt-1 inline-block text-[14px] text-brand hover:underline">
                     Clear filters
                   </Link>
@@ -233,11 +248,17 @@ export default async function Marketplace({ searchParams }: { searchParams: Prom
               Institutes on Zinny list their recorded courses here. Create a free account now and you can buy the moment they arrive.
             </p>
           </div>
+        ) : institutes.length <= 1 || all.length <= ONE_GRID_UP_TO ? (
+          // A small catalogue reads better as one shelf than as rows that repeat the same books.
+          <section>
+            <SectionHead title="All recordings" />
+            <Shelf items={all} />
+          </section>
         ) : (
           <div className="space-y-20">
             {deals.length > 0 && (
               <section>
-                <SectionHead title="On offer now" href={href({ sort: "deals" })} more={deals.length > 4 ? `All ${deals.length} deals` : undefined} />
+                <SectionHead title="On offer now" href={href({ offer: "1", sort: "deals" })} more={deals.length > 4 ? `All ${deals.length} deals` : undefined} />
                 <Shelf items={deals.slice(0, 4)} />
               </section>
             )}

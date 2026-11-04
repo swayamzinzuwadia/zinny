@@ -6,6 +6,7 @@ import { formatWhen } from "@/modules/identity/emails";
 import { AuthShell } from "@/modules/identity/components/auth-shell";
 import { Alert, NewPasswordForm } from "@/modules/identity/components/auth-forms";
 import { acceptInviteAction } from "../../login/actions";
+import { firstName } from "@/server/lib/names";
 
 // The token is in the URL: never send it on to other sites, never cache the page.
 export const metadata = { title: "Join your institute", referrer: "no-referrer" as const, robots: { index: false } };
@@ -51,7 +52,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   }
 
   const signedInAs = await currentUserId();
-  const first = invite.name.split(/\s+/)[0];
+  const first = firstName(invite.name);
   return (
     <AuthShell
       title={invite.slug ? `Join ${invite.institute}` : "Join the Zinny team"}

@@ -29,10 +29,12 @@ export default async function EditPostPage({ params }: { params: Promise<{ uni: 
 
   return (
     <>
-      <Link href={`/${uni}/admin/website/sections/blog`} className="text-sm text-muted hover:text-ink">
-        ← Blog
-      </Link>
-      <div className="mb-8 mt-2 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-2 text-sm text-muted">
+        <Link href={`/${uni}/admin/website/sections/blog`} className="hover:text-ink">
+          Blog
+        </Link>
+      </div>
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-[30px] font-semibold leading-tight">{post.title}</h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[14px] text-muted">

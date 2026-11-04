@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 import { prerenderToNodeStream } from "react-dom/static.node";
 import { eq } from "drizzle-orm";
 import { closeDb, systemDb } from "@/db/client";
-import { enrolments } from "@/db/schema";
+import { batches, enrolments } from "@/db/schema";
 import { SlotList, SlotOutlet } from "@/components/slots";
-import { batchLite, getCourseLite, systemActorFor, universityLite, withTenant } from "@/server/core";
+import { batchLite, courseTarget, ensureRecordedBatch, getCourseLite, systemActorFor, universityLite, withTenant } from "@/server/core";
 import { jobs, eventHandlers, visibleSlots } from "@/server/registry";
 import { markLessonComplete } from "@/modules/content-progress/learn";
 import { contentCourseProgress } from "@/modules/content-progress/schema";
@@ -69,6 +69,27 @@ describe("learner slots", () => {
     expect(out).toContain("Up next");
     expect(out).toMatch(/Opens \w{3}, \d+ \w{3}/);
     expect(out).toContain(`/${ctx.uni.slug}/learn/lessons/${ctx.lessons[1].id}`);
+  });
+
+  it("adminCourseTabs.curriculum shows the recorded batch as Recorded lessons in Progress by batch", async () => {
+    const ctx = await setupLearning({ name: "Curriculum Card U" });
+    await ctx.enrolled("Card Student");
+    const sys = systemActorFor(ctx.uni.id);
+    const recorded = await withTenant(sys, (tx) => ensureRecordedBatch(tx, sys, ctx.course));
+    // Older data names it after its buyers; the card shouldn't.
+    await systemDb().update(batches).set({ name: "Marketplace buyers" }).where(eq(batches.id, recorded.id));
+    const props = await withTenant(ctx.hod, async (tx) => ({
+      university: await universityLite(tx),
+      course: await getCourseLite(tx, ctx.course.id),
+      target: await courseTarget(tx, ctx.uni.id, ctx.course.id),
+    }));
+    const tab = visibleSlots("adminCourseTabs", ctx.hod, props.target).find((t) => t.key === "curriculum")!;
+    const out = await html(<SlotOutlet slot="adminCourseTabs" entry={tab} props={{ uni: ctx.uni.slug, actor: ctx.hod, ...props, searchParams: {} }} />);
+    expect(out).toContain("Progress by batch");
+    expect(out).toContain("Running batch");
+    expect(out).toContain("Recorded lessons");
+    expect(out).not.toContain("Marketplace buyers");
+    expect(out).not.toContain("2099");
   });
 
   it("learnerHomeCards.continue-learning shows the next unfinished lesson, and nothing without courses", async () => {

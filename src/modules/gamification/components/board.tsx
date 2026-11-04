@@ -53,12 +53,12 @@ export function RankList({
                 )}
               </div>
               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line/70" aria-hidden>
-                <div className="h-full rounded-full bg-brand" style={{ width: top ? `${Math.max(2, (r.points / top) * 100)}%` : "0%" }} />
+                <div className="h-full rounded-full bg-brand" style={{ width: top && r.points > 0 ? `${Math.max(2, (r.points / top) * 100)}%` : "0%" }} />
               </div>
             </div>
             <span className="tabular w-16 shrink-0 text-right text-[14px] font-semibold">
               {r.points.toLocaleString("en-IN")}
-              <span className="ml-0.5 text-[12px] font-normal text-muted">XP</span>
+              <span className="ml-1 text-[12px] font-normal text-muted">XP</span>
             </span>
           </li>
         );

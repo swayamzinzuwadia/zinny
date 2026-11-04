@@ -64,7 +64,7 @@ export async function LibraryHomeCard({ actor }: HomeCardProps) {
     <Card>
       <CardTitle hint={items.length > 0 ? `${items.length} bought` : undefined}>Marketplace</CardTitle>
       {items.length === 0 ? (
-        <p className="text-[14px] text-muted">Recorded courses, lectures and combos from institutes across Zinny. Whatever you buy shows here once your payment is confirmed.</p>
+        <p className="text-[14px] text-muted">Recorded courses, lectures and combos from institutes across Zinny. What you buy goes to My library once your payment is confirmed.</p>
       ) : (
         <ul className="space-y-3.5">
           {items.slice(0, 3).map((item) => (

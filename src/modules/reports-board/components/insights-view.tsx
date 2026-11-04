@@ -16,7 +16,7 @@ import { BarList, ColumnChart, type Datum } from "./charts";
 /** Long lists draw their top entries; the table under the chart lists everyone. */
 const CHART_LIMIT = 12;
 
-const FILL_LABEL_WIDTH = 220;
+const FILL_LABEL_WIDTH = 260;
 
 const limitHint = (base: string, total: number) => (total > CHART_LIMIT ? `${base} · top ${CHART_LIMIT} of ${total}` : base);
 
@@ -72,12 +72,13 @@ export function InsightsView({ data, reportsHref }: { data: Insights; reportsHre
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* One chart per row on tablets, so axis labels have room; two side by side on wide screens. */}
+      <div className="grid gap-6 xl:grid-cols-2">
         <ChartCard
-          className="lg:col-span-2"
+          className="xl:col-span-2"
           title="Enrolments per week"
           hint="Last 12 weeks · gold is this week"
-          chart={<ColumnChart data={weeks} format="count" />}
+          chart={weeks.some((w) => w.value !== 0) ? <ColumnChart data={weeks} format="count" /> : <ChartEmpty>Each week&apos;s enrolments appear here.</ChartEmpty>}
           takeaway={enrolmentsTakeaway(data.enrolmentsByWeek)}
           table={{
             caption: "Enrolments per week, last 12 weeks",
@@ -133,15 +134,19 @@ export function InsightsView({ data, reportsHref }: { data: Insights; reportsHre
               title="Revenue per month"
               hint="Last 12 months, before GST · gold is this month"
               chart={
-                <ColumnChart
-                  format="money"
-                  data={revenue.byMonth.map((m) => ({
-                    label: m.label,
-                    value: m.paise,
-                    highlight: m.current,
-                    note: m.current ? "This month so far" : formatMonth(m.start, true),
-                  }))}
-                />
+                revenue.byMonth.some((m) => m.paise !== 0) ? (
+                  <ColumnChart
+                    format="money"
+                    data={revenue.byMonth.map((m) => ({
+                      label: m.label,
+                      value: m.paise,
+                      highlight: m.current,
+                      note: m.current ? "This month so far" : formatMonth(m.start, true),
+                    }))}
+                  />
+                ) : (
+                  <ChartEmpty>Each month&apos;s revenue appears here.</ChartEmpty>
+                )
               }
               takeaway={revenueMonthTakeaway(revenue.byMonth)}
               table={{
@@ -177,11 +182,17 @@ export function InsightsView({ data, reportsHref }: { data: Insights; reportsHre
         )}
 
         <ChartCard
-          className="lg:col-span-2"
+          className="xl:col-span-2"
           title="Faculty load"
           hint={limitHint(`Scheduled teaching hours, week of ${formatDayShort(data.weekOf)}`, data.facultyLoad.length)}
           chart={
-            faculty.length ? <BarList data={faculty} format="hours" labelWidth={170} /> : <ChartEmpty>No faculty assigned to running batches.</ChartEmpty>
+            !faculty.length ? (
+              <ChartEmpty>No faculty assigned to running batches.</ChartEmpty>
+            ) : faculty.every((f) => f.value === 0) ? (
+              <ChartEmpty>Teaching hours appear here once classes are scheduled.</ChartEmpty>
+            ) : (
+              <BarList data={faculty} format="hours" labelWidth={200} />
+            )
           }
           takeaway={facultyTakeaway(data.facultyLoad)}
           table={{

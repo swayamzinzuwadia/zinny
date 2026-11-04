@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Badge, Card, CardTitle, cx } from "@/components/ui";
+import { Badge, cx } from "@/components/ui";
 import { ordinal } from "../challenges";
 import type { MyBadge, MyChallenge } from "../learner";
 import { formatDay } from "../util";
@@ -142,35 +142,23 @@ export function ChallengeTile({ c, compact = false }: { c: MyChallenge; compact?
         </div>
       )}
       {!compact && c.description && <p className="mt-2 text-[13px] text-muted">{c.description}</p>}
-      {!compact && c.leaders.length > 0 && c.status !== "upcoming" && (
-        <p className="mt-2 text-[12px] text-muted">
-          {c.status === "ended" ? "First to finish" : "Leading"}: {c.leaders.map((l) => l.name).join(", ")}
-        </p>
-      )}
+      {!compact && c.status !== "upcoming" && leadersLine(c) && <p className="mt-2 text-[12px] text-muted">{leadersLine(c)}</p>}
     </div>
   );
 }
 
-export function RecentXp({ items }: { items: { id: string; points: number; reason: string; awardDate: string; courseTitle: string | null }[] }) {
-  return (
-    <Card>
-      <CardTitle>Recent XP</CardTitle>
-      {items.length === 0 ? (
-        <p className="text-[14px] text-muted">Finish a lesson, pass a test or attend a class to earn your first XP.</p>
-      ) : (
-        <ul className="divide-y divide-line">
-          {items.map((r) => (
-            <li key={r.id} className="flex items-center gap-3 py-2.5 text-[14px]">
-              <span className="tabular w-14 shrink-0 font-semibold text-brand">+{r.points}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate">{r.reason}</span>
-                {r.courseTitle && <span className="block truncate text-[12px] text-muted">{r.courseTitle}</span>}
-              </span>
-              <span className="tabular shrink-0 text-[12px] text-muted">{formatDay(r.awardDate, { year: false })}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
-  );
+/**
+ * Who is ahead: "Won by …" once a challenge has ended (only those who reached the target),
+ * "First to finish: …" while it runs and someone has finished, otherwise "Leading: …".
+ */
+export function leadersLine(c: Pick<MyChallenge, "status" | "leaders" | "finishers">): string | null {
+  const done = c.leaders.filter((l) => l.reachedAt);
+  const names = (rows: MyChallenge["leaders"]) => rows.map((l) => l.name).join(", ");
+  if (c.status === "ended") {
+    if (done.length === 0) return null;
+    const more = c.finishers - done.length;
+    return `Won by ${names(done)}${more > 0 ? ` and ${more} more` : ""}`;
+  }
+  if (done.length > 0) return `First to finish: ${names(done)}`;
+  return c.leaders.length > 0 ? `Leading: ${names(c.leaders)}` : null;
 }

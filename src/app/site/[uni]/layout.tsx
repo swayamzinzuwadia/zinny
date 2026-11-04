@@ -20,7 +20,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!site) return {};
   const description = site.tagline || (site.about ? truncate(site.about, 160) : `${site.name}: courses, faculty and admissions.`);
   return {
-    title: { default: site.name, template: `%s | ${site.name}` },
+    // The institute's own site: its name alone in the tab, never "· Zinny" from the app's template.
+    title: { absolute: site.name, template: `%s | ${site.name}` },
     description,
     applicationName: site.name,
     openGraph: {

@@ -15,21 +15,16 @@ export type CatalogCourse = {
   enrolled: boolean;
 };
 
-/* Chalkboard covers in the brand palette; a course always gets the same one. */
+/*
+ * Ruled-paper covers from the brand tokens only (no gold: it marks "now" and "needs
+ * attention"). A course always gets the same one.
+ */
 const COVERS = [
-  { bg: "bg-brand-deep", ink: "text-canvas", line: "#faf6ea" },
-  { bg: "bg-[#1f3a5c]", ink: "text-canvas", line: "#faf6ea" },
-  { bg: "bg-[#5e2e4f]", ink: "text-canvas", line: "#faf6ea" },
-  { bg: "bg-gold-soft", ink: "text-brand-deep", line: "#0b5e4c" },
+  { bg: "bg-brand-soft", chip: "bg-surface/80 text-brand-strong", icon: "bg-surface text-brand", line: "var(--color-brand)" },
+  { bg: "bg-canvas", chip: "bg-surface text-muted ring-1 ring-line", icon: "bg-brand-soft text-brand", line: "var(--color-line)" },
+  { bg: "bg-brand-deep", chip: "bg-canvas/10 text-canvas/85", icon: "bg-canvas/10 text-canvas", line: "var(--color-canvas)" },
 ];
 const coverFor = (id: string) => COVERS[[...id].reduce((n, c) => n + c.charCodeAt(0), 0) % COVERS.length];
-const monogram = (title: string) =>
-  title
-    .split(/\s+/)
-    .filter((w) => /^[A-Za-z]/.test(w))
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join("");
 
 export function CourseCatalog({ courses }: { courses: CatalogCourse[] }) {
   const departments = useMemo(() => [...new Set(courses.map((c) => c.department))].sort(), [courses]);
@@ -117,22 +112,18 @@ function CourseCard({ course: c }: { course: CatalogCourse }) {
       href={c.href}
       className="group flex h-full flex-col overflow-hidden rounded-[26px] border border-line bg-surface [transition-property:transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-[0_18px_40px_-20px_rgb(6_58_47/0.35)]"
     >
-      <div className={cx("relative h-36 overflow-hidden px-5 pt-4", cover.bg, cover.ink)}>
+      <div className={cx("relative flex h-28 flex-col justify-between overflow-hidden border-b border-line px-5 py-4", cover.bg)}>
         <div
           aria-hidden
-          className="absolute inset-0 opacity-[0.09]"
+          className="absolute inset-0 opacity-[0.12]"
           style={{ backgroundImage: `linear-gradient(to bottom, ${cover.line} 1px, transparent 1px)`, backgroundSize: "100% 22px" }}
         />
-        <span
-          aria-hidden
-          className="absolute -right-2 -bottom-6 text-[96px] leading-none font-semibold tracking-tight opacity-[0.16] [transition-property:transform] duration-300 group-hover:-translate-x-1.5"
-        >
-          {monogram(c.title)}
+        <span className={cx("relative self-start rounded-full px-2.5 py-1 text-[12px]", cover.chip)}>{c.department}</span>
+        <span aria-hidden className={cx("relative inline-flex size-9 items-center justify-center rounded-full", cover.icon)}>
+          <svg viewBox="0 0 20 20" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H16v12H5.5A1.5 1.5 0 0 0 4 16.5zM4 16.5A1.5 1.5 0 0 0 5.5 18H16v-3" />
+          </svg>
         </span>
-        <div className="relative flex items-start justify-between gap-3">
-          <span className="rounded-full bg-black/10 px-2.5 py-1 text-[12px] backdrop-blur-sm">{c.department}</span>
-          {c.enrolled && <span className="rounded-full bg-gold px-2.5 py-1 text-[12px] font-medium text-brand-deep">Enrolled</span>}
-        </div>
       </div>
       <div className="flex flex-1 flex-col p-5">
         <h2 className="text-[18px] leading-snug font-semibold tracking-tight group-hover:text-brand">{c.title}</h2>
@@ -141,14 +132,19 @@ function CourseCard({ course: c }: { course: CatalogCourse }) {
           <span className="text-muted">
             {c.openBatches} batch{c.openBatches === 1 ? "" : "es"} open
           </span>
-          <span
-            className={cx(
-              "rounded-full px-2.5 py-1 font-medium tabular",
-              full ? "bg-canvas text-faint" : few ? "bg-gold-soft text-gold-strong" : "bg-brand-soft text-brand",
-            )}
-          >
-            {full ? "Full" : `${c.seatsLeft} seat${c.seatsLeft === 1 ? "" : "s"} left`}
-          </span>
+          {/* Seats left only matter before joining; a course you're in just says so. */}
+          {c.enrolled ? (
+            <span className="rounded-full bg-brand-soft px-2.5 py-1 font-medium text-brand-strong">Enrolled</span>
+          ) : (
+            <span
+              className={cx(
+                "rounded-full px-2.5 py-1 font-medium tabular",
+                full ? "bg-canvas text-faint" : few ? "bg-gold-soft text-gold-strong" : "bg-brand-soft text-brand",
+              )}
+            >
+              {full ? "Full" : `${c.seatsLeft} seat${c.seatsLeft === 1 ? "" : "s"} left`}
+            </span>
+          )}
         </div>
         <span className="mt-4 flex items-center gap-1.5 border-t border-line pt-4 text-[14px] font-medium text-brand">
           {c.enrolled ? "Go to your course" : "See batches and timings"}

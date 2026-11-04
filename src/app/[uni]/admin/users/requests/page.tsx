@@ -137,6 +137,15 @@ export default async function JoinRequestsPage({ params, searchParams }: { param
             {settings.mode === "approval" ? "Each student waits here until someone accepts them." : "Students with the code join straight away. Add their departments under Students."}
           </p>
           {isAdmin && (
+            <p className="mt-2 text-[13px] text-muted">
+              Students can also sign up from your website&apos;s sign-up link:{" "}
+              <Link href={`/${uni}/admin/users/invites`} className="text-brand hover:underline">
+                Invitations
+              </Link>
+              .
+            </p>
+          )}
+          {isAdmin && (
             <>
               <ActionForm action={joinModeAction} className="mt-4 space-y-2" resetOnSuccess={false}>
                 <input type="hidden" name="uni" value={uni} />
@@ -155,7 +164,7 @@ export default async function JoinRequestsPage({ params, searchParams }: { param
                   ))}
                 </fieldset>
                 <SubmitButton size="sm" variant="secondary" pendingText="Saving…">
-                  Save
+                  Save joining rule
                 </SubmitButton>
               </ActionForm>
               <ActionForm action={newJoinCodeAction} className="mt-4 border-t border-line pt-4" confirm="The old code will stop working. Make a new one?">

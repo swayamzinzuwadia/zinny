@@ -6,10 +6,11 @@ import { SidebarAccount, SidebarLink } from "@/components/sidebar-account";
 import { Logo } from "@/components/ui";
 import { signOut } from "@/server/auth/session";
 import { ACCESS_LABEL, menuFor } from "@/server/authz/menu";
-import { isActive } from "@/server/authz/engine";
+import { can, isActive } from "@/server/authz/engine";
 import { ROLE_LABELS } from "@/server/authz/roles";
 import { spaceContext } from "@/server/context";
 import { exitSupportMode } from "@/server/services/support";
+import { getPreferences } from "@/modules/notifications-delivery/service";
 
 export default async function AdminLayout({ children, params }: { children: React.ReactNode; params: Promise<{ uni: string }> }) {
   const { uni } = await params;
@@ -26,6 +27,13 @@ export default async function AdminLayout({ children, params }: { children: Reac
   const roles = [
     ...new Set(actor.assignments.filter((a) => isActive(a, now) && a.universityId === university.id).map((a) => a.label ?? ROLE_LABELS[a.role])),
   ];
+  // Staff with no notifications to choose from don't get a link to an empty page.
+  const notificationsLink =
+    can(actor, "settings.manage", { universityId: university.id }) ||
+    (await getPreferences(actor, actor.userId).then(
+      (p) => p.rows.length > 0,
+      () => false,
+    ));
 
   async function logout() {
     "use server";
@@ -49,8 +57,8 @@ export default async function AdminLayout({ children, params }: { children: Reac
       </div>
       <SidebarAccount name={actor.name} roles={roles.join(", ")} logout={logout}>
         <SidebarLink href={`/${uni}/profile`}>Your profile</SidebarLink>
-        {/* Every staff member reaches their own "My notifications" here; admins also get the Settings item. */}
-        <SidebarLink href={`/${uni}/admin/settings/notifications`}>Notifications</SidebarLink>
+        {/* Staff reach their own "My notifications" here; admins also get the Settings item. */}
+        {notificationsLink && <SidebarLink href={`/${uni}/admin/settings/notifications`}>Notifications</SidebarLink>}
         {isLearner && (
           <SidebarLink href={`/${uni}/learn`} gold>
             Learner app
@@ -63,8 +71,14 @@ export default async function AdminLayout({ children, params }: { children: Reac
   return (
     <div className="min-h-dvh">
       {actor.supportSessionId && (
-        <div className="flex items-center justify-center gap-3 bg-gold px-4 py-2 text-[13px] text-brand-deep">
-          <span>Support mode is on. Everything you do here is logged.</span>
+        // Stays in view while scrolling, so nobody forgets they're inside someone else's institute.
+        <div role="status" className="sticky top-0 z-30 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 bg-gold px-4 py-2 text-[13px] text-brand-deep">
+          <span>
+            You are in support mode at <span className="font-semibold">{university.name}</span>. Everything you do here is logged with your name.
+          </span>
+          <Link href="/platform" className="font-semibold underline underline-offset-2">
+            Back to the Zinny team panel
+          </Link>
           <form action={leaveSupport}>
             <button className="font-semibold underline underline-offset-2">Leave support mode</button>
           </form>

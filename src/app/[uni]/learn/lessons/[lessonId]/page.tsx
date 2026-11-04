@@ -10,10 +10,23 @@ import { formatDate, formatTime } from "@/modules/content-progress/lib/dates";
 import { formatMinutes, KIND_LABEL } from "@/modules/content-progress/lib/kinds";
 import { lessonForLearner, NOT_ENROLLED } from "@/modules/content-progress/learn";
 import { courseHubPath, joinPath, lessonFilePath, lessonPath, lessonProgressPath } from "@/modules/content-progress/paths";
+import type { Actor } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { ForbiddenError, NotFoundError } from "@/server/errors";
+import { minutesNowIn, toMinutes } from "@/server/lib/dates";
+import { studentTimetable } from "@/server/services/timetable";
+import { sendParentsHome } from "../../view";
 
 export const metadata = { title: "Lesson" };
+
+/** Whether a class of this batch has started between `from` and now (the lesson's live class has happened). */
+async function classSince(actor: Actor, batchId: string, from: string, today: string, nowMin: number) {
+  if (from > today) return false;
+  const t = await studentTimetable(actor, { from, to: today }).catch(() => null);
+  // Without a timetable to check against, don't hold the lesson back.
+  if (!t) return true;
+  return t.sessions.some((s) => s.batchId === batchId && (s.date < today || toMinutes(s.startTime) <= nowMin));
+}
 
 /**
  * The lesson player (mobile first): video, PDF, text, link or live lesson, with next and
@@ -21,7 +34,8 @@ export const metadata = { title: "Lesson" };
  */
 export default async function LessonPage({ params }: { params: Promise<{ uni: string; lessonId: string }> }) {
   const { uni, lessonId } = await params;
-  const { actor } = await spaceContext(uni);
+  const { actor, university } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
   let data;
   try {
     data = await lessonForLearner(actor, lessonId);
@@ -42,12 +56,17 @@ export default async function LessonPage({ params }: { params: Promise<{ uni: st
   const { lesson, content, progress, outline, prev, next, course, enrolment, locked, unlockOn, sessions, today } = data;
   const hub = courseHubPath(uni, enrolment.enrolmentId);
   const manual = lesson.kind !== "video";
+  // A live lesson is done in class, so it can be marked complete only once a class has started.
+  const classHeld =
+    lesson.kind !== "live" ||
+    progress.completed ||
+    (await classSince(actor, data.batch.id, unlockOn ?? data.batch.startDate, today, minutesNowIn(university.timezone)));
 
   return (
     <div className="pb-6">
       {!locked && <LessonOpened uni={uni} lessonId={lesson.id} />}
       <nav className="mb-3 flex items-center gap-2 text-[13px] text-muted" aria-label="Breadcrumb">
-        <Link href={hub} className="truncate hover:text-ink">
+        <Link href={hub} className="truncate py-1 hover:text-ink">
           {course.title}
         </Link>
         <span aria-hidden>/</span>
@@ -141,17 +160,20 @@ export default async function LessonPage({ params }: { params: Promise<{ uni: st
                       })}
                     </ul>
                   )}
-                  <Link href={`/${uni}/learn/timetable`} className="mt-3 inline-block text-[14px] text-brand hover:underline">
+                  <Link href={`/${uni}/learn/timetable`} className="mt-2 inline-block py-1 text-[14px] text-brand hover:underline">
                     See the full timetable
                   </Link>
                 </Card>
               )}
 
-              {manual && (
-                <div className="mt-5">
-                  <MarkLessonComplete uni={uni} lessonId={lesson.id} completed={progress.completed} nextHref={next && next.state !== "locked" ? lessonPath(uni, next.id) : null} />
-                </div>
-              )}
+              {manual &&
+                (classHeld ? (
+                  <div className="mt-5">
+                    <MarkLessonComplete uni={uni} lessonId={lesson.id} completed={progress.completed} nextHref={next && next.state !== "locked" ? lessonPath(uni, next.id) : null} />
+                  </div>
+                ) : (
+                  <p className="mt-5 text-[14px] text-muted">This lesson happens in class. Come back after the class to mark it complete.</p>
+                ))}
             </>
           )}
 

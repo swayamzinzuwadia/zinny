@@ -205,25 +205,25 @@ describe("deleting custom roles", () => {
 
 describe("the Zinny team", () => {
   it("lets only a Super Admin manage team roles", async () => {
-    await expect(saveRole(admin, null, { name: "Nope", kind: "custom_platform", abilities: ["platform.partners"] })).rejects.toThrow(ForbiddenError);
+    await expect(saveRole(admin, null, { name: "Nope", kind: "custom_platform", abilities: ["platform.licences"] })).rejects.toThrow(ForbiddenError);
   });
 
   it("gives a custom team role what was ticked", async () => {
-    await saveRole(superAdmin, null, { name: "Partner lead", kind: "custom_platform", abilities: ["platform.partners"] });
-    const [role] = await systemDb().select().from(customRoles).where(eq(customRoles.name, "Partner lead"));
+    await saveRole(superAdmin, null, { name: "Licence lead", kind: "custom_platform", abilities: ["platform.licences"] });
+    const [role] = await systemDb().select().from(customRoles).where(eq(customRoles.name, "Licence lead"));
     const u = await makeUser("Team Member");
     await grantPlatformRole(superAdmin, { email: u.email, name: u.name, role: "custom_platform", customRoleId: role.id });
     const a = await loadActor(u.id, null);
-    expect(a.assignments.some((x) => x.grants?.includes("platform.partners"))).toBe(true);
+    expect(a.assignments.some((x) => x.grants?.includes("platform.licences"))).toBe(true);
     expect(a.assignments.some((x) => x.grants?.includes("platform.finance"))).toBe(false);
   });
 
   it("keeps team roles out of institutes' lists", async () => {
-    expect((await customRoleChoices(admin, uniId)).some((c) => c.name === "Partner lead")).toBe(false);
+    expect((await customRoleChoices(admin, uniId)).some((c) => c.name === "Licence lead")).toBe(false);
   });
 
   it("can't touch Super Admin", async () => {
-    await expect(saveRole(superAdmin, null, { role: "super_admin", abilities: ["platform.partners"] })).rejects.toThrow(ValidationError);
+    await expect(saveRole(superAdmin, null, { role: "super_admin", abilities: ["platform.licences"] })).rejects.toThrow(ValidationError);
   });
 });
 

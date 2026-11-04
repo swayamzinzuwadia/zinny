@@ -3,17 +3,19 @@
  * other's people; this is the one place that looks across them, so each view is logged in
  * the activity log. Password hashes are never selected: only whether one is set.
  */
-import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
-import { auditLog, batches, courses, departments, enrolments, invoices, orders, roleAssignments, universities, users, type RoleName } from "@/db/schema";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, isNull, notInArray, or, sql } from "drizzle-orm";
+import { auditLog, batches, courses, customRoles, departments, enrolments, invoices, orders, roleAssignments, universities, users, type RoleName } from "@/db/schema";
 import type { Actor } from "@/server/core";
 import { NotFoundError } from "@/server/errors";
 import { assertSuperAdmin } from "../lib/access";
-import { STAFF_ROLES } from "../lib/constants";
+import { AUTOMATED_ACTIONS, STAFF_ROLES } from "../lib/constants";
 import { db, isUuid, logAction } from "./shared";
 
+// "Learners", not "Students": the licence and the other pages count only the student role,
+// and this group also holds alumni and individual learners.
 export const PEOPLE_GROUPS = {
   all: { label: "Everyone", roles: null },
-  students: { label: "Students", roles: ["student", "alumni", "individual_learner"] },
+  students: { label: "Learners", roles: ["student", "alumni", "individual_learner"] },
   staff: { label: "Staff", roles: [...STAFF_ROLES] },
   parents: { label: "Parents", roles: ["parent"] },
 } as const satisfies Record<string, { label: string; roles: readonly RoleName[] | null }>;
@@ -34,6 +36,8 @@ export type PersonRow = {
   universityName: string;
   universitySlug: string;
   roles: RoleName[];
+  /** Names of the custom roles among `roles`, which only say "custom_institute" and the like. */
+  customRoleNames: string[];
 };
 
 export type PeopleFilters = { q?: string; universityId?: string; group?: PeopleGroup; page?: number };
@@ -60,10 +64,12 @@ export async function listPeople(actor: Actor, filters: PeopleFilters): Promise<
       universityName: universities.name,
       universitySlug: universities.slug,
       roles: sql<RoleName[]>`array_agg(distinct ${roleAssignments.role})`,
+      customRoleNames: sql<string[]>`coalesce(array_agg(distinct ${customRoles.name}) filter (where ${customRoles.name} is not null), '{}')`,
     })
     .from(roleAssignments)
     .innerJoin(users, eq(users.id, roleAssignments.userId))
     .innerJoin(universities, eq(universities.id, roleAssignments.universityId))
+    .leftJoin(customRoles, eq(customRoles.id, roleAssignments.customRoleId))
     .where(
       and(
         isNull(roleAssignments.revokedAt),
@@ -141,8 +147,10 @@ export async function personDetail(actor: Actor, userId: string) {
         startsAt: roleAssignments.startsAt,
         endsAt: roleAssignments.endsAt,
         revokedAt: roleAssignments.revokedAt,
+        customRoleName: customRoles.name,
       })
       .from(roleAssignments)
+      .leftJoin(customRoles, eq(customRoles.id, roleAssignments.customRoleId))
       .leftJoin(universities, eq(universities.id, roleAssignments.universityId))
       .leftJoin(departments, eq(departments.id, roleAssignments.departmentId))
       .leftJoin(batches, eq(batches.id, roleAssignments.batchId))
@@ -184,7 +192,7 @@ export async function personDetail(actor: Actor, userId: string) {
       .select({ id: auditLog.id, action: auditLog.action, at: auditLog.at, universityName: universities.name })
       .from(auditLog)
       .leftJoin(universities, eq(universities.id, auditLog.universityId))
-      .where(eq(auditLog.actorUserId, userId))
+      .where(and(eq(auditLog.actorUserId, userId), notInArray(auditLog.action, [...AUTOMATED_ACTIONS])))
       .orderBy(desc(auditLog.at))
       .limit(15),
   ]);

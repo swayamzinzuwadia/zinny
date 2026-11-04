@@ -25,12 +25,14 @@ const NOTICES: Record<string, string> = {
   not_found: "That class isn't on this batch's timetable.",
 };
 
-function detail(e: Register["entries"][number], tz: string): string {
+function detail(e: Register["entries"][number], tz: string, ended: boolean): string {
   if (e.source === "join") return `Joined at ${clockIn(e.joinedAt!, tz)}${e.joins > 1 ? `, ${e.joins} times` : ""}`;
   if (e.source === "staff") return `Marked by ${e.markedBy ?? "staff"}${e.joinedAt ? `. Joined at ${clockIn(e.joinedAt, tz)}` : ""}`;
   if (e.source === "system") return "Automatic: didn't join";
   if (e.source === "auto") return "Automatic: didn't join";
-  return e.lateEnrolment ? "Not counted" : "Hasn't joined yet";
+  if (e.lateEnrolment) return "Not counted";
+  // Once the class is over, nobody is still about to join.
+  return ended ? "Didn't join" : "Hasn't joined yet";
 }
 
 /** One class's attendance register: the roster with automatic statuses, changes with notes, lock and unlock. */
@@ -81,7 +83,7 @@ export default async function RegisterPage({
     name: e.person.name,
     email: e.person.email,
     status: e.status,
-    detail: detail(e, r.tz),
+    detail: detail(e, r.tz, s.state === "ended"),
     note: e.note ?? "",
     current: e.current,
     lateEnrolment: e.lateEnrolment,

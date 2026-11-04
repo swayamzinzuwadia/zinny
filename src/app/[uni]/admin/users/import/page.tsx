@@ -24,7 +24,7 @@ export default async function ImportPage({ params }: { params: Promise<{ uni: st
           <ul className="space-y-1.5 text-muted">
             <li><b className="text-ink">name</b>, <b className="text-ink">email</b>: required</li>
             <li><b className="text-ink">role</b>: student, permanent_faculty, visiting_faculty, hod, accounts_fees, board_owner or institute_admin</li>
-            <li><b className="text-ink">department</b>: the department code (CS, MKT). Needed for faculty and HODs.</li>
+            <li><b className="text-ink">department</b>: the department code (CS, MKT). Needed for faculty and HODs. A student sees only their department&apos;s courses, so give students one too.</li>
             <li><b className="text-ink">access_ends</b>: date like 2027-03-31. Needed for visiting faculty.</li>
             <li><b className="text-ink">phone</b>: optional</li>
           </ul>

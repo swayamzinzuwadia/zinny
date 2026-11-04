@@ -1,11 +1,13 @@
 /**
  * Analytics (platform.view_analytics): universities, active students, enrolments per
  * week and money collected by universities per month, overall and per university.
+ * Students hold an active student role (the number the licence counts); active students
+ * are those of them with an active enrolment.
  * Weeks start on Monday and months follow India time, so every university is counted
  * on the same calendar.
  */
 import { and, asc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
-import { enrolments, orders, universities } from "@/db/schema";
+import { enrolments, orders, roleAssignments, universities } from "@/db/schema";
 import { assertPlatform, type Actor } from "@/server/core";
 import { addDays, addMonths, monthOf, todayIST, weekStart, ZINNY_TZ } from "../lib/format";
 import { db, emptyUsage, isUuid, usageFor } from "./shared";
@@ -51,10 +53,19 @@ export async function analytics(actor: Actor, opts: { universityId?: string; wee
   const [unis, usage, active, weekly, monthly] = await Promise.all([
     conn.select({ id: universities.id, name: universities.name, status: universities.status }).from(universities).orderBy(asc(universities.name)),
     usageFor(conn),
+    // Active students are students (as counted against the licence) with an active enrolment,
+    // so there are never more active students than students.
     conn
       .select({ universityId: enrolments.universityId, n: sql<number>`count(distinct ${enrolments.userId})`.mapWith(Number) })
       .from(enrolments)
-      .where(eq(enrolments.status, "active"))
+      .where(
+        and(
+          eq(enrolments.status, "active"),
+          sql`exists (select 1 from ${roleAssignments} r
+            where r.user_id = ${enrolments.userId} and r.university_id = ${enrolments.universityId} and r.role = 'student'
+              and r.revoked_at is null and r.starts_at <= now() and (r.ends_at is null or r.ends_at > now()))`,
+        ),
+      )
       .groupBy(enrolments.universityId),
     conn
       .select({

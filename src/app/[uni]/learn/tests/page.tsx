@@ -2,6 +2,7 @@ import { Empty } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { SeriesCard, TestCard } from "@/modules/assessments/components/learner-cards";
 import { myTests } from "@/modules/assessments/learner";
+import { sendParentsHome } from "../view";
 
 export const metadata = { title: "Tests" };
 
@@ -9,6 +10,7 @@ export const metadata = { title: "Tests" };
 export default async function LearnerTests({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
   const { actor } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
   const { tests, series, timezone } = await myTests(actor);
   const sections = [
     { key: "available", title: "Available now", empty: "Nothing to take right now." },

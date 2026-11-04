@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { Badge, Empty, Field, Input, PageHeader, Select, Table, Td, buttonClass } from "@/components/ui";
+import { Badge, Empty, Field, Input, PageHeader, Select, Td, buttonClass, cx } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
-import { BackLink, FilterProblems, NoAccess } from "@/modules/zinny-team-panel/components/bits";
+import { BackLink, FilterProblems, NoAccess, PanelTable } from "@/modules/zinny-team-panel/components/bits";
 import { formatDateTime } from "@/modules/zinny-team-panel/lib/format";
-import { activityLog, activityLogOptions, actionLabel, EXPORT_LIMIT, parseLogFilters, type LogFilters } from "@/modules/zinny-team-panel/services/support";
+import { activityLog, activityLogOptions, actionLabel, describeDetails, EXPORT_LIMIT, parseLogFilters, type LogFilters } from "@/modules/zinny-team-panel/services/support";
 
 export const metadata = { title: "Activity log" };
 
@@ -21,16 +21,6 @@ function query(f: LogFilters, extra: Record<string, string> = {}) {
   for (const [k, v] of Object.entries(extra)) p.set(k, v);
   const s = p.toString();
   return s ? `?${s}` : "";
-}
-
-/** A short, readable summary of an entry's details. */
-function details(data: Record<string, unknown>) {
-  const skip = new Set(["universityId"]);
-  const parts = Object.entries(data ?? {})
-    .filter(([k, v]) => !skip.has(k) && v !== null && v !== undefined && v !== "")
-    .slice(0, 4)
-    .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : String(v)}`);
-  return parts.join(" · ");
 }
 
 export default async function ActivityLogPage({ searchParams }: { searchParams: Promise<Search> }) {
@@ -50,7 +40,7 @@ export default async function ActivityLogPage({ searchParams }: { searchParams: 
         title="Activity log"
         subtitle="Who did what, where and when. Support sessions show every change made inside an institute; all Zinny team activity adds licences, invoices, roles and the rest."
         actions={
-          <a href={`/platform/support/log/export${query(filters)}`} className={buttonClass("secondary")} download>
+          <a href={`/platform/support/log/export${query(filters)}`} className={cx(buttonClass("secondary"), "whitespace-nowrap")} download>
             Download CSV
           </a>
         }
@@ -58,7 +48,7 @@ export default async function ActivityLogPage({ searchParams }: { searchParams: 
 
       <FilterProblems problems={problems} />
 
-      <form className="mb-6 grid gap-3 rounded-[22px] border border-line bg-surface p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_150px_150px_auto] lg:items-end">
+      <form className="mb-6 grid items-end gap-3 rounded-[22px] border border-line bg-surface p-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[repeat(4,minmax(0,1fr))_150px_150px_auto]">
         <Field label="Show">
           <Select name="scope" defaultValue={filters.scope}>
             <option value="support">Support sessions</option>
@@ -101,8 +91,8 @@ export default async function ActivityLogPage({ searchParams }: { searchParams: 
         <Field label="To">
           <Input name="to" type="date" defaultValue={filters.to ?? ""} />
         </Field>
-        <div className="flex gap-2">
-          <button className={buttonClass("primary")}>Apply filters</button>
+        <div className="flex gap-2 sm:col-span-2 lg:col-span-3 2xl:col-span-1">
+          <button className={cx(buttonClass("primary"), "whitespace-nowrap")}>Apply filters</button>
           {filtered && (
             <Link href={`/platform/support/log${filters.scope === "all" ? "?scope=all" : ""}`} className={buttonClass("ghost")}>
               Clear
@@ -117,34 +107,31 @@ export default async function ActivityLogPage({ searchParams }: { searchParams: 
         </Empty>
       ) : (
         <>
-          <Table head={["When (IST)", "Who", "Institute", "What happened", "Details"]}>
+          <PanelTable head={["When (IST)", "Who", "Institute", "What happened", "Details"]}>
             {log.entries.map((e) => (
               <tr key={e.id} className="align-top">
-                <Td className="whitespace-nowrap text-muted">{formatDateTime(e.at)}</Td>
+                <Td className="text-muted 2xl:whitespace-nowrap">{formatDateTime(e.at)}</Td>
                 <Td>
                   <div>{e.actorName ?? "Zinny system"}</div>
                   {e.supportSessionId && (
-                    <div className="mt-1">
+                    <div className="mt-1 whitespace-nowrap">
                       <Badge tone="gold">In support mode</Badge>
                     </div>
                   )}
                 </Td>
-                <Td>{e.universityName ?? <span className="text-faint">Zinny team</span>}</Td>
-                <Td>
-                  <div>{actionLabel(e.action)}</div>
-                  <code className="font-mono text-[12px] text-faint">{e.action}</code>
-                </Td>
-                <Td className="max-w-[340px] text-[13px] text-muted">
+                <Td>{e.universityName ?? <span className="text-faint">Not at an institute</span>}</Td>
+                <Td>{actionLabel(e.action)}</Td>
+                <Td className="min-w-[200px] max-w-[340px] text-[13px] text-muted">
                   {e.sessionReason && <div className="text-ink/80">Reason: {e.sessionReason}</div>}
-                  <div className="break-words">{details(e.data)}</div>
+                  <div className="break-words">{describeDetails(e.data, { action: e.action, skipReason: e.sessionReason })}</div>
                 </Td>
               </tr>
             ))}
-          </Table>
-          <div className="mt-4 flex items-center justify-between text-[14px]">
+          </PanelTable>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[14px]">
             <span className="text-muted">
-              Page {log.page}
-              {filtered ? " of the filtered log" : ""}. Downloads include up to {EXPORT_LIMIT.toLocaleString("en-IN")} rows.
+              {log.page > 1 || log.hasMore ? `Page ${log.page}${filtered ? " of the filtered log" : ""}. ` : ""}
+              Downloads include up to {EXPORT_LIMIT.toLocaleString("en-IN")} rows.
             </span>
             <div className="flex gap-2">
               {log.page > 1 && (

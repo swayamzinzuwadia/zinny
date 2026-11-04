@@ -123,6 +123,11 @@ export function formatINR(paise: number): string {
   return paise % 100 === 0 ? INR.format(paise / 100) : INR_PAISE.format(paise / 100);
 }
 
+/** Whole rupees for summary tables, without paise: 3_63_792_82 → "₹3,63,793". */
+export function formatRupees(paise: number): string {
+  return INR.format(Math.round(paise / 100));
+}
+
 /** Large amounts in lakh and crore: 4_80_000_00 → "₹4.8 L". For stat tiles. */
 export function formatINRShort(paise: number): string {
   const rupees = paise / 100;

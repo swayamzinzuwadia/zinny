@@ -34,7 +34,8 @@ export function scopeTarget(universityId: string, departmentId: string | null): 
 export type Directory = {
   departments: Map<string, { id: string; code: string; name: string }>;
   courses: Map<string, { id: string; title: string; departmentId: string; status: string }>;
-  batches: Map<string, { id: string; name: string; courseId: string; departmentId: string; status: string; startDate: string; endDate: string }>;
+  /** `recorded`: the course's recorded batch, where marketplace buyers sit. It's no class to pick for a board or a challenge. */
+  batches: Map<string, { id: string; name: string; courseId: string; departmentId: string; status: string; startDate: string; endDate: string; recorded: boolean }>;
 };
 
 /** Departments, courses and batches of the university (core tables, read only). */
@@ -51,6 +52,7 @@ export async function directory(tx: Tx): Promise<Directory> {
         status: batches.status,
         startDate: batches.startDate,
         endDate: batches.endDate,
+        recorded: batches.recorded,
       })
       .from(batches),
   ]);

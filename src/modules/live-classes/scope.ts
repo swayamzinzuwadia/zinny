@@ -37,6 +37,7 @@ export type ScopedBatch = {
   status: "draft" | "open" | "closed" | "archived";
 };
 
+/** Batches with live classes in reach for the action (never a course's recorded batch). */
 export async function batchesInReach(
   tx: Tx,
   actor: Actor,
@@ -50,6 +51,8 @@ export async function batchesInReach(
     filter.departmentId ? eq(batches.departmentId, filter.departmentId) : undefined,
     filter.batchId ? eq(batches.id, filter.batchId) : undefined,
     filter.includeArchived ? undefined : ne(batches.status, "archived"),
+    // A course's recorded batch (marketplace buyers) has no timetable, so no live classes.
+    eq(batches.recorded, false),
   ];
   if (!r.all) {
     conds.push(

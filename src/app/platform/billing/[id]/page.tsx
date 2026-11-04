@@ -5,7 +5,7 @@ import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { markPaidAction, markUnpaidAction } from "@/modules/zinny-team-panel/actions";
-import { BackLink, Fact, NoAccess } from "@/modules/zinny-team-panel/components/bits";
+import { Fact, NoAccess } from "@/modules/zinny-team-panel/components/bits";
 import { LICENCE_SAC, STATE_NAME } from "@/modules/zinny-team-panel/lib/constants";
 import { formatDate, formatINR, todayIST } from "@/modules/zinny-team-panel/lib/format";
 import { getInvoice } from "@/modules/zinny-team-panel/services/billing";
@@ -14,7 +14,7 @@ export const metadata = { title: "Invoice" };
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.finance")) return <NoAccess section="Zinny billing" />;
+  if (!canPlatform(actor, "platform.finance")) return <NoAccess section="Zinny invoices" />;
   const { id } = await params;
   const i = await getInvoice(actor, id).catch((e) => {
     if (e instanceof NotFoundError) notFound();
@@ -25,7 +25,6 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
 
   return (
     <>
-      <BackLink href="/platform/billing">Zinny invoices</BackLink>
       <PageHeader
         title={`Invoice ${i.number}`}
         subtitle={

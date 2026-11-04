@@ -4,12 +4,14 @@ import { hasRole } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { browseCatalog, myLearning } from "@/server/services/enrolment";
 import { CourseCatalog, type CatalogCourse } from "./catalog";
+import { sendParentsHome } from "../view";
 
 export const metadata = { title: "Courses" };
 
 export default async function Catalog({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
   const { actor } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
   if (!hasRole(actor, ["student", "alumni"])) redirect("/marketplace");
   const [courses, learning] = await Promise.all([browseCatalog(actor), myLearning(actor)]);
   const mine = new Map(learning.filter((l) => l.status === "active").map((l) => [l.course.id, l.enrolmentId]));

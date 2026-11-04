@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Avatar, Badge, Card, CardTitle, Empty, PageHeader, Stat, Table, Td, cx } from "@/components/ui";
@@ -38,12 +37,7 @@ export default async function ChallengePage({ params }: { params: Promise<{ uni:
 
   return (
     <>
-      <div className="mb-2 text-sm text-muted">
-        <Link href={`/${uni}/admin/leaderboards/challenges`} className="hover:text-ink">
-          Challenges
-        </Link>{" "}
-        / {data.scopeName}
-      </div>
+      <div className="mb-2 text-sm text-muted">{data.scopeName}</div>
       <PageHeader
         title={c.title}
         subtitle={

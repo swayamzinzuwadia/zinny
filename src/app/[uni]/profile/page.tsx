@@ -36,6 +36,22 @@ function ago(d: Date, now: Date) {
   return `Active ${days} day${days === 1 ? "" : "s"} ago`;
 }
 
+/** "Current Student" → "Current student": sentence case, keeping acronyms like "QA". Custom role names stay as written. */
+function sentenceCase(label: string) {
+  return label
+    .split(" ")
+    .map((w, i) => (i === 0 || /^[A-Z0-9]{2,}$/.test(w) ? w : w.toLowerCase()))
+    .join(" ");
+}
+
+/** A sign-in's address, unless it's this machine or a private network (no one recognises "::1"). */
+function publicIp(ip: string | null | undefined) {
+  if (!ip) return null;
+  const v4 = ip.replace(/^::ffff:/, "");
+  if (v4 === "::1" || /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.)/.test(v4) || /^f[cde]/i.test(v4)) return null;
+  return v4;
+}
+
 const when = (d: Date) =>
   new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }).format(d);
 
@@ -53,7 +69,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ uni: s
 
   const now = new Date();
   const [profile, sessions, current] = await Promise.all([getProfile(actor, actor.userId, now), mySessions(actor, actor.userId), currentSession()]);
-  const roles = [...new Set(actor.assignments.filter((a) => isActive(a, now) && a.universityId === university.id).map((a) => a.label ?? ROLE_LABELS[a.role]))];
+  const roles = [
+    ...new Set(actor.assignments.filter((a) => isActive(a, now) && a.universityId === university.id).map((a) => a.label ?? sentenceCase(ROLE_LABELS[a.role]))),
+  ];
   const others = sessions.filter((s) => s.id !== current?.sessionId);
 
   return (
@@ -160,7 +178,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ uni: s
                     <span className={cx(mine && "text-ink")}>{mine ? "Active now" : ago(s.lastSeenAt, now)}</span>
                     {" · "}
                     {METHOD_LABEL[s.method] ?? "Password"}, {when(s.createdAt)}
-                    {s.ip && <span className="tabular"> · {s.ip}</span>}
+                    {publicIp(s.ip) && <span className="tabular"> · {publicIp(s.ip)}</span>}
                   </div>
                 </div>
                 {!mine && (

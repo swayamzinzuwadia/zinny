@@ -6,6 +6,7 @@ import { AssignmentRow, groupAssignments } from "@/modules/assignments-polls/com
 import { pollsBase } from "@/modules/assignments-polls/links";
 import { myAssignments } from "@/modules/assignments-polls/service/assignments";
 import { myPolls } from "@/modules/assignments-polls/service/polls";
+import { sendParentsHome } from "../view";
 
 export const metadata = { title: "Assignments" };
 
@@ -13,6 +14,7 @@ export const metadata = { title: "Assignments" };
 export default async function MyAssignmentsPage({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
   const { actor, university } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
   const own = { universityId: university.id, ownerUserId: actor.userId };
   if (!can(actor, "self.submit_assignment", own)) {
     return <Empty title="Assignments are for current students">Your children&apos;s assignments aren&apos;t shown here.</Empty>;
@@ -23,12 +25,9 @@ export default async function MyAssignmentsPage({ params }: { params: Promise<{ 
 
   return (
     <>
-      <Link href={`/${uni}/learn/my`} className="text-sm text-muted">
-        My learning
-      </Link>
-      <div className="mb-5 mt-2 flex flex-wrap items-baseline justify-between gap-2">
+      <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-[26px] font-semibold tracking-tight">Assignments</h1>
-        <Link href={pollsBase(uni)} className="text-[14px] font-medium text-brand">
+        <Link href={pollsBase(uni)} className="inline-block py-1 text-[14px] font-medium text-brand">
           Polls{toVote ? ` (${toVote} to vote in)` : ""}
         </Link>
       </div>

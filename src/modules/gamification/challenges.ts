@@ -186,7 +186,8 @@ export function challengeScopes(actor: Actor, dir: Directory) {
   for (const c of [...dir.courses.values()].filter((x) => x.status !== "archived").sort((a, b) => a.title.localeCompare(b.title))) {
     const options: { value: string; label: string }[] = [];
     if (can(actor, "leaderboard.manage", courseTargetFrom(u, dir, c.id))) options.push({ value: `course:${c.id}`, label: `${c.title}: whole course` });
-    for (const b of [...dir.batches.values()].filter((x) => x.courseId === c.id && x.status !== "archived").sort((a, b) => a.startDate.localeCompare(b.startDate))) {
+    // The recorded batch (marketplace buyers) isn't a class, so it isn't offered.
+    for (const b of [...dir.batches.values()].filter((x) => x.courseId === c.id && !x.recorded && x.status !== "archived").sort((a, b) => a.startDate.localeCompare(b.startDate))) {
       if (can(actor, "leaderboard.manage", batchTarget(u, b))) options.push({ value: `batch:${b.id}`, label: `${c.title}: ${b.name}` });
     }
     if (options.length) out.push({ courseTitle: c.title, options });

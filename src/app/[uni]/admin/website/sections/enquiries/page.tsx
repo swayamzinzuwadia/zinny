@@ -58,23 +58,26 @@ export default async function EnquiriesPage({ params, searchParams }: { params: 
           {status === "new" ? "New enquiries from your website show up here, and you get a notification for each one." : "Try another tab."}
         </Empty>
       ) : (
-        <Table head={["From", "Course", "Message", "Received", "Status", "Assigned to"]}>
+        // Four columns, so the table reads on a tablet: the course sits with the message, the assignee with the status.
+        <Table head={["From", "Message", "Received", "Status"]}>
           {rows.map((e) => (
             <tr key={e.id} className={cx("hover:bg-canvas/60", e.status === "new" && "bg-gold-soft/25")}>
-              <Td>
+              <Td className="min-w-[11rem]">
                 <Link href={`${base}/${e.id}`} className="font-medium text-ink hover:text-brand">
                   {e.name}
                 </Link>
-                <div className="text-[13px] text-muted">{e.email}</div>
+                <div className="break-all text-[13px] text-muted">{e.email}</div>
                 {e.phone && <div className="text-[13px] text-muted">{e.phone}</div>}
               </Td>
-              <Td className="text-muted">{e.courseTitle ?? "General"}</Td>
-              <Td className="max-w-xs text-[13px] text-ink/80">{e.message ? truncate(e.message, 110) : <span className="text-faint">No message</span>}</Td>
-              <Td className="whitespace-nowrap text-[13px] text-muted">{formatMoment(e.createdAt, university.timezone)}</Td>
-              <Td>
-                <Badge tone={TONE[e.status]}>{ENQUIRY_STATUS_LABEL[e.status]}</Badge>
+              <Td className="min-w-[14rem] text-[13px]">
+                <div className="text-muted">About {e.courseTitle ?? "the institute in general"}</div>
+                <div className="mt-0.5 text-ink/80">{e.message ? truncate(e.message, 110) : <span className="text-faint">No message</span>}</div>
               </Td>
-              <Td className="text-[13px]">{e.assigneeName ?? <span className="text-faint">Nobody</span>}</Td>
+              <Td className="whitespace-nowrap text-[13px] text-muted">{formatMoment(e.createdAt, university.timezone)}</Td>
+              <Td className="whitespace-nowrap">
+                <Badge tone={TONE[e.status]}>{ENQUIRY_STATUS_LABEL[e.status]}</Badge>
+                <div className="mt-1 text-[13px] text-muted">{e.assigneeName ? e.assigneeName : "Not assigned"}</div>
+              </Td>
             </tr>
           ))}
         </Table>

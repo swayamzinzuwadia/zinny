@@ -5,7 +5,7 @@ import { closeDb, systemDb } from "@/db/client";
 import { universities } from "@/db/schema";
 import { storage } from "@/server/core";
 import { payInTestMode } from "@/modules/payments/checkout";
-import { gstRatePercent, invoiceDownload, invoiceFileName, myInvoices } from "@/modules/payments/invoices";
+import { gstRatePercent, hasInvoices, invoiceDownload, invoiceFileName, myInvoices } from "@/modules/payments/invoices";
 import { amount, rupeesInWords } from "@/modules/payments/money";
 import { renderInvoicePdf } from "@/modules/payments/pdf/invoice-pdf";
 import { refundOrder } from "@/modules/payments/refunds";
@@ -166,5 +166,13 @@ describe("who can download an invoice", () => {
     expect(await myInvoices(someoneElse)).toEqual([]);
     // Staff have no invoices of their own to view.
     await expect(myInvoices(c.hod)).rejects.toThrow(/access/);
+  });
+
+  it("the learner app shows Invoices only to learners who have one", async () => {
+    const { c, s } = await paid("Invoice Menu U");
+    expect(await hasInvoices(s)).toBe(true);
+    // An institute student who never bought anything, and staff, have none.
+    expect(await hasInvoices(await c.student("Free Learner"))).toBe(false);
+    expect(await hasInvoices(c.hod)).toBe(false);
   });
 });

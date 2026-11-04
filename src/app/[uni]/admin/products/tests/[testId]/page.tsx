@@ -49,20 +49,14 @@ export default async function TestPage({ params, searchParams }: { params: Promi
 
   return (
     <>
-      <div className="mb-2 text-sm text-muted">
-        <Link href={`/${uni}/admin/products/tests`} className="hover:text-ink">
-          Tests
-        </Link>
-        {info.series && (
-          <>
-            {" "}
-            /{" "}
-            <Link href={`/${uni}/admin/products/tests/${info.series.id}`} className="hover:text-ink">
-              {info.series.title}
-            </Link>
-          </>
-        )}
-      </div>
+      {/* The layout's "‹ Tests" leads back to the list; a test inside a series also links to its series. */}
+      {info.series && (
+        <div className="mb-2 text-sm text-muted">
+          <Link href={`/${uni}/admin/products/tests/${info.series.id}`} className="hover:text-ink">
+            {info.series.title}
+          </Link>
+        </div>
+      )}
       <PageHeader
         title={t.title}
         subtitle={

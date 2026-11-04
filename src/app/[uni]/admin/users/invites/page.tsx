@@ -175,6 +175,13 @@ export default async function InvitesPage({ params }: { params: Promise<{ uni: s
                   <p className="mt-1 text-[13px] text-muted">
                     Lets students create their own account at <span className="break-all text-ink">/signup?uni={uni}</span>. Turn it off if you only want students you add yourself.
                   </p>
+                  <p className="mt-1 text-[13px] text-muted">
+                    Students can also join with your joining code:{" "}
+                    <Link href={`/${uni}/admin/users/requests`} className="text-brand hover:underline">
+                      Join requests
+                    </Link>
+                    .
+                  </p>
                 </div>
                 <Badge tone={settings.selfSignup ? "brand" : "neutral"}>{settings.selfSignup ? "On" : "Off"}</Badge>
               </div>
@@ -190,7 +197,11 @@ export default async function InvitesPage({ params }: { params: Promise<{ uni: s
           <Card className="h-fit text-[14px]">
             <CardTitle>How invitations work</CardTitle>
             <ul className="space-y-2 text-muted">
-              <li>Adding someone under Users, or by CSV import, sends their invitation automatically.</li>
+              <li>
+                {can(actor, "user.import", { universityId: university.id })
+                  ? "Adding someone under Users, or by bulk import, sends their invitation automatically."
+                  : "Adding someone under Users sends their invitation automatically."}
+              </li>
               <li>Resending sends a new link. Any older link stops working.</li>
               <li>Revoking stops the link but keeps their role. Remove the role under Users to take away access.</li>
               <li>Someone who already has a Zinny password isn&apos;t invited: they sign in as usual.</li>

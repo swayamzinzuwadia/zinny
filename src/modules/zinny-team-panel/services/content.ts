@@ -62,7 +62,8 @@ export async function reviewQueue(actor: Actor, tab: QueueTab, opts: { universit
         universityId: universities.id,
         universityName: universities.name,
         departmentName: departments.name,
-        batches: sql<number>`(select count(*) from ${batches} b where b.course_id = ${courses.id})`.mapWith(Number),
+        // Marketplace buyers sit in a hidden "recorded" batch; it isn't a class the institute runs.
+        batches: sql<number>`(select count(*) from ${batches} b where b.course_id = ${courses.id} and not b.recorded)`.mapWith(Number),
         students: sql<number>`(select count(*) from ${enrolments} e where e.course_id = ${courses.id} and e.status = 'active')`.mapWith(Number),
         openFlags: openFlagCount,
         reviewedAt: platCourseReviews.reviewedAt,
@@ -127,7 +128,11 @@ export async function coursePreview(actor: Actor, courseId: string) {
     .where(eq(courses.id, courseId));
   if (!row) throw new NotFoundError("Course");
 
-  const bs = await conn.select().from(batches).where(eq(batches.courseId, courseId)).orderBy(asc(batches.startDate), asc(batches.name));
+  const bs = await conn
+    .select()
+    .from(batches)
+    .where(and(eq(batches.courseId, courseId), eq(batches.recorded, false)))
+    .orderBy(asc(batches.startDate), asc(batches.name));
   const ids = bs.map((b) => b.id);
   const [slots, seats, faculty] = ids.length
     ? await Promise.all([

@@ -1,22 +1,5 @@
-import { Field, Input, Tabs, Textarea } from "@/components/ui";
+import { Field, Input, Textarea } from "@/components/ui";
 export { KIND_LABEL } from "./price";
-
-/** The admin Marketplace section's three pages. */
-export function MarketplaceTabs({ uni, active }: { uni: string; active: "listings" | "combos" | "codes" }) {
-  const base = `/${uni}/admin/marketplace`;
-  return (
-    <div className="mb-6">
-      <Tabs
-        active={active}
-        tabs={[
-          { key: "listings", label: "Listings", href: base },
-          { key: "combos", label: "Combos", href: `${base}/combos` },
-          { key: "codes", label: "Discount codes", href: `${base}/codes` },
-        ]}
-      />
-    </div>
-  );
-}
 
 /** Title, description, price and compare-at price: the same fields for every kind of listing. */
 export function ListingFieldsInputs({

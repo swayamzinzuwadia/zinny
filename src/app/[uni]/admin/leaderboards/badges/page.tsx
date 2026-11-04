@@ -39,7 +39,7 @@ export default async function BadgesPage({ params }: { params: Promise<{ uni: st
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-[16px] font-medium">{b.name}</h2>
-                        {!b.active && <Badge tone="warn">Off</Badge>}
+                        {!b.active && <Badge tone="neutral">Off</Badge>}
                       </div>
                       <p className="text-[14px] text-muted">{b.criterion}</p>
                       {b.description && <p className="mt-1 text-[13px] text-faint">{b.description}</p>}

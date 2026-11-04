@@ -39,12 +39,15 @@ export function CertificateCard({ uni, c, svg, showCourse = true }: { uni: strin
             </div>
           </dl>
           {note && <p className="mt-3 rounded-xl bg-canvas px-3 py-2 text-[13px] text-muted">{note}</p>}
-          <div className="mt-4 flex flex-wrap gap-2 md:mt-auto md:pt-4">
-            <a href={`/${uni}/learn/certificates/${c.id}/download`} className={buttonClass("primary", "sm")}>
-              Download PDF
-            </a>
-            <ShareLink path={c.verifyPath} title={`My certificate for ${c.courseTitle}`} />
-          </div>
+          {/* A revoked certificate is no longer the learner's to hand out: no download, no share link. */}
+          {c.status !== "revoked" && (
+            <div className="mt-4 flex flex-wrap gap-2 md:mt-auto md:pt-4">
+              <a href={`/${uni}/learn/certificates/${c.id}/download`} className={buttonClass("primary", "sm")}>
+                Download PDF
+              </a>
+              <ShareLink path={c.verifyPath} title={`My certificate for ${c.courseTitle}`} />
+            </div>
+          )}
         </div>
       </div>
     </Card>

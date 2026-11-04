@@ -12,7 +12,7 @@
  */
 import { and, asc, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { batches, courses, invoices, orders, universities, users } from "@/db/schema";
+import { batches, courses, enrolments, invoices, orders, universities, users } from "@/db/schema";
 import { assertCan, audit, can, withTenant, type Actor } from "@/server/core";
 import { NotFoundError } from "@/server/errors";
 import { dayIn, MONEY_IN, refundTotals, uni } from "./internal";
@@ -134,10 +134,13 @@ function base(tx: Parameters<Parameters<typeof withTenant>[1]>[0]) {
       course: courses.title,
       batchId: batches.id,
       batch: batches.name,
+      batchRecorded: batches.recorded,
       invoiceId: invoices.id,
       invoiceNumber: invoices.number,
       refundedPaise: refunded,
       refundInFlightPaise: inFlight,
+      /** The student already has a seat in this course, so this payment was a second one (why a refund is due). */
+      paidTwice: sql<boolean>`exists (select 1 from ${enrolments} e where e.user_id = ${orders.userId} and e.course_id = ${orders.courseId} and e.status in ('active', 'completed') and e.id is distinct from ${orders.enrolmentId})`,
     })
     .from(orders)
     .innerJoin(users, eq(users.id, orders.userId))
@@ -155,7 +158,7 @@ export type SalesOverview = {
   page: number;
   pages: number;
   courses: { id: string; title: string }[];
-  batches: { id: string; courseId: string; name: string }[];
+  batches: { id: string; courseId: string; name: string; recorded: boolean }[];
   timezone: string;
   can: { refund: boolean; manage: boolean };
 };
@@ -193,7 +196,7 @@ export async function salesOverview(actor: Actor, f: SalesFilters): Promise<Sale
       .offset((page - 1) * PAGE_SIZE);
     const cs = await tx.select({ id: courses.id, title: courses.title }).from(courses).where(sql`exists (select 1 from ${orders} o where o.course_id = ${courses.id})`).orderBy(asc(courses.title));
     const bs = await tx
-      .select({ id: batches.id, courseId: batches.courseId, name: batches.name })
+      .select({ id: batches.id, courseId: batches.courseId, name: batches.name, recorded: batches.recorded })
       .from(batches)
       .where(sql`exists (select 1 from ${orders} o where o.batch_id = ${batches.id})`)
       .orderBy(asc(batches.name));

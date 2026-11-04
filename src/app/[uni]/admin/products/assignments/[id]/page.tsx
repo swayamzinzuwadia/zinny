@@ -33,12 +33,8 @@ export default async function StaffAssignmentPage({ params, searchParams }: { pa
   return (
     <>
       <div className="mb-2 text-sm text-muted">
-        <Link href={`/${uni}/admin/products/courses/${a.courseId}`} className="hover:text-ink">
-          {d.courseTitle}
-        </Link>{" "}
-        /{" "}
         <Link href={courseTab(uni, a.courseId, "assignments")} className="hover:text-ink">
-          Assignments
+          {d.courseTitle}
         </Link>
       </div>
       <PageHeader

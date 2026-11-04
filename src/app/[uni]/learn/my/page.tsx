@@ -4,22 +4,25 @@ import { Badge, Card, Empty } from "@/components/ui";
 import { SlotList } from "@/components/slots";
 import { hasRole } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
-import { formatDate } from "@/server/lib/dates";
+import { formatDate, todayIn } from "@/server/lib/dates";
 import { visibleSlots } from "@/server/registry";
 import { batchOptions, myLearning } from "@/server/services/enrolment";
 import { SwitchBatch } from "./switch-batch";
+import { sendParentsHome } from "../view";
 
 export const metadata = { title: "My learning" };
 
 export default async function MyLearning({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
   const { actor, university } = await spaceContext(uni);
-  if (!hasRole(actor, ["student", "alumni", "parent"])) redirect("/marketplace/library");
+  sendParentsHome(actor, uni);
+  if (!hasRole(actor, ["student", "alumni"])) redirect("/marketplace/library");
   const all = await myLearning(actor);
   const learning = all.filter((l) => l.status === "active");
   const completed = all.filter((l) => l.status === "completed");
   const options = await Promise.all(learning.map((l) => batchOptions(actor, l.course.id).catch(() => null)));
   const own = { universityId: university.id, ownerUserId: actor.userId };
+  const today = todayIn(university.timezone);
 
   return (
     <>
@@ -41,12 +44,19 @@ export default async function MyLearning({ params }: { params: Promise<{ uni: st
               </Link>
               <div className="flex items-center gap-3">
                 {l.switchRequest && <Badge tone="warn">Switch requested</Badge>}
-                <Link href={`/${uni}/learn/my/${l.enrolmentId}`} className="text-sm font-medium text-brand hover:underline">
+                <Link href={`/${uni}/learn/my/${l.enrolmentId}`} className="inline-block py-1 text-sm font-medium text-brand hover:underline">
                   Open course
                 </Link>
               </div>
             </div>
-            <SwitchBatch uni={uni} enrolmentId={l.enrolmentId} switchRequest={l.switchRequest} lastDecision={l.lastDecision} options={options[i]?.options ?? null} />
+            <SwitchBatch
+              uni={uni}
+              enrolmentId={l.enrolmentId}
+              switchRequest={l.switchRequest}
+              lastDecision={l.lastDecision}
+              options={options[i]?.options ?? null}
+              today={today}
+            />
           </Card>
         ))}
         {completed.map((l) => (

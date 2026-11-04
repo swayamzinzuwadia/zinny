@@ -8,6 +8,7 @@ import { StartTest } from "@/modules/assessments/components/start-button";
 import { SUBMIT_REASON_LABEL, fmtMarks, fmtPercent } from "@/modules/assessments/lib/labels";
 import { formatMoment } from "@/modules/assessments/lib/time";
 import { timezoneOf } from "@/modules/assessments/results";
+import { sendParentsHome } from "../../../../view";
 
 export const metadata = { title: "Result" };
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ function given(i: ReviewItem) {
 export default async function ResultPage({ params }: { params: Promise<{ uni: string; attemptId: string }> }) {
   const { uni, attemptId } = await params;
   const { actor } = await spaceContext(uni);
+  sendParentsHome(actor, uni);
   const [r, timezone] = await Promise.all([
     attemptResult(actor, attemptId).catch((e) => {
       if (e instanceof NotFoundError) notFound();
@@ -37,7 +39,7 @@ export default async function ResultPage({ params }: { params: Promise<{ uni: st
 
   return (
     <>
-      <Link href={`/${uni}/learn/tests/${r.test.id}`} className="text-sm text-muted">
+      <Link href={`/${uni}/learn/tests/${r.test.id}`} className="inline-block py-1 text-sm text-muted">
         {r.test.title}
       </Link>
       <section className={cx("mt-3 rounded-[var(--radius-board)] p-6 sm:p-8", graded ? "bg-brand-deep text-canvas" : "bg-gold-soft")}>
@@ -50,7 +52,8 @@ export default async function ResultPage({ params }: { params: Promise<{ uni: st
           <>
             <div className="tabular mt-2 text-[56px] font-semibold leading-none">{fmtPercent(a.scorePercent)}</div>
             <div className="mt-2 text-[15px] text-canvas/80">
-              {fmtMarks(a.score)} of {fmtMarks(a.maxScore)} marks · {a.passed ? `Passed (pass mark ${r.test.passPercent}%)` : `Pass mark is ${r.test.passPercent}%`}
+              {fmtMarks(a.score)} of {fmtMarks(a.maxScore)} marks
+              {r.test.passPercent > 0 && ` · ${a.passed ? "Passed" : "Not passed"} (pass mark ${r.test.passPercent}%)`}
             </div>
           </>
         ) : (
@@ -144,7 +147,7 @@ export default async function ResultPage({ params }: { params: Promise<{ uni: st
             </ol>
           </section>
         )}
-        <Link href={`/${uni}/learn/tests`} className="inline-block text-[14px] text-brand">
+        <Link href={`/${uni}/learn/tests`} className="inline-block py-1 text-[14px] text-brand">
           Back to tests
         </Link>
       </div>

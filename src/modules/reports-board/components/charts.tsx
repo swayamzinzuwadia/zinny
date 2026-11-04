@@ -78,7 +78,8 @@ function scaleFor(data: Datum[], format: ValueFormat, max?: number) {
   const values = data.map((d) => d.value);
   return niceScale(Math.min(0, ...values), Math.max(0, max ?? 0, ...values), {
     integer: format === "count",
-    empty: format === "percent" ? 100 : 1,
+    // An all-zero chart still gets readable ticks: 0 to 100%, or 0 to ₹1,000 rather than fractions of a paisa.
+    empty: format === "percent" ? 100 : format === "money" ? 100_000 : 1,
   });
 }
 
@@ -118,7 +119,7 @@ export function ColumnChart({ data, format, height = 240 }: { data: Datum[]; for
  * Horizontal bars, one per course, batch or person. With `max` (e.g. 100 for a fill rate)
  * each bar sits on a track that shows how far it could go, even when the value is zero.
  */
-export function BarList({ data, format, max, labelWidth = 180 }: { data: Datum[]; format: ValueFormat; max?: number; labelWidth?: number }) {
+export function BarList({ data, format, max, labelWidth = 220 }: { data: Datum[]; format: ValueFormat; max?: number; labelWidth?: number }) {
   const { lo, hi, ticks } = scaleFor(data, format, max);
   const height = Math.max(96, data.length * 34 + 36);
   const chars = labelChars(labelWidth);
