@@ -4,13 +4,13 @@ import { Avatar, buttonClass, inputClass } from "./ui";
 export type EnrolmentRequestItem = {
   enrolmentId: string;
   student: { name: string; email: string };
-  course: { title: string; paid: boolean };
+  course: { title: string };
   batch: { name: string; seatsLeft: number };
 };
 
 /**
- * Students waiting for faculty to accept them into a batch. Accepting a free course enrols
- * them; a paid one keeps their seat until they pay.
+ * Students waiting for faculty to accept them into a batch. Accepting enrols them: institute
+ * courses are free for their students.
  */
 export function EnrolmentRequests({
   requests,
@@ -38,7 +38,6 @@ export function EnrolmentRequests({
               <div className="text-muted">
                 {showCourse ? `${r.course.title} · ` : ""}
                 {r.batch.name} · {r.batch.seatsLeft === 0 ? "batch is full" : `${r.batch.seatsLeft} seat${r.batch.seatsLeft === 1 ? "" : "s"} left`}
-                {r.course.paid ? " · pays after you accept" : ""}
               </div>
             </div>
           </div>

@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { prerenderToNodeStream } from "react-dom/static.node";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { closeDb, systemDb } from "@/db/client";
-import { auditLog } from "@/db/schema";
+import { auditLog, batches } from "@/db/schema";
 import { universityLite, withTenant, type Actor } from "@/server/core";
 import { payInTestMode } from "@/modules/payments/checkout";
 import { refundOrder } from "@/modules/payments/refunds";
@@ -115,7 +115,10 @@ describe("Sales data", () => {
     expect(await names({ q: w.students["Aditi Rao"].email.toUpperCase() })).toEqual(["Aditi Rao"]);
     expect(await names({ q: "%" })).toEqual([]);
     expect(await names({ courseId: w.course.id })).toHaveLength(4);
-    expect(await names({ batchId: w.batch.id })).toHaveLength(4);
+    // Orders are marketplace purchases, on the course's recorded batch.
+    const [recorded] = await systemDb().select().from(batches).where(and(eq(batches.courseId, w.course.id), eq(batches.recorded, true)));
+    expect(await names({ batchId: recorded.id })).toHaveLength(4);
+    expect(await names({ batchId: w.batch.id })).toEqual([]);
     expect(await names({ courseId: "00000000-0000-0000-0000-000000000000" })).toEqual([]);
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
     expect(await names({ from: today, to: today })).toHaveLength(4);

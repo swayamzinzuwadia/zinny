@@ -193,7 +193,7 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
       <div className="grid gap-6 xl:grid-cols-[1.55fr_1fr]">
         {data.canSeeBatches && (
           <Card>
-            <CardTitle hint="Filled, being paid for, free">Seats by batch</CardTitle>
+            <CardTitle hint="Taken and free">Seats by batch</CardTitle>
             {data.seats.length === 0 ? (
               <p className="text-[14px] text-muted">No open batches yet.</p>
             ) : (

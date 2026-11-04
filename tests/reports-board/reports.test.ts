@@ -131,9 +131,11 @@ describe("enrolments report", () => {
 
   it("limits faculty to their own batches when the report is called directly", async () => {
     // Faculty hold enrolment.view for their own batch only; the page is closed to them anyway.
+    // The course's marketplace buyers (its recorded batch) aren't theirs.
+    const all = await runEnrolments(w.admin, SEP_OCT);
+    expect(all.rows.some((r) => r.batch === "Recorded lessons")).toBe(true);
     const { rows } = await runEnrolments(w.faculty, SEP_OCT);
-    expect(new Set(rows.map((r) => r.batch))).toEqual(new Set(["Weekday morning"]));
-    expect(new Set(rows.map((r) => r.course))).toEqual(new Set(["Data Analytics"]));
+    expect(rows.every((r) => r.batch === "Weekday morning" && r.course === "Data Analytics")).toBe(true);
   });
 });
 

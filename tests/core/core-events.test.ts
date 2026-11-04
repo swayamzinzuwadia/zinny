@@ -1,16 +1,16 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { closeDb, systemDb } from "@/db/client";
-import { users } from "@/db/schema";
+import { enrolments, users } from "@/db/schema";
 import { loadActor } from "@/server/actor";
 import { createBatch } from "@/server/services/batches";
 import { createCourse, updateCourse } from "@/server/services/courses";
-import { cancelHold, confirmPayment, decideSwitch, holdSeat, requestSwitch } from "@/server/services/enrolment";
+import { confirmPayment, decideSwitch, holdSeat, requestSwitch } from "@/server/services/enrolment";
 import { createUniversity } from "@/server/services/support";
 import { addPerson, graduate, importPeople, linkParent } from "@/server/services/users";
 import { createProgram } from "@/server/services/departments";
 import { eventsOfType } from "../helpers/events";
-import { grant, makeUser, setupCourse, slots, WEEKDAYS } from "../fixtures";
+import { buyRecordings, grant, makeUser, setupCourse, slots, WEEKDAYS } from "../fixtures";
 
 afterAll(closeDb);
 
@@ -28,8 +28,7 @@ describe("core emits the catalogue events", () => {
   it("payment.confirmed and enrolment.confirmed when a paid order is confirmed, once", async () => {
     const { uni, course, batch, student } = await setupCourse({ name: "Paid U", pricePaise: 100_000 });
     const s = await student("Paying Student");
-    const r = await holdSeat(s, { batchId: batch.id });
-    if (r.status !== "held") throw new Error("expected a held seat");
+    const r = await buyRecordings(s, batch.id);
     expect(await eventsOfType("enrolment.confirmed", uni.id)).toHaveLength(0);
     const out = await confirmPayment(uni.id, { orderId: r.orderId, gatewayPaymentId: "pay_1" });
     await confirmPayment(uni.id, { orderId: r.orderId, gatewayPaymentId: "pay_1" }); // replay
@@ -39,27 +38,25 @@ describe("core emits the catalogue events", () => {
       orderId: r.orderId,
       userId: s.userId,
       courseId: course.id,
-      batchId: batch.id,
+      batchId: r.recordedBatchId,
       totalPaise: 118_000,
       invoiceNumber: out.invoiceNumber,
     });
     expect(pay[0].actorUserId).toBeNull();
     const enr = await eventsOfType("enrolment.confirmed", uni.id);
-    expect(enr.map((e) => e.payload)).toEqual([{ enrolmentId: r.enrolmentId, userId: s.userId, courseId: course.id, batchId: batch.id }]);
+    expect(enr.map((e) => e.payload)).toEqual([{ enrolmentId: r.enrolmentId, userId: s.userId, courseId: course.id, batchId: r.recordedBatchId }]);
   });
 
   it("no enrolment.confirmed when a late payment has to be refunded", async () => {
-    const { uni, batch, student } = await setupCourse({ name: "Refund U", pricePaise: 50_000, seatLimit: 1 });
-    const slow = await student("Slow Payer");
-    const r = await holdSeat(slow, { batchId: batch.id });
-    if (r.status !== "held") throw new Error("expected a held seat");
-    await cancelHold(slow, r.enrolmentId);
-    const fast = await student("Fast Payer");
-    const f = await holdSeat(fast, { batchId: batch.id });
-    if (f.status !== "held") throw new Error("expected a held seat");
-    await confirmPayment(uni.id, { orderId: f.orderId, gatewayPaymentId: "fast" });
-    expect((await confirmPayment(uni.id, { orderId: r.orderId, gatewayPaymentId: "slow" })).status).toBe("refund_due");
-    expect((await eventsOfType("enrolment.confirmed", uni.id)).map((e) => e.payload.userId)).toEqual([fast.userId]);
+    const { uni, batch, student } = await setupCourse({ name: "Refund U", pricePaise: 50_000 });
+    const s = await student("Two Tabs");
+    // The first checkout runs out; the student buys again and pays; then the first payment lands too.
+    const first = await buyRecordings(s, batch.id);
+    await systemDb().update(enrolments).set({ holdExpiresAt: new Date(Date.now() - 1000) }).where(eq(enrolments.id, first.enrolmentId));
+    const second = await buyRecordings(s, batch.id);
+    await confirmPayment(uni.id, { orderId: second.orderId, gatewayPaymentId: "second" });
+    expect((await confirmPayment(uni.id, { orderId: first.orderId, gatewayPaymentId: "first" })).status).toBe("refund_due");
+    expect((await eventsOfType("enrolment.confirmed", uni.id)).map((e) => e.payload.enrolmentId)).toEqual([second.enrolmentId]);
   });
 
   it("enrolment.switched when the HOD approves a switch, not when they decline", async () => {
@@ -106,7 +103,7 @@ describe("core emits the catalogue events", () => {
     const paid = await mk("Semester 2", 10_000, "12:00");
     const s = await student("Graduating Student");
     const enrolled = await holdSeat(s, { batchId: free.b.id });
-    await holdSeat(s, { batchId: paid.b.id }); // held, never paid
+    await buyRecordings(s, paid.b.id); // a marketplace purchase, never paid
     expect(await graduate(admin, s.userId)).toEqual({ endedEnrolments: 2 });
     const ended = await eventsOfType("enrolment.ended", uni.id);
     expect(ended.map((e) => e.payload)).toEqual([

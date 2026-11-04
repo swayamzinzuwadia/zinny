@@ -1,11 +1,11 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { closeDb, systemDb } from "@/db/client";
-import { batches, enrolments, roleAssignments, studentDepartments } from "@/db/schema";
+import { batches, enrolments, orders, roleAssignments, studentDepartments } from "@/db/schema";
 import { loadActor } from "@/server/actor";
 import { createBatch, seatsTaken, setSeatLimit } from "@/server/services/batches";
 import { createCourse, updateCourse } from "@/server/services/courses";
-import { browseCatalog, confirmPayment, decideEnrolment, holdSeat, listEnrolmentRequests } from "@/server/services/enrolment";
+import { browseCatalog, decideEnrolment, holdSeat, listEnrolmentRequests } from "@/server/services/enrolment";
 import { setStudentDepartments } from "@/server/services/students";
 import { idnJoinRequests, idnSettings } from "@/modules/identity/schema";
 import {
@@ -148,20 +148,19 @@ describe("faculty accept each student", () => {
     expect(e.status).toBe("active");
   });
 
-  it("an accepted paid seat is kept, and counted, until the student pays", async () => {
-    const { batch, faculty, student, uni } = await approvalBatch(50_000);
+  it("accepting enrols the student even when the course has a price: no checkout", async () => {
+    const { batch, faculty, student } = await approvalBatch(50_000);
     const s = await student("Student Sid");
     const r = await holdSeat(s, { batchId: batch.id });
     if (r.status !== "requested") throw new Error("expected a request");
-    expect((await decideEnrolment(faculty, r.enrolmentId, true)).status).toBe("approved");
+    expect((await decideEnrolment(faculty, r.enrolmentId, true, "See you on Monday")).status).toBe("enrolled");
     expect(await taken(batch.id)).toBe(1);
+    const [e] = await systemDb().select().from(enrolments).where(eq(enrolments.id, r.enrolmentId));
+    expect(e).toMatchObject({ status: "active", decisionNote: "See you on Monday" });
+    expect(await systemDb().select().from(orders).where(eq(orders.userId, s.userId))).toEqual([]);
 
-    // The only seat is kept for Sid: nobody else gets it.
+    // That was the only seat: nobody else gets it.
     await expect(holdSeat(await student("Student Om"), { batchId: batch.id })).rejects.toThrow(/full/);
-
-    const pay = await holdSeat(s, { batchId: batch.id });
-    if (pay.status !== "held") throw new Error("expected checkout");
-    expect((await confirmPayment(uni.id, { orderId: pay.orderId, gatewayPaymentId: "pay_ok" })).status).toBe("enrolled");
   });
 
   it("faculty of another batch can't answer; a declined student is told why and holds nothing", async () => {

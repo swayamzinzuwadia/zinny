@@ -128,18 +128,17 @@ describe("checkout with Razorpay", () => {
     expect(out.status).toBe("enrolled");
   });
 
-  it("dismissing or failing the checkout releases the seat through core failPayment", async () => {
+  it("dismissing or failing the checkout releases the hold through core failPayment", async () => {
     const c = await paidCourse("Checkout Dismiss U", { seatLimit: 1 });
     const s = await c.student("Diya Dismiss");
     const { orderId, enrolmentId } = await startCheckout(s, c.batch.id);
     const other = await c.student("Waiting Student");
-    await expect(startCheckout(other, c.batch.id)).rejects.toThrow(/full/);
     await abandonCheckout(s, orderId, { reason: "failed", code: "BAD_REQUEST_ERROR", description: "Payment failed" });
     expect((await orderRow(orderId)).status).toBe("failed");
     const [e] = await systemDb().select().from(enrolments).where(eq(enrolments.id, enrolmentId));
     expect(e.status).toBe("cancelled");
     expect((await checkoutView(s, orderId)).state).toBe("closed");
-    // The seat is free again.
+    // Others can still buy (recordings have no seat limit).
     await expect(startCheckout(other, c.batch.id)).resolves.toBeTruthy();
     // Dismissing again changes nothing.
     expect(await abandonCheckout(s, orderId, { reason: "dismissed" })).toEqual({ status: "failed" });
@@ -175,7 +174,7 @@ describe("checkout with the mock gateway (test mode)", () => {
     expect((await orderRow(orderId)).gatewayPaymentId).toMatch(/^mock_pay_/);
     expect(await invoiceOf(orderId)).toBeTruthy();
     const [n] = await systemDb().select().from(notifications).where(and(eq(notifications.userId, s.userId), eq(notifications.kind, "enrolment.confirmed")));
-    expect(n.title).toMatch(/enrolled/);
+    expect(n.title).toMatch(/in your library/);
   });
 
   it("can simulate a failed payment", async () => {

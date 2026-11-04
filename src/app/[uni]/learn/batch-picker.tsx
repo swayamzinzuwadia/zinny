@@ -26,15 +26,13 @@ export function BatchPicker({
   options,
   mode,
   enrolmentId,
-  priceLabel,
   acceptedBatchId,
 }: {
   uni: string;
   options: BatchOption[];
   mode: "enrol" | "switch";
   enrolmentId?: string;
-  priceLabel?: string;
-  /** Faculty accepted the student into this batch: picking it goes straight to payment. */
+  /** Faculty accepted the student into this batch (from before acceptance enrolled them at once). */
   acceptedBatchId?: string;
 }) {
   const [picked, setPicked] = useState<string>("");
@@ -49,9 +47,7 @@ export function BatchPicker({
       ? "Request switch"
       : needsApproval
         ? "Ask to join this batch"
-        : priceLabel
-          ? `${picked === acceptedBatchId ? "Pay to confirm" : "Continue"} · ${priceLabel}`
-          : "Enrol for free";
+        : "Join this batch";
 
   return (
     <form action={action}>
@@ -88,9 +84,9 @@ export function BatchPicker({
                 {disabled ? "Full" : `${o.seatsLeft} seat${o.seatsLeft === 1 ? "" : "s"} left`}
               </div>
               {o.faculty.length > 0 && <div className="mt-1 truncate text-xs text-faint">with {o.faculty.join(", ")}</div>}
-              {o.mine && <div className="mt-2 rounded-lg bg-brand-soft px-2 py-1 text-xs text-brand-strong">Your seat is held. Pick it to pay.</div>}
+              {o.mine && <div className="mt-2 rounded-lg bg-brand-soft px-2 py-1 text-xs text-brand-strong">Your seat is held. Pick it to join.</div>}
               {o.batchId === acceptedBatchId && (
-                <div className="mt-2 rounded-lg bg-brand-soft px-2 py-1 text-xs text-brand-strong">You&apos;re accepted. Pick it to pay.</div>
+                <div className="mt-2 rounded-lg bg-brand-soft px-2 py-1 text-xs text-brand-strong">You&apos;re accepted. Pick it to join.</div>
               )}
               {mode === "enrol" && o.approvalRequired && o.batchId !== acceptedBatchId && !o.mine && (
                 <div className="mt-2 text-xs text-muted">Faculty accept each student</div>

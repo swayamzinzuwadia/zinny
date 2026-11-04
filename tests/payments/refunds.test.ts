@@ -3,11 +3,10 @@ import { and, eq } from "drizzle-orm";
 import { closeDb, systemDb } from "@/db/client";
 import { auditLog, notifications } from "@/db/schema";
 import { confirmPayment, systemActorFor } from "@/server/core";
-import { holdSeat } from "@/server/services/enrolment";
 import { reconcileRefunds, refundOrder } from "@/modules/payments/refunds";
 import { payRefunds } from "@/modules/payments/schema";
 import { eventsOfType } from "../helpers/events";
-import { fakeRazorpay, orderRow, paidCourse, startCheckout, useRazorpay, type FakeRazorpay } from "./helpers";
+import { fakeRazorpay, orderRow, paidCourse, paidTwice, startCheckout, useRazorpay, type FakeRazorpay } from "./helpers";
 import { payInTestMode } from "@/modules/payments/checkout";
 
 afterAll(closeDb);
@@ -97,21 +96,9 @@ describe("refunds (mock gateway)", () => {
   it("a refund_due order (paid after the batch filled) is refunded in full and marked refunded", async () => {
     const c = await paidCourse("Refund Due U");
     const s = await c.student("Two Tabs");
-    // Two checkouts for one course: the first payment arrives after the second seat was taken.
-    const extra = await (await import("@/server/services/batches")).createBatch(c.hod, {
-      courseId: c.course.id,
-      name: "Weekend",
-      startDate: "2030-11-09",
-      endDate: "2031-01-31",
-      seatLimit: 10,
-      slots: [{ weekday: 6, startTime: "10:00", endTime: "13:00" }],
-      faculty: [{ userId: c.facultyUserId, role: "permanent_faculty" }],
-    });
-    const first = await holdSeat(s, { batchId: c.batch.id, acknowledgeClash: true });
-    const second = await holdSeat(s, { batchId: extra.id, acknowledgeClash: true });
-    if (first.status !== "held" || second.status !== "held") throw new Error("expected holds");
-    await confirmPayment(c.uni.id, { orderId: second.orderId, gatewayPaymentId: "mock_pay_second" });
-    expect((await confirmPayment(c.uni.id, { orderId: first.orderId, gatewayPaymentId: "mock_pay_first" })).status).toBe("refund_due");
+    // Two checkouts for one course: the first payment arrives after the second one was paid.
+    const { first, second, late } = await paidTwice(s, c.batch.id);
+    expect(late.status).toBe("refund_due");
     expect((await orderRow(first.orderId)).status).toBe("refund_due");
     const r = await refundOrder(c.accounts, { orderId: first.orderId, amountPaise: 1_180_000, reason: "Paid twice for one course" });
     expect(r.orderRefunded).toBe(true);

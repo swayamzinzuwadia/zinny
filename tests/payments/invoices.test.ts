@@ -61,7 +61,7 @@ describe("GST invoice PDF", () => {
     expect(text).toContain("Invoice Totals U Student");
     expect(text).toContain(s.email);
     expect(text).toContain("Data Analytics");
-    expect(text).toContain("Batch: Weekday morning");
+    expect(text).toContain("Batch: Recorded lessons");
     expect(text).toContain("999293");
     expect(text).toContain("Place of supply: Maharashtra (27)");
     expect(text).toContain("Reverse charge: No");
@@ -161,7 +161,7 @@ describe("who can download an invoice", () => {
     await refundOrder(c.accounts, { orderId, amountPaise: 100_000, reason: "Partial scholarship" });
     const mine = await myInvoices(s);
     expect(mine).toEqual([
-      expect.objectContaining({ id: invoice.id, number: invoice.number, course: "Data Analytics", batch: "Weekday morning", totalPaise: 1_180_000, gstPaise: 180_000, refundedPaise: 100_000, refundInFlightPaise: 0 }),
+      expect.objectContaining({ id: invoice.id, number: invoice.number, course: "Data Analytics", batch: "Recorded lessons", totalPaise: 1_180_000, gstPaise: 180_000, refundedPaise: 100_000, refundInFlightPaise: 0 }),
     ]);
     expect(await myInvoices(someoneElse)).toEqual([]);
     // Staff have no invoices of their own to view.

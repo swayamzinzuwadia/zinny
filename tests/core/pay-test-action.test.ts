@@ -12,8 +12,7 @@ import type { PaymentGateway } from "@/contracts/payments";
 import type { ZinnyModule } from "@/contracts/module";
 import { setTestModules } from "@/server/registry";
 import { testPaymentsAllowed } from "@/server/payments/gateway";
-import { holdSeat } from "@/server/services/enrolment";
-import { setupCourse } from "../fixtures";
+import { buyRecordings, setupCourse } from "../fixtures";
 
 const session = vi.hoisted(() => ({ actor: null as unknown }));
 vi.mock("@/server/context", () => ({
@@ -39,8 +38,8 @@ afterAll(async () => {
 
 async function heldOrder() {
   const student: Actor = await ctx.student(`Student ${Math.random().toString(36).slice(2, 7)}`);
-  const r = await holdSeat(student, { batchId: ctx.batch.id });
-  if (r.status !== "held") throw new Error(`expected a held seat, got ${r.status}`);
+  // Institute batches are free; a marketplace purchase of the course is what gets an order.
+  const r = await buyRecordings(student, ctx.batch.id);
   session.actor = student;
   return r.orderId;
 }

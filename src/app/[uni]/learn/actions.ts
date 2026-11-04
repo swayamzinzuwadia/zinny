@@ -36,7 +36,7 @@ export async function enrolAction(_: EnrolState, data: FormData): Promise<EnrolS
       revalidatePath(`/${uni}/learn`, "layout");
       return "Request sent. The batch's faculty will accept or decline it, and we'll let you know.";
     }
-    next = r.status === "held" ? `/${uni}/learn/checkout/${r.orderId}` : `/${uni}/learn/timetable?enrolled=1`;
+    next = `/${uni}/learn/timetable?enrolled=1`;
   });
   if (next) redirect(next);
   return clashes ? { clashes, batchId, at: Date.now() } : res;

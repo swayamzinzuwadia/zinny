@@ -188,7 +188,7 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
               <Input name="description" defaultValue={course.description} disabled={!canEdit} />
             </Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Price (₹)">
+              <Field label="Price (₹)" hint="Shown on your website. Your own students join for free.">
                 <Input name="price" defaultValue={course.pricePaise / 100} disabled={!canEdit} />
               </Field>
               <Field label="GST">

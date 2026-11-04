@@ -5,7 +5,6 @@ import { Notice } from "@/components/ui";
 import { hasRole } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { batchOptions } from "@/server/services/enrolment";
-import { formatINR, gstFor } from "@/server/services/finance";
 import { BatchPicker } from "../../batch-picker";
 import { withdrawEnrolmentAction } from "../../actions";
 
@@ -14,27 +13,17 @@ export default async function CoursePage({ params }: { params: Promise<{ uni: st
   const { actor } = await spaceContext(uni);
   if (!hasRole(actor, ["student", "alumni"])) redirect("/marketplace");
   const { course, options, myEnrolment, myRequest } = await batchOptions(actor, id);
-  const total = course.pricePaise + gstFor(course.pricePaise, course.gstRateBp);
 
   return (
     <>
       <h1 className="text-[26px] font-semibold tracking-tight">{course.title}</h1>
       {course.description && <p className="mt-1 max-w-2xl text-muted">{course.description}</p>}
-      <p className="mt-2 text-sm">
-        {course.pricePaise ? (
-          <>
-            <b>{formatINR(course.pricePaise)}</b> <span className="text-muted">+ {course.gstRateBp / 100}% GST = {formatINR(total)}</span>
-          </>
-        ) : (
-          <b>Free</b>
-        )}
-      </p>
 
       <h2 className="mb-3 mt-8 text-[17px] font-semibold">Pick your batch</h2>
       {myEnrolment?.status !== "active" && myRequest?.status === "approved" && (
         <div className="mb-4">
           <Notice>
-            You&apos;re accepted into <b>{myRequest.batchName}</b>. Pick it below and pay to confirm your seat; it&apos;s kept for you until then.
+            You&apos;re accepted into <b>{myRequest.batchName}</b>. Pick it below to join it; your seat is kept for you.
           </Notice>
         </div>
       )}
@@ -70,7 +59,6 @@ export default async function CoursePage({ params }: { params: Promise<{ uni: st
           uni={uni}
           options={options}
           mode="enrol"
-          priceLabel={course.pricePaise ? formatINR(total) : undefined}
           acceptedBatchId={myRequest?.status === "approved" ? myRequest.batchId : undefined}
         />
       )}

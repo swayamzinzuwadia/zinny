@@ -3,7 +3,6 @@ import { Empty } from "@/components/ui";
 import { hasRole } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { browseCatalog, myLearning } from "@/server/services/enrolment";
-import { formatINR } from "@/server/services/finance";
 import { CourseCatalog, type CatalogCourse } from "./catalog";
 
 export const metadata = { title: "Courses" };
@@ -22,7 +21,6 @@ export default async function Catalog({ params }: { params: Promise<{ uni: strin
     title: c.title,
     description: c.description,
     department: c.departmentName,
-    price: c.pricePaise ? formatINR(c.pricePaise) : "Free",
     openBatches: c.openBatches,
     seatsLeft: c.seatsLeft,
     enrolled: mine.has(c.id),

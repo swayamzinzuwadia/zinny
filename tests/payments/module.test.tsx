@@ -2,16 +2,15 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ReactNode } from "react";
 import { prerenderToNodeStream } from "react-dom/static.node";
 import { closeDb } from "@/db/client";
-import { confirmPayment, systemActorFor, universityLite, withTenant } from "@/server/core";
+import { systemActorFor, universityLite, withTenant } from "@/server/core";
 import { eventHandlers, jobs, slotsInReach, visibleSlots } from "@/server/registry";
-import { holdSeat } from "@/server/services/enrolment";
 import payments from "@/modules/payments";
 import { payInTestMode } from "@/modules/payments/checkout";
 import { RefundsDueCard } from "@/modules/payments/components/finance-card";
 import { InvoicesHubSection } from "@/modules/payments/components/invoices-hub-section";
 import { reconcilePayments } from "@/modules/payments/jobs";
 import { abandonCheckout } from "@/modules/payments/checkout";
-import { fakeRazorpay, orderRow, paidCourse, startCheckout, useRazorpay, type FakeRazorpay } from "./helpers";
+import { fakeRazorpay, orderRow, paidCourse, paidTwice, startCheckout, useRazorpay, type FakeRazorpay } from "./helpers";
 
 afterAll(closeDb);
 
@@ -55,20 +54,7 @@ describe("what payments registers", () => {
     const props = { uni: university.slug, actor: c.accounts, university, today: "2030-01-01" };
     expect(await RefundsDueCard(props)).toBeNull();
     const s = await c.student("Two Checkouts");
-    const extra = await (await import("@/server/services/batches")).createBatch(c.hod, {
-      courseId: c.course.id,
-      name: "Weekend",
-      startDate: "2030-11-09",
-      endDate: "2031-01-31",
-      seatLimit: 10,
-      slots: [{ weekday: 6, startTime: "10:00", endTime: "13:00" }],
-      faculty: [{ userId: c.facultyUserId, role: "permanent_faculty" }],
-    });
-    const first = await holdSeat(s, { batchId: c.batch.id, acknowledgeClash: true });
-    const second = await holdSeat(s, { batchId: extra.id, acknowledgeClash: true });
-    if (first.status !== "held" || second.status !== "held") throw new Error("expected holds");
-    await confirmPayment(c.uni.id, { orderId: second.orderId, gatewayPaymentId: "mock_pay_b" });
-    await confirmPayment(c.uni.id, { orderId: first.orderId, gatewayPaymentId: "mock_pay_a" });
+    await paidTwice(s, c.batch.id);
     const out = await html(await RefundsDueCard(props));
     expect(out).toContain("Refunds to send");
     expect(out).toContain("Two Checkouts");

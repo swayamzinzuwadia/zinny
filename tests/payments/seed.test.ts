@@ -1,9 +1,11 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { closeDb, systemDb } from "@/db/client";
-import { invoices, notifications, orders } from "@/db/schema";
+import { invoices, orders, users } from "@/db/schema";
 import { setTestModules } from "@/server/registry";
 import { seedDemo } from "@/db/seed";
+import contentProgress from "@/modules/content-progress";
+import marketplace from "@/modules/marketplace";
 import payments from "@/modules/payments";
 import { payInvoiceDocuments, payRefunds, paySettings } from "@/modules/payments/schema";
 import { invoiceDownload } from "@/modules/payments/invoices";
@@ -15,8 +17,10 @@ afterAll(async () => {
 });
 
 describe("payments seed", () => {
-  it("adds invoice settings, a partly refunded order and a refund_due order to the Demo University", async () => {
-    setTestModules([payments], { only: true });
+  it("adds invoice settings and a partly refunded marketplace order to the Demo University", async () => {
+    // Institute courses are free for their students, so the refund is on the marketplace seed's sale.
+    // The marketplace sells recorded lessons, which content-progress seeds.
+    setTestModules([contentProgress, marketplace, payments], { only: true });
     const quiet = console.log;
     console.log = () => {};
     let ctx;
@@ -34,28 +38,22 @@ describe("payments seed", () => {
 
     const refunds = await db.select().from(payRefunds).where(eq(payRefunds.universityId, uni));
     expect(refunds).toHaveLength(1);
-    expect(refunds[0]).toMatchObject({ amountPaise: 100_000, status: "processed" });
-    const [riyaOrder] = await db.select().from(orders).where(eq(orders.id, refunds[0].orderId));
-    expect(riyaOrder).toMatchObject({ status: "paid", userId: ctx.ids.users["riya@demo.edu"], totalPaise: 472_000 });
-    expect((await eventsOfType("payment.refunded", uni)).map((e) => e.payload.amountPaise)).toEqual([100_000]);
-
-    const due = await db.select().from(orders).where(and(eq(orders.universityId, uni), eq(orders.status, "refund_due")));
-    expect(due).toHaveLength(1);
-    expect(due[0].userId).toBe(ctx.ids.users["neil@demo.edu"]);
-    const accountsTold = await db
-      .select()
-      .from(notifications)
-      .where(and(eq(notifications.userId, ctx.ids.users["arun@demo.edu"]), eq(notifications.kind, "finance.refund_due")));
-    expect(accountsTold).toHaveLength(1);
+    expect(refunds[0]).toMatchObject({ amountPaise: 10_000, status: "processed" });
+    const [sale] = await db.select().from(orders).where(eq(orders.id, refunds[0].orderId));
+    const [neha] = await db.select().from(users).where(eq(users.email, "neha@zinny.demo"));
+    expect(sale).toMatchObject({ status: "paid", userId: neha.id, totalPaise: 35_282 });
+    expect((await eventsOfType("payment.refunded", uni)).map((e) => e.payload.amountPaise)).toEqual([10_000]);
+    // No institute course orders at all.
+    expect(await db.select().from(orders).where(and(eq(orders.universityId, uni), eq(orders.status, "refund_due")))).toEqual([]);
 
     // Invoices render with the demo settings (the core seed's early renders were dropped).
     const arun = await ctx.actorFor("arun@demo.edu");
     const docsBefore = await db.select().from(payInvoiceDocuments).where(eq(payInvoiceDocuments.universityId, uni));
     expect(docsBefore.every((d) => d.footer.includes("accounts@demo.edu"))).toBe(true);
-    const [riyaInvoice] = await db.select().from(invoices).where(eq(invoices.orderId, riyaOrder.id));
-    const pdf = await invoiceDownload(arun, riyaInvoice.id);
+    const [saleInvoice] = await db.select().from(invoices).where(eq(invoices.orderId, sale.id));
+    const pdf = await invoiceDownload(arun, saleInvoice.id);
     expect(pdf.number).toMatch(/^DEMO\//);
-    const [doc] = await db.select().from(payInvoiceDocuments).where(eq(payInvoiceDocuments.invoiceId, riyaInvoice.id));
+    const [doc] = await db.select().from(payInvoiceDocuments).where(eq(payInvoiceDocuments.invoiceId, saleInvoice.id));
     expect(doc.footer).toMatch(/accounts@demo.edu/);
   });
 });

@@ -23,7 +23,7 @@ import { addDays, todayIn, weekStart } from "../server/lib/dates";
 import { createBatch, facultyExpiryAlerts } from "../server/services/batches";
 import { createCourse, updateCourse } from "../server/services/courses";
 import { createDepartment, listDepartments } from "../server/services/departments";
-import { confirmPayment, holdSeat, requestSwitch } from "../server/services/enrolment";
+import { holdSeat, requestSwitch } from "../server/services/enrolment";
 import { createUniversity } from "../server/services/support";
 import { importPeople, linkParent, listPeople } from "../server/services/users";
 
@@ -190,12 +190,11 @@ export async function seedDemo(): Promise<SeedContext> {
   });
   await updateCourse(mehul, dm.id, { status: "published" });
 
-  console.log("Enrolments, payments and GST invoices…");
+  // Institute courses are free for the institute's students: they're enrolled at once.
+  console.log("Enrolments…");
   const enrol = async (first: string, batchId: string) => {
     const s = await actorFor(`${first.toLowerCase()}@demo.edu`);
-    const r = await holdSeat(s, { batchId, acknowledgeClash: true });
-    if (r.status === "held") await confirmPayment(uni.id, { orderId: r.orderId, gatewayPaymentId: `seed_${first}_${batchId.slice(0, 6)}` });
-    return r;
+    return holdSeat(s, { batchId, acknowledgeClash: true });
   };
   // Riya's week is the PRD page 6 example.
   await enrol("Riya", daMorning.id);

@@ -70,7 +70,7 @@ export default async function CoursesPage({ params }: { params: Promise<{ uni: s
                 <Input name="description" placeholder="What students will learn" />
               </Field>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Price (₹)" hint="0 for free">
+                <Field label="Price (₹)" hint="Shown on your website. Your own students join for free.">
                   <Input name="price" inputMode="decimal" defaultValue="0" />
                 </Field>
                 <Field label="GST">

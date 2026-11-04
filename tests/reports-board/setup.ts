@@ -16,7 +16,7 @@ import { markOrderRefunded } from "@/server/core";
 import { createBatch } from "@/server/services/batches";
 import { createCourse, updateCourse } from "@/server/services/courses";
 import { confirmPayment, holdSeat } from "@/server/services/enrolment";
-import { makeDepartment, person, setupCourse, slots } from "../fixtures";
+import { buyRecordings, makeDepartment, person, setupCourse, slots } from "../fixtures";
 
 export async function setupReports(name = "Reports University") {
   const base = await setupCourse({ name, pricePaise: 10_000_00, seatLimit: 20 });
@@ -48,9 +48,9 @@ export async function setupReports(name = "Reports University") {
   const s5 = await base.student("Meera Nair");
   const evil = await base.student('=HYPERLINK("http://evil.example","Click")');
 
+  // Paid orders are marketplace purchases: the institute's own batches are free for its students.
   const paid = async (s: typeof s1, when: string) => {
-    const r = await holdSeat(s, { batchId: base.batch.id });
-    if (r.status !== "held") throw new Error(`Expected a held seat, got ${r.status}`);
+    const r = await buyRecordings(s, base.batch.id);
     await confirmPayment(uni.id, { orderId: r.orderId, gatewayPaymentId: `pay_${s.userId.slice(0, 8)}` });
     const at = new Date(when);
     await systemDb().update(orders).set({ paidAt: at, createdAt: at }).where(eq(orders.id, r.orderId));
@@ -70,8 +70,7 @@ export async function setupReports(name = "Reports University") {
   const o3 = await paid(s3, "2026-10-20T05:00:00Z");
   await markOrderRefunded(base.admin, o3.orderId, "rfnd_test");
   const oEvil = await paid(evil, "2026-10-21T05:00:00Z");
-  const pending = await holdSeat(s4, { batchId: base.batch.id });
-  if (pending.status !== "held") throw new Error("Expected a held seat");
+  const pending = await buyRecordings(s4, base.batch.id);
   await systemDb().update(orders).set({ createdAt: new Date("2026-10-10T05:00:00Z") }).where(eq(orders.id, pending.orderId));
 
   await free(s1, "2026-10-05T05:00:00Z");

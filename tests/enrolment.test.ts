@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { closeDb, systemDb } from "@/db/client";
-import { enrolments, invoices, notifications, orders, roleAssignments } from "@/db/schema";
+import { enrolments, notifications, orders, roleAssignments } from "@/db/schema";
 import { loadActor } from "@/server/actor";
 import type { Actor } from "@/server/authz/engine";
 import { createCourse, updateCourse } from "@/server/services/courses";
@@ -16,7 +16,6 @@ import {
 } from "@/server/services/batches";
 import {
   batchOptions,
-  confirmPayment,
   decideSwitch,
   holdSeat,
   listSwitchRequests,
@@ -120,53 +119,23 @@ describe("PRD page 5: the student picks a batch", () => {
     expect(options.find((o) => o.batchId === morning)).toMatchObject({ full: false, seatsLeft: 12 });
   });
 
-  it("an expired hold frees the seat", async () => {
-    await systemDb().update(enrolments).set({ holdExpiresAt: new Date(Date.now() - 60_000) }).where(eq(enrolments.batchId, weekend));
-    const s = await newStudent("Patient Pooja");
-    const r = await holdSeat(s, { batchId: weekend });
-    expect(r.status).toBe("held");
-  });
-
-  it("pays, gets enrolled and receives a GST invoice", async () => {
-    const s = await newStudent("Paying Priya");
+  it("the institute's own students join for free, even when the course has a price", async () => {
+    const s = await newStudent("Joining Priya");
     const r = await holdSeat(s, { batchId: morning });
-    if (r.status !== "held") throw new Error("expected hold");
-    expect(r.totalPaise).toBe(1_180_000); // ₹10,000 + 18% GST
-    const out = await confirmPayment(uniId, { orderId: r.orderId, gatewayPaymentId: "pay_test_1" });
-    expect(out.status).toBe("enrolled");
-    expect(out.invoiceNumber).toMatch(/^TU\/\d{2}-\d{2}\/00001$/);
-    const [inv] = await systemDb().select().from(invoices).where(eq(invoices.orderId, r.orderId));
-    expect(inv).toMatchObject({ basePaise: 1_000_000, cgstPaise: 90_000, sgstPaise: 90_000, totalPaise: 1_180_000 });
-    const [order] = await systemDb().select().from(orders).where(eq(orders.id, r.orderId));
-    expect(order).toMatchObject({ status: "paid", courseId, batchId: morning, universityId: uniId });
-    // Webhooks can arrive twice — the second is a no-op.
-    expect((await confirmPayment(uniId, { orderId: r.orderId, gatewayPaymentId: "pay_test_1" })).status).toBe("already_paid");
+    expect(r.status).toBe("enrolled");
+    if (r.status !== "enrolled") throw new Error("expected an enrolment");
+    const [e] = await systemDb().select().from(enrolments).where(eq(enrolments.id, r.enrolmentId));
+    expect(e).toMatchObject({ status: "active", batchId: morning });
+    // No order and no invoice: the course's price is for the marketplace and the website.
+    expect(await systemDb().select().from(orders).where(eq(orders.userId, s.userId))).toEqual([]);
+    const notes = await systemDb().select().from(notifications).where(eq(notifications.userId, s.userId));
+    expect(notes.map((n) => n.title)).toContain("You're enrolled in Data Analytics");
   });
 
-  it("late payment after the hold ran out still enrols if a seat is free", async () => {
-    const s = await newStudent("Late Lata");
-    const r = await holdSeat(s, { batchId: evening });
-    if (r.status !== "held") throw new Error("expected hold");
-    await systemDb().update(enrolments).set({ holdExpiresAt: new Date(Date.now() - 1000) }).where(eq(enrolments.id, r.enrolmentId));
-    expect((await confirmPayment(uniId, { orderId: r.orderId, gatewayPaymentId: "pay_late" })).status).toBe("enrolled");
-  });
-
-  it("late payment when the batch filled up is flagged for refund", async () => {
-    // Weekend has 1 seat, held by Patient Pooja. Expire her hold, let someone else take it, then she pays.
-    const [pooja] = await systemDb()
-      .select()
-      .from(enrolments)
-      .where(and(eq(enrolments.batchId, weekend), eq(enrolments.status, "held")));
-    const [poojaOrder] = await systemDb().select().from(orders).where(eq(orders.enrolmentId, pooja.id));
-    await systemDb().update(enrolments).set({ holdExpiresAt: new Date(Date.now() - 1000) }).where(eq(enrolments.id, pooja.id));
-    const fast = await newStudent("Fast Faisal");
-    const r = await holdSeat(fast, { batchId: weekend });
-    if (r.status !== "held") throw new Error("expected hold");
-    await confirmPayment(uniId, { orderId: r.orderId, gatewayPaymentId: "pay_fast" });
-    const out = await confirmPayment(uniId, { orderId: poojaOrder.id, gatewayPaymentId: "pay_pooja" });
-    expect(out.status).toBe("refund_due");
-    const notes = await systemDb().select().from(notifications).where(eq(notifications.userId, pooja.userId));
-    expect(notes.some((n) => n.kind === "payment.refund_due")).toBe(true);
+  it("a second seat in the same course is refused", async () => {
+    const s = await newStudent("Double Dev");
+    await holdSeat(s, { batchId: morning });
+    await expect(holdSeat(s, { batchId: evening })).rejects.toThrow(/already enrolled/);
   });
 });
 
@@ -177,9 +146,7 @@ describe("PRD page 6: clash check and timetable", () => {
 
   it("warns before enrolling into a clashing batch", async () => {
     student = await newStudent("Clash Chirag");
-    const r = await holdSeat(student, { batchId: morning });
-    if (r.status !== "held") throw new Error("expected hold");
-    await confirmPayment(uniId, { orderId: r.orderId, gatewayPaymentId: "pay_chirag" });
+    expect((await holdSeat(student, { batchId: morning })).status).toBe("enrolled");
 
     pythonCourse = (await createCourse(hod, { departmentId: csId, title: "Python Basics", pricePaise: 0 })).id;
     pythonMorning = (
@@ -201,7 +168,7 @@ describe("PRD page 6: clash check and timetable", () => {
     const first = await holdSeat(student, { batchId: pythonMorning });
     expect(first.status).toBe("clash");
     const second = await holdSeat(student, { batchId: pythonMorning, acknowledgeClash: true });
-    expect(second.status).toBe("enrolled"); // free course: no payment step
+    expect(second.status).toBe("enrolled");
   });
 
   it("builds the timetable from every batch the student is in", async () => {
@@ -226,8 +193,7 @@ describe("PRD page 5: switching batch", () => {
   it("student asks, HOD approves, timetable follows", async () => {
     const s = await newStudent("Switching Sana");
     const r = await holdSeat(s, { batchId: morning });
-    if (r.status !== "held") throw new Error("expected hold");
-    await confirmPayment(uniId, { orderId: r.orderId, gatewayPaymentId: "pay_sana" });
+    if (r.status !== "enrolled") throw new Error("expected an enrolment");
 
     const req = await requestSwitch(s, { enrolmentId: r.enrolmentId, toBatchId: evening, reason: "Got a job" });
     expect(req.status).toBe("requested");
@@ -250,17 +216,14 @@ describe("PRD page 5: switching batch", () => {
   it("approval fails if the new batch filled up in the meantime", async () => {
     const s = await newStudent("Unlucky Uday");
     const r = await holdSeat(s, { batchId: morning });
-    if (r.status !== "held") throw new Error("expected hold");
-    await confirmPayment(uniId, { orderId: r.orderId, gatewayPaymentId: "pay_uday" });
+    if (r.status !== "enrolled") throw new Error("expected an enrolment");
     const req = await requestSwitch(s, { enrolmentId: r.enrolmentId, toBatchId: evening });
     if (req.status !== "requested") throw new Error();
 
     // Fill the evening batch completely.
     const taken = (await listBatches(hod, courseId)).find((b) => b.batchId === evening)!;
     for (let i = 0; i < taken.seatsLeft; i++) {
-      const filler = await newStudent(`Filler ${i}`);
-      const h = await holdSeat(filler, { batchId: evening });
-      if (h.status === "held") await confirmPayment(uniId, { orderId: h.orderId, gatewayPaymentId: `pay_fill_${i}` });
+      await holdSeat(await newStudent(`Filler ${i}`), { batchId: evening });
     }
     expect(await decideSwitch(hod, req.requestId, { approve: true })).toEqual({ status: "rejected", reason: "batch_full" });
     expect((await myLearning(s))[0].batch.name).toBe("Weekday morning");
@@ -272,9 +235,9 @@ describe("faculty see only their own batches and students", () => {
     const visiting = await loadActor(faculty2Id, uniId);
     await expect(batchRoster(visiting, morning)).rejects.toThrow(/access/);
     const weekendRoster = await batchRoster(visiting, weekend);
-    expect(weekendRoster.map((r) => r.name)).toEqual(["Fast Faisal"]);
+    expect(weekendRoster.map((r) => r.name)).toEqual([expect.stringMatching(/^Racer \d$/)]);
     const students = await listPeople(visiting, "students");
-    expect(students.map((p) => p.name)).toEqual(["Fast Faisal"]);
+    expect(students.map((p) => p.name)).toEqual(weekendRoster.map((r) => r.name));
   });
 
   it("HOD gets warned when visiting faculty access ends before the batch does", async () => {

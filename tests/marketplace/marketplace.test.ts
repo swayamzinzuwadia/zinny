@@ -305,12 +305,11 @@ describe("buying", () => {
     expect(library[0].invoiceId).toBeTruthy();
   });
 
-  it("never mistakes fees for a live batch of the same course for a purchase", async () => {
+  it("never mistakes a seat in a live batch of the same course for a purchase", async () => {
     const { batch, student } = await shop();
-    const s = await student("Paying Student");
-    const held = await holdSeat(s, { batchId: batch.id });
-    if (held.status !== "held") throw new Error("Expected a paid seat.");
-    await confirmPayment(s.universityId!, { orderId: held.orderId, gatewayPaymentId: "pay_fees" });
+    const s = await student("Batch Student");
+    // The institute's own students join its batches for free; that isn't a purchase.
+    expect((await holdSeat(s, { batchId: batch.id })).status).toBe("enrolled");
     expect(await myLibrary(s.userId)).toEqual([]);
   });
 
@@ -575,10 +574,8 @@ describe("discount codes", () => {
 describe("the course editor's Marketplace tab", () => {
   it("shows how a course is sold, to people who can edit it", async () => {
     const s = await shop();
-    // A paid seat in one of the course's live batches is a student, not a marketplace buyer.
-    const seat = await holdSeat(await s.student("Batch Student"), { batchId: s.batch.id });
-    if (seat.status !== "held") throw new Error("Expected a held seat.");
-    await confirmPayment(s.uni.id, { orderId: seat.orderId, gatewayPaymentId: `pay_${seat.orderId.slice(0, 8)}` });
+    // A seat in one of the course's live batches is a student, not a marketplace buyer.
+    expect((await holdSeat(await s.student("Batch Student"), { batchId: s.batch.id })).status).toBe("enrolled");
     await buy(await learner(), s.listing.id);
     const m = await courseMarketplace(s.hod, s.course.id);
     expect(m.whole?.id).toBe(s.listing.id);

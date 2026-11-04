@@ -11,7 +11,7 @@ import { addContact, addNote, createPartner, getPartner, removeContact, updatePa
 import { addRole, inviteMember, listTeam, removeRole } from "@/modules/zinny-team-panel/services/team";
 import { holdSeat } from "@/server/services/enrolment";
 import { eventsOfType } from "../helpers/events";
-import { makeUniversity, setupCourse } from "../fixtures";
+import { buyRecordings, makeUniversity, setupCourse } from "../fixtures";
 import { team } from "./helpers";
 
 afterAll(closeDb);
@@ -132,8 +132,8 @@ describe("analytics", () => {
     await holdSeat(await free.student("Stat One"), { batchId: free.batch.id });
     await holdSeat(await free.student("Stat Two"), { batchId: free.batch.id });
     const { confirmPayment } = await import("@/server/core");
-    const r = await holdSeat(await paid.student("Stat Payer"), { batchId: paid.batch.id });
-    if (r.status !== "held") throw new Error("expected a held seat");
+    // Money comes from marketplace purchases: institute batches are free for their students.
+    const r = await buyRecordings(await paid.student("Stat Payer"), paid.batch.id);
     await confirmPayment(paid.uni.id, { orderId: r.orderId, gatewayPaymentId: "pay_stats" });
 
     const one = await analytics(am, { universityId: free.uni.id });

@@ -7,11 +7,11 @@ import { createHmac, randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { vi } from "vitest";
 import { systemDb } from "@/db/client";
-import { batches, courses, departments, invoices, orders, universities, users } from "@/db/schema";
-import { holdSeat } from "@/server/services/enrolment";
+import { batches, courses, departments, enrolments, invoices, orders, universities, users } from "@/db/schema";
+import { confirmPayment } from "@/server/services/enrolment";
 import type { Actor } from "@/server/core";
 import type { RazorpayPayment, RazorpayRefund } from "@/modules/payments/razorpay";
-import { person, setupCourse, uniqueCode } from "../fixtures";
+import { buyRecordings, person, setupCourse, uniqueCode } from "../fixtures";
 
 export const KEY_ID = "rzp_test_ZinnyKey01";
 export const KEY_SECRET = "test_key_secret_8f2b";
@@ -169,12 +169,21 @@ export async function paidCourse(name = "Pay University", opts: { seatLimit?: nu
   return { ...c, accounts, board, faculty };
 }
 
-/** Holds a seat for the student and returns the order (checkout started). */
-export async function startCheckout(student: Actor, batchId: string) {
-  const r = await holdSeat(student, { batchId, acknowledgeClash: true });
-  if (r.status !== "held") throw new Error(`expected a held seat, got ${r.status}`);
-  const [o] = await systemDb().select().from(orders).where(eq(orders.id, r.orderId));
-  return { ...r, order: o };
+/** Starts a checkout (a marketplace purchase of the course's recordings) and returns the order. */
+export const startCheckout = buyRecordings;
+
+/**
+ * A refund_due order: the student's first checkout ran out, they bought again and paid, and
+ * then the first payment arrived too. Returns both orders; the first is the one to refund.
+ */
+export async function paidTwice(student: Actor, batchId: string) {
+  const first = await startCheckout(student, batchId);
+  await systemDb().update(enrolments).set({ holdExpiresAt: new Date(Date.now() - 1000) }).where(eq(enrolments.id, first.enrolmentId));
+  const second = await startCheckout(student, batchId);
+  const universityId = first.order.universityId;
+  await confirmPayment(universityId, { orderId: second.orderId, gatewayPaymentId: `mock_pay_${second.orderId.slice(0, 8)}` });
+  const late = await confirmPayment(universityId, { orderId: first.orderId, gatewayPaymentId: `mock_pay_${first.orderId.slice(0, 8)}` });
+  return { first, second, late };
 }
 
 export async function orderRow(orderId: string) {

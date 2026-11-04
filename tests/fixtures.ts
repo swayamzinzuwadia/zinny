@@ -1,8 +1,10 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { systemDb } from "@/db/client";
-import { departments, roleAssignments, studentDepartments, universities, users, type RoleName } from "@/db/schema";
+import { batches, courses, departments, orders, roleAssignments, studentDepartments, universities, users, type RoleName } from "@/db/schema";
 import { loadActor } from "@/server/actor";
+import { ensureRecordedBatch, systemActorFor, withTenant, type Actor } from "@/server/core";
+import { holdRecordedSeat } from "@/server/services/enrolment";
 
 // 12 hex characters: with every module's tests sharing one database, 6 collided now and then.
 const tag = () => randomUUID().replace(/-/g, "").slice(0, 12);
@@ -112,4 +114,20 @@ export async function setupCourse(opts: { name?: string; pricePaise?: number; se
   await updateCourse(hod, course.id, { status: "published" });
   const student = async (name: string) => (await person(name, "student", { universityId: uni.id })).actor();
   return { uni, dept, admin, hod, facultyUserId: fac.user.id, course, batch, student };
+}
+
+/**
+ * Starts a marketplace purchase of the course that `batchId` belongs to: its recordings, at the
+ * course's price. Returns the held seat and its pending order. The institute's own batches are
+ * free for its students, so marketplace purchases are the only orders there are.
+ */
+export async function buyRecordings(student: Actor, batchId: string) {
+  const db = systemDb();
+  const [b] = await db.select().from(batches).where(eq(batches.id, batchId));
+  const [course] = await db.select().from(courses).where(eq(courses.id, b.courseId));
+  const sys = systemActorFor(course.universityId);
+  const recorded = b.recorded ? b : await withTenant(sys, (tx) => ensureRecordedBatch(tx, sys, course));
+  const held = await holdRecordedSeat(student, { batchId: recorded.id, pricePaise: course.pricePaise });
+  const [order] = await db.select().from(orders).where(eq(orders.id, held.orderId));
+  return { ...held, order, recordedBatchId: recorded.id };
 }

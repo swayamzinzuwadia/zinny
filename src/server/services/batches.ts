@@ -165,7 +165,7 @@ function validateBatch(input: Pick<BatchInput, "name" | "startDate" | "endDate" 
 }
 
 /** Dates and size of a recorded batch: open-ended, so drip rules and seat counts never get in a buyer's way. */
-const RECORDED = { name: "Marketplace buyers", startDate: "2000-01-01", endDate: "2099-12-31", seatLimit: 2_147_483_647 };
+const RECORDED = { name: "Recorded lessons", startDate: "2000-01-01", endDate: "2099-12-31", seatLimit: 2_147_483_647 };
 
 /**
  * The hidden batch that marketplace buyers of a course are enrolled in. It has no classes

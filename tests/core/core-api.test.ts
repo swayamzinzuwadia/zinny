@@ -7,7 +7,7 @@ import { loadActor, systemActorFor } from "@/server/actor";
 import type { Actor } from "@/server/authz/engine";
 import { holdSeat } from "@/server/services/enrolment";
 import { eventsOfType } from "../helpers/events";
-import { grant, makeDepartment, makeUniversity, makeUser, person, setupCourse } from "../fixtures";
+import { buyRecordings, grant, makeDepartment, makeUniversity, makeUser, person, setupCourse } from "../fixtures";
 
 afterAll(closeDb);
 
@@ -125,8 +125,9 @@ describe("markEnrolmentCompleted", () => {
   it("refuses enrolments that aren't active", async () => {
     const paid = await setupCourse({ name: "Held U", pricePaise: 1000 });
     const s = await paid.student("Holding Student");
-    const r = await holdSeat(s, { batchId: paid.batch.id });
-    await expect(core.markEnrolmentCompleted(paid.admin, (r as { enrolmentId: string }).enrolmentId)).rejects.toThrow(/active/);
+    // A marketplace purchase that hasn't been paid for yet.
+    const r = await buyRecordings(s, paid.batch.id);
+    await expect(core.markEnrolmentCompleted(paid.admin, r.enrolmentId)).rejects.toThrow(/active/);
   });
 });
 
@@ -134,13 +135,12 @@ describe("money hooks for payments", () => {
   it("orderForCheckout shows the student their own order only", async () => {
     const paid = await setupCourse({ name: "Checkout U", pricePaise: 100_000 });
     const s = await paid.student("Checkout Student");
-    const r = await holdSeat(s, { batchId: paid.batch.id });
-    if (r.status !== "held") throw new Error("expected held");
+    const r = await buyRecordings(s, paid.batch.id);
     const o = await core.orderForCheckout(s, r.orderId);
     expect(o).toMatchObject({
       order: { id: r.orderId, status: "pending", basePaise: 100_000, gstPaise: 18_000, totalPaise: 118_000, gateway: "mock", userId: s.userId },
       course: { id: paid.course.id, title: "Data Analytics", gstRateBp: 1800 },
-      batch: { id: paid.batch.id, name: "Weekday morning" },
+      batch: { id: r.recordedBatchId, name: "Recorded lessons" },
       enrolment: { id: r.enrolmentId, status: "held" },
     });
     expect(o.order.gatewayOrderId).toMatch(/^mock_order_/);
@@ -155,8 +155,7 @@ describe("money hooks for payments", () => {
   it("markOrderRefunded needs finance.refund, only refunds paid orders, and is idempotent", async () => {
     const paid = await setupCourse({ name: "Refund API U", pricePaise: 50_000 });
     const s = await paid.student("Refund Student");
-    const r = await holdSeat(s, { batchId: paid.batch.id });
-    if (r.status !== "held") throw new Error("expected held");
+    const r = await buyRecordings(s, paid.batch.id);
     await expect(core.markOrderRefunded(paid.admin, r.orderId, "rfnd_1")).rejects.toThrow(/Only paid orders/);
     await core.confirmPayment(paid.uni.id, { orderId: r.orderId, gatewayPaymentId: "pay_1" });
     await expect(core.markOrderRefunded(paid.hod, r.orderId, "rfnd_1")).rejects.toThrow(/access/);

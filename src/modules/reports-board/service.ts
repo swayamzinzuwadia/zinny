@@ -74,7 +74,8 @@ export async function filterOptions(actor: Actor, action: Action): Promise<Filte
     const batchRows = await tx
       .select({ id: batches.id, name: batches.name, courseId: batches.courseId, departmentId: batches.departmentId, startDate: batches.startDate })
       .from(batches)
-      .where(batchInReach(r, batches.id, batches.departmentId))
+      // A course's hidden recorded batch (its marketplace buyers) isn't a batch to filter on.
+      .where(and(batchInReach(r, batches.id, batches.departmentId), eq(batches.recorded, false)))
       .orderBy(asc(batches.startDate), asc(batches.name));
     const courseIds = [...new Set(batchRows.map((b) => b.courseId))];
     const deptIds = [...new Set([...r.departmentIds, ...batchRows.map((b) => b.departmentId)])];

@@ -138,7 +138,7 @@ export async function decideEnrolmentAction(_: ActionState, data: FormData): Pro
     const r = await decideEnrolment(actor, str(data, "enrolmentId"), accept, str(data, "note"));
     revalidatePath(`/${uni}/admin`, "layout");
     const who = str(data, "name") || "The student";
-    done = r.status === "enrolled" ? `${who} is enrolled.` : r.status === "approved" ? `${who} is accepted and can now pay.` : `Declined. ${who} has been told.`;
+    done = r.status === "enrolled" ? `${who} is enrolled. They've been told.` : `Declined. ${who} has been told.`;
   });
   // The request disappears once answered: say what happened at the top of the page it was on.
   const back = str(data, "back");

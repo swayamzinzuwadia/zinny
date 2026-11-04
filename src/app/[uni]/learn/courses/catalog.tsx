@@ -10,7 +10,6 @@ export type CatalogCourse = {
   title: string;
   description: string | null;
   department: string;
-  price: string;
   openBatches: number;
   seatsLeft: number;
   enrolled: boolean;
@@ -132,11 +131,7 @@ function CourseCard({ course: c }: { course: CatalogCourse }) {
         </span>
         <div className="relative flex items-start justify-between gap-3">
           <span className="rounded-full bg-black/10 px-2.5 py-1 text-[12px] backdrop-blur-sm">{c.department}</span>
-          {c.enrolled ? (
-            <span className="rounded-full bg-gold px-2.5 py-1 text-[12px] font-medium text-brand-deep">Enrolled</span>
-          ) : (
-            <span className="rounded-full bg-canvas px-2.5 py-1 text-[12px] font-medium text-brand-deep tabular">{c.price}</span>
-          )}
+          {c.enrolled && <span className="rounded-full bg-gold px-2.5 py-1 text-[12px] font-medium text-brand-deep">Enrolled</span>}
         </div>
       </div>
       <div className="flex flex-1 flex-col p-5">

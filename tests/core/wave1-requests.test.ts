@@ -2,9 +2,9 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { closeDb, systemDb } from "@/db/client";
-import { notifications } from "@/db/schema";
-import { confirmPayment, holdSeat } from "@/server/core";
-import { setupCourse, slots, WEEKDAYS } from "../fixtures";
+import { enrolments, notifications } from "@/db/schema";
+import { confirmPayment } from "@/server/core";
+import { buyRecordings, setupCourse } from "../fixtures";
 
 const session = vi.hoisted(() => ({ ctx: null as null | { isAdminUser: boolean; isLearner: boolean } }));
 vi.mock("@/server/context", () => ({
@@ -26,20 +26,11 @@ afterAll(async () => {
 
 describe("payment.refund_due says why", () => {
   it("a second paid checkout for the same course says the student already has a place", async () => {
-    const { createBatch } = await import("@/server/services/batches");
-    const evening = await createBatch(ctx.hod, {
-      courseId: ctx.course.id,
-      name: "Weekday evening",
-      startDate: "2030-11-04",
-      endDate: "2031-01-31",
-      seatLimit: 20,
-      slots: slots(WEEKDAYS, "18:00", "20:00"),
-      faculty: [{ userId: ctx.facultyUserId, role: "permanent_faculty" }],
-    });
     const student = await ctx.student("Neil Twice");
-    const first = await holdSeat(student, { batchId: ctx.batch.id, acknowledgeClash: true });
-    const second = await holdSeat(student, { batchId: evening.id, acknowledgeClash: true });
-    if (first.status !== "held" || second.status !== "held") throw new Error("expected two holds");
+    // The first checkout runs out, the student buys again, and both payments land.
+    const first = await buyRecordings(student, ctx.batch.id);
+    await systemDb().update(enrolments).set({ holdExpiresAt: new Date(Date.now() - 1000) }).where(eq(enrolments.id, first.enrolmentId));
+    const second = await buyRecordings(student, ctx.batch.id);
     expect((await confirmPayment(ctx.uni.id, { orderId: second.orderId, gatewayPaymentId: "pay_2" })).status).toBe("enrolled");
     expect((await confirmPayment(ctx.uni.id, { orderId: first.orderId, gatewayPaymentId: "pay_1" })).status).toBe("refund_due");
 
