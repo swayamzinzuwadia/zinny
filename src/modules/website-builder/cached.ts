@@ -1,6 +1,6 @@
 /**
  * Cached reads for the public site pages. Pages are rendered statically and kept until
- * something on the site changes: every admin change calls `revalidateTag(siteTag(slug))`,
+ * something on the site changes: every admin change calls `updateTag(siteTag(slug))`,
  * which drops the cached data and the pages built from it. Time-based revalidation is the
  * safety net for changes made outside this module (new courses, seats taken).
  */

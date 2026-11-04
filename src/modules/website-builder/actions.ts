@@ -3,9 +3,9 @@
 /**
  * Server actions for the Website section and the public site's forms. They only read the
  * form, call a service and refresh what changed: the admin pages, and the public site's
- * cached pages (revalidateTag) whenever something visitors can see may have changed.
+ * cached pages (updateTag) whenever something visitors can see may have changed.
  */
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/forms";
@@ -43,7 +43,7 @@ async function ctx(data: FormData) {
 
 /** Admin pages and the public site both show the change. */
 function refresh(uni: string) {
-  revalidateTag(siteTag(uni));
+  updateTag(siteTag(uni));
   revalidatePath(`/${uni}/admin/website`, "layout");
 }
 
