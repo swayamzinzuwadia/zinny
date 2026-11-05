@@ -28,6 +28,65 @@ export function normalizePhone(input: string | null | undefined): string | null 
   return digits.length >= 8 && digits.length <= 15 && !digits.startsWith("0") ? `+${digits}` : null;
 }
 
+/** Calling codes offered beside a mobile number field: India first, then by name. */
+export const COUNTRY_CODES: readonly { code: string; name: string }[] = [
+  { code: "91", name: "India" },
+  { code: "61", name: "Australia" },
+  { code: "973", name: "Bahrain" },
+  { code: "880", name: "Bangladesh" },
+  { code: "975", name: "Bhutan" },
+  { code: "86", name: "China" },
+  { code: "20", name: "Egypt" },
+  { code: "33", name: "France" },
+  { code: "49", name: "Germany" },
+  { code: "852", name: "Hong Kong" },
+  { code: "62", name: "Indonesia" },
+  { code: "353", name: "Ireland" },
+  { code: "39", name: "Italy" },
+  { code: "81", name: "Japan" },
+  { code: "254", name: "Kenya" },
+  { code: "965", name: "Kuwait" },
+  { code: "60", name: "Malaysia" },
+  { code: "960", name: "Maldives" },
+  { code: "230", name: "Mauritius" },
+  { code: "95", name: "Myanmar" },
+  { code: "977", name: "Nepal" },
+  { code: "31", name: "Netherlands" },
+  { code: "64", name: "New Zealand" },
+  { code: "234", name: "Nigeria" },
+  { code: "968", name: "Oman" },
+  { code: "63", name: "Philippines" },
+  { code: "974", name: "Qatar" },
+  { code: "7", name: "Russia" },
+  { code: "966", name: "Saudi Arabia" },
+  { code: "65", name: "Singapore" },
+  { code: "27", name: "South Africa" },
+  { code: "82", name: "South Korea" },
+  { code: "34", name: "Spain" },
+  { code: "94", name: "Sri Lanka" },
+  { code: "46", name: "Sweden" },
+  { code: "41", name: "Switzerland" },
+  { code: "255", name: "Tanzania" },
+  { code: "66", name: "Thailand" },
+  { code: "256", name: "Uganda" },
+  { code: "971", name: "United Arab Emirates" },
+  { code: "44", name: "United Kingdom" },
+  { code: "1", name: "United States and Canada" },
+  { code: "84", name: "Vietnam" },
+];
+
+/**
+ * The number as one string from a country-code picker and the number box. A number typed
+ * with its own "+" wins over the picker; India keeps every local shape normalizePhone knows
+ * ("098200 11001", "919820011001"); elsewhere one leading trunk 0 is dropped.
+ */
+export function joinPhone(countryCode: string | null | undefined, number: string | null | undefined): string {
+  const typed = (number ?? "").trim();
+  const code = (countryCode ?? "").replace(/\D/g, "") || DEFAULT_COUNTRY;
+  if (!typed || typed.startsWith("+") || code === DEFAULT_COUNTRY) return typed;
+  return `+${code} ${typed.replace(/^0/, "")}`;
+}
+
 /** The last 10 digits, for a first, index-friendly match in SQL before normalizing in code. */
 export function phoneTail(e164: string): string {
   return e164.replace(/\D/g, "").slice(-10);

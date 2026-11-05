@@ -8,6 +8,7 @@ import { currentSession } from "@/server/auth/session";
 import { METHOD_LABEL, describeDevice } from "@/server/auth/device";
 import { formatPhone } from "@/server/auth/phone";
 import { getProfile, mySessions } from "@/modules/identity/profile";
+import { myDepartments } from "@/server/services/students";
 import { PasswordField } from "@/modules/identity/components/auth-forms";
 import { ConfirmButton, ConfirmForm, PhoneChange, PhotoForm } from "@/modules/identity/components/profile-forms";
 import {
@@ -68,10 +69,15 @@ export default async function ProfilePage({ params }: { params: Promise<{ uni: s
   }
 
   const now = new Date();
-  const [profile, sessions, current] = await Promise.all([getProfile(actor, actor.userId, now), mySessions(actor, actor.userId), currentSession()]);
-  const roles = [
-    ...new Set(actor.assignments.filter((a) => isActive(a, now) && a.universityId === university.id).map((a) => a.label ?? sentenceCase(ROLE_LABELS[a.role]))),
-  ];
+  const [profile, sessions, current, departments] = await Promise.all([
+    getProfile(actor, actor.userId, now),
+    mySessions(actor, actor.userId),
+    currentSession(),
+    myDepartments(actor),
+  ]);
+  const here = actor.assignments.filter((a) => isActive(a, now) && a.universityId === university.id);
+  const roles = [...new Set(here.map((a) => a.label ?? sentenceCase(ROLE_LABELS[a.role])))];
+  const studies = here.some((a) => a.role === "student" || a.role === "alumni");
   const others = sessions.filter((s) => s.id !== current?.sessionId);
 
   return (
@@ -86,6 +92,13 @@ export default async function ProfilePage({ params }: { params: Promise<{ uni: s
         <div className="min-w-0">
           <h1 className="text-[28px] font-semibold leading-tight">{profile.name}</h1>
           <p className="truncate text-[15px] text-muted">{roles.join(", ") || "Member"} at {university.name}</p>
+          {departments.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {departments.map((d) => (
+                <Badge key={d.id}>{d.name}</Badge>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -109,6 +122,18 @@ export default async function ProfilePage({ params }: { params: Promise<{ uni: s
             <div className="break-all text-[15px]">{profile.email}</div>
             <p className="mt-1 text-[12px] text-muted">You sign in with this. To change it, ask your institute&apos;s admin.</p>
           </div>
+
+          {(studies || departments.length > 0) && (
+            <div className="border-t border-line pt-5">
+              <div className="mb-1.5 text-[13px] font-medium">{departments.length === 1 ? "Department" : "Departments"}</div>
+              <div className="text-[15px]">{departments.length > 0 ? departments.map((d) => d.name).join(", ") : "Not set yet"}</div>
+              <p className="mt-1 text-[12px] text-muted">
+                {studies
+                  ? "You see and join the courses of these departments. Your institute sets them; ask an admin or your HOD to change them."
+                  : "Set by your institute's admin."}
+              </p>
+            </div>
+          )}
 
           <div className="border-t border-line pt-5">
             <div className="mb-2 text-[13px] font-medium">Mobile number</div>

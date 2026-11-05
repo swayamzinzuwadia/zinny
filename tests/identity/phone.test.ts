@@ -251,6 +251,6 @@ describe("phone sign-in", () => {
     const { uni } = await phoneUni("Malformed U");
     const start = await startPhoneSignIn({ universityId: uni.id, phone: freshPhone(), ip: "10.0.0.12", defer: () => {} });
     await expect(verifyPhoneCode({ ref: start.ref, code: "12ab56" })).rejects.toThrow(/6-digit/);
-    await expect(startPhoneSignIn({ universityId: uni.id, phone: "12345", ip: "10.0.0.12", defer: () => {} })).rejects.toThrow(/10-digit/);
+    await expect(startPhoneSignIn({ universityId: uni.id, phone: "12345", ip: "10.0.0.12", defer: () => {} })).rejects.toThrow(/valid mobile number/);
   });
 });

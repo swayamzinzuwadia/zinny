@@ -20,7 +20,7 @@ import {
   uploadPhoto,
   verifyPhoneChange,
 } from "@/modules/identity/profile";
-import { formatPhone } from "@/server/auth/phone";
+import { formatPhone, joinPhone } from "@/server/auth/phone";
 
 async function ctx(data: FormData) {
   const uni = str(data, "uni");
@@ -41,7 +41,7 @@ export async function startPhoneChangeAction(_: ActionState, data: FormData): Pr
   const { actor, path } = await ctx(data);
   return attempt(async () => {
     const { ip } = await clientInfo();
-    const r = await startPhoneChange(actor, actor.userId, { phone: str(data, "phone"), ip });
+    const r = await startPhoneChange(actor, actor.userId, { phone: joinPhone(str(data, "countryCode"), str(data, "phone")), ip });
     revalidatePath(path);
     return `We sent a code to ${r.masked}.`;
   });

@@ -82,6 +82,26 @@ export async function admitStudentTx(tx: Tx, actor: Actor, userId: string, depar
   await addStudentDepartmentsTx(tx, actor, userId, departmentIds);
 }
 
+/**
+ * The departments the actor belongs to here, for their profile: the ones they study in, and
+ * the ones a department-scoped role (HOD, faculty) ties them to.
+ */
+export async function myDepartments(actor: Actor): Promise<{ id: string; name: string }[]> {
+  const now = new Date();
+  const fromRoles = actor.assignments
+    .filter((a) => isActive(a, now) && a.universityId === uni(actor) && a.departmentId)
+    .map((a) => a.departmentId!);
+  return withTenant(actor, async (tx) => {
+    const studying = await tx
+      .select({ id: studentDepartments.departmentId })
+      .from(studentDepartments)
+      .where(eq(studentDepartments.userId, actor.userId));
+    const ids = [...new Set([...studying.map((r) => r.id), ...fromRoles])];
+    if (ids.length === 0) return [];
+    return tx.select({ id: departments.id, name: departments.name }).from(departments).where(inArray(departments.id, ids)).orderBy(departments.name);
+  });
+}
+
 /** The departments of each given student, for the Students page. */
 export async function studentDepartmentMap(actor: Actor, userIds: string[]) {
   if (userIds.length === 0) return new Map<string, { id: string; name: string }[]>();

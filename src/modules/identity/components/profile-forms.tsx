@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState, useTransition, type ReactNode } fr
 import { useFormStatus } from "react-dom";
 import type { ActionState, FormAction } from "@/components/forms";
 import { buttonClass, cx, inputClass } from "@/components/ui";
+import { PhoneField } from "./phone-field";
 
 function Result({ state }: { state: ActionState }) {
   if (!state) return null;
@@ -126,6 +127,7 @@ export function PhoneChange({
   resend,
   cancel,
   remove,
+  fields = {},
 }: {
   uni: string;
   current: string | null;
@@ -135,8 +137,18 @@ export function PhoneChange({
   resend: FormAction;
   cancel: (data: FormData) => Promise<void>;
   remove: FormAction;
+  /** More hidden fields for every form, such as where sign-up goes next. */
+  fields?: Record<string, string>;
 }) {
   const [editing, setEditing] = useState(!current);
+  const hidden = (
+    <>
+      <input type="hidden" name="uni" value={uni} />
+      {Object.entries(fields).map(([k, v]) => (
+        <input key={k} type="hidden" name={k} value={v} />
+      ))}
+    </>
+  );
   const [started, startAction] = useActionState(start, null);
   const [resent, resendAction] = useActionState(resend, null);
   const [verified, verifyAction] = useActionState(verify, null);
@@ -160,7 +172,7 @@ export function PhoneChange({
           <span className="tabular">{left > 0 ? `It expires in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}.` : "It has expired."}</span>
         </p>
         <form action={verifyAction} className="flex flex-wrap gap-2">
-          <input type="hidden" name="uni" value={uni} />
+          {hidden}
           <input
             key={verified?.at ?? 0}
             name="code"
@@ -181,12 +193,12 @@ export function PhoneChange({
             <span className="tabular text-muted">You can ask for a new code in {wait} s.</span>
           ) : (
             <form action={resendAction}>
-              <input type="hidden" name="uni" value={uni} />
+              {hidden}
               <button className="font-medium text-brand hover:underline">Send a new code</button>
             </form>
           )}
           <form action={cancel}>
-            <input type="hidden" name="uni" value={uni} />
+            {hidden}
             <button className="font-medium text-brand hover:underline">Cancel</button>
           </form>
         </div>
@@ -211,7 +223,7 @@ export function PhoneChange({
               if (!window.confirm("Remove your mobile number? You won't be able to sign in with a code.")) e.preventDefault();
             }}
           >
-            <input type="hidden" name="uni" value={uni} />
+            {hidden}
             <Submit pendingText="Removing…" variant="ghost" size="sm">
               Remove
             </Submit>
@@ -227,17 +239,8 @@ export function PhoneChange({
   return (
     <div>
       <form action={startAction} className="flex flex-wrap gap-2">
-        <input type="hidden" name="uni" value={uni} />
-        <input
-          name="phone"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel-national"
-          placeholder="98200 11001"
-          required
-          aria-label="New mobile number"
-          className={cx(inputClass, "w-full min-w-0 flex-1 sm:w-auto")}
-        />
+        {hidden}
+        <PhoneField className="w-full sm:w-auto sm:min-w-[20rem] sm:flex-1" />
         <Submit pendingText="Sending code…">Send code</Submit>
         {current && (
           <button type="button" onClick={() => setEditing(false)} className={buttonClass("ghost")}>

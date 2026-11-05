@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { Select, buttonClass, cx, inputClass } from "@/components/ui";
+import { PhoneField } from "./phone-field";
 
 export type AuthState = { ok?: string; error?: string; code?: string; email?: string; name?: string; at?: number } | null;
 type Action = (prev: AuthState, data: FormData) => Promise<AuthState>;
@@ -259,6 +260,15 @@ export function SignUpForm({
       <TextField key={`e-${state?.at ?? 0}`} name="email" label="Email" type="email" inputMode="email" autoComplete="username" defaultValue={email} />
       <PasswordField key={`p-${state?.at ?? 0}`} name="password" label="Create a password" autoComplete="new-password" hint="At least 8 characters. A short sentence works well." />
       <PasswordField key={`c-${state?.at ?? 0}`} name="confirm" label="Type it again" autoComplete="new-password" />
+      {(uni || code) && (
+        <PhoneField
+          key={`m-${state?.at ?? 0}`}
+          label="Mobile number (optional)"
+          required={false}
+          tall
+          hint="We'll text you a code to confirm it. You can also add it later from your profile."
+        />
+      )}
       {departments.length > 0 && (
         <div>
           <Label htmlFor={deptId}>Your department</Label>
@@ -311,16 +321,7 @@ export function PhoneNumberForm({ action, uni, next }: { action: Action; uni: st
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="uni" value={uni} />
       <input type="hidden" name="next" value={next} />
-      <TextField
-        name="phone"
-        label="Mobile number"
-        type="tel"
-        inputMode="tel"
-        autoComplete="tel-national"
-        placeholder="98200 11001"
-        autoFocus
-        hint="The number your institute has for you. We'll text you a 6-digit code."
-      />
+      <PhoneField label="Mobile number" tall autoFocus hint="The number your institute has for you. We'll text you a 6-digit code." />
       {state?.error && <Alert tone={state.code === "locked" || state.code === "rate_limited" ? "gold" : "danger"}>{state.error}</Alert>}
       <Submit pendingText="Sending code…">Send code</Submit>
     </form>

@@ -114,7 +114,9 @@ export async function landingAfterSignIn(userId: string, next: string | null | u
 
 /* ───────────────────────────── Student sign-up ───────────────────────────── */
 
-export type SignUpResult = { status: "created"; userId: string; landing: string } | { status: "network_limited"; retryAt: Date };
+export type SignUpResult =
+  | { status: "created"; userId: string; landing: string; /** Set when the account joined (or asked to join) an institute. */ institute?: { id: string; slug: string } }
+  | { status: "network_limited"; retryAt: Date };
 
 type SignUpInput = { name: string; email: string; password: string; confirm: string; ip: string | null; now?: Date };
 
@@ -158,13 +160,14 @@ export async function signUpMarketplaceLearner(input: SignUpInput): Promise<Sign
  * institute approves each student (joining.ts). Until they're in, the marketplace is theirs.
  */
 async function signUpAndJoin(input: SignUpInput, target: JoinTarget, departmentId: string | null): Promise<SignUpResult> {
-  return createAccount(input, async (tx, userId) => {
+  const r = await createAccount(input, async (tx, userId) => {
     const [person] = await tx.select({ id: users.id, name: users.name, email: users.email }).from(users).where(eq(users.id, userId));
     await tx.insert(mktLearners).values({ userId }).onConflictDoNothing();
     await audit(tx, personActor(target.id, userId), "user.self_signup", "user", userId, { joinMode: target.joinMode });
     const r: JoinResult = await joinTx(tx, target, person, { departmentId });
     return r.status === "joined" ? r.landing : "/join?sent=1";
   });
+  return r.status === "created" ? { ...r, institute: { id: target.id, slug: target.slug } } : r;
 }
 
 async function joinTargetBySlug(university: LoginUniversity): Promise<JoinTarget> {
@@ -720,7 +723,7 @@ export async function startPhoneSignIn(input: { universityId: string; phone: str
     throw new ValidationError("Signing in with a mobile number isn't turned on for this institute. Use your email and password.", "disabled");
   }
   const e164 = normalizePhone(input.phone);
-  if (!e164) throw new ValidationError("Enter a 10-digit mobile number, like 98200 11001.", "invalid_phone");
+  if (!e164) throw new ValidationError("Enter a valid mobile number, like 98200 11001. For a number outside India, pick its country code.", "invalid_phone");
   await assertSendAllowed(e164, input.ip, now);
 
   const id = randomUUID();

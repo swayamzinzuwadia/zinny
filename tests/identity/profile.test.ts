@@ -166,7 +166,7 @@ describe("mobile number", () => {
   it("refuses bad numbers and the number you already have; can be removed", async () => {
     const s = await setup("Phone Rules U");
     const me = s.student;
-    await expect(startPhoneChange(me.actor, me.user.id, { phone: "12345", defer: () => {} })).rejects.toThrow(/10-digit/);
+    await expect(startPhoneChange(me.actor, me.user.id, { phone: "12345", defer: () => {} })).rejects.toThrow(/valid mobile number/);
     const phone = freshPhone();
     await setPhone(me.user.id, phone);
     await expect(startPhoneChange(me.actor, me.user.id, { phone, defer: () => {} })).rejects.toThrow(/already your/);

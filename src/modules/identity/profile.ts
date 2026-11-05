@@ -11,8 +11,10 @@ import { randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import sharp from "sharp";
 import { users } from "@/db/schema";
-import { assertCan, audit, sendSms, storage, withTenant, type Actor } from "@/server/core";
-import { NotFoundError, ValidationError } from "@/server/errors";
+import type { Tx } from "@/db/client";
+import { isActive } from "@/server/authz/engine";
+import { assertCan, audit, loadActor, sendSms, storage, withTenant, type Actor } from "@/server/core";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
 import { AUTH, LIMITS, humanDuration } from "@/server/auth/config";
 import { deferAfterResponse, type Defer } from "@/server/auth/defer";
 import { checkNewPassword, verifyPassword } from "@/server/auth/passwords";
@@ -23,12 +25,81 @@ import { hmac, sameHex, sixDigitCode } from "@/server/auth/tokens";
 import { auditEverywhere } from "@/server/auth/audit";
 import { notifyPasswordChanged, passwordRecord, storePassword } from "./auth";
 import { verifyPhoneSms } from "./emails";
-import { idnOtpChallenges, idnPhotos } from "./schema";
+import { idnJoinRequests, idnOtpChallenges, idnPhotos } from "./schema";
 
 const uni = (actor: Actor) => actor.universityId!;
 
 function assertSelf(actor: Actor, userId: string) {
   assertCan(actor, "self.profile", { universityId: uni(actor), ownerUserId: userId });
+}
+
+/** Actors made by signUpPhoneActor. They work for the mobile number steps and nothing else. */
+const signUpActors = new WeakSet<Actor>();
+
+function assertPhoneSelf(actor: Actor, userId: string) {
+  if (signUpActors.has(actor)) {
+    if (actor.userId !== userId) throw new ForbiddenError("You can only confirm your own mobile number.");
+    return;
+  }
+  assertSelf(actor, userId);
+}
+
+/**
+ * For the sign-up step that confirms a new person's mobile number. Someone whose join request
+ * is waiting has no role here yet, so instead of self.profile this checks they're a member or
+ * have a pending request. The caller passes the signed-in person's own id.
+ */
+export async function signUpPhoneActor(userId: string, universityId: string, now = new Date()): Promise<Actor> {
+  const actor = await loadActor(userId, universityId);
+  const member = actor.assignments.some((a) => isActive(a, now) && a.universityId === universityId);
+  if (!member) {
+    const [waiting] = await withTenant(actor, (tx) =>
+      tx
+        .select({ id: idnJoinRequests.id })
+        .from(idnJoinRequests)
+        .where(and(eq(idnJoinRequests.userId, userId), eq(idnJoinRequests.status, "pending")))
+        .limit(1),
+    );
+    if (!waiting) throw new ForbiddenError("You can add a mobile number once you've joined this institute.");
+  }
+  signUpActors.add(actor);
+  return actor;
+}
+
+type PendingPhone = { masked: string; resendAt: Date; expiresAt: Date; attemptsLeft: number };
+
+/** The new number waiting for its code, if there is one and it can still be confirmed. */
+async function pendingPhone(tx: Tx, userId: string, now: Date): Promise<PendingPhone | null> {
+  const [pending] = await tx
+    .select()
+    .from(idnOtpChallenges)
+    .where(
+      and(
+        eq(idnOtpChallenges.userId, userId),
+        eq(idnOtpChallenges.purpose, "verify_phone"),
+        sql`${idnOtpChallenges.consumedAt} is null`,
+        sql`${idnOtpChallenges.expiresAt} > ${now.toISOString()}::timestamptz`,
+      ),
+    )
+    .orderBy(sql`${idnOtpChallenges.createdAt} desc`)
+    .limit(1);
+  return pending && pending.attempts < AUTH.otp.maxAttempts
+    ? {
+        masked: maskPhone(pending.phone),
+        resendAt: new Date(pending.sentAt.getTime() + AUTH.otp.resendAfterMs),
+        expiresAt: pending.expiresAt,
+        attemptsLeft: AUTH.otp.maxAttempts - pending.attempts,
+      }
+    : null;
+}
+
+/** For the sign-up step: the person's number if it's confirmed, and the one waiting for a code. */
+export async function signUpPhoneStatus(actor: Actor, userId: string, now = new Date()) {
+  assertPhoneSelf(actor, userId);
+  return withTenant(actor, async (tx) => {
+    const [u] = await tx.select({ phone: users.phone }).from(users).where(eq(users.id, userId));
+    return { phone: u?.phone ? (normalizePhone(u.phone) ?? u.phone) : null, pending: await pendingPhone(tx, userId, now) };
+  });
 }
 
 export type Profile = {
@@ -39,7 +110,7 @@ export type Profile = {
   photoUrl: string | null;
   hasPassword: boolean;
   /** A new number waiting for its code, if any. */
-  pendingPhone: { masked: string; resendAt: Date; expiresAt: Date; attemptsLeft: number } | null;
+  pendingPhone: PendingPhone | null;
 };
 
 export async function getProfile(actor: Actor, userId: string, now = new Date()): Promise<Profile> {
@@ -51,19 +122,6 @@ export async function getProfile(actor: Actor, userId: string, now = new Date())
       .where(eq(users.id, userId));
     if (!u) throw new NotFoundError("Profile");
     const [photo] = await tx.select().from(idnPhotos).where(eq(idnPhotos.userId, userId));
-    const [pending] = await tx
-      .select()
-      .from(idnOtpChallenges)
-      .where(
-        and(
-          eq(idnOtpChallenges.userId, userId),
-          eq(idnOtpChallenges.purpose, "verify_phone"),
-          sql`${idnOtpChallenges.consumedAt} is null`,
-          sql`${idnOtpChallenges.expiresAt} > ${now.toISOString()}::timestamptz`,
-        ),
-      )
-      .orderBy(sql`${idnOtpChallenges.createdAt} desc`)
-      .limit(1);
     return {
       id: u.id,
       name: u.name,
@@ -71,15 +129,7 @@ export async function getProfile(actor: Actor, userId: string, now = new Date())
       phone: normalizePhone(u.phone) ?? u.phone,
       photoUrl: photo ? await storage().signedUrl(photo.storageKey, 3600) : null,
       hasPassword: !!u.passwordHash,
-      pendingPhone:
-        pending && pending.attempts < AUTH.otp.maxAttempts
-          ? {
-              masked: maskPhone(pending.phone),
-              resendAt: new Date(pending.sentAt.getTime() + AUTH.otp.resendAfterMs),
-              expiresAt: pending.expiresAt,
-              attemptsLeft: AUTH.otp.maxAttempts - pending.attempts,
-            }
-          : null,
+      pendingPhone: await pendingPhone(tx, userId, now),
     };
   });
 }
@@ -119,10 +169,10 @@ export async function updateName(actor: Actor, userId: string, name: string) {
  * sign-in at a number they don't hold.
  */
 export async function startPhoneChange(actor: Actor, userId: string, input: { phone: string; ip?: string | null; now?: Date; defer?: Defer }) {
-  assertSelf(actor, userId);
+  assertPhoneSelf(actor, userId);
   const now = input.now ?? new Date();
   const e164 = normalizePhone(input.phone);
-  if (!e164) throw new ValidationError("Enter a 10-digit mobile number, like 98200 11001.");
+  if (!e164) throw new ValidationError("Enter a valid mobile number, like 98200 11001. For a number outside India, pick its country code.");
   const lock = await lockedUntil(throttleKey("otp-verify", e164), now);
   if (lock) throw new ValidationError(`Too many wrong codes for this number. Try again in ${humanDuration(lock.getTime() - now.getTime())}.`);
   const byPhone = await consume(throttleKey("otp-send", e164), LIMITS.codeSendsPerPhone, now);
@@ -170,7 +220,7 @@ export async function startPhoneChange(actor: Actor, userId: string, input: { ph
 
 /** Saves the new number once its code is right. 5 tries per code, 5 minutes. */
 export async function verifyPhoneChange(actor: Actor, userId: string, input: { code: string; now?: Date }) {
-  assertSelf(actor, userId);
+  assertPhoneSelf(actor, userId);
   const now = input.now ?? new Date();
   const code = input.code.replace(/\s+/g, "");
   if (!/^\d{6}$/.test(code)) throw new ValidationError("Enter the 6-digit code from the SMS.");
@@ -212,7 +262,7 @@ export async function verifyPhoneChange(actor: Actor, userId: string, input: { c
 
 /** A new code for the number waiting to be confirmed (after the 30-second wait). */
 export async function resendPhoneChange(actor: Actor, userId: string, input: { ip?: string | null; now?: Date; defer?: Defer } = {}) {
-  assertSelf(actor, userId);
+  assertPhoneSelf(actor, userId);
   const now = input.now ?? new Date();
   const [pending] = await withTenant(actor, (tx) =>
     tx
@@ -227,7 +277,7 @@ export async function resendPhoneChange(actor: Actor, userId: string, input: { i
 }
 
 export async function cancelPhoneChange(actor: Actor, userId: string, now = new Date()) {
-  assertSelf(actor, userId);
+  assertPhoneSelf(actor, userId);
   await withTenant(actor, (tx) =>
     tx
       .update(idnOtpChallenges)

@@ -9,6 +9,8 @@ import type { ActionState } from "@/components/forms";
 import { str } from "@/server/action";
 import { AppError, ValidationError } from "@/server/errors";
 import { humanDuration } from "@/server/auth/config";
+import { joinPhone, normalizePhone } from "@/server/auth/phone";
+import { signUpPhoneActor, startPhoneChange } from "@/modules/identity/profile";
 import { clientInfo, cookieOptions, homeSpacesFor, startSession, type SessionMethod } from "@/server/auth/session";
 import {
   PHONE_COOKIE_MS,
@@ -95,6 +97,11 @@ export async function signUpAction(_: AuthState, data: FormData): Promise<AuthSt
     const code = str(data, "code");
     const departmentId = str(data, "departmentId") || null;
     const details = { name, email, password: String(data.get("password") ?? ""), confirm: String(data.get("confirm") ?? ""), ip };
+    // An optional mobile number, for sign-ups into an institute: checked before the account exists.
+    const phone = code || slug ? joinPhone(str(data, "countryCode"), str(data, "phone")) : "";
+    if (phone && !normalizePhone(phone)) {
+      throw new ValidationError("Enter a valid mobile number, like 98200 11001, or leave it empty. For a number outside India, pick its country code.");
+    }
     const r = code
       ? await signUpWithCode({ ...details, code, departmentId })
       : slug
@@ -106,10 +113,26 @@ export async function signUpAction(_: AuthState, data: FormData): Promise<AuthSt
     }
     await signInAs(r.userId, "password");
     dest = r.landing;
+    if (phone && r.institute) dest = await startSignUpPhone(r.userId, r.institute, phone, ip, r.landing);
   } catch (e) {
     return { ...fail(e), email, name };
   }
   redirect(dest);
+}
+
+/**
+ * Texts a new account's mobile number a code and sends them to confirm it. The account is made
+ * either way, so a code that can't be sent leaves the number for them to try again there.
+ */
+async function startSignUpPhone(userId: string, institute: { id: string; slug: string }, phone: string, ip: string | null, landing: string) {
+  const step = (failed: boolean) => `/signup/phone?${new URLSearchParams({ uni: institute.slug, next: landing, ...(failed ? { failed: "1" } : {}) })}`;
+  try {
+    await startPhoneChange(await signUpPhoneActor(userId, institute.id), userId, { phone, ip });
+    return step(false);
+  } catch (e) {
+    unstable_rethrow(e);
+    return step(true);
+  }
 }
 
 /* ───────────────────────────── Phone ───────────────────────────── */
@@ -141,7 +164,7 @@ export async function phoneSendAction(_: AuthState, data: FormData): Promise<Aut
     const uni = await loginUniversity(slug);
     if (!uni) throw new ValidationError("We couldn't find your institute. Sign in with your email instead.");
     const { ip } = await clientInfo();
-    const s = await startPhoneSignIn({ universityId: uni.id, phone: str(data, "phone"), ip });
+    const s = await startPhoneSignIn({ universityId: uni.id, phone: joinPhone(str(data, "countryCode"), str(data, "phone")), ip });
     await setPhoneRef(s.ref);
   } catch (e) {
     return fail(e);
