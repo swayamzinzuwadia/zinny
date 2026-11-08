@@ -7,10 +7,35 @@ import { SplitText } from "gsap/SplitText";
 import { useRef } from "react";
 import { display } from "../fonts";
 import css from "../landing.module.css";
-import { BOOKS, PIECES, rupees } from "./Desk";
+import { PIECES, rupees } from "./Desk";
 
-/** The books pulled off the shelf as the film ends, spread over both shelves. Each sits in the first eight of its shelf, which are the ones phones show. */
-const PULLED = [2, 14, 5, 17, 7, 13];
+/**
+ * The wall of screens the recording becomes: who is watching it, and where. The middle one is
+ * the institute's own. Phones drop the outer two columns, so theirs stays in the middle of a
+ * 3 × 3 wall. An illustration, which the caption under the counter says.
+ */
+const SCREENS = [
+  { city: "Pune", lesson: 4 },
+  { city: "Guwahati", lesson: 11 },
+  { city: "Indore", lesson: 2 },
+  { city: "Kochi", lesson: 17 },
+  { city: "Jaipur", lesson: 6 },
+  { city: "Lucknow", lesson: 9 },
+  { city: "Patna", lesson: 1 },
+  { city: "", lesson: 0 },
+  { city: "Surat", lesson: 13 },
+  { city: "Mysuru", lesson: 5 },
+  { city: "Dubai", lesson: 21 },
+  { city: "Nagpur", lesson: 3 },
+  { city: "Ranchi", lesson: 8 },
+  { city: "Vizag", lesson: 15 },
+  { city: "Shillong", lesson: 7 },
+];
+/** Where the institute's own screen sits: the middle of a 5 × 3 wall. */
+const YOURS = 7;
+const PRICE = 1499;
+const SALES = 280;
+const EARNED = PRICE * SALES;
 
 gsap.registerPlugin(ScrollTrigger, SplitText, useGSAP);
 
@@ -149,36 +174,26 @@ export function Film() {
         tl.fromTo("[data-keeps]", { autoAlpha: 0, y: 24, rotation: -2 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 0.35, ease: "back.out(1.6)" }, ">+=0.05");
         tl.to({}, { duration: 0.45 });
 
-        // Gold gives way to the shelf, and a shop sign drops in on its chains.
-        tl.addLabel("shelf");
-        tl.to(word("once"), { autoAlpha: 0, y: -50, duration: 0.3, ease: "power2.in" }, "shelf");
-        tl.to("[data-play]", { scale: 0, rotation: 40, duration: 0.45, ease: "back.in(1.6)" }, "shelf");
-        tl.to("[data-lecture]", { backgroundColor: "#faf6ea", duration: 0.5 }, "shelf+=0.1");
-        gsap.set("[data-spine]", { yPercent: 60, autoAlpha: 0 });
-        tl.to("[data-spine]", { yPercent: 0, autoAlpha: 1, duration: 0.45, stagger: 0.012, ease: "back.out(1.3)" }, "shelf+=0.2");
-        tl.fromTo("[data-plank]", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "power2.out" }, "shelf+=0.2");
-        tl.fromTo("[data-sign]", { autoAlpha: 0, y: -240, rotation: -7 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 0.5, ease: "back.out(1.5)" }, "shelf+=0.4");
-        tl.set(word("stock"), { autoAlpha: 1 }, "shelf+=0.4");
+        // The lights go down: gold turns to night, and the one recording becomes a wall of screens,
+        // opening outwards from yours in the middle.
+        tl.addLabel("wall");
+        tl.to(word("once"), { autoAlpha: 0, y: -50, duration: 0.3, ease: "power2.in" }, "wall");
+        tl.to("[data-play]", { scale: 0.18, rotation: 0, autoAlpha: 0, duration: 0.45, ease: "power3.in" }, "wall");
+        tl.to("[data-lecture]", { backgroundColor: "#04291f", color: "#faf6ea", duration: 0.5 }, "wall+=0.1");
+        gsap.set("[data-screen]", { autoAlpha: 0, scale: 0.55 });
+        tl.to("[data-screen]", { autoAlpha: 1, scale: 1, duration: 0.5, stagger: { each: 0.035, from: "center" }, ease: "back.out(1.4)" }, "wall+=0.25");
+        tl.fromTo(word("every"), { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: "power3.out" }, "wall+=0.3");
 
-        // The shelf stays put. Books come off it one at a time and show what they cost, and the line turns to the student.
-        tl.addLabel("slide");
-        const slideAt = tl.labels.slide;
-        tl.to({}, { duration: 2 }, slideAt);
-        const spines = gsap.utils.toArray<HTMLElement>("[data-spine]");
-        PULLED.forEach((n, turn) => {
-          const at = slideAt + turn * 0.3;
-          const tag = spines[n].querySelector("[data-tag]");
-          tl.to(spines[n], { y: -22, duration: 0.1, ease: "power2.out" }, at);
-          tl.fromTo(tag, { autoAlpha: 0, y: 6, scale: 0.85 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.1, ease: "back.out(2)" }, at);
-          tl.to(spines[n], { y: 0, duration: 0.12, ease: "power2.in" }, at + 0.2);
-          tl.to(tag, { autoAlpha: 0, duration: 0.08 }, at + 0.2);
-        });
-        // Halfway through, the sign turns over to the learner's side, and swings a little from the turn.
-        tl.to("[data-sign-board]", { rotationX: 90, duration: 0.15, ease: "power2.in" }, "slide+=0.75");
-        tl.set(word("stock"), { autoAlpha: 0 }, "slide+=0.9");
-        tl.set(word("anyone"), { autoAlpha: 1 }, "slide+=0.9");
-        tl.fromTo("[data-sign-board]", { rotationX: -90 }, { rotationX: 0, duration: 0.25, ease: "back.out(1.8)" }, "slide+=0.9");
-        tl.fromTo("[data-sign]", { rotation: 2.5 }, { rotation: 0, duration: 0.6, ease: "elastic.out(1, 0.35)" }, "slide+=0.9");
+        // Everyone watches at once: progress runs on every screen, each sale lands as a gold chip,
+        // and the one number that matters climbs.
+        tl.addLabel("earn");
+        tl.to({}, { duration: 2 }, "earn");
+        tl.fromTo("[data-watch]", { scaleX: 0 }, { scaleX: 1, duration: 1.7, stagger: 0.015, ease: "none" }, "earn");
+        tl.fromTo("[data-ping]", { autoAlpha: 0, y: 8, scale: 0.7 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.1, stagger: 0.11, ease: "back.out(2.4)" }, "earn+=0.15");
+        tl.fromTo("[data-earned-block]", { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.3, ease: "power3.out" }, "earn");
+        const earned = stage.querySelector<HTMLElement>("[data-earned]");
+        const total = { v: 0 };
+        tl.fromTo(total, { v: 0 }, { v: EARNED, duration: 1.8, ease: "power1.in", onUpdate: () => earned && (earned.textContent = rupees(Math.round(total.v))) }, "earn+=0.1");
         tl.to({}, { duration: 0.5 });
 
         return () => {
@@ -284,46 +299,58 @@ export function Film() {
             </div>
           </div>
 
-          {/* A shop sign on two chains. It turns over from the institute's side to the learner's. */}
-          <div data-sign className={css.sign}>
-            <span aria-hidden className={`${css.chain} left-[18%]`} />
-            <span aria-hidden className={`${css.chain} right-[18%]`} />
-            <div data-sign-board className={`${display.className} ${css.headline} ${css.signBoard}`}>
-              <p data-beat="stock" className={css.signLine}>
-                Institutes stock <em className="text-gold">the shelf.</em>
-              </p>
-              <p data-beat="anyone" className={css.signLine}>
-                Anyone can learn <em className="text-gold">from it.</em>
-              </p>
+          {/* ── Night falls: one recording, playing in every city, and what it has earned ── */}
+          <div className={css.wallScene}>
+            <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-3">
+              <h2 data-beat="every" className={`${display.className} ${css.headline} text-[clamp(2.3rem,5.4vw,5.2rem)] leading-[0.98] tracking-[-0.025em]`}>
+                One class.
+                <br />
+                <em className="text-gold">Every city.</em>
+              </h2>
+              <div data-earned-block className="sm:text-right">
+                <p className="text-[13px] text-canvas/60">Earned by one recorded course</p>
+                <p data-earned className={`${display.className} ${css.headline} mt-1 text-[clamp(2rem,4.6vw,4.4rem)] leading-none tracking-[-0.02em] text-gold [font-variant-numeric:lining-nums_tabular-nums]`}>
+                  {rupees(EARNED)}
+                </p>
+                <p className="mt-2 text-[12px] text-canvas/50">
+                  For example, {SALES} learners at {rupees(PRICE)}, before GST.
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className={css.shelf}>
-            <div role="img" aria-label="A bookcase stocked with recorded courses from institutes" className={css.case}>
-              {[BOOKS.slice(0, 12), BOOKS.slice(12)].map((shelf, s) => (
-                <div key={s}>
-                  <div className={css.row}>
-                    {shelf.map((b) => (
-                      <span key={b.title} data-spine className={css.slot} style={{ "--h": b.height, "--w": b.width } as React.CSSProperties}>
-                        <span className={css.lift}>
-                          <span className={css.tagWrap}>
-                            <span data-tag className={css.tag}>
-                              <b className="font-semibold text-gold">{rupees(b.price)}</b> · {b.lessons} lessons · {b.institute}
-                            </span>
-                          </span>
-                          <span className={`${css.spine} ${b.tone}`}>
-                            <span aria-hidden className="absolute inset-x-0 top-4 h-px bg-current opacity-30" />
-                            <span aria-hidden className="absolute inset-x-0 top-5 h-px bg-current opacity-30" />
-                            <span className={`${display.className} ${css.spineText} ${css.accent} text-[15px] leading-tight whitespace-nowrap sm:text-[17px]`}>{b.title}</span>
-                          </span>
+            <ul aria-label="The recording, being watched in cities across India and abroad" className={css.wall}>
+              {SCREENS.map((s, i) => {
+                const yours = i === YOURS;
+                return (
+                  <li key={i} data-screen className={`${css.screen} ${yours ? css.yours : ""}`}>
+                    <div aria-hidden className={css.feed}>
+                      <span className={css.chalk} style={{ width: `${42 + ((i * 17) % 40)}%` }} />
+                      <span className={css.chalk} style={{ width: `${28 + ((i * 29) % 46)}%` }} />
+                      <span className={css.chalk} style={{ width: `${20 + ((i * 11) % 30)}%` }} />
+                      <svg viewBox="0 0 10 10" className="absolute right-2.5 bottom-2.5 size-3 text-canvas/50" fill="currentColor">
+                        <path d="M2.5 1.5v7L8.5 5z" />
+                      </svg>
+                      {yours ? (
+                        <span className="absolute top-2 left-2 rounded-full bg-gold px-2 py-0.5 text-[11px] font-semibold text-brand-deep">Your recording</span>
+                      ) : (
+                        <span className="absolute top-2 left-2.5 text-[11px] text-canvas/45">Lesson {s.lesson}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 px-2.5 py-2 text-[12px] sm:text-[13px]">
+                      <span className="truncate font-medium">{yours ? "Python Basics" : s.city}</span>
+                      {!yours && (
+                        <span data-ping className="shrink-0 rounded-full bg-gold px-1.5 py-px text-[11px] font-semibold text-brand-deep">
+                          +{rupees(PRICE)}
                         </span>
-                      </span>
-                    ))}
-                  </div>
-                  <div data-plank className={css.plank} />
-                </div>
-              ))}
-            </div>
+                      )}
+                    </div>
+                    <span aria-hidden className={css.watchTrack}>
+                      <span data-watch className={css.watch} style={{ width: `${yours ? 100 : 35 + ((s.lesson * 13) % 60)}%` }} />
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </div>
       </div>

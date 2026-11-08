@@ -219,37 +219,5 @@ export const PIECES: Piece[] = [
   { id: "recordings", tile: "Recordings", note: "Ready to sell on the marketplace", x: 50, y: 88, mx: 50, my: 95, tilt: -2, width: 210, depth: 0.9, Face: Recordings },
 ];
 
-/** A spine on the bookcase. `height` and `width` are px at the default size; the first 12 fill the top shelf, the rest the bottom one. */
-export type Book = { title: string; institute: string; lessons: number; price: number; height: number; width: number; tone: string };
-
-const SURFACE = "bg-surface text-brand-deep ring-1 ring-line";
-
-export const BOOKS: Book[] = [
-  { title: "Data Analytics", institute: "Northfield Institute", lessons: 24, price: 1499, height: 200, width: 76, tone: "bg-brand text-canvas" },
-  { title: "Python in an hour", institute: "Kalam Academy", lessons: 12, price: 499, height: 156, width: 62, tone: "bg-gold text-brand-deep" },
-  { title: "GST for small businesses", institute: "Vidya Commerce Classes", lessons: 18, price: 899, height: 210, width: 80, tone: "bg-[#2f4a72] text-canvas" },
-  { title: "Brand storytelling", institute: "Studio Meridian", lessons: 10, price: 699, height: 150, width: 64, tone: SURFACE },
-  { title: "Machine Learning Foundations", institute: "Northfield Institute", lessons: 36, price: 2499, height: 210, width: 84, tone: "bg-brand-deep text-canvas" },
-  { title: "Reading a balance sheet", institute: "Vidya Commerce Classes", lessons: 14, price: 599, height: 184, width: 70, tone: "bg-[#7a3d66] text-canvas" },
-  { title: "Digital Marketing", institute: "Studio Meridian", lessons: 20, price: 1199, height: 172, width: 66, tone: "bg-[#a8402c] text-canvas" },
-  { title: "Neural networks, explained", institute: "Kalam Academy", lessons: 16, price: 1299, height: 200, width: 74, tone: "bg-brand-soft text-brand-deep" },
-  { title: "Business Accounting", institute: "Vidya Commerce Classes", lessons: 28, price: 1799, height: 188, width: 72, tone: "bg-gold-strong text-canvas" },
-  { title: "Spoken English", institute: "Lingua Hall", lessons: 22, price: 799, height: 146, width: 60, tone: "bg-[#2f4a72] text-canvas" },
-  { title: "Organic chemistry, revised", institute: "Sharma Science Academy", lessons: 30, price: 1599, height: 204, width: 78, tone: "bg-brand text-canvas" },
-  { title: "UPSC current affairs", institute: "Rajdhani IAS Centre", lessons: 40, price: 2999, height: 180, width: 68, tone: SURFACE },
-  { title: "Calculus without fear", institute: "Sharma Science Academy", lessons: 26, price: 1099, height: 168, width: 66, tone: "bg-[#7a3d66] text-canvas" },
-  { title: "Tally for beginners", institute: "Vidya Commerce Classes", lessons: 15, price: 499, height: 150, width: 62, tone: "bg-gold text-brand-deep" },
-  { title: "Public speaking", institute: "Lingua Hall", lessons: 12, price: 599, height: 190, width: 72, tone: "bg-brand-deep text-canvas" },
-  { title: "Photography basics", institute: "Studio Meridian", lessons: 18, price: 899, height: 160, width: 64, tone: "bg-[#a8402c] text-canvas" },
-  { title: "Excel for accountants", institute: "Vidya Commerce Classes", lessons: 21, price: 999, height: 206, width: 80, tone: "bg-brand text-canvas" },
-  { title: "Physics: motion and force", institute: "Sharma Science Academy", lessons: 24, price: 1299, height: 176, width: 68, tone: SURFACE },
-  { title: "SQL in a weekend", institute: "Northfield Institute", lessons: 14, price: 699, height: 152, width: 60, tone: "bg-[#2f4a72] text-canvas" },
-  { title: "Interview preparation", institute: "Rajdhani IAS Centre", lessons: 16, price: 799, height: 196, width: 74, tone: "bg-gold text-brand-deep" },
-  { title: "Basic Hindi grammar", institute: "Lingua Hall", lessons: 20, price: 599, height: 146, width: 62, tone: "bg-brand-soft text-brand-deep" },
-  { title: "Statistics made simple", institute: "Northfield Institute", lessons: 28, price: 1399, height: 208, width: 82, tone: "bg-[#7a3d66] text-canvas" },
-  { title: "Graphic design", institute: "Studio Meridian", lessons: 22, price: 1199, height: 164, width: 66, tone: "bg-brand text-canvas" },
-  { title: "Indian economy", institute: "Rajdhani IAS Centre", lessons: 34, price: 2199, height: 186, width: 72, tone: "bg-brand-deep text-canvas" },
-];
-
 /** ₹1,499, with Indian digit grouping. */
 export const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
