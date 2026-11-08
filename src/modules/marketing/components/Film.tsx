@@ -10,29 +10,17 @@ import css from "../landing.module.css";
 import { PIECES, rupees } from "./Desk";
 
 /**
- * The wall of screens the recording becomes: who is watching it, and where. The middle one is
- * the institute's own. Phones drop the outer two columns, so theirs stays in the middle of a
- * 3 × 3 wall. An illustration, which the caption under the counter says.
+ * The orders that come in once a recording is listed: who bought what, and from where, newest
+ * first. An illustration, which the caption under the counter says. Short screens show four.
  */
-const SCREENS = [
-  { city: "Pune", lesson: 4 },
-  { city: "Guwahati", lesson: 11 },
-  { city: "Indore", lesson: 2 },
-  { city: "Kochi", lesson: 17 },
-  { city: "Jaipur", lesson: 6 },
-  { city: "Lucknow", lesson: 9 },
-  { city: "Patna", lesson: 1 },
-  { city: "", lesson: 0 },
-  { city: "Surat", lesson: 13 },
-  { city: "Mysuru", lesson: 5 },
-  { city: "Dubai", lesson: 21 },
-  { city: "Nagpur", lesson: 3 },
-  { city: "Ranchi", lesson: 8 },
-  { city: "Vizag", lesson: 15 },
-  { city: "Shillong", lesson: 7 },
+const ORDERS = [
+  { name: "Ananya", city: "Pune", item: "the full course", amount: 1499, when: "Just now" },
+  { name: "Rahul", city: "Guwahati", item: "the full course", amount: 1499, when: "4 min ago" },
+  { name: "Fatima", city: "Hyderabad", item: "Lecture 7: Functions", amount: 199, when: "11 min ago" },
+  { name: "Imran", city: "Dubai", item: "the full course", amount: 1499, when: "26 min ago" },
+  { name: "Meera", city: "Jaipur", item: "the Python and SQL combo", amount: 2499, when: "40 min ago" },
+  { name: "Arjun", city: "Kochi", item: "the full course", amount: 1499, when: "1 h ago" },
 ];
-/** Where the institute's own screen sits: the middle of a 5 × 3 wall. */
-const YOURS = 7;
 const PRICE = 1499;
 const SALES = 280;
 const EARNED = PRICE * SALES;
@@ -174,22 +162,19 @@ export function Film() {
         tl.fromTo("[data-keeps]", { autoAlpha: 0, y: 24, rotation: -2 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 0.35, ease: "back.out(1.6)" }, ">+=0.05");
         tl.to({}, { duration: 0.45 });
 
-        // The lights go down: gold turns to night, and the one recording becomes a wall of screens,
-        // opening outwards from yours in the middle.
+        // The lights go down: gold turns to night, and the recording is on sale.
         tl.addLabel("wall");
         tl.to(word("once"), { autoAlpha: 0, y: -50, duration: 0.3, ease: "power2.in" }, "wall");
         tl.to("[data-play]", { scale: 0.18, rotation: 0, autoAlpha: 0, duration: 0.45, ease: "power3.in" }, "wall");
         tl.to("[data-lecture]", { backgroundColor: "#04291f", color: "#faf6ea", duration: 0.5 }, "wall+=0.1");
-        gsap.set("[data-screen]", { autoAlpha: 0, scale: 0.55 });
-        tl.to("[data-screen]", { autoAlpha: 1, scale: 1, duration: 0.5, stagger: { each: 0.035, from: "center" }, ease: "back.out(1.4)" }, "wall+=0.25");
         tl.fromTo(word("every"), { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: "power3.out" }, "wall+=0.3");
+        tl.fromTo("[data-store]", { autoAlpha: 0, y: 80, rotation: 3 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 0.5, ease: "power3.out" }, "wall+=0.35");
 
-        // Everyone watches at once: progress runs on every screen, each sale lands as a gold chip,
-        // and the one number that matters climbs.
+        // The sales come in: each order drops in at the top of the feed and pushes the older ones
+        // down, and the year's total climbs beside it.
         tl.addLabel("earn");
         tl.to({}, { duration: 2 }, "earn");
-        tl.fromTo("[data-watch]", { scaleX: 0 }, { scaleX: 1, duration: 1.7, stagger: 0.015, ease: "none" }, "earn");
-        tl.fromTo("[data-ping]", { autoAlpha: 0, y: 8, scale: 0.7 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.1, stagger: 0.11, ease: "back.out(2.4)" }, "earn+=0.15");
+        tl.fromTo("[data-order]", { height: 0, autoAlpha: 0 }, { height: "auto", autoAlpha: 1, duration: 0.18, stagger: { each: 0.28, from: "end" }, ease: "power2.out" }, "earn+=0.1");
         tl.fromTo("[data-earned-block]", { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.3, ease: "power3.out" }, "earn");
         const earned = stage.querySelector<HTMLElement>("[data-earned]");
         const total = { v: 0 };
@@ -299,58 +284,77 @@ export function Film() {
             </div>
           </div>
 
-          {/* ── Night falls: one recording, playing in every city, and what it has earned ── */}
-          <div className={css.wallScene}>
-            <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-3">
-              <h2 data-beat="every" className={`${display.className} ${css.headline} text-[clamp(2.3rem,5.4vw,5.2rem)] leading-[0.98] tracking-[-0.025em]`}>
-                One class.
+          {/* ── Night falls: the recording is on the marketplace, and the orders come in ── */}
+          <div className={css.saleScene}>
+            <div>
+              <h2 data-beat="every" className={`${display.className} ${css.headline} text-[clamp(2.3rem,5.2vw,4.8rem)] leading-[1] tracking-[-0.025em]`}>
+                Listed once.
                 <br />
-                <em className="text-gold">Every city.</em>
+                <em className="text-gold">Sold while you teach.</em>
               </h2>
-              <div data-earned-block className="sm:text-right">
-                <p className="text-[13px] text-canvas/60">Earned by one recorded course</p>
-                <p data-earned className={`${display.className} ${css.headline} mt-1 text-[clamp(2rem,4.6vw,4.4rem)] leading-none tracking-[-0.02em] text-gold [font-variant-numeric:lining-nums_tabular-nums]`}>
+              <p className="mt-4 hidden max-w-[27rem] text-[16px] leading-relaxed text-canvas/70 sm:block">
+                Put a recording on the Zinny marketplace and learners anywhere can buy it. Every sale shows up here, with its GST invoice already sent.
+              </p>
+              <div data-earned-block className="mt-6 sm:mt-10">
+                <p className="text-[13px] text-canvas/60">This year, from one course</p>
+                <p data-earned className={`${display.className} ${css.headline} mt-1 text-[clamp(2.2rem,4.8vw,4.4rem)] leading-none tracking-[-0.02em] text-gold [font-variant-numeric:lining-nums_tabular-nums]`}>
                   {rupees(EARNED)}
                 </p>
                 <p className="mt-2 text-[12px] text-canvas/50">
-                  For example, {SALES} learners at {rupees(PRICE)}, before GST.
+                  An example: {SALES} sales at {rupees(PRICE)}, before GST.
                 </p>
               </div>
             </div>
 
-            <ul aria-label="The recording, being watched in cities across India and abroad" className={css.wall}>
-              {SCREENS.map((s, i) => {
-                const yours = i === YOURS;
-                return (
-                  <li key={i} data-screen className={`${css.screen} ${yours ? css.yours : ""}`}>
-                    <div aria-hidden className={css.feed}>
-                      <span className={css.chalk} style={{ width: `${42 + ((i * 17) % 40)}%` }} />
-                      <span className={css.chalk} style={{ width: `${28 + ((i * 29) % 46)}%` }} />
-                      <span className={css.chalk} style={{ width: `${20 + ((i * 11) % 30)}%` }} />
-                      <svg viewBox="0 0 10 10" className="absolute right-2.5 bottom-2.5 size-3 text-canvas/50" fill="currentColor">
-                        <path d="M2.5 1.5v7L8.5 5z" />
-                      </svg>
-                      {yours ? (
-                        <span className="absolute top-2 left-2 rounded-full bg-gold px-2 py-0.5 text-[11px] font-semibold text-brand-deep">Your recording</span>
-                      ) : (
-                        <span className="absolute top-2 left-2.5 text-[11px] text-canvas/45">Lesson {s.lesson}</span>
-                      )}
+            <div data-store className={css.store}>
+              {/* The listing as learners see it on the marketplace. */}
+              <div className="flex gap-4 border-b border-line bg-surface p-4 sm:p-5">
+                <div aria-hidden className="relative h-[76px] w-[57px] shrink-0 overflow-hidden rounded-[2px_6px_6px_2px] bg-brand text-canvas shadow-[0_10px_18px_-10px_rgb(6_58_47/0.7)]">
+                  <span className="absolute inset-y-0 left-0 w-[7%] bg-black/20" />
+                  <span className={`${display.className} absolute inset-x-0 bottom-2 pr-1.5 pl-2.5 text-[10px] leading-tight font-semibold`}>Python Basics</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12px] text-muted">Your institute · on the Zinny marketplace</p>
+                  <p className="mt-0.5 text-[16px] leading-snug font-semibold">Python Basics: the full recordings</p>
+                  <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[14px]">
+                    <span className="font-semibold">{rupees(PRICE)}</span>
+                    <s className="text-muted">₹2,999</s>
+                    <span className="rounded-full bg-brand-soft px-2 text-[11px] font-medium text-brand">24 lessons · 9 h</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between px-4 pt-3.5 pb-1.5 text-[13px] sm:px-5">
+                <span className="font-semibold">Sales</span>
+                <span className="flex items-center gap-1.5 text-muted">
+                  <span aria-hidden className="size-2 rounded-full bg-gold" />
+                  Live
+                </span>
+              </div>
+              <ul aria-label="Recent orders">
+                {ORDERS.map((o) => (
+                  <li key={o.name} data-order className={css.order}>
+                    <div className="flex items-center gap-3 border-t border-line px-4 py-2.5 sm:px-5">
+                      <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[13px] font-semibold text-brand">
+                        {o.name[0]}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[14px]">
+                          <b className="font-semibold">{o.name}</b> bought {o.item}
+                        </p>
+                        <p className="text-[12px] text-muted">
+                          {o.city} · {o.when}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="tabular text-[14px] font-semibold">{rupees(o.amount)}</p>
+                        <p className="text-[11px] text-brand">Invoice sent</p>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between gap-2 px-2.5 py-2 text-[12px] sm:text-[13px]">
-                      <span className="truncate font-medium">{yours ? "Python Basics" : s.city}</span>
-                      {!yours && (
-                        <span data-ping className="shrink-0 rounded-full bg-gold px-1.5 py-px text-[11px] font-semibold text-brand-deep">
-                          +{rupees(PRICE)}
-                        </span>
-                      )}
-                    </div>
-                    <span aria-hidden className={css.watchTrack}>
-                      <span data-watch className={css.watch} style={{ width: `${yours ? 100 : 35 + ((s.lesson * 13) % 60)}%` }} />
-                    </span>
                   </li>
-                );
-              })}
-            </ul>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       </div>

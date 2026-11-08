@@ -152,88 +152,44 @@
 }
 
 /*
- * The end of the film: the recording, playing on a wall of screens. GSAP scales each `.screen`
- * in and draws each `.watch` bar, so neither carries a CSS transform of its own.
+ * The end of the film: the recording on the marketplace, and its orders coming in. GSAP moves
+ * `.store` and opens each `.order`, so neither has a CSS transform of its own.
  */
-.wallScene {
+.saleScene {
   position: absolute;
   inset: 0;
-  display: flex;
+  display: grid;
   max-width: 1180px;
-  flex-direction: column;
-  gap: clamp(1rem, 2.6vh, 2rem);
+  align-content: center;
+  gap: 1.75rem;
   margin-inline: auto;
   padding: 5.5rem 1.25rem 1.5rem;
 }
-.wall {
-  display: grid;
-  min-height: 0;
-  flex: 1 1 0;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(3, minmax(0, 1fr));
-  gap: 0.6rem;
-}
-@media (min-width: 640px) {
-  .wall {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0.75rem;
+@media (min-width: 1024px) {
+  .saleScene {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 31rem);
+    align-items: center;
+    gap: 4rem;
+    padding-inline: 2rem;
   }
 }
-/* Phones keep the middle three columns, so the institute's screen stays in the centre. */
-@media (max-width: 639px) {
-  .wall > :nth-child(5n + 1),
-  .wall > :nth-child(5n) {
+.store {
+  overflow: hidden;
+  border-radius: 24px;
+  background: #faf6ea;
+  color: #14261f;
+  box-shadow:
+    0 0 0 1px rgb(250 246 234 / 0.08),
+    0 50px 90px -40px rgb(0 0 0 / 0.75);
+}
+.order {
+  overflow: hidden;
+}
+/* Phones and short screens keep the four newest orders. */
+@media (max-width: 639px), (max-height: 760px) {
+  .order:nth-child(n + 5) {
     display: none;
   }
-}
-.screen {
-  position: relative;
-  display: flex;
-  min-height: 0;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: 14px;
-  background: rgb(250 246 234 / 0.05);
-  box-shadow: inset 0 0 0 1px rgb(250 246 234 / 0.1);
-}
-.yours {
-  background: rgb(212 167 42 / 0.12);
-  box-shadow:
-    inset 0 0 0 1.5px #d4a72a,
-    0 0 0 6px rgb(212 167 42 / 0.12),
-    0 24px 60px -20px rgb(212 167 42 / 0.45);
-}
-/* A lecture in miniature: a chalkboard with a few lines of writing on it. */
-.feed {
-  position: relative;
-  display: flex;
-  min-height: 0;
-  flex: 1 1 0;
-  flex-direction: column;
-  justify-content: center;
-  gap: 7%;
-  padding: 1.6rem 12% 1rem;
-  background:
-    radial-gradient(80% 90% at 20% 0%, rgb(11 94 76 / 0.75) 0%, rgb(11 94 76 / 0) 70%),
-    #063a2f;
-}
-.chalk {
-  display: block;
-  height: 3px;
-  border-radius: 2px;
-  background: rgb(250 246 234 / 0.28);
-}
-.watchTrack {
-  position: absolute;
-  inset: auto 0 0;
-  height: 3px;
-  background: rgb(250 246 234 / 0.1);
-}
-.watch {
-  display: block;
-  height: 100%;
-  transform-origin: left;
-  background: #d4a72a;
 }
 
 /* The sliders on the recordings calculator: gold on the dark card. */
@@ -317,15 +273,9 @@
   .strike {
     stroke-dashoffset: 0;
   }
-  .wallScene {
+  .saleScene {
     position: static;
     padding-top: 2rem;
-  }
-  .wall {
-    grid-template-rows: none;
-  }
-  .feed {
-    min-height: 7rem;
   }
   .door {
     transition: none;
