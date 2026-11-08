@@ -126,60 +126,80 @@
   letter-spacing: -0.025em;
   visibility: hidden;
 }
-.beatTop {
-  top: 6.5rem;
-  translate: none;
-  font-size: clamp(2.5rem, 6vw, 5.75rem);
-  text-wrap: balance;
+/* The hand-drawn line through "once". GSAP draws it from a dash offset of 1 to 0. */
+.strike {
+  position: absolute;
+  top: 38%;
+  left: -6%;
+  width: 112%;
+  height: 0.32em;
+  overflow: visible;
+  fill: none;
+  stroke: #063a2f;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
 }
-.beatTop h2 {
-  font-size: inherit;
+.strike path {
+  stroke-width: clamp(4px, 0.9vw, 11px);
+  vector-effect: non-scaling-stroke;
+}
+/* The correction, set smaller and a touch below, as if written in. */
+.keeps {
+  margin-top: 0.15em;
+  font-size: 0.62em;
+  color: #063a2f;
 }
 
-/* The shelf. `--k` shrinks the books together on small or short screens. */
-.shelf {
-  --k: 1;
+/*
+ * The end of the film: the recording on the marketplace, and its orders coming in. GSAP moves
+ * `.store` and opens each `.order`, so neither has a CSS transform of its own.
+ */
+.saleScene {
   position: absolute;
-  inset: auto 0 0;
-  padding-bottom: 1.5rem;
+  inset: 0;
+  display: grid;
+  max-width: 1180px;
+  align-content: center;
+  gap: 1.75rem;
+  margin-inline: auto;
+  padding: 5.5rem 1.25rem 1.5rem;
 }
-@media (min-width: 1100px) and (min-height: 860px) {
-  .shelf {
-    --k: 1.22;
+@media (min-width: 1024px) {
+  .saleScene {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 31rem);
+    align-items: center;
+    gap: 4rem;
+    padding-inline: 2rem;
   }
 }
-@media (max-width: 640px), (max-height: 760px) {
-  .shelf {
-    --k: 0.72;
-  }
-}
-.track {
-  display: flex;
-  width: max-content;
-  align-items: flex-end;
-  gap: 0.5rem;
-  padding: 0 1.25rem;
-}
-.spine {
-  position: relative;
-  display: flex;
-  width: calc(78px * var(--k));
-  height: calc(var(--h) * var(--k));
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
+.store {
   overflow: hidden;
-  border-radius: 6px 6px 3px 3px;
+  border-radius: 24px;
+  background: #faf6ea;
+  color: #14261f;
+  box-shadow:
+    0 0 0 1px rgb(250 246 234 / 0.08),
+    0 50px 90px -40px rgb(0 0 0 / 0.75);
 }
-.spineText {
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
+.order {
+  overflow: hidden;
 }
-.plank {
-  height: 0.875rem;
-  transform-origin: left;
-  background: #063a2f;
-  box-shadow: 0 18px 30px -16px rgb(6 58 47 / 0.55);
+/* Phones and short screens keep the four newest orders. */
+@media (max-width: 639px), (max-height: 760px) {
+  .order:nth-child(n + 5) {
+    display: none;
+  }
+}
+
+/* The sliders on the recordings calculator: gold on the dark card. */
+.range {
+  display: block;
+  width: 100%;
+  height: 1.75rem;
+  margin-top: 0.35rem;
+  accent-color: #d4a72a;
+  cursor: pointer;
 }
 
 /* ───────────── Two doors. Leaning towards one opens it wider ───────────── */
@@ -250,9 +270,12 @@
     translate: none;
     visibility: visible;
   }
-  .shelf {
+  .strike {
+    stroke-dashoffset: 0;
+  }
+  .saleScene {
     position: static;
-    overflow-x: auto;
+    padding-top: 2rem;
   }
   .door {
     transition: none;

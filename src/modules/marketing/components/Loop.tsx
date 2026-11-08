@@ -1,248 +1,165 @@
 "use client";
 
-import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { display } from "../fonts";
 import css from "../landing.module.css";
-
-gsap.registerPlugin(ScrollTrigger, useGSAP);
+import { rupees } from "./Desk";
+import { Reveal } from "./Reveal";
 
 const SERIF = display.className;
 
-const card = "rounded-xl bg-surface p-3.5 text-[12px] text-ink shadow-[0_18px_36px_-20px_rgb(0_0_0/0.6),0_0_0_1px_rgb(20_38_31/0.07)]";
+/** ₹12.9 L, ₹1.3 Cr: short enough to sit over a bar. */
+function short(n: number) {
+  if (n >= 1e7) return `₹${(n / 1e7).toFixed(n >= 1e8 ? 0 : 1)} Cr`;
+  if (n >= 1e5) return `₹${(n / 1e5).toFixed(n >= 1e6 ? 0 : 1)} L`;
+  return rupees(n);
+}
 
-/*
- * Each step's little screen performs when the step arrives. The marks it uses:
- * data-pop (scales up in turn), data-print (prints from the top), data-draw (draws left to
- * right), data-stamp (lands like a stamp), data-count (counts up to its number).
- */
 const STEPS = [
-  {
-    title: "Teach your batches",
-    body: "Timetables, live classes, attendance and tests for every batch you run.",
-    Demo: () => (
-      <div className={card}>
-        <div className="flex items-center justify-between">
-          <span className="font-semibold">Python Basics · Batch B</span>
-          <span data-stamp className="rounded-full bg-gold px-1.5 text-[10px] font-semibold text-brand-deep">
-            Live
-          </span>
-        </div>
-        <div className="mt-2.5 flex gap-1">
-          {[1, 1, 1, 0, 1, 1, 1, 1].map((p, i) => (
-            <span key={i} data-pop className={`h-5 flex-1 rounded-sm ${p ? "bg-brand" : "bg-danger/70"}`} />
-          ))}
-        </div>
-        <div className="mt-2 text-muted">
-          <span data-count="7">7</span> of 8 present
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: "Upload the recordings",
-    body: "Each class becomes a lesson in the course, with progress saved for every student.",
-    Demo: () => (
-      <div className={card}>
-        {["Variables and types", "Loops, properly", "Functions"].map((t, i) => (
-          <div key={t} data-pop className="flex items-center gap-2 py-1">
-            <span className={`flex size-4 items-center justify-center rounded-full text-canvas ${i < 2 ? "bg-brand" : "bg-faint"}`}>
-              <svg viewBox="0 0 8 8" className="ml-px size-2" fill="currentColor">
-                <path d="M2 1.2v5.6L6.8 4z" />
-              </svg>
-            </span>
-            <span className="truncate">{t}</span>
-            <span className="ml-auto text-muted">{[18, 24, 21][i]} min</span>
-          </div>
-        ))}
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
-          <span data-draw className="block h-full w-2/3 origin-left rounded-full bg-brand" />
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: "List them on the marketplace",
-    body: "A whole course, one lecture or a combo, at your price, with deals and discount codes.",
-    Demo: () => (
-      <div className={card}>
-        <div className="font-semibold">Python Basics: the full recordings</div>
-        <div className="mt-1.5 flex items-baseline gap-2">
-          <span className="text-[16px] font-semibold">₹1,999</span>
-          <s className="text-muted">₹2,999</s>
-          <span data-stamp className="ml-auto rounded-full bg-gold px-2 text-[10px] font-semibold text-brand-deep">
-            33% off
-          </span>
-        </div>
-        <div data-pop className="mt-2.5 rounded-full bg-brand py-1.5 text-center text-[11px] font-medium text-canvas">
-          On sale now
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: "Learners anywhere buy",
-    body: "Students, alumni and people who aren't at any institute, in one cart and one payment.",
-    Demo: () => (
-      <div className={card}>
-        <div className="flex items-center justify-between">
-          <span className="font-semibold">Cart</span>
-          <span className="text-muted">
-            <span data-count="3">3</span> recordings
-          </span>
-        </div>
-        <div className="mt-2 flex gap-1.5">
-          {["bg-brand", "bg-[#2f4a72]", "bg-[#a8402c]"].map((c) => (
-            <span key={c} data-pop className={`aspect-[3/4] w-8 rounded-[1px_3px_3px_1px] ${c} shadow-[0_6px_10px_-6px_rgb(0_0_0/0.6)]`} />
-          ))}
-        </div>
-        <div data-stamp className="mt-2.5 rounded-full bg-gold py-1.5 text-center text-[11px] font-semibold text-brand-deep">
-          Pay once with UPI
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: "You're paid, with GST invoices",
-    body: "Every sale is invoiced in your institute's name. Refunds, reports and sales sit in one place.",
-    Demo: () => (
-      <div className={card}>
-        <div className="flex items-center justify-between">
-          <span className="font-semibold">Tax invoice</span>
-          <span data-stamp className="rounded-full bg-brand-soft px-1.5 text-[10px] font-semibold text-brand">
-            Paid
-          </span>
-        </div>
-        <div data-print className="mt-2 space-y-0.5 text-muted">
-          <div className="flex justify-between">
-            <span>Course fee</span>
-            <span className="tabular">₹1,999.00</span>
-          </div>
-          <div className="flex justify-between">
-            <span>CGST 9% + SGST 9%</span>
-            <span className="tabular">₹359.82</span>
-          </div>
-          <div className="flex justify-between border-t border-line pt-1 font-semibold text-ink">
-            <span>Total</span>
-            <span className="tabular">₹2,358.82</span>
-          </div>
-        </div>
-      </div>
-    ),
-  },
-];
+  ["Teach", "Run your batches and live classes the way you do now."],
+  ["Record", "Each class becomes a lesson, with progress saved for every student."],
+  ["List", "A whole course, one lecture or a combo, at the price you set."],
+  ["Sell", "Learners anywhere buy in one cart and pay with UPI, a card or netbanking."],
+  ["Get paid", "Every sale is invoiced in your institute's name, with GST."],
+] as const;
 
-/** Plays one step's little screen: things pop in, print, draw, stamp and count. */
-function perform(step: HTMLElement) {
-  const tl = gsap.timeline({ paused: true });
-  const q = (s: string) => step.querySelectorAll<HTMLElement>(s);
-  tl.from(q("[data-pop]"), { scale: 0, opacity: 0, duration: 0.4, stagger: 0.06, ease: "back.out(2.2)" }, 0)
-    .from(q("[data-print]"), { clipPath: "inset(0 0 100% 0)", duration: 0.8, ease: "power2.inOut" }, 0.1)
-    .from(q("[data-draw]"), { scaleX: 0, duration: 0.9, ease: "power2.inOut" }, 0.2)
-    .from(q("[data-stamp]"), { scale: 2.4, rotate: -14, opacity: 0, duration: 0.45, stagger: 0.1, ease: "back.out(2.4)" }, 0.45);
-  q("[data-count]").forEach((n) => {
-    const to = Number(n.dataset.count);
-    const c = { v: 0 };
-    tl.to(c, { v: to, duration: 0.7, ease: "power1.out", onUpdate: () => (n.textContent = String(Math.round(c.v))) }, 0.1);
-  });
-  return tl;
+function Slider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  show,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  show: (n: number) => string;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="flex items-baseline justify-between gap-4 text-[14px]">
+        <span className="text-canvas/70">{label}</span>
+        <span className="tabular font-semibold text-canvas">{show(value)}</span>
+      </span>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className={css.range} />
+    </label>
+  );
 }
 
 /**
- * How Zinny works, as one journey: teach, record, list, sell, get paid. On a wide screen the
- * section holds still while the scroll carries the steps across it, a gold thread drawing
- * under them with a book riding along, and each step's screen performs as it reaches the
- * middle. On a phone the steps run down the page and perform as they come into view.
+ * Teach it once, sell it for years, made personal: the institute moves three sliders and sees
+ * what learners would pay for the recordings it already has, in a year and over five. Under it,
+ * the five steps from a class to a payout. The figure is gross sales, and says so.
  */
 export function Loop() {
-  const root = useRef<HTMLElement>(null);
+  const [courses, setCourses] = useState(6);
+  const [price, setPrice] = useState(1499);
+  const [buyers, setBuyers] = useState(12);
+  const yearly = courses * price * buyers * 12;
+  const years = [1, 2, 3, 4, 5].map((y) => yearly * y);
 
-  useGSAP(
-    () => {
-      const el = root.current!;
-      const steps = gsap.utils.toArray<HTMLElement>("[data-step]");
-      const mm = gsap.matchMedia();
-
-      mm.add({ wide: "(min-width: 1024px)", narrow: "(max-width: 1023px)", reduce: "(prefers-reduced-motion: reduce)" }, (ctx) => {
-        const { wide, reduce } = ctx.conditions as { wide: boolean; reduce: boolean };
-        if (reduce) return;
-        const shows = steps.map(perform);
-        const track = el.querySelector<HTMLElement>("[data-track]")!;
-        const thread = el.querySelector<HTMLElement>("[data-thread]")!;
-        const token = el.querySelector<HTMLElement>("[data-token]")!;
-
-        if (wide) {
-          const distance = () => track.scrollWidth - el.querySelector<HTMLElement>("[data-viewport]")!.clientWidth;
-          const ride = gsap.timeline({
-            defaults: { ease: "none" },
-            scrollTrigger: { trigger: el, pin: true, start: "top top", end: () => `+=${distance() + window.innerHeight * 0.4}`, scrub: 0.8, invalidateOnRefresh: true },
-          });
-          ride.to(track, { x: () => -distance(), duration: 1 }, 0).fromTo(thread, { scaleX: 0 }, { scaleX: 1, duration: 1 }, 0).fromTo(token, { left: "0%" }, { left: "100%", duration: 1 }, 0);
-          steps.forEach((step, i) => {
-            ScrollTrigger.create({
-              trigger: step,
-              containerAnimation: ride,
-              start: "left 70%",
-              onEnter: () => shows[i].restart(),
-              onLeaveBack: () => shows[i].pause(0),
-            });
-            gsap.from(step.querySelector("[data-card]"), { y: 40, rotate: 4, opacity: 0, ease: "power2.out", scrollTrigger: { trigger: step, containerAnimation: ride, start: "left 95%", end: "left 65%", scrub: true } });
-          });
-        } else {
-          gsap.fromTo(thread, { scaleY: 0 }, { scaleY: 1, ease: "none", scrollTrigger: { trigger: track, start: "top 70%", end: "bottom 60%", scrub: 0.6 } });
-          gsap.fromTo(token, { top: "0%" }, { top: "100%", ease: "none", scrollTrigger: { trigger: track, start: "top 70%", end: "bottom 60%", scrub: 0.6 } });
-          steps.forEach((step, i) => {
-            ScrollTrigger.create({ trigger: step, start: "top 75%", onEnter: () => shows[i].restart(), onLeaveBack: () => shows[i].pause(0) });
-            gsap.from(step.querySelector("[data-card]"), { y: 30, opacity: 0, duration: 0.7, ease: "power3.out", scrollTrigger: { trigger: step, start: "top 80%" } });
-          });
-        }
-      });
-      return () => mm.revert();
-    },
-    { scope: root },
-  );
+  // The big number rolls to its new value instead of jumping. With reduced motion it just changes.
+  const num = useRef<HTMLSpanElement>(null);
+  const shown = useRef(yearly);
+  useEffect(() => {
+    const el = num.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      shown.current = yearly;
+      el.textContent = rupees(yearly);
+      return;
+    }
+    const o = { v: shown.current };
+    const t = gsap.to(o, {
+      v: yearly,
+      duration: 0.6,
+      ease: "power3.out",
+      onUpdate: () => {
+        shown.current = Math.round(o.v);
+        el.textContent = rupees(shown.current);
+      },
+    });
+    return () => {
+      t.kill();
+    };
+  }, [yearly]);
 
   return (
-    <section ref={root} aria-labelledby="loop" className={`${css.chalkboard} relative overflow-x-clip text-canvas lg:flex lg:h-dvh lg:flex-col lg:justify-center`}>
-      <div className="mx-auto w-full max-w-[1240px] px-5 pt-24 sm:px-8 sm:pt-28 lg:pt-20">
-        <h2 id="loop" className={`${SERIF} ${css.headline} max-w-[18ch] text-[clamp(2.4rem,5vw,4.4rem)] leading-[1.04] tracking-[-0.02em]`}>
-          Teach it once. <span className="text-gold">Sell it for years.</span>
-        </h2>
-        <p className="mt-4 max-w-[36rem] text-[17px] leading-relaxed text-canvas/75">
-          Every institute already has its best teaching on video. Zinny turns the classes you run into recordings anyone can buy, without a second tool.
-        </p>
-      </div>
+    <section aria-labelledby="worth" className="relative overflow-x-clip py-24 text-ink sm:py-32">
+      <Reveal className="mx-auto grid max-w-[1240px] gap-12 px-5 sm:px-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center lg:gap-16">
+        <div>
+          <p data-reveal className="text-[15px] font-medium text-brand">
+            Teach it once. Sell it for years.
+          </p>
+          <h2 id="worth" data-reveal className={`${SERIF} ${css.headline} mt-3 max-w-[11ch] text-[clamp(2.6rem,5.6vw,5rem)] leading-[1] tracking-[-0.025em]`}>
+            What are your recordings <em className="text-brand">worth?</em>
+          </h2>
+          <p data-reveal className="mt-5 max-w-[30rem] text-[17px] leading-relaxed text-ink/70">
+            Your best teaching is already on video. Move the sliders to see what learners would pay for it.
+          </p>
 
-      <div data-viewport className="relative mx-auto w-full max-w-[1240px] px-5 pt-14 pb-24 sm:px-8 lg:overflow-visible lg:pt-12 lg:pb-16">
-        {/* The thread: down the left on a phone, along the top of the steps on a wide screen. */}
-        <span aria-hidden className="absolute top-14 bottom-24 left-[35px] w-px bg-canvas/15 sm:left-[47px] lg:top-[3.75rem] lg:right-8 lg:bottom-auto lg:left-8 lg:h-px lg:w-auto" />
-        <span aria-hidden data-thread className="absolute top-14 bottom-24 left-[35px] w-[2px] origin-top bg-gold sm:left-[47px] lg:top-[3.75rem] lg:right-8 lg:bottom-auto lg:left-8 lg:h-[2px] lg:w-auto lg:origin-left" />
-        <span aria-hidden className="pointer-events-none absolute top-14 bottom-24 left-[28px] sm:left-[40px] lg:top-[3.1rem] lg:right-8 lg:bottom-auto lg:left-8 lg:h-5">
-          <span data-token className="absolute h-5 w-4 -translate-y-1/2 rounded-[1px_3px_3px_1px] bg-gold shadow-[0_6px_12px_-4px_rgb(0_0_0/0.6)] lg:top-1/2 lg:-translate-x-1/2" />
-        </span>
+          <ol className="mt-10 grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-1">
+            {STEPS.map(([title, body], i) => (
+              <li key={title} data-reveal className="flex gap-4">
+                <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand text-[13px] font-semibold text-canvas">
+                  {i + 1}
+                </span>
+                <span>
+                  <span className="block text-[16px] font-semibold">{title}</span>
+                  <span className="block text-[15px] leading-snug text-ink/65">{body}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
 
-        <ol data-track className="relative space-y-16 lg:flex lg:w-max lg:gap-10 lg:space-y-0 lg:pr-[30vw]">
-          {STEPS.map(({ title, body, Demo }, i) => (
-            <li key={title} data-step className="relative pl-12 sm:pl-16 lg:w-[22rem] lg:pt-14 lg:pl-0">
-              <span
-                aria-hidden
-                className="absolute top-0 left-0 flex size-8 items-center justify-center rounded-full bg-brand-deep text-[13px] font-semibold text-gold ring-2 ring-gold/70 sm:size-10 lg:-top-0.5 lg:left-0"
-              >
-                {i + 1}
-              </span>
-              <div data-card>
-                <h3 className={`${SERIF} ${css.accent} text-[clamp(1.6rem,2.4vw,2.1rem)] leading-tight`}>{title}</h3>
-                <p className="mt-2 max-w-[30rem] text-[16px] leading-relaxed text-canvas/70">{body}</p>
-                <div aria-hidden className="mt-5 max-w-[18rem]">
-                  <Demo />
+        <div data-reveal className="rounded-[28px] bg-brand-deep p-6 text-canvas shadow-[0_40px_80px_-40px_rgb(6_58_47/0.8)] sm:p-10">
+          <p className="text-[14px] text-canvas/60">Sales in a year</p>
+          <p aria-live="polite" className={`${SERIF} ${css.headline} mt-1 text-[clamp(2.6rem,6.4vw,5.4rem)] leading-none tracking-[-0.02em] text-gold [font-variant-numeric:lining-nums_tabular-nums]`}>
+            <span ref={num}>{rupees(yearly)}</span>
+          </p>
+          <p className="mt-3 text-[13px] text-canvas/55">
+            {courses} {courses === 1 ? "course" : "courses"} × {rupees(price)} × {buyers} {buyers === 1 ? "buyer" : "buyers"} a month × 12 months
+          </p>
+
+          <div className="mt-8 grid gap-6">
+            <Slider label="Recorded courses" value={courses} min={1} max={40} step={1} show={String} onChange={setCourses} />
+            <Slider label="Price of each course" value={price} min={299} max={4999} step={100} show={rupees} onChange={setPrice} />
+            <Slider label="Buyers for each course, every month" value={buyers} min={1} max={100} step={1} show={String} onChange={setBuyers} />
+          </div>
+
+          <div className="mt-10">
+            <p className="text-[14px] text-canvas/60">And it keeps selling</p>
+            <div aria-hidden className="mt-4 grid h-44 grid-cols-5 gap-3">
+              {years.map((v, i) => (
+                <div key={i} className="flex flex-col">
+                  <span className="mb-1.5 text-center text-[12px] font-semibold text-canvas/85 tabular">{short(v)}</span>
+                  <div className="relative flex-1">
+                    <span
+                      className="absolute inset-x-0 bottom-0 rounded-t-lg bg-gold [transition:height_0.7s_cubic-bezier(0.22,1,0.36,1)]"
+                      style={{ height: `${(v / years[4]) * 100}%`, opacity: 0.35 + i * 0.16 }}
+                    />
+                  </div>
+                  <span className="mt-2 text-center text-[12px] text-canvas/55">Year {i + 1}</span>
                 </div>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </div>
+              ))}
+            </div>
+            <p className="sr-only">
+              Over five years: {years.map((v, i) => `year ${i + 1}, ${rupees(v)}`).join("; ")}.
+            </p>
+          </div>
+
+          <p className="mt-8 border-t border-canvas/10 pt-4 text-[12px] leading-relaxed text-canvas/50">
+            Gross sales, before GST, payment fees and refunds. An estimate to plan with, not a promise.
+          </p>
+        </div>
+      </Reveal>
     </section>
   );
 }

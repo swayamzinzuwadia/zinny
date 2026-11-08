@@ -219,23 +219,5 @@ export const PIECES: Piece[] = [
   { id: "recordings", tile: "Recordings", note: "Ready to sell on the marketplace", x: 50, y: 88, mx: 50, my: 95, tilt: -2, width: 210, depth: 0.9, Face: Recordings },
 ];
 
-export type Book = { title: string; height: number; tone: string };
-
-export const BOOKS: Book[] = [
-  { title: "Data Analytics", height: 300, tone: "bg-brand text-canvas" },
-  { title: "Python in an hour", height: 250, tone: "bg-gold text-brand-deep" },
-  { title: "GST for small businesses", height: 320, tone: "bg-[#2f4a72] text-canvas" },
-  { title: "Brand storytelling", height: 240, tone: "bg-surface text-brand-deep ring-1 ring-line" },
-  { title: "Machine Learning Foundations", height: 356, tone: "bg-brand-deep text-canvas" },
-  { title: "Reading a balance sheet", height: 288, tone: "bg-[#7a3d66] text-canvas" },
-  { title: "Digital Marketing", height: 280, tone: "bg-[#a8402c] text-canvas" },
-  { title: "Neural networks, explained", height: 312, tone: "bg-brand-soft text-brand-deep" },
-  { title: "Business Accounting", height: 300, tone: "bg-gold-strong text-canvas" },
-  { title: "Spoken English", height: 248, tone: "bg-[#2f4a72] text-canvas" },
-  { title: "Organic chemistry, revised", height: 318, tone: "bg-brand text-canvas" },
-  { title: "UPSC current affairs", height: 296, tone: "bg-surface text-brand-deep ring-1 ring-line" },
-  { title: "Calculus without fear", height: 276, tone: "bg-[#7a3d66] text-canvas" },
-  { title: "Tally for beginners", height: 262, tone: "bg-gold text-brand-deep" },
-  { title: "Public speaking", height: 300, tone: "bg-brand-deep text-canvas" },
-  { title: "Photography basics", height: 270, tone: "bg-[#a8402c] text-canvas" },
-];
+/** ₹1,499, with Indian digit grouping. */
+export const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;

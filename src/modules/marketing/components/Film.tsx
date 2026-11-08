@@ -7,7 +7,23 @@ import { SplitText } from "gsap/SplitText";
 import { useRef } from "react";
 import { display } from "../fonts";
 import css from "../landing.module.css";
-import { BOOKS, PIECES } from "./Desk";
+import { PIECES, rupees } from "./Desk";
+
+/**
+ * The orders that come in once a recording is listed: who bought what, and from where, newest
+ * first. An illustration, which the caption under the counter says. Short screens show four.
+ */
+const ORDERS = [
+  { name: "Ananya", city: "Pune", item: "the full course", amount: 1499, when: "Just now" },
+  { name: "Rahul", city: "Guwahati", item: "the full course", amount: 1499, when: "4 min ago" },
+  { name: "Fatima", city: "Hyderabad", item: "Lecture 7: Functions", amount: 199, when: "11 min ago" },
+  { name: "Imran", city: "Dubai", item: "the full course", amount: 1499, when: "26 min ago" },
+  { name: "Meera", city: "Jaipur", item: "the Python and SQL combo", amount: 2499, when: "40 min ago" },
+  { name: "Arjun", city: "Kochi", item: "the full course", amount: 1499, when: "1 h ago" },
+];
+const PRICE = 1499;
+const SALES = 280;
+const EARNED = PRICE * SALES;
 
 gsap.registerPlugin(ScrollTrigger, SplitText, useGSAP);
 
@@ -140,27 +156,29 @@ export function Film() {
         tl.fromTo("[data-lecture]", { clipPath: fromTile }, { clipPath: "inset(0px 0px 0px 0px round 0px)", duration: 0.8, ease: "power3.inOut" }, "burst");
         tl.fromTo("[data-play]", { scale: 0.25, rotation: -18 }, { scale: 1, rotation: 0, duration: 0.8, ease: "power3.inOut" }, "burst");
 
-        // Two lines, one idea.
+        // One line, edited: "once" is crossed out by hand, and the correction is written under it.
         tl.fromTo(word("once"), { autoAlpha: 0, y: 50 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: "power3.out" }, "burst+=0.55");
-        tl.to(word("once"), { autoAlpha: 0, y: -50, duration: 0.3, ease: "power2.in" }, "+=0.45");
-        tl.fromTo(word("again"), { autoAlpha: 0, y: 50 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: "power3.out" }, ">");
-        tl.to({}, { duration: 0.4 });
+        tl.fromTo("[data-strike]", { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.3, ease: "power2.inOut" }, ">+=0.3");
+        tl.fromTo("[data-keeps]", { autoAlpha: 0, y: 24, rotation: -2 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 0.35, ease: "back.out(1.6)" }, ">+=0.05");
+        tl.to({}, { duration: 0.45 });
 
-        // Gold gives way to the shelf.
-        tl.addLabel("shelf");
-        tl.to(word("again"), { autoAlpha: 0, y: -50, duration: 0.3, ease: "power2.in" }, "shelf");
-        tl.to("[data-play]", { scale: 0, rotation: 40, duration: 0.45, ease: "back.in(1.6)" }, "shelf");
-        tl.to("[data-lecture]", { backgroundColor: "#faf6ea", duration: 0.5 }, "shelf+=0.1");
-        gsap.set("[data-spine]", { yPercent: 130 });
-        tl.to("[data-spine]", { yPercent: 0, duration: 0.45, stagger: 0.012, ease: "back.out(1.3)" }, "shelf+=0.2");
-        tl.fromTo("[data-plank]", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "power2.out" }, "shelf+=0.2");
-        tl.fromTo(word("stock"), { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: "power3.out" }, "shelf+=0.45");
+        // The lights go down: gold turns to night, and the recording is on sale.
+        tl.addLabel("wall");
+        tl.to(word("once"), { autoAlpha: 0, y: -50, duration: 0.3, ease: "power2.in" }, "wall");
+        tl.to("[data-play]", { scale: 0.18, rotation: 0, autoAlpha: 0, duration: 0.45, ease: "power3.in" }, "wall");
+        tl.to("[data-lecture]", { backgroundColor: "#04291f", color: "#faf6ea", duration: 0.5 }, "wall+=0.1");
+        tl.fromTo(word("every"), { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: "power3.out" }, "wall+=0.3");
+        tl.fromTo("[data-store]", { autoAlpha: 0, y: 80, rotation: 3 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 0.5, ease: "power3.out" }, "wall+=0.35");
 
-        // The shelf slides past, and the line turns to the student.
-        tl.addLabel("slide");
-        tl.to("[data-track]", { x: () => -(stage.querySelector<HTMLElement>("[data-track]")!.getBoundingClientRect().width - stage.clientWidth), duration: 2 }, "slide");
-        tl.to(word("stock"), { autoAlpha: 0, y: -40, duration: 0.3, ease: "power2.in" }, "slide+=0.65");
-        tl.fromTo(word("anyone"), { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: "power3.out" }, "slide+=0.9");
+        // The sales come in: each order drops in at the top of the feed and pushes the older ones
+        // down, and the year's total climbs beside it.
+        tl.addLabel("earn");
+        tl.to({}, { duration: 2 }, "earn");
+        tl.fromTo("[data-order]", { height: 0, autoAlpha: 0 }, { height: "auto", autoAlpha: 1, duration: 0.18, stagger: { each: 0.28, from: "end" }, ease: "power2.out" }, "earn+=0.1");
+        tl.fromTo("[data-earned-block]", { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.3, ease: "power3.out" }, "earn");
+        const earned = stage.querySelector<HTMLElement>("[data-earned]");
+        const total = { v: 0 };
+        tl.fromTo(total, { v: 0 }, { v: EARNED, duration: 1.8, ease: "power1.in", onUpdate: () => earned && (earned.textContent = rupees(Math.round(total.v))) }, "earn+=0.1");
         tl.to({}, { duration: 0.5 });
 
         return () => {
@@ -249,31 +267,94 @@ export function Film() {
           </svg>
 
           <div className={css.beats}>
-            <p data-beat="once" className={`${display.className} ${css.headline} ${css.beat}`}>
-              You taught it <em>once.</em>
-            </p>
-            <p data-beat="again" className={`${display.className} ${css.headline} ${css.beat}`}>
-              It can keep <em>teaching.</em>
-            </p>
-            <p data-beat="stock" className={`${display.className} ${css.headline} ${css.beat} ${css.beatTop}`}>
-              Institutes stock the shelf.
-            </p>
-            <p data-beat="anyone" className={`${display.className} ${css.headline} ${css.beat} ${css.beatTop}`}>
-              Anyone can learn <em className="text-brand">from it.</em>
-            </p>
+            {/* An edit, not two slides: "once" is struck out and the correction is written beneath. */}
+            <div data-beat="once" className={`${display.className} ${css.headline} ${css.beat}`}>
+              <p>
+                You taught it{" "}
+                <span className="relative inline-block">
+                  <em>once.</em>
+                  <svg aria-hidden viewBox="0 0 100 20" preserveAspectRatio="none" className={css.strike}>
+                    <path data-strike d="M2 13 C 22 6, 48 15, 70 9 S 92 8, 98 10" pathLength={1} />
+                  </svg>
+                </span>
+              </p>
+              <p data-keeps className={css.keeps}>
+                It keeps <em>teaching.</em>
+              </p>
+            </div>
           </div>
 
-          <div className={css.shelf}>
-            <div data-track className={css.track}>
-              {[...BOOKS, ...BOOKS.toReversed()].map((b, i) => (
-                <span key={i} data-spine className={`${css.spine} ${b.tone}`} style={{ "--h": `${b.height}px` } as React.CSSProperties}>
-                  <span aria-hidden className="absolute inset-x-0 top-5 h-px bg-current opacity-30" />
-                  <span aria-hidden className="absolute inset-x-0 top-6 h-px bg-current opacity-30" />
-                  <span className={`${display.className} ${css.spineText} ${css.accent} text-[20px] leading-tight whitespace-nowrap`}>{b.title}</span>
-                </span>
-              ))}
+          {/* ── Night falls: the recording is on the marketplace, and the orders come in ── */}
+          <div className={css.saleScene}>
+            <div>
+              <h2 data-beat="every" className={`${display.className} ${css.headline} text-[clamp(2.3rem,5.2vw,4.8rem)] leading-[1] tracking-[-0.025em]`}>
+                Listed once.
+                <br />
+                <em className="text-gold">Sold while you teach.</em>
+              </h2>
+              <p className="mt-4 hidden max-w-[27rem] text-[16px] leading-relaxed text-canvas/70 sm:block">
+                Put a recording on the Zinny marketplace and learners anywhere can buy it. Every sale shows up here, with its GST invoice already sent.
+              </p>
+              <div data-earned-block className="mt-6 sm:mt-10">
+                <p className="text-[13px] text-canvas/60">This year, from one course</p>
+                <p data-earned className={`${display.className} ${css.headline} mt-1 text-[clamp(2.2rem,4.8vw,4.4rem)] leading-none tracking-[-0.02em] text-gold [font-variant-numeric:lining-nums_tabular-nums]`}>
+                  {rupees(EARNED)}
+                </p>
+                <p className="mt-2 text-[12px] text-canvas/50">
+                  An example: {SALES} sales at {rupees(PRICE)}, before GST.
+                </p>
+              </div>
             </div>
-            <div data-plank className={css.plank} />
+
+            <div data-store className={css.store}>
+              {/* The listing as learners see it on the marketplace. */}
+              <div className="flex gap-4 border-b border-line bg-surface p-4 sm:p-5">
+                <div aria-hidden className="relative h-[76px] w-[57px] shrink-0 overflow-hidden rounded-[2px_6px_6px_2px] bg-brand text-canvas shadow-[0_10px_18px_-10px_rgb(6_58_47/0.7)]">
+                  <span className="absolute inset-y-0 left-0 w-[7%] bg-black/20" />
+                  <span className={`${display.className} absolute inset-x-0 bottom-2 pr-1.5 pl-2.5 text-[10px] leading-tight font-semibold`}>Python Basics</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12px] text-muted">Your institute · on the Zinny marketplace</p>
+                  <p className="mt-0.5 text-[16px] leading-snug font-semibold">Python Basics: the full recordings</p>
+                  <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[14px]">
+                    <span className="font-semibold">{rupees(PRICE)}</span>
+                    <s className="text-muted">₹2,999</s>
+                    <span className="rounded-full bg-brand-soft px-2 text-[11px] font-medium text-brand">24 lessons · 9 h</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between px-4 pt-3.5 pb-1.5 text-[13px] sm:px-5">
+                <span className="font-semibold">Sales</span>
+                <span className="flex items-center gap-1.5 text-muted">
+                  <span aria-hidden className="size-2 rounded-full bg-gold" />
+                  Live
+                </span>
+              </div>
+              <ul aria-label="Recent orders">
+                {ORDERS.map((o) => (
+                  <li key={o.name} data-order className={css.order}>
+                    <div className="flex items-center gap-3 border-t border-line px-4 py-2.5 sm:px-5">
+                      <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[13px] font-semibold text-brand">
+                        {o.name[0]}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[14px]">
+                          <b className="font-semibold">{o.name}</b> bought {o.item}
+                        </p>
+                        <p className="text-[12px] text-muted">
+                          {o.city} · {o.when}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="tabular text-[14px] font-semibold">{rupees(o.amount)}</p>
+                        <p className="text-[11px] text-brand">Invoice sent</p>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       </div>
