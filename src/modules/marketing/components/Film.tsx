@@ -7,7 +7,10 @@ import { SplitText } from "gsap/SplitText";
 import { useRef } from "react";
 import { display } from "../fonts";
 import css from "../landing.module.css";
-import { BOOKS, PIECES } from "./Desk";
+import { BOOKS, PIECES, rupees } from "./Desk";
+
+/** The books pulled off the shelf as the film ends, spread over both shelves. Each sits in the first eight of its shelf, which are the ones phones show. */
+const PULLED = [2, 14, 5, 17, 7, 13];
 
 gsap.registerPlugin(ScrollTrigger, SplitText, useGSAP);
 
@@ -140,27 +143,42 @@ export function Film() {
         tl.fromTo("[data-lecture]", { clipPath: fromTile }, { clipPath: "inset(0px 0px 0px 0px round 0px)", duration: 0.8, ease: "power3.inOut" }, "burst");
         tl.fromTo("[data-play]", { scale: 0.25, rotation: -18 }, { scale: 1, rotation: 0, duration: 0.8, ease: "power3.inOut" }, "burst");
 
-        // Two lines, one idea.
+        // One line, edited: "once" is crossed out by hand, and the correction is written under it.
         tl.fromTo(word("once"), { autoAlpha: 0, y: 50 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: "power3.out" }, "burst+=0.55");
-        tl.to(word("once"), { autoAlpha: 0, y: -50, duration: 0.3, ease: "power2.in" }, "+=0.45");
-        tl.fromTo(word("again"), { autoAlpha: 0, y: 50 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: "power3.out" }, ">");
-        tl.to({}, { duration: 0.4 });
+        tl.fromTo("[data-strike]", { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.3, ease: "power2.inOut" }, ">+=0.3");
+        tl.fromTo("[data-keeps]", { autoAlpha: 0, y: 24, rotation: -2 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 0.35, ease: "back.out(1.6)" }, ">+=0.05");
+        tl.to({}, { duration: 0.45 });
 
-        // Gold gives way to the shelf.
+        // Gold gives way to the shelf, and a shop sign drops in on its chains.
         tl.addLabel("shelf");
-        tl.to(word("again"), { autoAlpha: 0, y: -50, duration: 0.3, ease: "power2.in" }, "shelf");
+        tl.to(word("once"), { autoAlpha: 0, y: -50, duration: 0.3, ease: "power2.in" }, "shelf");
         tl.to("[data-play]", { scale: 0, rotation: 40, duration: 0.45, ease: "back.in(1.6)" }, "shelf");
         tl.to("[data-lecture]", { backgroundColor: "#faf6ea", duration: 0.5 }, "shelf+=0.1");
-        gsap.set("[data-spine]", { yPercent: 130 });
-        tl.to("[data-spine]", { yPercent: 0, duration: 0.45, stagger: 0.012, ease: "back.out(1.3)" }, "shelf+=0.2");
+        gsap.set("[data-spine]", { yPercent: 60, autoAlpha: 0 });
+        tl.to("[data-spine]", { yPercent: 0, autoAlpha: 1, duration: 0.45, stagger: 0.012, ease: "back.out(1.3)" }, "shelf+=0.2");
         tl.fromTo("[data-plank]", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "power2.out" }, "shelf+=0.2");
-        tl.fromTo(word("stock"), { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: "power3.out" }, "shelf+=0.45");
+        tl.fromTo("[data-sign]", { autoAlpha: 0, y: -240, rotation: -7 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 0.5, ease: "back.out(1.5)" }, "shelf+=0.4");
+        tl.set(word("stock"), { autoAlpha: 1 }, "shelf+=0.4");
 
-        // The shelf slides past, and the line turns to the student.
+        // The shelf stays put. Books come off it one at a time and show what they cost, and the line turns to the student.
         tl.addLabel("slide");
-        tl.to("[data-track]", { x: () => -(stage.querySelector<HTMLElement>("[data-track]")!.getBoundingClientRect().width - stage.clientWidth), duration: 2 }, "slide");
-        tl.to(word("stock"), { autoAlpha: 0, y: -40, duration: 0.3, ease: "power2.in" }, "slide+=0.65");
-        tl.fromTo(word("anyone"), { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: "power3.out" }, "slide+=0.9");
+        const slideAt = tl.labels.slide;
+        tl.to({}, { duration: 2 }, slideAt);
+        const spines = gsap.utils.toArray<HTMLElement>("[data-spine]");
+        PULLED.forEach((n, turn) => {
+          const at = slideAt + turn * 0.3;
+          const tag = spines[n].querySelector("[data-tag]");
+          tl.to(spines[n], { y: -22, duration: 0.1, ease: "power2.out" }, at);
+          tl.fromTo(tag, { autoAlpha: 0, y: 6, scale: 0.85 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.1, ease: "back.out(2)" }, at);
+          tl.to(spines[n], { y: 0, duration: 0.12, ease: "power2.in" }, at + 0.2);
+          tl.to(tag, { autoAlpha: 0, duration: 0.08 }, at + 0.2);
+        });
+        // Halfway through, the sign turns over to the learner's side, and swings a little from the turn.
+        tl.to("[data-sign-board]", { rotationX: 90, duration: 0.15, ease: "power2.in" }, "slide+=0.75");
+        tl.set(word("stock"), { autoAlpha: 0 }, "slide+=0.9");
+        tl.set(word("anyone"), { autoAlpha: 1 }, "slide+=0.9");
+        tl.fromTo("[data-sign-board]", { rotationX: -90 }, { rotationX: 0, duration: 0.25, ease: "back.out(1.8)" }, "slide+=0.9");
+        tl.fromTo("[data-sign]", { rotation: 2.5 }, { rotation: 0, duration: 0.6, ease: "elastic.out(1, 0.35)" }, "slide+=0.9");
         tl.to({}, { duration: 0.5 });
 
         return () => {
@@ -249,31 +267,63 @@ export function Film() {
           </svg>
 
           <div className={css.beats}>
-            <p data-beat="once" className={`${display.className} ${css.headline} ${css.beat}`}>
-              You taught it <em>once.</em>
-            </p>
-            <p data-beat="again" className={`${display.className} ${css.headline} ${css.beat}`}>
-              It can keep <em>teaching.</em>
-            </p>
-            <p data-beat="stock" className={`${display.className} ${css.headline} ${css.beat} ${css.beatTop}`}>
-              Institutes stock the shelf.
-            </p>
-            <p data-beat="anyone" className={`${display.className} ${css.headline} ${css.beat} ${css.beatTop}`}>
-              Anyone can learn <em className="text-brand">from it.</em>
-            </p>
+            {/* An edit, not two slides: "once" is struck out and the correction is written beneath. */}
+            <div data-beat="once" className={`${display.className} ${css.headline} ${css.beat}`}>
+              <p>
+                You taught it{" "}
+                <span className="relative inline-block">
+                  <em>once.</em>
+                  <svg aria-hidden viewBox="0 0 100 20" preserveAspectRatio="none" className={css.strike}>
+                    <path data-strike d="M2 13 C 22 6, 48 15, 70 9 S 92 8, 98 10" pathLength={1} />
+                  </svg>
+                </span>
+              </p>
+              <p data-keeps className={css.keeps}>
+                It keeps <em>teaching.</em>
+              </p>
+            </div>
+          </div>
+
+          {/* A shop sign on two chains. It turns over from the institute's side to the learner's. */}
+          <div data-sign className={css.sign}>
+            <span aria-hidden className={`${css.chain} left-[18%]`} />
+            <span aria-hidden className={`${css.chain} right-[18%]`} />
+            <div data-sign-board className={`${display.className} ${css.headline} ${css.signBoard}`}>
+              <p data-beat="stock" className={css.signLine}>
+                Institutes stock <em className="text-gold">the shelf.</em>
+              </p>
+              <p data-beat="anyone" className={css.signLine}>
+                Anyone can learn <em className="text-gold">from it.</em>
+              </p>
+            </div>
           </div>
 
           <div className={css.shelf}>
-            <div data-track className={css.track}>
-              {[...BOOKS, ...BOOKS.toReversed()].map((b, i) => (
-                <span key={i} data-spine className={`${css.spine} ${b.tone}`} style={{ "--h": `${b.height}px` } as React.CSSProperties}>
-                  <span aria-hidden className="absolute inset-x-0 top-5 h-px bg-current opacity-30" />
-                  <span aria-hidden className="absolute inset-x-0 top-6 h-px bg-current opacity-30" />
-                  <span className={`${display.className} ${css.spineText} ${css.accent} text-[20px] leading-tight whitespace-nowrap`}>{b.title}</span>
-                </span>
+            <div role="img" aria-label="A bookcase stocked with recorded courses from institutes" className={css.case}>
+              {[BOOKS.slice(0, 12), BOOKS.slice(12)].map((shelf, s) => (
+                <div key={s}>
+                  <div className={css.row}>
+                    {shelf.map((b) => (
+                      <span key={b.title} data-spine className={css.slot} style={{ "--h": b.height, "--w": b.width } as React.CSSProperties}>
+                        <span className={css.lift}>
+                          <span className={css.tagWrap}>
+                            <span data-tag className={css.tag}>
+                              <b className="font-semibold text-gold">{rupees(b.price)}</b> · {b.lessons} lessons · {b.institute}
+                            </span>
+                          </span>
+                          <span className={`${css.spine} ${b.tone}`}>
+                            <span aria-hidden className="absolute inset-x-0 top-4 h-px bg-current opacity-30" />
+                            <span aria-hidden className="absolute inset-x-0 top-5 h-px bg-current opacity-30" />
+                            <span className={`${display.className} ${css.spineText} ${css.accent} text-[15px] leading-tight whitespace-nowrap sm:text-[17px]`}>{b.title}</span>
+                          </span>
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                  <div data-plank className={css.plank} />
+                </div>
               ))}
             </div>
-            <div data-plank className={css.plank} />
           </div>
         </div>
       </div>

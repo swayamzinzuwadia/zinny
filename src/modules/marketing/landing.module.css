@@ -126,60 +126,203 @@
   letter-spacing: -0.025em;
   visibility: hidden;
 }
-.beatTop {
-  top: 6.5rem;
-  translate: none;
-  font-size: clamp(2.5rem, 6vw, 5.75rem);
-  text-wrap: balance;
+/* The hand-drawn line through "once". GSAP draws it from a dash offset of 1 to 0. */
+.strike {
+  position: absolute;
+  top: 38%;
+  left: -6%;
+  width: 112%;
+  height: 0.32em;
+  overflow: visible;
+  fill: none;
+  stroke: #063a2f;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
 }
-.beatTop h2 {
-  font-size: inherit;
+.strike path {
+  stroke-width: clamp(4px, 0.9vw, 11px);
+  vector-effect: non-scaling-stroke;
+}
+/* The correction, set smaller and a touch below, as if written in. */
+.keeps {
+  margin-top: 0.15em;
+  font-size: 0.62em;
+  color: #063a2f;
 }
 
-/* The shelf. `--k` shrinks the books together on small or short screens. */
+/*
+ * The shop sign. Centred with auto margins rather than a transform, because GSAP owns its
+ * transform (the drop and the swing) and the board's (the turn over). Hidden until it drops in.
+ */
+.sign {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  width: fit-content;
+  max-width: calc(100vw - 2rem);
+  margin-inline: auto;
+  padding-top: 5.25rem;
+  transform-origin: 50% 0;
+  perspective: 900px;
+  visibility: hidden;
+}
+.chain {
+  position: absolute;
+  top: 0;
+  width: 3px;
+  height: 5.4rem;
+  background: repeating-linear-gradient(to bottom, #063a2f 0 7px, transparent 7px 10px);
+  opacity: 0.55;
+}
+.signBoard {
+  display: grid;
+  border-radius: 14px;
+  padding: 0.7rem 1.6rem 0.85rem;
+  background: #063a2f;
+  color: #faf6ea;
+  box-shadow:
+    inset 0 0 0 1px rgb(201 162 39 / 0.45),
+    inset 0 0 0 6px #063a2f,
+    inset 0 0 0 7px rgb(201 162 39 / 0.25),
+    0 22px 30px -18px rgb(6 58 47 / 0.6);
+  font-size: clamp(1.5rem, 3.4vw, 3.1rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-align: center;
+  text-wrap: balance;
+}
+/* Both sides share one cell, so the board is sized by the longer line and never jumps. */
+.signLine {
+  grid-area: 1 / 1;
+}
+
+/*
+ * The bookcase: two shelves of books standing still. Pulling a book up shows what it costs and
+ * how long it runs; the film does that for six of them, and hovering does it for any. `--k`
+ * scales the book heights together for the screen. GSAP moves `.slot`, the hover lift moves
+ * `.lift` inside it, so the two never fight over one transform.
+ */
 .shelf {
-  --k: 1;
+  --k: 0.95;
   position: absolute;
   inset: auto 0 0;
-  padding-bottom: 1.5rem;
+  display: flex;
+  justify-content: center;
+  padding: 0 1rem 1.25rem;
 }
 @media (min-width: 1100px) and (min-height: 860px) {
   .shelf {
-    --k: 1.22;
+    --k: 1.15;
   }
 }
-@media (max-width: 640px), (max-height: 760px) {
+@media (max-width: 640px) {
   .shelf {
-    --k: 0.72;
+    --k: 0.9;
   }
 }
-.track {
+@media (max-height: 760px) {
+  .shelf {
+    --k: 0.7;
+  }
+}
+.case {
+  width: min(100%, 1080px);
+  padding: 0 0.75rem;
+  border-radius: 10px 10px 0 0;
+  background: #efe7d3;
+  box-shadow:
+    inset 0 14px 22px -14px rgb(6 58 47 / 0.35),
+    0 0 0 0.5rem #063a2f;
+}
+/* Headroom above the tallest book, for the book that is pulled up and its tag. */
+.row {
   display: flex;
-  width: max-content;
+  height: calc(210px * var(--k) + 2.2rem);
   align-items: flex-end;
-  gap: 0.5rem;
-  padding: 0 1.25rem;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 0.25rem;
+}
+.slot {
+  position: relative;
+  min-width: 0;
+  max-width: calc(var(--w) * 1px);
+  height: calc(var(--h) * var(--k) * 1px);
+  flex: 1 1 0;
+}
+.lift {
+  position: absolute;
+  inset: 0;
+  transition: translate 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (hover: hover) {
+  .slot:hover .lift {
+    translate: 0 -14px;
+  }
+}
+.slot:hover {
+  z-index: 5;
 }
 .spine {
-  position: relative;
+  position: absolute;
+  inset: 0;
   display: flex;
-  width: calc(78px * var(--k));
-  height: calc(var(--h) * var(--k));
-  flex-shrink: 0;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   border-radius: 6px 6px 3px 3px;
 }
 .spineText {
+  max-height: calc(100% - 2.1rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
   writing-mode: vertical-rl;
   transform: rotate(180deg);
+}
+/* A zero-width box centred on the book, so the tag centres on it without a CSS transform. */
+.tagWrap {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  z-index: 6;
+  display: flex;
+  width: 0;
+  justify-content: center;
+  padding-bottom: 6px;
+  pointer-events: none;
+}
+.tag {
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  background: #063a2f;
+  color: #faf6ea;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+}
+.slot:hover .tag {
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 .plank {
   height: 0.875rem;
   transform-origin: left;
   background: #063a2f;
   box-shadow: 0 18px 30px -16px rgb(6 58 47 / 0.55);
+}
+/* Phones fit eight books to a shelf. */
+@media (max-width: 640px) {
+  .row .slot:nth-child(n + 9) {
+    display: none;
+  }
+  .row {
+    gap: 4px;
+  }
 }
 
 /* ───────────── Two doors. Leaning towards one opens it wider ───────────── */
@@ -250,9 +393,23 @@
     translate: none;
     visibility: visible;
   }
+  .strike {
+    stroke-dashoffset: 0;
+  }
+  .sign {
+    position: relative;
+    padding-top: 0;
+    visibility: visible;
+  }
+  .chain {
+    display: none;
+  }
+  .signLine {
+    grid-area: auto;
+  }
   .shelf {
     position: static;
-    overflow-x: auto;
+    padding-top: 2rem;
   }
   .door {
     transition: none;
