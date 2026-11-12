@@ -3,6 +3,7 @@ import { Avatar, Badge, Empty, PageHeader, Select, Td, cx } from "@/components/u
 import { ROLE_LABELS } from "@/server/authz/roles";
 import { platformContext } from "@/server/context";
 import { NoAccess, PanelTable, WIDE_ONLY } from "@/modules/zinny-team-panel/components/bits";
+import { SignInAsButton } from "@/modules/zinny-team-panel/components/sign-in-as-button";
 import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
 import { formatCount, formatDate } from "@/modules/zinny-team-panel/lib/format";
 import { PEOPLE_GROUPS, isPeopleGroup, listPeople, peopleCounts, type PeopleGroup, type PersonRow } from "@/modules/zinny-team-panel/services/people";
@@ -47,7 +48,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
     <>
       <PageHeader
         title="People"
-        subtitle="Every account at every institute. Learners are students, alumni and individual learners. Only Super Admins can open this page, and each view is kept in the activity log."
+        subtitle="Every account on Zinny: institute admins, staff, students, parents, marketplace learners and the Zinny team. Open a person to set their password, or sign in as them from here. Only Super Admins can open this page, and each view is kept in the activity log."
       />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -88,10 +89,10 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
         <Empty title="No one matches">Try another search, or clear the filters.</Empty>
       ) : (
         <PanelTable
-          head={["Person", "Institute", "Role", { label: "Phone", className: WIDE_ONLY }, "Account", { label: "Joined", className: WIDE_ONLY }]}
+          head={["Person", "Institute", "Role", { label: "Phone", className: WIDE_ONLY }, "Account", { label: "Joined", className: WIDE_ONLY }, { label: <span className="sr-only">Actions</span> }]}
         >
           {rows.map((p) => (
-            <tr key={`${p.userId}-${p.universityId}`} className="hover:bg-canvas/60">
+            <tr key={`${p.userId}-${p.universityId ?? "none"}`} className="hover:bg-canvas/60">
               <Td>
                 <Link href={`/platform/people/${p.userId}`} className="flex items-center gap-3">
                   <Avatar name={p.name} size={34} />
@@ -102,9 +103,15 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                 </Link>
               </Td>
               <Td>
-                <Link href={`/platform/institutes/${p.universityId}`} className="hover:text-brand">
-                  {p.universityName}
-                </Link>
+                {p.universityId ? (
+                  <Link href={`/platform/institutes/${p.universityId}`} className="hover:text-brand">
+                    {p.universityName}
+                  </Link>
+                ) : p.roles.length ? (
+                  <span className="text-muted">Zinny team</span>
+                ) : (
+                  <span className="text-faint">No institute</span>
+                )}
               </Td>
               <Td>
                 <span className="flex flex-wrap gap-1">
@@ -113,11 +120,13 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                       {label}
                     </Badge>
                   ))}
+                  {p.roles.length === 0 && <Badge>Marketplace account</Badge>}
                 </span>
               </Td>
               <Td className={cx(WIDE_ONLY, "whitespace-nowrap tabular")}>{p.phone ?? <span className="text-faint">Not set</span>}</Td>
               <Td className="whitespace-nowrap">{p.canSignIn ? "Active" : <span className="text-gold-strong">Invited</span>}</Td>
               <Td className={cx(WIDE_ONLY, "whitespace-nowrap tabular")}>{formatDate(p.joinedAt.toISOString().slice(0, 10))}</Td>
+              <Td className="text-right">{p.userId !== actor.userId && <SignInAsButton userId={p.userId} name={p.name} universityId={p.universityId} />}</Td>
             </tr>
           ))}
         </PanelTable>

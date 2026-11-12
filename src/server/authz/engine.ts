@@ -39,6 +39,11 @@ export type Actor = {
   supportSessionId: string | null;
   /** Set when a Super Admin is viewing the learner app as this person. Everything is then read only. */
   viewedBy?: { userId: string; name: string };
+  /**
+   * Set when a Zinny Super Admin is signed in as this person ("Sign in as" on the team
+   * panel). They act with this person's full permissions; every audit entry carries it.
+   */
+  impersonatedBy?: { userId: string; name: string };
 };
 
 /** What an action is being done to. Fill in every department and batch the record belongs to. */

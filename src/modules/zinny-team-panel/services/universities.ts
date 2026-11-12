@@ -6,11 +6,14 @@
 import { and, asc, count, eq, isNull, sql } from "drizzle-orm";
 import { courses, departments, enrolments, universities, users } from "@/db/schema";
 import { assertPlatform, canPlatform, createUniversity, updateUniversity, type Actor } from "@/server/core";
-import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
 import { platAlerts, platContentFlags, platLicences } from "../schema";
+import { checkNewPassword } from "@/server/auth/passwords";
 import { daysBetween, todayIST } from "../lib/format";
-import { saveLicence, syncAlertsFor, validateLicence, type LicenceInput } from "./licences";
-import type { PlatformAction } from "../lib/access";
+import { setPersonPassword } from "./accounts";
+import { planForLicence, saveLicence, syncAlertsFor, validateLicence, type LicenceInput } from "./licences";
+import { planNameFallback, planNames } from "./plans";
+import { isSuperAdmin, type PlatformAction } from "../lib/access";
 import { db, EMAIL_RE, emptyUsage, isUuid, logAction, universityOrThrow, usageFor } from "./shared";
 
 /**
@@ -45,7 +48,9 @@ export type UniversityListRow = {
   createdAt: Date;
   students: number;
   staff: number;
+  /** The licence's plan key, and what that plan is called. */
   plan: string | null;
+  planName: string | null;
   studentCap: number | null;
   staffCap: number | null;
   endDate: string | null;
@@ -57,7 +62,7 @@ export type UniversityListRow = {
 export async function listUniversities(actor: Actor, today = todayIST()): Promise<UniversityListRow[]> {
   assertPlatform(actor, "platform.manage_universities");
   const conn = db();
-  const [unis, usage, lics, alerts] = await Promise.all([
+  const [unis, usage, lics, alerts, names] = await Promise.all([
     conn
       .select({ id: universities.id, name: universities.name, slug: universities.slug, status: universities.status, createdAt: universities.createdAt })
       .from(universities)
@@ -69,6 +74,7 @@ export async function listUniversities(actor: Actor, today = todayIST()): Promis
       .from(platAlerts)
       .where(isNull(platAlerts.resolvedAt))
       .groupBy(platAlerts.universityId),
+    planNames(conn),
   ]);
   const licOf = new Map(lics.map((l) => [l.universityId, l]));
   const alertsOf = new Map(alerts.map((a) => [a.universityId, a.n]));
@@ -79,6 +85,7 @@ export async function listUniversities(actor: Actor, today = todayIST()): Promis
       ...u,
       ...use,
       plan: l?.plan ?? null,
+      planName: l ? (names[l.plan] ?? planNameFallback(l.plan)) : null,
       studentCap: l?.studentCap ?? null,
       staffCap: l?.staffCap ?? null,
       endDate: l?.endDate ?? null,
@@ -94,7 +101,7 @@ export async function getUniversity(actor: Actor, universityId: string, today = 
   if (!isUuid(universityId)) throw new NotFoundError("Institute");
   const conn = db();
   const university = await universityOrThrow(conn, universityId);
-  const [[licence], usage, [counts], flags, alerts, [admin]] = await Promise.all([
+  const [[licence], usage, [counts], flags, alerts, [admin], names] = await Promise.all([
     conn.select().from(platLicences).where(eq(platLicences.universityId, universityId)),
     usageFor(conn, [universityId]),
     conn
@@ -112,21 +119,23 @@ export async function getUniversity(actor: Actor, universityId: string, today = 
       .innerJoin(courses, eq(courses.id, platContentFlags.courseId))
       .where(and(eq(platContentFlags.universityId, universityId), eq(platContentFlags.status, "open"))),
     conn.select().from(platAlerts).where(and(eq(platAlerts.universityId, universityId), isNull(platAlerts.resolvedAt))),
-    conn.execute<{ name: string; email: string; invited: boolean }>(sql`
-      select u.name, u.email, (u.password_hash is null) as invited
+    conn.execute<{ id: string; name: string; email: string; invited: boolean }>(sql`
+      select u.id, u.name, u.email, (u.password_hash is null) as invited
       from role_assignments ra join ${users} u on u.id = ra.user_id
       where ra.university_id = ${universityId} and ra.role = 'institute_admin' and ra.revoked_at is null
       order by ra.created_at asc limit 1`),
+    planNames(conn),
   ]);
   return {
     university,
     licence: licence ?? null,
+    planName: licence ? (names[licence.plan] ?? planNameFallback(licence.plan)) : null,
     daysLeft: licence ? daysBetween(today, licence.endDate) : null,
     usage: usage.get(universityId) ?? emptyUsage(),
     counts,
     flags,
     alerts,
-    admin: (admin as { name: string; email: string; invited: boolean } | undefined) ?? null,
+    admin: (admin as { id: string; name: string; email: string; invited: boolean } | undefined) ?? null,
   };
 }
 
@@ -135,6 +144,11 @@ export type NewUniversityInput = {
   slug: string;
   adminName: string;
   adminEmail: string;
+  /**
+   * Give the first admin this password straight away, instead of only the invitation
+   * email (Super Admins only). They can sign in at once and change it in their profile.
+   */
+  adminPassword?: string | null;
   invoicePrefix?: string;
   /** Set up the licence at the same time (needs platform.licences). */
   licence?: LicenceInput | null;
@@ -143,7 +157,8 @@ export type NewUniversityInput = {
 /**
  * Creates a university through core `createUniversity`, which gives its admin the
  * Institute Admin role and invites them (`user.invited`). With a licence and the
- * platform.licences permission, the licence is saved straight after.
+ * platform.licences permission, the licence is saved straight after, and with it the
+ * invoice for the plan's price (see `saveLicence`).
  */
 export async function createUniversityWithLicence(actor: Actor, input: NewUniversityInput) {
   assertPlatform(actor, "platform.manage_universities");
@@ -159,12 +174,35 @@ export async function createUniversityWithLicence(actor: Actor, input: NewUniver
   if (!/^[A-Z0-9]{1,4}$/.test(prefix)) throw new ValidationError("Invoice prefix is 1 to 4 letters or numbers, like NMIM.");
   const withLicence = !!input.licence && canPlatform(actor, "platform.licences");
   // Check the licence before anything is created, so a mistake there doesn't leave a half-made university.
-  if (withLicence) validateLicence(input.licence!);
+  if (withLicence) {
+    const clean = validateLicence(input.licence!);
+    const plan = await planForLicence(db(), clean.plan);
+    const price = input.licence!.pricePaise ?? plan.pricePaise;
+    const discount = input.licence!.discountPaise ?? 0;
+    if (discount > price) throw new ValidationError("The discount can't be more than the price.");
+    if (discount > 0 && !input.licence!.discountNote?.trim()) throw new ValidationError("Write why the discount was given, so finance can see it later.");
+  }
+  const adminPassword = input.adminPassword || null;
+  if (adminPassword) {
+    if (!isSuperAdmin(actor)) throw new ForbiddenError("Only a Super Admin can set someone's password. Leave it empty to send the invitation only.");
+    checkNewPassword(adminPassword, { email: adminEmail, name: adminName });
+    const [existing] = await db()
+      .select({ hasPassword: sql<boolean>`${users.passwordHash} is not null` })
+      .from(users)
+      .where(sql`lower(${users.email}) = ${adminEmail}`);
+    if (existing?.hasPassword) {
+      throw new ValidationError(`${adminEmail} already has a Zinny account with a password. Leave the password empty: they can sign in with the one they have.`);
+    }
+  }
 
   const [taken] = await db().select({ id: universities.id }).from(universities).where(eq(universities.slug, slug));
   if (taken) throw new ConflictError("Another institute already uses that web address.");
 
   const uni = await createUniversity(actor, { name, slug, adminName, adminEmail, invoicePrefix: prefix });
+  if (adminPassword) {
+    const [admin] = await db().select({ id: users.id }).from(users).where(sql`lower(${users.email}) = ${adminEmail}`);
+    if (admin) await setPersonPassword(actor, admin.id, { password: adminPassword, signOutEverywhere: false });
+  }
   if (withLicence) await saveLicence(actor, uni.id, input.licence!);
   return uni;
 }

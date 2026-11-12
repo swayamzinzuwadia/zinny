@@ -18,7 +18,7 @@ export default async function NewInvoicePage({ searchParams }: { searchParams: P
     <>
       <PageHeader
         title="New invoice"
-        subtitle="Picking the institute fills in its licence term. GST is split into CGST and SGST in Zinny's own state, IGST elsewhere. The number is given when you issue it."
+        subtitle="For charges outside a licence, like onboarding. Picking the institute fills in its licence term and price. GST is split into CGST and SGST in Zinny's own state, IGST elsewhere. The number is given when you issue it."
       />
       <Card className="max-w-2xl">
         <InvoiceForm institutes={unis.map((u) => ({ id: u.id, name: u.name }))} terms={terms} initial={d} />

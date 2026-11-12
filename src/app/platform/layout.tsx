@@ -8,6 +8,7 @@ import { signOut } from "@/server/auth/session";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { leaveSupportAction } from "@/modules/zinny-team-panel/actions";
+import { ImpersonationBanner } from "@/modules/zinny-team-panel/components/impersonation-banner";
 import { PlatformNav } from "@/modules/zinny-team-panel/components/platform-nav";
 import { isZinnyTeam, navFor } from "@/modules/zinny-team-panel/lib/access";
 import { PLATFORM_ROLE_LABELS, isPlatformRole } from "@/modules/zinny-team-panel/lib/constants";
@@ -54,6 +55,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
 
   return (
     <div className="min-h-dvh">
+      <ImpersonationBanner />
       {mine.map((s) => (
         <div key={s.id} className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 bg-gold px-4 py-2 text-[13px] text-brand-deep">
           <span>

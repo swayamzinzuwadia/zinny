@@ -45,9 +45,9 @@ describe("plat_ tables are isolated per university", () => {
       buyerStateCode: "29",
     })));
 
-  it("Zinny's own tables (partners, contacts, notes, invoice counters) are closed to the app role", async () => {
+  it("Zinny's own tables (plans, partners, contacts, notes, invoice counters) are closed to the app role", async () => {
     const U = await makeUniversity("Closed U");
-    for (const t of ["plat_partners", "plat_partner_contacts", "plat_partner_notes", "plat_invoice_counters"]) {
+    for (const t of ["plat_plans", "plat_partners", "plat_partner_contacts", "plat_partner_notes", "plat_invoice_counters"]) {
       const err = await withTenant(systemActorFor(U.id), (tx) => tx.execute(sql`select 1 from ${sql.identifier(t)} limit 1`)).then(
         () => null,
         (e: Error & { cause?: Error }) => e.cause?.message ?? e.message,

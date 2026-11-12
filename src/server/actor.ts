@@ -6,12 +6,40 @@ import type { Actor, Assignment } from "./authz/engine";
 import { canPlatform } from "./authz/engine";
 import { NotFoundError } from "./errors";
 
+/** What loadActor needs to know about the session it is building an actor for. */
+export type ActorSession = { userId: string; impersonatorUserId: string | null };
+
+/**
+ * The session of the request in progress, or null outside one (jobs, scripts, tests).
+ * Loaded on demand: the session code needs a request, which this file must work without.
+ */
+async function requestSession(): Promise<ActorSession | null> {
+  try {
+    const { currentSession } = await import("./auth/session");
+    return await currentSession();
+  } catch {
+    return null;
+  }
+}
+
+/** The Super Admin signed in as `userId` in this session, if that is what the session is. */
+async function impersonatorOf(userId: string, session: ActorSession | null | undefined): Promise<Actor["impersonatedBy"]> {
+  const s = session === undefined ? await requestSession() : session;
+  if (!s?.impersonatorUserId || s.userId !== userId) return undefined;
+  const [who] = await systemDb().select({ id: users.id, name: users.name }).from(users).where(eq(users.id, s.impersonatorUserId));
+  return who ? { userId: who.id, name: who.name } : undefined;
+}
+
 /**
  * Builds the actor for one request: who they are and every role they hold in
  * this university (plus Zinny team roles). Reads through the system connection
  * because it runs before the tenant is set — it is part of sign-in.
+ *
+ * When the request's session is a Super Admin signed in as this person, the actor carries
+ * `impersonatedBy`, which `audit` writes into every entry. `opts.session` replaces the
+ * request's own session (tests; null means "no session").
  */
-export async function loadActor(userId: string, universityId: string | null): Promise<Actor> {
+export async function loadActor(userId: string, universityId: string | null, opts: { session?: ActorSession | null } = {}): Promise<Actor> {
   const db = systemDb();
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) throw new NotFoundError("User");
@@ -64,6 +92,8 @@ export async function loadActor(userId: string, universityId: string | null): Pr
     assignments,
     supportSessionId: null,
   };
+  const impersonatedBy = await impersonatorOf(userId, opts.session);
+  if (impersonatedBy) actor.impersonatedBy = impersonatedBy;
 
   // Support mode: a Zinny team member with an open session acts as an Institute Admin
   // until the session ends or expires. Everything they do is logged with the session id.
