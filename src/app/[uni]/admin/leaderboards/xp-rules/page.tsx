@@ -27,7 +27,7 @@ export default async function XpRulesPage({ params }: { params: Promise<{ uni: s
         title="XP rules"
         subtitle="What earns points. Each lesson, test, class or assignment earns XP once per rule, and a daily cap limits how much one student can earn from a rule in a day."
       />
-      <div className={cx("grid gap-6", canCreate && "xl:grid-cols-[1fr_360px]")}>
+      <div className={cx("grid gap-6", canCreate && "grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]")}>
         <div className="min-w-0 space-y-4">
           {rules.length === 0 && (
             <Empty title="No XP rules yet">{canCreate ? "Add the first rule on the right, like 10 XP for finishing a lesson." : "Rules your institute sets up will show here."}</Empty>

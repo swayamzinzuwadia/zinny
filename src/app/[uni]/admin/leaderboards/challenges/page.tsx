@@ -79,7 +79,7 @@ export default async function ChallengesPage({ params }: { params: Promise<{ uni
     <>
       <SectionNav uni={uni} active="/challenges" />
       <PageHeader title="Challenges" subtitle="Time-bound goals for a batch or a whole course. Progress updates live, and the students who reach the target first are listed when it ends." />
-      <div className={cx("grid gap-6", canCreate && "xl:grid-cols-[1fr_360px]")}>
+      <div className={cx("grid gap-6", canCreate && "grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]")}>
         <div className="min-w-0 space-y-8">
           {groups.length === 0 && (
             <Empty title="No challenges yet">{canCreate ? "Set the first one on the right, like 8 lessons in two weeks." : "Challenges for your batches will show here."}</Empty>

@@ -155,7 +155,7 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
       )}
 
       {tab === "overview" && (
-      <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
           <Card>
             <CardTitle hint={`Week of ${formatDate(from)}`}>This week</CardTitle>

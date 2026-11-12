@@ -65,7 +65,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           ) : undefined
         }
       />
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[1.5fr_1fr]">
         <div className="min-w-0 space-y-6">
           <Card>
             <div className="grid gap-6 sm:grid-cols-2">

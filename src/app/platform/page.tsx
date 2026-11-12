@@ -66,7 +66,7 @@ export default async function PlatformHome() {
         subtitle={summary.length ? summary.join(" · ") : seesEverything ? "Nothing needs attention across the institutes right now." : undefined}
       />
 
-      <div className="grid gap-6 xl:grid-cols-[1.55fr_1fr]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[1.55fr_1fr]">
         <div className="min-w-0 space-y-6">
           {showNeeds && (
             <Card>

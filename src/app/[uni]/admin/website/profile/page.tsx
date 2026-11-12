@@ -46,7 +46,7 @@ export default async function InstituteProfilePage({ params }: { params: Promise
 
       <ActionForm action={saveProfileAction} resetOnSuccess={false}>
         <input type="hidden" name="uni" value={uni} />
-        <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+        <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-6">
             <Card>
               <CardTitle hint={`Name: ${university.name}`}>About the institute</CardTitle>

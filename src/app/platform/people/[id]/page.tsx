@@ -57,7 +57,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         at their learner app and changes nothing. Both are logged here and in their institute&apos;s log.
       </p>
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[1.4fr_1fr]">
         <div className="min-w-0 space-y-6">
           <Card>
             <CardTitle>Institutes and roles</CardTitle>

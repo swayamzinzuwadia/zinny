@@ -59,7 +59,7 @@ export default async function TestimonialsPage({ params }: { params: Promise<{ u
     <>
       <PageHeader title="Testimonials" subtitle="Quotes from students and alumni, shown in this order in the Testimonials section of your website." />
       <SectionTabs uni={uni} active="testimonials" counts={counts} />
-      <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div>
           {rows.length === 0 ? (
             <Empty title="No testimonials yet">Add the first one on the right. Short, specific quotes work best.</Empty>

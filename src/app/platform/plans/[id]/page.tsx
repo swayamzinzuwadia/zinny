@@ -36,7 +36,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
           </span>
         }
       />
-      <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[1.6fr_1fr]">
         <Card>
           <CardTitle hint="Existing licences and invoices keep their price">Edit plan</CardTitle>
           {canEdit ? <PlanForm plan={p} /> : <p className="text-[14px] text-muted">Only a Super Admin can change plans.</p>}

@@ -21,7 +21,7 @@ export async function BatchAttendanceSection({ uni, actor, batch }: BatchSection
   return (
     <Card>
       <CardTitle hint={`Minimum ${data.threshold}%`}>Attendance</CardTitle>
-      <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
+      <div className="grid gap-5 grid-cols-1 lg:grid-cols-[220px_1fr]">
         {data.overall === null ? (
           <div className="h-fit rounded-2xl bg-canvas px-4 py-4">
             <div className="text-[14px] font-medium">No attendance yet</div>

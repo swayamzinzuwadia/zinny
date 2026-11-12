@@ -33,7 +33,7 @@ export function KindEditor({ uni, editor, providers, backHref }: { uni: string; 
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,440px)]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,440px)]">
         <Card>
           <ActionForm action={saveKindAction} resetOnSuccess={false} className="space-y-6">
             <input type="hidden" name="uni" value={uni} />

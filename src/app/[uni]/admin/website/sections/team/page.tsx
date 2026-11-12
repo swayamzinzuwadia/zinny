@@ -63,7 +63,7 @@ export default async function TeamPage({ params }: { params: Promise<{ uni: stri
     <>
       <PageHeader title="Team" subtitle="Leadership and administration: the people visitors might want to know or contact, in this order." />
       <SectionTabs uni={uni} active="team" counts={counts} />
-      <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div>
           {rows.length === 0 ? (
             <Empty title="No team members yet">Add your leadership team on the right. Faculty have their own profiles.</Empty>

@@ -69,7 +69,7 @@ export default async function MyProfilePage({ params }: { params: Promise<{ uni:
         )}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card>
           <ActionForm action={saveMyProfileAction} resetOnSuccess={false} className="space-y-5">
             <input type="hidden" name="uni" value={uni} />

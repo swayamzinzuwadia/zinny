@@ -59,7 +59,7 @@ export default async function EditPostPage({ params }: { params: Promise<{ uni: 
         <input type="hidden" name="uni" value={uni} />
         <input type="hidden" name="id" value={post.id} />
         <IntentField initial="save" />
-        <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+        <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="space-y-5">
             <Field label="Title">
               <Input name="title" defaultValue={post.title} required minLength={3} maxLength={140} className="h-12 text-[18px] font-medium" />

@@ -70,7 +70,7 @@ export default async function AttendancePage({ params }: { params: Promise<{ uni
         <Stat label="Students" value={data.students.filter((s) => s.current).length} hint="Active in this batch" />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section>
           <h2 className="mb-3 text-[17px] font-semibold">Students</h2>
           {data.students.length === 0 ? (

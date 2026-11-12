@@ -144,7 +144,7 @@ export default async function RegisterPage({
         <Stat label={s.state === "ended" ? "Attendance" : "Not joined yet"} value={s.state === "ended" ? (s.percent === null ? "–" : `${s.percent}%`) : s.pending} hint={`Out of ${s.total}`} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]">
         <section>
           {!r.markable && (
             <div className="mb-4">

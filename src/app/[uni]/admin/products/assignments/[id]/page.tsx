@@ -62,7 +62,7 @@ export default async function StaffAssignmentPage({ params, searchParams }: { pa
             {a.allBatches ? "Every batch" : d.batches.map((b) => b.name).join(", ")}
           </span>
         </summary>
-        <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px]">
           <Instructions html={a.instructionsHtml} />
           <FileLinks uni={uni} area="admin" files={d.attachments} empty="No files attached." />
         </div>

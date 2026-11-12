@@ -18,7 +18,7 @@ export default async function Combos({ params }: { params: Promise<{ uni: string
   return (
     <>
       <PageHeader title="Combos" subtitle="A combo sells several of your courses together at one price, as a single course with a section for each." />
-      <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div>
           {combos.length === 0 ? (
             <Empty title="No combos yet">

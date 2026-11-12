@@ -75,7 +75,7 @@ export default async function StaffAttemptPage({ params }: { params: Promise<{ u
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px]">
         <ol className="space-y-3">
           {d.items.map((i) => {
             const given = responseText(i);

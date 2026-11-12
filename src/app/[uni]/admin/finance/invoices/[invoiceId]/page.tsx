@@ -127,7 +127,7 @@ export default async function InvoicePage({
         </div>
       )}
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid items-start gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
         <Card className={cx("p-0", i.status === "cancelled" && "opacity-80")}>
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line px-6 py-5 sm:px-8">
             <div>

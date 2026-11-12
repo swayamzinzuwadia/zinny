@@ -27,7 +27,7 @@ export default async function Codes({ params }: { params: Promise<{ uni: string 
   return (
     <>
       <PageHeader title="Discount codes" subtitle="Codes buyers type on a listing before they pay. They come off the price before GST, and the price never drops below ₹1." />
-      <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div>
           {codes.length === 0 ? (
             <Empty title="No discount codes yet">Make one on the right, then share it with the people you want to reach.</Empty>

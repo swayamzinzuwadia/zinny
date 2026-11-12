@@ -262,7 +262,7 @@ export function PlanTab({ uni, plan, canEdit, choices, copyChoices }: { uni: str
   const first = timetable.days[0];
   const lastDay = timetable.days[timetable.days.length - 1];
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+    <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
       <div className="space-y-6">
         {sections.length === 0 ? (
           <Empty title="No sections yet">

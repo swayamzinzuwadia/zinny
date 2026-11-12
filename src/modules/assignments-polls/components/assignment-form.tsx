@@ -59,7 +59,7 @@ export function AssignmentForm({
   const [scope, setScope] = useState<"all" | "some">(canAll ? values.scope : "some");
 
   return (
-    <ActionForm action={action} resetOnSuccess={false} className="grid gap-6 xl:grid-cols-[1fr_360px]">
+    <ActionForm action={action} resetOnSuccess={false} className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]">
       <input type="hidden" name="uni" value={uni} />
       <input type="hidden" name="courseId" value={courseId} />
       {assignmentId && <input type="hidden" name="assignmentId" value={assignmentId} />}

@@ -79,7 +79,7 @@ export default async function CategoriesPage({ params }: { params: Promise<{ uni
         </div>
       )}
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid items-start gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
           <Card className="p-0">
             <ul className="divide-y divide-line">

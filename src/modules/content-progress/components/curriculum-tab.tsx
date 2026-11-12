@@ -29,7 +29,7 @@ export async function CurriculumTab({ uni, actor, course, target }: CourseTabPro
   const minutes = ready.reduce((n, l) => n + l.durationMinutes, 0);
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+    <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-4">
         {lessons.length > 0 && (
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[14px] text-muted">

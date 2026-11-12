@@ -40,7 +40,7 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[1.55fr_1fr]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[1.55fr_1fr]">
         <div className="min-w-0 space-y-6">
           <Card>
             <CardTitle hint={active.length ? `${active.length} open` : undefined}>Who is in which institute now</CardTitle>

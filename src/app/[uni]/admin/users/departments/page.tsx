@@ -37,7 +37,7 @@ export default async function DepartmentsPage({ params }: { params: Promise<{ un
   return (
     <>
       <PageHeader title="Departments" subtitle="Each department has a Head, its faculty and its courses. Students see only their departments' courses." />
-      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="grid gap-3 md:grid-cols-2">
           {depts.length === 0 && (
             <div className="md:col-span-2">
