@@ -66,7 +66,7 @@ export function GradingView({ uni, q, selected, tz }: { uni: string; q: GradingQ
   const names = Object.fromEntries(q.rows.map((r) => [r.student.id, r.student.name]));
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+    <div className="grid gap-6 grid-cols-1 lg:grid-cols-[300px_1fr]">
       <Card className="h-fit p-3">
         {GROUPS.map((g) => {
           const rows = q.rows.filter((r) => r.status === g.status);

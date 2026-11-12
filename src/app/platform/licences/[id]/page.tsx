@@ -71,7 +71,7 @@ export default async function LicencePage({ params }: { params: Promise<{ id: st
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[1.3fr_1fr]">
         <Card>
           <CardTitle hint={l ? "Renewing or changing the plan raises an invoice" : "Saving raises the first invoice"}>{l ? "Edit licence" : "Set up licence"}</CardTitle>
           {initial ? (

@@ -97,7 +97,7 @@ export function RolesExplorer({ roles, options, kinds, peopleHref, actions, hidd
         </button>
       </div>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[248px_minmax(0,1fr)]">
+      <div className="grid items-start gap-6 grid-cols-1 xl:grid-cols-[248px_minmax(0,1fr)]">
         <nav aria-label="Roles" className="sticky top-6 hidden rounded-[22px] border border-line bg-surface p-2 xl:block">
           {groups.map((g) => (
             <div key={g}>

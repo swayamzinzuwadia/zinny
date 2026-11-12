@@ -122,7 +122,7 @@ export function InvoiceForm(p: InvoiceFormProps) {
   const setLine = (key: number, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
 
   return (
-    <ActionForm action={e ? updateInvoiceAction : createInvoiceAction} resetOnSuccess={false} className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <ActionForm action={e ? updateInvoiceAction : createInvoiceAction} resetOnSuccess={false} className="grid items-start gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]">
       <input type="hidden" name="uni" value={p.uni} />
       {e && <input type="hidden" name="invoiceId" value={e.invoiceId} />}
 

@@ -59,7 +59,7 @@ export default async function IssuedCertificatePage({ params }: { params: Promis
         }
       />
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid items-start gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
         <CertificateArt svg={svg} label={`Certificate ${c.displayCode}`} />
 
         <div className="space-y-6">

@@ -44,7 +44,7 @@ export default async function CoursePreviewPage({ params }: { params: Promise<{ 
       />
       <p className="-mt-4 mb-6 text-[13px] text-muted">Read-only preview. The Zinny team never edits an institute&apos;s content.</p>
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[1.4fr_1fr]">
         <div className="min-w-0 space-y-6">
           <Card>
             <CardTitle>About the course</CardTitle>

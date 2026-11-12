@@ -93,7 +93,7 @@ export default async function UniversityPage({ params, searchParams }: { params:
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[1.4fr_1fr]">
         <div className="min-w-0 space-y-6">
           <Card>
             <CardTitle hint="Changes are saved in the institute's audit log with your name">Basics</CardTitle>
