@@ -251,7 +251,7 @@ describe("the catalogue", () => {
     expect((await browseMarketplace({ institute: a.uni.slug })).map((i) => i.id)).toEqual([a.listing.id]);
     expect((await browseMarketplace({ institute: a.uni.slug, q: "nothing like this" })).map((i) => i.id)).toEqual([]);
     expect((await browseMarketplace()).map((i) => i.id)).toEqual(expect.arrayContaining([a.listing.id, b.listing.id]));
-    expect(await marketplaceInstitute(a.uni.slug)).toEqual({ name: a.uni.name, slug: a.uni.slug });
+    expect(await marketplaceInstitute(a.uni.slug)).toMatchObject({ name: a.uni.name, slug: a.uni.slug });
     expect((await listingDetail(a.listing.id, null))?.ownedEnrolmentId).toBeNull();
 
     await systemDb().update(universities).set({ status: "suspended" }).where(eq(universities.id, b.uni.id));

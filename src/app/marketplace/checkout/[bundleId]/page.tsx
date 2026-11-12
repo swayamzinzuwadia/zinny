@@ -8,7 +8,8 @@ import { cancelBundleAction, payBundleTestModeAction } from "@/modules/payments/
 import { bundleView } from "@/modules/payments/bundles";
 import { BundleCheckout } from "@/modules/payments/components/bundle-checkout";
 import { inr } from "@/modules/payments/money";
-import { listingTitlesByBatch } from "@/modules/marketplace/service";
+import { FORMAT_LINE } from "@/modules/marketplace/components/price";
+import { listingTitlesByBatch, liveBatchNames } from "@/modules/marketplace/service";
 
 export const metadata = { title: "Checkout" };
 export const dynamic = "force-dynamic";
@@ -25,7 +26,8 @@ export default async function BundleCheckoutPage({ params }: { params: Promise<{
     throw e;
   });
   // Each line reads as it did on the shelf, not by the name of the course behind it.
-  const titles = await listingTitlesByBatch(b.items.map((i) => i.batchId));
+  const [titles, liveBatches] = await Promise.all([listingTitlesByBatch(b.items.map((i) => i.batchId)), liveBatchNames(b.items.map((i) => i.batchId))]);
+  const seats = b.items.filter((i) => liveBatches.has(i.batchId)).length;
   const subtotal = b.items.reduce((n, i) => n + i.basePaise, 0);
   const gst = b.items.reduce((n, i) => n + i.gstPaise, 0);
 
@@ -52,11 +54,19 @@ export default async function BundleCheckoutPage({ params }: { params: Promise<{
                   <div className="mt-0.5 text-[13px] text-muted">
                     {i.institute} · {inr(i.basePaise)} + GST {inr(i.gstPaise)}
                   </div>
+                  <div className="mt-1 text-[12.5px] font-medium text-brand">
+                    {liveBatches.has(i.batchId) ? `${FORMAT_LINE.live} · a seat in ${liveBatches.get(i.batchId)}` : FORMAT_LINE.recorded}
+                  </div>
                 </div>
                 <div className="tabular shrink-0 text-[15px]">{inr(i.totalPaise)}</div>
               </li>
             ))}
           </ul>
+          {seats > 0 && b.status === "pending" && !b.problem && (
+            <p className="mt-4 rounded-2xl bg-gold-soft px-4 py-3 text-[14px] text-brand-deep">
+              {seats === 1 ? "Your seat is" : "Your seats are"} held for 10 minutes from when you started checkout. Pay within that time to keep {seats === 1 ? "it" : "them"}.
+            </p>
+          )}
           <p className="mt-4 text-[13px] text-muted">Each institute issues its own GST invoice for its courses. You&apos;ll find them in My library after paying.</p>
         </section>
 

@@ -25,7 +25,8 @@ export default async function JoinPage({
   const { actor } = await spaceContext(uni);
   // Viewing as a student must never put a Super Admin in a real class under their name.
   if (actor.viewedBy) redirect(`/${uni}/learn/timetable`);
-  if (!hasRole(actor, ["student"])) return <NotAStudentPage uni={uni} />;
+  // Students, and marketplace buyers with a seat in a live batch (joinClass checks the seat).
+  if (!hasRole(actor, ["student", "individual_learner"])) return <NotAStudentPage uni={uni} />;
 
   const now = new Date();
   const out = await joinClass(actor, batchId, date, typeof start === "string" && /^\d{2}:\d{2}$/.test(start) ? start : null, now).catch((e) => {

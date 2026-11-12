@@ -6,7 +6,9 @@ import { currentUserId } from "@/server/auth/session";
 import { cartView } from "@/modules/marketplace/cart";
 import { removeFromCartAction } from "@/modules/marketplace/actions";
 import { Jacket, lessonsLine } from "@/modules/marketplace/components/jacket";
-import { Price } from "@/modules/marketplace/components/price";
+import { datesLine, seatsLine } from "@/modules/marketplace/components/live";
+import { FORMAT_LINE, Price } from "@/modules/marketplace/components/price";
+import { fewSeatsLeft } from "@/modules/marketplace/service";
 import { inr } from "@/modules/payments/money";
 import { checkoutCartAction } from "./actions";
 
@@ -32,8 +34,8 @@ export default async function Cart() {
           </h1>
           <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-canvas/75">
             {n === 0
-              ? "Nothing in it yet. Add recordings from any institute and pay for them together."
-              : `${n} ${n === 1 ? "recording" : "recordings"}${institutes > 1 ? ` from ${institutes} institutes` : ""}, paid for in one go. Each one comes with its own GST invoice from the institute that sells it.`}
+              ? "Nothing in it yet. Add recordings and seats in live batches from any institute and pay for them together."
+              : `${n} ${n === 1 ? "item" : "items"}${institutes > 1 ? ` from ${institutes} institutes` : ""}, paid for in one go. Each one comes with its own GST invoice from the institute that sells it.`}
           </p>
         </div>
       </section>
@@ -41,7 +43,7 @@ export default async function Cart() {
       <div className={cx(shell, "pt-12")}>
         {cart.dropped > 0 && (
           <p className="mb-6 rounded-2xl bg-gold-soft px-4 py-3 text-[14px] text-brand-deep">
-            {cart.dropped === 1 ? "One recording left your cart" : `${cart.dropped} recordings left your cart`}: it went off sale, or you already own it.
+            {cart.dropped === 1 ? "One item left your cart: it went off sale, or you already own it." : `${cart.dropped} items left your cart: they went off sale, or you already own them.`}
           </p>
         )}
         {n === 0 ? (
@@ -64,8 +66,17 @@ export default async function Cart() {
                       {l.title}
                     </Link>
                     <span className="mt-1 text-[13px] text-muted">
-                      {l.institute} · {lessonsLine(l.lessons, l.minutes)}
+                      <Link href={`/marketplace/institutes/${l.instituteSlug}`} className="hover:text-brand hover:underline">
+                        {l.institute}
+                      </Link>{" "}
+                      · {l.live ? `${l.live.batchName} · ${datesLine(l.live)}` : lessonsLine(l.lessons, l.minutes)}
                     </span>
+                    <span className="mt-1 text-[12.5px] font-medium text-brand">{l.live ? `${FORMAT_LINE.live} · ${l.live.timings}` : FORMAT_LINE.recorded}</span>
+                    {l.live && (l.live.seatsLeft === 0 || fewSeatsLeft(l.live)) && (
+                      <span className={cx("mt-2 self-start rounded-full px-2.5 py-1 text-[12.5px] leading-none font-medium", l.live.seatsLeft === 0 ? "bg-line text-ink" : "bg-gold text-brand-deep")}>
+                        {l.live.seatsLeft === 0 ? "Batch full: take it out to check out" : seatsLine(l.live.seatsLeft)}
+                      </span>
+                    )}
                     <div className="mt-auto flex flex-wrap items-end justify-between gap-3 pt-3">
                       <Price pricePaise={l.pricePaise} compareAtPaise={l.compareAtPaise} />
                       <ActionForm action={removeFromCartAction} resetOnSuccess={false}>
@@ -85,7 +96,7 @@ export default async function Cart() {
                 <dl className="space-y-2 text-[15px]">
                   <div className="flex justify-between gap-4">
                     <dt className="text-muted">
-                      {n} {n === 1 ? "recording" : "recordings"}, before GST
+                      {n} {n === 1 ? "item" : "items"}, before GST
                     </dt>
                     <dd className="tabular">{inr(cart.subtotalPaise)}</dd>
                   </div>
@@ -102,7 +113,7 @@ export default async function Cart() {
                   <Input name="code" placeholder="Discount code" aria-label="Discount code" maxLength={24} autoComplete="off" className="uppercase placeholder:normal-case" />
                   <SubmitButton pendingText="Getting checkout ready…">Check out</SubmitButton>
                 </ActionForm>
-                <p className="mt-4 text-[13px] leading-relaxed text-muted">A code takes effect on the recordings it was made for. The final amount shows at checkout, before you pay.</p>
+                <p className="mt-4 text-[13px] leading-relaxed text-muted">A code takes effect on what it was made for. The final amount shows at checkout, before you pay.{cart.lines.some((l) => l.live) && " Seats in live batches are held for 10 minutes once you check out."}</p>
               </div>
             </aside>
           </div>

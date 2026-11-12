@@ -42,6 +42,7 @@ export { confirmPayment, failPayment } from "../services/enrolment";
 export { holdSeat } from "../services/enrolment";
 // Marketplace: a recorded course sold across institutes, and the hidden batch its buyers sit in.
 export { cancelHold, holdRecordedSeat } from "../services/enrolment";
+export { holdMarketplaceSeat } from "../services/enrolment";
 export { todayIn } from "../lib/dates";
 export { ensureRecordedBatch } from "../services/batches";
 export { createLectureCourse } from "../services/courses";
