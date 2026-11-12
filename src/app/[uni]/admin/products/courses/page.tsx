@@ -73,15 +73,22 @@ export default async function CoursesPage({ params }: { params: Promise<{ uni: s
                 <Field label="Price (₹)" hint="Shown on your website. Your own students join for free.">
                   <Input name="price" inputMode="decimal" defaultValue="0" />
                 </Field>
-                <Field label="GST">
-                  <Select name="gst" defaultValue="18">
-                    {[0, 5, 12, 18, 28].map((g) => (
-                      <option key={g} value={g}>
-                        {g}%
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
+                {university.gstEnabled ? (
+                  <Field label="GST">
+                    <Select name="gst" defaultValue="18">
+                      {[0, 5, 12, 18, 28].map((g) => (
+                        <option key={g} value={g}>
+                          {g}%
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                ) : (
+                  <Field label="GST" hint="GST is turned off for this institute, so the price is the total.">
+                    <input type="hidden" name="gst" value="18" />
+                    <Input value="Not charged" disabled readOnly aria-label="GST" />
+                  </Field>
+                )}
               </div>
               <SubmitButton>Create and add batches</SubmitButton>
             </ActionForm>

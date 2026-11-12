@@ -22,3 +22,12 @@ const REFUND_LABEL = { requested: "Waiting for Razorpay", pending: "Processing",
 export function RefundStatusBadge({ status }: { status: keyof typeof REFUND_TONE }) {
   return <Badge tone={REFUND_TONE[status]}>{REFUND_LABEL[status]}</Badge>;
 }
+
+const INVOICE_TONE = { paid: "brand", unpaid: "neutral", overdue: "gold", cancelled: "neutral" } as const;
+const INVOICE_LABEL = { paid: "Paid", unpaid: "Unpaid", overdue: "Overdue", cancelled: "Cancelled" } as const;
+
+/** Invoices: gold marks the one thing that needs attention, an unpaid invoice past its due date. */
+export function InvoiceStatusBadge({ status, overdue = false }: { status: "paid" | "unpaid" | "cancelled"; overdue?: boolean }) {
+  const key = status === "unpaid" && overdue ? "overdue" : status;
+  return <Badge tone={INVOICE_TONE[key]}>{INVOICE_LABEL[key]}</Badge>;
+}

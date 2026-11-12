@@ -11,6 +11,8 @@ export type UniversityLite = {
   timezone: string;
   legalName: string | null;
   gstin: string | null;
+  /** False when the institute has turned GST off: prices are shown and charged without tax. */
+  gstEnabled: boolean;
   branding: { primaryColor?: string; logoUrl?: string };
 };
 

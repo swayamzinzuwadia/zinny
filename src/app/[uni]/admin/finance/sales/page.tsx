@@ -51,14 +51,19 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
   const pageQ = data.page > 1 ? data.page : undefined;
   const filtered = Boolean(f.from || f.to || f.status || f.courseId || f.batchId || f.q);
   const t = data.totals;
+  // With GST off, the GST figure only shows while earlier orders in view still carry some.
+  const showGst = university.gstEnabled || t.gstPaise > 0;
 
   return (
     <>
       <PageHeader
         title="Sales"
-        subtitle="Every order with its payment, GST invoice and refunds."
+        subtitle="Every order with its payment, invoice and refunds."
         actions={
           <>
+            <Link href={`/${uni}/admin/finance/invoices`} className={buttonClass("secondary", "sm")}>
+              All invoices
+            </Link>
             <Link href={`${base}/settings`} className={buttonClass("secondary", "sm")}>
               Invoice settings
             </Link>
@@ -130,10 +135,14 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
       </form>
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Gross collected" value={inr(t.grossPaise)} hint={`Including GST, ${t.paidOrders} paid ${t.paidOrders === 1 ? "order" : "orders"}`} />
-        <Stat label="GST" value={inr(t.gstPaise)} hint="Part of gross collected" />
+        <Stat label="Gross collected" value={inr(t.grossPaise)} hint={`${showGst ? "Including GST, " : ""}${t.paidOrders} paid ${t.paidOrders === 1 ? "order" : "orders"}`} />
+        {showGst ? (
+          <Stat label="GST" value={inr(t.gstPaise)} hint={university.gstEnabled ? "Part of gross collected" : "From orders placed while GST was on"} />
+        ) : (
+          <Stat label="Paid orders" value={t.paidOrders} hint="GST is off: fees carry no tax" />
+        )}
         <Stat label="Refunds" value={inr(t.refundsPaise)} hint="Sent back to students" />
-        <Stat label="After refunds" value={inr(t.netPaise)} hint="Gross minus refunds, including GST" />
+        <Stat label="After refunds" value={inr(t.netPaise)} hint={showGst ? "Gross minus refunds, including GST" : "Gross minus refunds"} />
       </div>
 
       {t.refundDue > 0 && f.status !== "refund_due" && (
@@ -218,7 +227,7 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
         </div>
       </div>
       {!detail && data.rows.length > 0 && (
-        <Card className="mt-6 p-4 text-[13px] text-muted">Select an order to see the payment ids, the GST invoice and refunds{data.can.refund ? ", and to send a refund" : ""}.</Card>
+        <Card className="mt-6 p-4 text-[13px] text-muted">Select an order to see the payment ids, the invoice and refunds{data.can.refund ? ", and to send a refund" : ""}.</Card>
       )}
     </>
   );

@@ -9,7 +9,7 @@ import "server-only";
  */
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { systemDb } from "@/db/client";
-import { courses } from "@/db/schema";
+import { courses, universities } from "@/db/schema";
 import { gstFor } from "@/server/core";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
 import { mktCartItems, mktListings } from "./schema";
@@ -73,7 +73,7 @@ export async function cartView(userId: string): Promise<CartView> {
       .where(and(eq(mktCartItems.userId, userId), inArray(mktCartItems.listingId, gone)));
   }
   const rates = keep.length
-    ? new Map((await systemDb().select({ id: courses.id, gstRateBp: courses.gstRateBp }).from(courses).where(inArray(courses.id, keep.map((i) => i.courseId)))).map((c) => [c.id, c.gstRateBp]))
+    ? new Map((await systemDb().select({ id: courses.id, gstRateBp: sql<number>`case when ${universities.gstEnabled} then ${courses.gstRateBp} else 0 end` }).from(courses).innerJoin(universities, eq(universities.id, courses.universityId)).where(inArray(courses.id, keep.map((i) => i.courseId)))).map((c) => [c.id, c.gstRateBp]))
     : new Map<string, number>();
   const order = new Map(rows.map((r, i) => [r.listingId, i]));
   const lines = keep

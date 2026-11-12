@@ -109,6 +109,8 @@ export const universities = pgTable("universities", {
   address: text("address"),
   /** Up to 4 characters, so invoice numbers stay within GST's 16-character limit. */
   invoicePrefix: text("invoice_prefix").notNull().default("ZN"),
+  /** Off = the institute doesn't charge GST: new orders and invoices carry no tax (Finance → Sales → Settings). */
+  gstEnabled: boolean("gst_enabled").notNull().default(true),
   branding: jsonb("branding").$type<{ primaryColor?: string; logoUrl?: string }>().notNull().default({}),
   status: text("status").notNull().default("active"),
   createdAt: createdAt(),

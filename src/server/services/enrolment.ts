@@ -29,7 +29,7 @@ import { emit } from "../events";
 import { gateway } from "../payments/gateway";
 import { audit, withTenant } from "../tenant";
 import { loadBatch, scheduledBatches, seatsTaken } from "./batches";
-import { gstFor, issueInvoice } from "./finance";
+import { issueInvoice, orderGst } from "./finance";
 import { hodsOf, notify, settleNotifications } from "./notifications";
 import { describeSlots, findClashes, type Clash } from "./schedule";
 import { learnerDepartmentScope } from "./students";
@@ -400,7 +400,7 @@ export async function holdRecordedSeat(actor: Actor, input: { batchId: string; p
       .insert(enrolments)
       .values({ universityId: uni(actor), userId: actor.userId, courseId: course.id, batchId: batch.id, status: "held", holdExpiresAt: expiresAt })
       .returning();
-    const gst = gstFor(input.pricePaise, course.gstRateBp);
+    const gst = await orderGst(tx, uni(actor), input.pricePaise, course.gstRateBp);
     const [order] = await tx
       .insert(orders)
       .values({
