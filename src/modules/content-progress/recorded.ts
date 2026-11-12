@@ -33,8 +33,10 @@ export async function readyVideoLessons(tx: Tx, courseIds: string[]) {
   return tx
     .select({ id: contentLessons.id, courseId: contentLessons.courseId, title: contentLessons.title })
     .from(contentLessons)
+    .innerJoin(contentSections, eq(contentSections.id, contentLessons.sectionId))
     .where(and(inArray(contentLessons.courseId, courseIds), eq(contentLessons.kind, "video"), eq(contentLessons.ready, true)))
-    .orderBy(contentLessons.position);
+    // Curriculum order: by section, then within it; created_at settles lessons that share a position.
+    .orderBy(contentSections.position, contentLessons.position, contentLessons.createdAt);
 }
 
 /** The course a lesson belongs to. */

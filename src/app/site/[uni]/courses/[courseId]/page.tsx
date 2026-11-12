@@ -75,7 +75,7 @@ export default async function CoursePage({ params }: Props) {
           <aside className="h-fit rounded-[28px] bg-[var(--site-deep)] p-7 text-[var(--site-on-primary)]">
             <div className="text-[14px] text-[var(--site-on-primary)]/70">Fee</div>
             <div className="tabular mt-1 text-[34px] font-semibold leading-none tracking-[-0.02em]">{course.pricePaise ? formatINR(course.pricePaise) : "Free"}</div>
-            {course.pricePaise > 0 && (
+            {course.pricePaise > 0 && course.gstRateBp > 0 && (
               <div className="mt-2 text-[14px] text-[var(--site-on-primary)]/70">
                 + {course.gstRateBp / 100}% GST, {formatINR(total)} in all
               </div>

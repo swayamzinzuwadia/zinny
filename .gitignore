@@ -45,3 +45,9 @@ next-env.d.ts
 .claude/worktrees/
 src/generated/
 .storage/
+
+# graphify code graph (rebuilt locally with npm run graph)
+graphify-out/
+
+# Written by next dev on every start
+/AGENTS.md

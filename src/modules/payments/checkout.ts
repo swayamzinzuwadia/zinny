@@ -18,6 +18,7 @@ import { audit, confirmPayment, failPayment, gateway, orderForCheckout, withTena
 import { ValidationError } from "@/server/errors";
 import { testModeAllowed } from "./config";
 import { refundTotals, universityRow } from "./internal";
+import { gstRatePercent } from "./invoices";
 import { GatewayError, isRazorpay, RAZORPAY_CHECKOUT_JS } from "./razorpay";
 
 export type CheckoutState = "pay" | "paid" | "closed" | "refund_due" | "refunded" | "unavailable";
@@ -44,6 +45,8 @@ export type CheckoutView = CheckoutOrder & {
   state: CheckoutState;
   /** Intra-state split for the summary (core issues invoices as intra-state supply). */
   split: { cgstPaise: number; sgstPaise: number; halfRatePercent: number };
+  /** False when the order carries no GST (the institute has GST turned off, or a 0% course): the summary shows no tax rows. */
+  gst: boolean;
   gateway: { kind: "mock"; testMode: boolean } | { kind: "razorpay"; scriptUrl: string; options: RazorpayCheckoutOptions; mode: "test" | "live" } | { kind: "other"; name: string };
   invoice: { id: string; number: string } | null;
   refundedPaise: number;
@@ -78,7 +81,8 @@ export async function checkoutView(actor: Actor, orderId: string): Promise<Check
   });
 
   const g = gateway();
-  const half = course.gstRateBp / 200;
+  // The rate the order was actually charged at (the course's rate may have changed, or GST may be off now).
+  const half = order.gstPaise > 0 ? gstRatePercent(order.basePaise, order.gstPaise, course.gstRateBp) / 2 : 0;
   const cgstPaise = Math.floor(order.gstPaise / 2);
   let problem: string | null = null;
   let gw: CheckoutView["gateway"];
@@ -134,6 +138,7 @@ export async function checkoutView(actor: Actor, orderId: string): Promise<Check
     ...co,
     state,
     split: { cgstPaise, sgstPaise: order.gstPaise - cgstPaise, halfRatePercent: half },
+    gst: order.gstPaise > 0,
     gateway: gw,
     invoice: extra.invoice,
     refundedPaise: extra.refunded,

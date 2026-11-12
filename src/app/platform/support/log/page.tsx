@@ -4,7 +4,7 @@ import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { BackLink, FilterProblems, NoAccess, PanelTable } from "@/modules/zinny-team-panel/components/bits";
 import { formatDateTime } from "@/modules/zinny-team-panel/lib/format";
-import { activityLog, activityLogOptions, actionLabel, describeDetails, EXPORT_LIMIT, parseLogFilters, type LogFilters } from "@/modules/zinny-team-panel/services/support";
+import { activityLog, activityLogOptions, actionLabel, describeDetails, EXPORT_LIMIT, impersonatorIn, parseLogFilters, type LogFilters } from "@/modules/zinny-team-panel/services/support";
 
 export const metadata = { title: "Activity log" };
 
@@ -38,7 +38,7 @@ export default async function ActivityLogPage({ searchParams }: { searchParams: 
       <BackLink href="/platform/support">Support mode</BackLink>
       <PageHeader
         title="Activity log"
-        subtitle="Who did what, where and when. Support sessions show every change made inside an institute; all Zinny team activity adds licences, invoices, roles and the rest."
+        subtitle="Who did what, where and when. Support sessions show every change made inside an institute, including what a Super Admin did while signed in as someone; all Zinny team activity adds licences, invoices, roles and the rest."
         actions={
           <a href={`/platform/support/log/export${query(filters)}`} className={cx(buttonClass("secondary"), "whitespace-nowrap")} download>
             Download CSV
@@ -112,7 +112,16 @@ export default async function ActivityLogPage({ searchParams }: { searchParams: 
               <tr key={e.id} className="align-top">
                 <Td className="text-muted 2xl:whitespace-nowrap">{formatDateTime(e.at)}</Td>
                 <Td>
-                  <div>{e.actorName ?? "Zinny system"}</div>
+                  <div>
+                    {e.actorName ?? "Zinny system"}
+                    {/* Done by a Super Admin signed in as this person. */}
+                    {impersonatorIn(e.data) && <span className="text-muted">, by {impersonatorIn(e.data)!.name} (Zinny)</span>}
+                  </div>
+                  {impersonatorIn(e.data) && (
+                    <div className="mt-1 whitespace-nowrap">
+                      <Badge tone="gold">Signed in as them</Badge>
+                    </div>
+                  )}
                   {e.supportSessionId && (
                     <div className="mt-1 whitespace-nowrap">
                       <Badge tone="gold">In support mode</Badge>

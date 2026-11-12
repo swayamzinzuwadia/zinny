@@ -1,181 +1,78 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { cx } from "@/components/ui";
 import { currentUserId } from "@/server/auth/session";
-import { BookCard, ShopShelf } from "@/modules/marketplace/components/jacket";
-import { browseMarketplace, marketplaceAccess, marketplaceInstitute, marketplaceInstitutes, type CatalogItem, type CatalogSort } from "@/modules/marketplace/service";
-import { getSite } from "@/modules/website-builder/cached";
+import { BookGrid, EmptyShelf, SearchBar, SectionHead, instituteFaces, query, shell } from "@/modules/marketplace/components/browse";
+import { ShopShelf } from "@/modules/marketplace/components/jacket";
+import { InstituteCard, LiveGrid } from "@/modules/marketplace/components/live";
+import { browseMarketplace, marketplaceAccess, marketplaceDirectory, splitCatalog } from "@/modules/marketplace/service";
 
 export const dynamic = "force-dynamic";
 
 type Search = { q?: string; kind?: string; institute?: string; offer?: string; sort?: string };
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<Search> }): Promise<Metadata> {
-  const sp = await searchParams;
-  const institute = sp.institute ? await marketplaceInstitute(sp.institute) : null;
-  return { title: institute ? `${institute.name} on the marketplace` : "Marketplace" };
+  const q = ((await searchParams).q ?? "").trim();
+  return {
+    title: q ? `"${q}" on the marketplace` : "Marketplace",
+    description: "Recorded lectures to watch any time and seats in live batches, sold directly by the institutes that teach them.",
+  };
 }
 
-/** Below this many recordings, the shop front doesn't say how many there are. */
-const COUNT_FROM = 12;
-/** Up to this many recordings (or with one institute selling), one grid instead of rows by deal and institute. */
-const ONE_GRID_UP_TO = 8;
-
-const shell = "mx-auto max-w-6xl px-4 sm:px-6";
-
-const KINDS = [
-  { key: "", label: "Everything" },
-  { key: "course", label: "Courses" },
-  { key: "lecture", label: "Lectures" },
-  { key: "combo", label: "Combos" },
-] as const;
-
-const SORTS: { key: CatalogSort; label: string }[] = [
-  { key: "new", label: "Newest" },
-  { key: "price-low", label: "Price, low to high" },
-  { key: "price-high", label: "Price, high to low" },
-  { key: "deals", label: "Biggest discount" },
-];
-
-function Shelf({ items, showInstitute = true }: { items: CatalogItem[]; showInstitute?: boolean }) {
+/** One of the two ways to learn, as a door on the shop front. */
+function OptionDoor({ href, title, line, count, children }: { href: string; title: string; line: string; count: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-x-7 lg:grid-cols-4">
-      {items.map((item) => (
-        <BookCard key={item.id} item={item} showInstitute={showInstitute} />
-      ))}
-    </div>
+    <Link
+      href={href}
+      className="group flex flex-col rounded-[20px] bg-canvas p-4 text-ink shadow-[0_22px_44px_-26px_rgb(0_0_0/0.65)] outline-offset-2 [transition-property:translate,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1 sm:p-6"
+    >
+      <span className="flex size-10 items-center justify-center rounded-[12px] bg-brand-soft text-brand sm:size-12">
+        <svg aria-hidden viewBox="0 0 24 24" className="size-5 sm:size-6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          {children}
+        </svg>
+      </span>
+      <h2 className="mt-4 text-[clamp(1.2rem,3.6vw,1.75rem)] leading-[1.12] font-semibold group-hover:text-brand">{title}</h2>
+      <p className="mt-2 text-[13.5px] leading-snug text-ink/75 sm:text-[15px] sm:leading-relaxed">{line}</p>
+      <span className="mt-auto pt-4 text-[13px] font-medium text-brand sm:text-[14px]">{count}</span>
+    </Link>
   );
 }
 
-function SectionHead({ title, href, more }: { title: string; href?: string; more?: string }) {
-  return (
-    <div className="mb-8 flex items-end justify-between gap-6 border-b border-line pb-4">
-      <h2 className="text-[clamp(1.7rem,3.4vw,2.4rem)] leading-tight font-semibold">{title}</h2>
-      {href && more && (
-        <Link href={href} className="shrink-0 pb-1 text-[14px] font-medium text-brand hover:underline">
-          {more}
-        </Link>
-      )}
-    </div>
-  );
-}
-
+/** The shop front: the two ways to learn side by side, a shelf of each, and the institutes behind them. Search looks in both. */
 export default async function Marketplace({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
-  const userId = await currentUserId();
+  // Links from before the marketplace had two halves: an institute's shelf, and the recorded filters.
+  if (sp.institute && /^[a-z0-9-]{1,64}$/.test(sp.institute)) redirect(`/marketplace/institutes/${sp.institute}`);
   const q = (sp.q ?? "").trim();
-  const kind = sp.kind === "course" || sp.kind === "lecture" || sp.kind === "combo" ? sp.kind : undefined;
-  const sort = SORTS.some((s) => s.key === sp.sort) ? (sp.sort as CatalogSort) : undefined;
-  const onOffer = sp.offer === "1";
-  const institute = sp.institute ? await marketplaceInstitute(sp.institute) : null;
-  const browsing = Boolean(q || kind || sort || onOffer || institute);
+  if (!q && (sp.kind || sp.offer || sp.sort)) redirect(query("/marketplace/recorded", { kind: sp.kind, offer: sp.offer, sort: sp.sort }));
 
-  const [{ canShop }, all, institutes, site, results] = await Promise.all([
+  const userId = await currentUserId();
+  const [{ canShop }, everything, directory, found] = await Promise.all([
     userId ? marketplaceAccess(userId) : { canShop: false },
-    browseMarketplace(),
-    marketplaceInstitutes(),
-    institute ? getSite(institute.slug) : null,
-    browsing ? browseMarketplace({ q, kind, institute: institute?.slug, onOffer, sort }) : null,
+    browseMarketplace({ format: "all" }),
+    marketplaceDirectory(),
+    q ? browseMarketplace({ format: "all", q }) : null,
   ]);
-
-  const href = (over: Partial<Record<"kind" | "offer" | "sort", string>>) => {
-    const p = new URLSearchParams({
-      ...(institute ? { institute: institute.slug } : {}),
-      ...(q ? { q } : {}),
-      ...(kind ? { kind } : {}),
-      ...(onOffer ? { offer: "1" } : {}),
-      ...(sort ? { sort } : {}),
-      ...over,
-    });
-    for (const [k, v] of [...p.entries()]) if (!v || (k === "sort" && v === "new")) p.delete(k);
-    const s = p.toString();
-    return s ? `/marketplace?${s}` : "/marketplace";
-  };
-  const shelfBooks = (institute ? all.filter((i) => i.instituteSlug === institute.slug) : all).slice(0, 16);
-  const deals = all.filter((i) => i.percentOff).sort((a, b) => (b.percentOff ?? 0) - (a.percentOff ?? 0));
+  const all = splitCatalog(everything);
+  const results = found ? splitCatalog(found) : null;
+  const selling = directory.filter((i) => i.listings > 0);
+  const faces = results ? [] : await instituteFaces(directory.slice(0, 6));
 
   return (
     <>
       <section aria-labelledby="shopfront" className="overflow-hidden bg-brand-deep text-canvas">
         <div className={cx(shell, "grid gap-10 pt-10 sm:pt-16 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-14")}>
-          <div className="lg:pb-20">
-            {institute && (
-              <Link href="/marketplace" className="text-[14px] text-canvas/65 hover:text-canvas">
-                All institutes
-              </Link>
-            )}
-            <h1 id="shopfront" className="mt-2 max-w-[13ch] text-[clamp(2.6rem,6.4vw,4.75rem)] leading-[1.02] font-semibold [text-wrap:balance]">
-              {institute ? institute.name : "Learn from the institutes themselves."}
+          <div className="lg:pb-16">
+            <h1 id="shopfront" className="max-w-[13ch] text-[clamp(2.6rem,6.4vw,4.75rem)] leading-[1.02] font-semibold [text-wrap:balance]">
+              Learn from the institutes themselves.
             </h1>
             <p className="mt-5 max-w-xl text-[17px] leading-relaxed text-canvas/75">
-              {institute
-                ? `Recorded courses and lectures sold by ${institute.name}. Buy once and watch at your own pace.`
-                : "Recorded courses, single lectures and combos, sold directly by the institutes that teach them. Buy once and watch at your own pace."}
-              {site && institute && (
-                <>
-                  {" "}
-                  <Link href={`/site/${institute.slug}`} className="font-medium text-gold underline-offset-4 hover:underline">
-                    Visit their website
-                  </Link>
-                </>
-              )}
+              Two ways to learn, both sold directly by the institutes that teach them: recorded lectures you watch any time, and live batches with dates, class times and a seat with your name on it.
             </p>
-
-            <form action="/marketplace" role="search" className="mt-8 flex max-w-xl items-center rounded-full bg-canvas p-1.5 shadow-[0_18px_40px_-20px_rgb(0_0_0/0.6)]">
-              {institute && <input type="hidden" name="institute" value={institute.slug} />}
-              {kind && <input type="hidden" name="kind" value={kind} />}
-              <svg aria-hidden viewBox="0 0 20 20" className="ml-4 size-5 shrink-0 text-muted" fill="none" stroke="currentColor" strokeWidth="1.7">
-                <circle cx="8.5" cy="8.5" r="5.5" />
-                <path d="m13 13 4 4" strokeLinecap="round" />
-              </svg>
-              <input
-                type="search"
-                name="q"
-                defaultValue={q}
-                placeholder="Search courses"
-                aria-label="Search the marketplace"
-                className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-[16px] text-ink outline-none placeholder:text-muted [&:focus-visible]:outline-none"
-              />
-              <button className="shrink-0 rounded-full bg-brand px-5 py-2.5 text-[15px] font-medium text-canvas [transition-property:background-color] duration-150 hover:bg-brand-strong">
-                Search
-              </button>
-            </form>
-
-            <nav aria-label="Browse by type" className="mt-5 flex flex-wrap gap-2 text-[14px]">
-              {KINDS.map((k) => {
-                const on = (kind ?? "") === k.key;
-                return (
-                  <Link
-                    key={k.key}
-                    href={href({ kind: k.key })}
-                    aria-current={on ? "page" : undefined}
-                    className={cx(
-                      "rounded-full px-4 py-1.5 [transition-property:background-color,color] duration-150",
-                      on ? "bg-canvas font-medium text-brand-deep" : "text-canvas/80 ring-1 ring-canvas/25 hover:bg-canvas/10 hover:text-canvas",
-                    )}
-                  >
-                    {k.label}
-                  </Link>
-                );
-              })}
-              {(deals.length > 0 || onOffer) && (
-                <Link
-                  href={href({ offer: onOffer ? "" : "1" })}
-                  aria-current={onOffer ? "page" : undefined}
-                  className={cx(
-                    "rounded-full px-4 py-1.5 [transition-property:background-color,color] duration-150",
-                    onOffer ? "bg-canvas font-medium text-brand-deep" : "text-canvas/80 ring-1 ring-canvas/25 hover:bg-canvas/10 hover:text-canvas",
-                  )}
-                >
-                  On offer
-                </Link>
-              )}
-            </nav>
-
-            <p className="mt-7 text-[14px] text-canvas/60">
-              {all.length === 0
-                ? "The shelves are being stocked."
-                : `${all.length >= COUNT_FROM ? `${all.length} recordings from ${institutes.length} ${institutes.length === 1 ? "institute" : "institutes"}. ` : ""}Prices are before GST, which is added at checkout.`}
+            <SearchBar action="/marketplace" q={q} placeholder="Search courses, batches and institutes" label="Search the marketplace" />
+            <p className="mt-6 text-[14px] text-canvas/60">
+              {everything.length === 0 ? "The shelves are being stocked." : "Where an institute charges GST, it is added at checkout."}
             </p>
             {!userId ? (
               <p className="mt-2 text-[14px] text-canvas/75">
@@ -192,85 +89,122 @@ export default async function Marketplace({ searchParams }: { searchParams: Prom
               !canShop && <p className="mt-2 max-w-xl text-[14px] text-canvas/75">You can look around. Buying is for learner accounts: students, alumni and people who signed up for the marketplace.</p>
             )}
           </div>
+          <ShopShelf items={all.recorded.slice(0, 16)} empty="Recordings land here as institutes list them." />
+        </div>
+      </section>
 
-          <ShopShelf items={shelfBooks} empty="Recordings land here as institutes list them." />
+      {/* The two options, side by side on every screen: they are the marketplace's whole map. */}
+      <section aria-label="Two ways to learn" className="bg-brand-deep pt-10 pb-12 sm:pb-16">
+        <div className={cx(shell, "grid grid-cols-2 gap-3 sm:gap-6")}>
+          <OptionDoor
+            href="/marketplace/recorded"
+            title="Recorded lectures"
+            line="Courses, single lectures and combos. Buy once, watch any time."
+            count={all.recorded.length > 0 ? `${all.recorded.length} to watch` : "Coming soon"}
+          >
+            <path d="M4 5.5h16v10H4zM9 19.5h6M12 15.5v4M10.5 8.5v4l3.5-2z" />
+          </OptionDoor>
+          <OptionDoor
+            href="/marketplace/live"
+            title="Live lectures and batches"
+            line="Join an institute's batch: set dates, days and times, limited seats."
+            count={all.live.length > 0 ? `${all.live.length} ${all.live.length === 1 ? "batch" : "batches"} open` : "Coming soon"}
+          >
+            <path d="M5 6.5h14v13H5zM5 10.5h14M9 4v4M15 4v4M9 14h2M13 14h2M9 16.5h2" />
+          </OptionDoor>
         </div>
       </section>
 
       <div className={cx(shell, "pt-14 sm:pt-20")}>
         {results ? (
-          <section aria-labelledby="results">
-            <div className="mb-8 flex flex-col gap-4 border-b border-line pb-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h2 id="results" className="text-[clamp(1.7rem,3.4vw,2.4rem)] leading-tight font-semibold">
-                  {results.length} {results.length === 1 ? "recording" : "recordings"}
-                  {onOffer && " on offer"}
-                  {q && <span className="text-muted"> for &ldquo;{q}&rdquo;</span>}
-                </h2>
-                {(q || kind || sort || onOffer) && (
-                  <Link href={institute ? `/marketplace?institute=${institute.slug}` : "/marketplace"} className="mt-1 inline-block text-[14px] text-brand hover:underline">
-                    Clear filters
-                  </Link>
-                )}
-              </div>
-              <nav aria-label="Sort" className="flex flex-wrap gap-x-4 gap-y-1 text-[14px]">
-                {SORTS.map((s) => {
-                  const on = (sort ?? "new") === s.key;
-                  return (
-                    <Link
-                      key={s.key}
-                      href={href({ sort: s.key })}
-                      aria-current={on ? "page" : undefined}
-                      className={on ? "font-medium text-ink underline decoration-gold decoration-2 underline-offset-[6px]" : "text-muted hover:text-ink"}
-                    >
-                      {s.label}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-            {results.length === 0 ? (
-              <div className="rounded-[20px] bg-surface px-6 py-14 text-center">
-                <p className="text-[19px] font-medium">{q ? "Nothing on the shelves matches that yet." : "Nothing here yet."}</p>
-                <p className="mt-2 text-[15px] text-muted">{q ? "Try a shorter word, or browse everything." : "Institutes add recordings all the time. Check back soon."}</p>
-                <Link href="/marketplace" className="mt-5 inline-block rounded-full bg-brand px-5 py-2.5 text-[15px] font-medium text-canvas hover:bg-brand-strong">
-                  Browse everything
+          <div className="space-y-16">
+            <div>
+              <p className="text-[15px] text-muted">
+                {found!.length} {found!.length === 1 ? "result" : "results"} for &ldquo;{q}&rdquo; ·{" "}
+                <Link href="/marketplace" className="font-medium text-brand hover:underline">
+                  Clear search
                 </Link>
-              </div>
+              </p>
+            </div>
+            {found!.length === 0 ? (
+              <EmptyShelf title="Nothing on the marketplace matches that yet." href="/marketplace" action="Back to the marketplace">
+                Try a shorter word, or the name of an institute. Search looks through recorded lectures and live batches.
+              </EmptyShelf>
             ) : (
-              <Shelf items={results} showInstitute={!institute} />
+              <>
+                <section aria-labelledby="found-recorded">
+                  <SectionHead
+                    id="found-recorded"
+                    title={`Recorded lectures (${results.recorded.length})`}
+                    note="Watch any time."
+                    href={query("/marketplace/recorded", { q })}
+                    more={results.recorded.length > 0 ? "Filter and sort these" : undefined}
+                  />
+                  {results.recorded.length > 0 ? <BookGrid items={results.recorded} /> : <p className="text-[15px] text-muted">No recordings match &ldquo;{q}&rdquo;.</p>}
+                </section>
+                <section aria-labelledby="found-live">
+                  <SectionHead
+                    id="found-live"
+                    title={`Live lectures and batches (${results.live.length})`}
+                    note="Fixed dates, days and times."
+                    href={query("/marketplace/live", { q })}
+                    more={results.live.length > 0 ? "Filter and sort these" : undefined}
+                  />
+                  {results.live.length > 0 ? <LiveGrid items={results.live} /> : <p className="text-[15px] text-muted">No live batches match &ldquo;{q}&rdquo;.</p>}
+                </section>
+              </>
             )}
-          </section>
-        ) : all.length === 0 ? (
-          <div className="max-w-xl">
-            <h2 className="text-[clamp(1.7rem,3.4vw,2.4rem)] leading-tight font-semibold">The first recordings are on their way.</h2>
-            <p className="mt-3 text-[16px] leading-relaxed text-muted">
-              Institutes on Zinny list their recorded courses here. Create a free account now and you can buy the moment they arrive.
-            </p>
           </div>
-        ) : institutes.length <= 1 || all.length <= ONE_GRID_UP_TO ? (
-          // A small catalogue reads better as one shelf than as rows that repeat the same books.
-          <section>
-            <SectionHead title="All recordings" />
-            <Shelf items={all} />
-          </section>
         ) : (
           <div className="space-y-20">
-            {deals.length > 0 && (
-              <section>
-                <SectionHead title="On offer now" href={href({ offer: "1", sort: "deals" })} more={deals.length > 4 ? `All ${deals.length} deals` : undefined} />
-                <Shelf items={deals.slice(0, 4)} />
-              </section>
-            )}
-            {institutes.map((inst) => {
-              const books = all.filter((i) => i.instituteSlug === inst.slug);
-              return (
-                <section key={inst.slug}>
-                  <SectionHead title={`From ${inst.name}`} href={`/marketplace?institute=${inst.slug}`} more={books.length > 8 ? `All ${books.length} from them` : "Their shelf"} />
-                  <Shelf items={books.slice(0, 8)} showInstitute={false} />
-                </section>
-              );
-            })}
+            <section aria-labelledby="shelf-recorded">
+              <SectionHead
+                id="shelf-recorded"
+                title="Recorded lectures"
+                note="Watch any time, at your own pace."
+                href="/marketplace/recorded"
+                more={all.recorded.length > 0 ? (all.recorded.length > 8 ? `All ${all.recorded.length} recordings` : "Browse recorded") : undefined}
+              />
+              {all.recorded.length > 0 ? (
+                <BookGrid items={all.recorded.slice(0, 8)} />
+              ) : (
+                <EmptyShelf title="The first recordings are on their way.">Institutes list their recorded courses, single lectures and combos here. Check back soon.</EmptyShelf>
+              )}
+            </section>
+
+            <section aria-labelledby="shelf-live">
+              <SectionHead
+                id="shelf-live"
+                title="Live lectures and batches"
+                note="Taught live, on set days and times, with limited seats."
+                href="/marketplace/live"
+                more={all.live.length > 0 ? (all.live.length > 6 ? `All ${all.live.length} live batches` : "Browse live") : undefined}
+              />
+              {all.live.length > 0 ? (
+                <LiveGrid items={all.live.slice(0, 6)} />
+              ) : (
+                <EmptyShelf title="No live batches are open right now.">When an institute opens a batch to marketplace learners, it shows here with its dates, class times and seats.</EmptyShelf>
+              )}
+            </section>
+
+            <section aria-labelledby="shelf-institutes">
+              <SectionHead
+                id="shelf-institutes"
+                title="Institutes"
+                note={selling.length > 0 ? `${selling.length} ${selling.length === 1 ? "institute is" : "institutes are"} selling here now.` : "Every institute on Zinny has a page here."}
+                href="/marketplace/institutes"
+                more={directory.length > 0 ? (directory.length > 6 ? `All ${directory.length} institutes` : "See all institutes") : undefined}
+              />
+              {faces.length > 0 ? (
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {faces.map((face) => (
+                    <InstituteCard key={face.slug} face={face} />
+                  ))}
+                </div>
+              ) : (
+                <EmptyShelf title="Institutes are on their way.">Each institute on Zinny gets a page here with what it sells.</EmptyShelf>
+              )}
+            </section>
           </div>
         )}
       </div>

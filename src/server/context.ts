@@ -23,6 +23,7 @@ export const universityBySlug = cache(async (slug: string): Promise<UniversityLi
       timezone: universities.timezone,
       legalName: universities.legalName,
       gstin: universities.gstin,
+      gstEnabled: universities.gstEnabled,
     })
     .from(universities)
     .where(eq(universities.slug, slug));
@@ -58,8 +59,9 @@ export const spaceContext = cache(async (slug: string) => {
   // Nothing can be changed while viewing as someone: this stops every action, whatever it writes to.
   if (viewed && (await isChangeRequest())) throw new ForbiddenError(`You're viewing as ${viewed.name}, so nothing can be changed.`);
   const actor = viewed ?? signedIn;
-  // A suspended university is closed to its own people; the Zinny team still gets in through support mode.
-  if (!signedIn.supportSessionId && !viewed && (await universityStatus(university.id)) === "suspended") redirect(`/suspended?uni=${encodeURIComponent(slug)}`);
+  // A suspended university is closed to its own people; the Zinny team still gets in through
+  // support mode, by viewing as a learner, or signed in as one of its people.
+  if (!signedIn.supportSessionId && !viewed && !signedIn.impersonatedBy && (await universityStatus(university.id)) === "suspended") redirect(`/suspended?uni=${encodeURIComponent(slug)}`);
   const now = new Date();
   const active = actor.assignments.filter((a) => isActive(a, now) && a.universityId === university.id);
   return {

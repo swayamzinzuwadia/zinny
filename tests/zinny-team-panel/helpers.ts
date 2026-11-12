@@ -1,5 +1,6 @@
 import type { RoleName } from "@/db/schema";
 import { loadActor } from "@/server/actor";
+import type { LicenceInput } from "@/modules/zinny-team-panel/services/licences";
 import { grant, makeUser } from "../fixtures";
 
 /** A Zinny team member with the given platform roles, as they act on /platform. */
@@ -9,7 +10,7 @@ export async function team(name: string, ...roles: RoleName[]) {
   return loadActor(u.id, null);
 }
 
-export const licence = (over: Partial<{ plan: string; studentCap: number; staffCap: number; modules: string[]; startDate: string; endDate: string }> = {}) => ({
+export const licence = (over: Partial<LicenceInput> = {}): LicenceInput => ({
   plan: "standard",
   studentCap: 100,
   staffCap: 10,

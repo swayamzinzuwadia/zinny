@@ -9,7 +9,8 @@ import { currentUserId } from "@/server/auth/session";
 import { spaceContext } from "@/server/context";
 import { ValidationError } from "@/server/errors";
 import { inr } from "@/modules/payments/money";
-import { createCode, createCombo, createListing, setCodeStatus, setListingStatus, updateListing } from "./listings";
+import { startBundle } from "@/modules/payments/bundles";
+import { createBatchListing, createCode, createCombo, createListing, removeBatchListing, setCodeStatus, setListingStatus, updateListing } from "./listings";
 import { addToCart, cartCount, removeFromCart } from "./cart";
 import { quoteCode, startPurchase } from "./service";
 
@@ -29,15 +30,17 @@ export async function buyAction(_: ActionState, data: FormData): Promise<ActionS
     return attempt(async () => {
       if (!code) throw new ValidationError("Type a code first.");
       const q = await quoteCode(listingId, code);
-      return `Code applied: ${inr(q.pricePaise)} + GST, saving ${inr(q.savedPaise)}. GST is added at checkout.`;
+      return `Code applied: ${inr(q.pricePaise)}, saving ${inr(q.savedPaise)}. If the institute charges GST, it is added at checkout.`;
     });
   }
   const userId = await currentUserId();
   if (!userId) redirect(`/login?next=${encodeURIComponent(`/marketplace/${listingId}`)}`);
   let dest: string | null = null;
   const res = await attempt(async () => {
-    const { slug, orderId } = await startPurchase(userId, listingId, code);
-    dest = `/${slug}/learn/checkout/${orderId}`;
+    const { slug, orderId, live } = await startPurchase(userId, listingId, code);
+    // A seat in a live batch is paid for on the marketplace's own checkout: the institute's
+    // checkout page leads back to its course catalogue, which a marketplace buyer can't open.
+    dest = live ? `/marketplace/checkout/${(await startBundle(userId, [orderId])).bundleId}` : `/${slug}/learn/checkout/${orderId}`;
   });
   if (dest) redirect(dest);
   return res;
@@ -63,11 +66,46 @@ export async function createListingAction(_: ActionState, data: FormData): Promi
   });
 }
 
+/** "List a live batch": a seat in a real batch, at the marketplace price. The title is the course's own. */
+export async function createBatchListingAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const uni = str(data, "uni");
+  return attempt(async () => {
+    const { actor } = await spaceContext(uni);
+    const batchId = str(data, "batchId");
+    if (!batchId) throw new ValidationError("Choose the batch to list.");
+    await createBatchListing(actor, {
+      batchId,
+      description: str(data, "description"),
+      pricePaise: rupeesToPaise(str(data, "price")),
+      compareAtPaise: str(data, "compareAt") ? rupeesToPaise(str(data, "compareAt")) : null,
+      lateJoin: data.get("lateJoin") === "on",
+    });
+    refresh(uni);
+    return "Listed. Seats in this batch are on the marketplace now.";
+  });
+}
+
+/** "Remove from the marketplace", for a live batch. Goes back to the listings once it is gone. */
+export async function removeListingAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const uni = str(data, "uni");
+  let done = false;
+  const res = await attempt(async () => {
+    const { actor } = await spaceContext(uni);
+    await removeBatchListing(actor, str(data, "listingId"));
+    refresh(uni);
+    done = true;
+  });
+  if (done) redirect(`/${uni}/admin/marketplace`);
+  return res;
+}
+
 export async function updateListingAction(_: ActionState, data: FormData): Promise<ActionState> {
   const uni = str(data, "uni");
   return attempt(async () => {
     const { actor } = await spaceContext(uni);
-    await updateListing(actor, str(data, "listingId"), fieldsOf(data));
+    // The late-joining tick is only on a live batch's form; a marker field tells an unticked box from no box.
+    const lateJoin = data.has("hasLateJoin") ? { lateJoin: data.get("lateJoin") === "on" } : {};
+    await updateListing(actor, str(data, "listingId"), { ...fieldsOf(data), ...lateJoin });
     refresh(uni);
     return "Listing saved. New buyers see these details and this price.";
   });

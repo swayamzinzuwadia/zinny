@@ -9,7 +9,7 @@ import "server-only";
  */
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { systemDb } from "@/db/client";
-import { courses } from "@/db/schema";
+import { courses, universities } from "@/db/schema";
 import { gstFor } from "@/server/core";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
 import { mktCartItems, mktListings } from "./schema";
@@ -38,7 +38,8 @@ export async function addToCart(userId: string, listingId: string) {
   const [item] = await liveListingsByIds([listingId]);
   if (!item) throw new NotFoundError("Listing");
   if ((await ownedCourseIds(userId, [item.courseId])).size) throw new ConflictError("This is already on your shelf.", "already_owned");
-  if ((await cartCount(userId)) >= CART_LIMIT) throw new ValidationError(`A cart holds up to ${CART_LIMIT} recordings. Check out what's in it first.`);
+  if (item.live?.seatsLeft === 0) throw new ConflictError(`${item.live.batchName} is full, so it can't go in your cart.`, "batch_full");
+  if ((await cartCount(userId)) >= CART_LIMIT) throw new ValidationError(`A cart holds up to ${CART_LIMIT} items. Check out what's in it first.`);
   await systemDb().insert(mktCartItems).values({ userId, listingId }).onConflictDoNothing();
   return { count: await cartCount(userId) };
 }
@@ -73,7 +74,7 @@ export async function cartView(userId: string): Promise<CartView> {
       .where(and(eq(mktCartItems.userId, userId), inArray(mktCartItems.listingId, gone)));
   }
   const rates = keep.length
-    ? new Map((await systemDb().select({ id: courses.id, gstRateBp: courses.gstRateBp }).from(courses).where(inArray(courses.id, keep.map((i) => i.courseId)))).map((c) => [c.id, c.gstRateBp]))
+    ? new Map((await systemDb().select({ id: courses.id, gstRateBp: sql<number>`case when ${universities.gstEnabled} then ${courses.gstRateBp} else 0 end` }).from(courses).innerJoin(universities, eq(universities.id, courses.universityId)).where(inArray(courses.id, keep.map((i) => i.courseId)))).map((c) => [c.id, c.gstRateBp]))
     : new Map<string, number>();
   const order = new Map(rows.map((r, i) => [r.listingId, i]));
   const lines = keep

@@ -21,7 +21,8 @@
     "predb:seed": "npm run gen",
     "db:seed": "tsx --tsconfig tsconfig.scripts.json --require ./scripts/server-only-stub.cjs src/db/seed.ts",
     "agent:setup": "tsx --tsconfig tsconfig.scripts.json --require ./scripts/server-only-stub.cjs scripts/agent-setup.ts",
-    "check:ownership": "tsx scripts/check-ownership.ts"
+    "check:ownership": "tsx scripts/check-ownership.ts",
+    "graph": "graphify update ."
   },
   "dependencies": {
     "@expo-google-fonts/lexend": "^0.4.1",

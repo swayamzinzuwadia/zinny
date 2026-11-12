@@ -180,9 +180,10 @@ export async function removeFacultyAction(_: ActionState, data: FormData): Promi
   const { uni, actor } = await ctx(data);
   const batchId = str(data, "batchId");
   return attempt(async () => {
-    await removeFaculty(actor, batchId, str(data, "userId"));
+    const { sectionsWithoutFaculty: left } = await removeFaculty(actor, batchId, str(data, "userId"));
     revalidatePath(`/${uni}/admin/products/batches/${batchId}`);
-    return "Faculty removed.";
+    if (left.length === 0) return "Faculty removed.";
+    return `Faculty removed. ${left.join(", ")} now ${left.length === 1 ? "has" : "have"} no faculty: pick someone under Sections and plan.`;
   });
 }
 

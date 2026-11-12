@@ -29,6 +29,21 @@ npm run typecheck && npm run lint
 npm run check:ownership                 # fails if you changed a file you don't own
 ```
 
+## Finding code: use the graph first
+
+The repo has a graphify code graph (about 6,000 symbols). Ask it before you grep or open whole files; it answers "where is X and what touches it" in a few hundred tokens.
+
+```bash
+pip install graphifyy                   # once per machine
+npm run graph                           # builds or refreshes graphify-out/ from source (no AI calls, about a minute)
+graphify query "batch timetable"        # symbols and files for a topic, with line numbers
+graphify explain "issueInvoice()"       # one symbol and everything connected to it
+graphify affected "gstFor()"            # what breaks if this changes
+graphify path "buyAction()" "issueInvoice()"
+```
+
+`graphify-out/` is not committed. Run `npm run graph` again after large changes. Then read only the line ranges the graph points to.
+
 ## Non-negotiable rules
 
 1. **Business rules live in services.** Module code goes in `src/modules/<module>/`. Pages and server actions only call service functions.

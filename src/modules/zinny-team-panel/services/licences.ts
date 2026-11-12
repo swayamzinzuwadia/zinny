@@ -1,26 +1,29 @@
 /**
- * Licences (platform.licences): plan, caps, modules and term per university, usage
+ * Licences (platform.licences): plan, caps, modules, term and price per university, usage
  * against the caps, and the warnings on the platform home (90% of a cap, 30 days
  * before the end date) kept in plat_alerts.
+ *
+ * A licence charges the institute: making one, renewing it or moving it to another plan
+ * raises a Zinny invoice in the same transaction for the plan's price less any discount,
+ * plus GST, unless the caller says not to.
  */
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
-import type { Tx } from "@/db/client";
+import type { Conn, Tx } from "@/db/client";
 import { universities, users } from "@/db/schema";
 import { assertPlatform, type Actor } from "@/server/core";
 import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
 import { platAlerts, platLicences } from "../schema";
-import {
-  CAP_WARNING_RATIO,
-  END_WARNING_DAYS,
-  LICENSABLE_MODULES,
-  PLAN_LABELS,
-  PLANS,
-  type Plan,
-} from "../lib/constants";
-import { daysBetween, formatDate, isDate, todayIST } from "../lib/format";
+import { CAP_WARNING_RATIO, DEFAULT_PAYMENT_DAYS, END_WARNING_DAYS, LICENSABLE_MODULES } from "../lib/constants";
+import { addDays, daysBetween, formatDate, isDate, todayIST } from "../lib/format";
+import { invoicesForLicence, issueInvoice, licenceInvoiceLine, type Invoice } from "./billing";
+import { planByKey, planNameFallback, planNames, planOptions, type Plan } from "./plans";
 import { db, emptyUsage, isUuid, logAction, universityOrThrow, usageFor, type Usage } from "./shared";
 
+/** How a licence's invoice is dated. Anything left out takes the default: today, due in 15 days, the plan's GST rate. */
+export type LicenceInvoiceInput = { issueDate?: string; dueDate?: string; gstRateBp?: number };
+
 export type LicenceInput = {
+  /** A plan's key. */
   plan: string;
   studentCap: number;
   staffCap: number;
@@ -28,16 +31,35 @@ export type LicenceInput = {
   startDate: string;
   endDate: string;
   notes?: string | null;
+  /**
+   * List price before GST, for the term. Left out: the plan's price when the licence is
+   * new, renewed or moved to another plan; otherwise the price it already has.
+   */
+  pricePaise?: number;
+  discountPaise?: number;
+  discountNote?: string | null;
+  /**
+   * The invoice to raise with this change. `false` (or null): don't create one. Left out:
+   * one is raised when the licence is new, its term changed or its plan changed.
+   * A net amount of 0 never creates an invoice.
+   */
+  invoice?: LicenceInvoiceInput | false | null;
 };
 
 export type Licence = typeof platLicences.$inferSelect;
 
 const MAX_CAP = 1_000_000;
+const MAX_PRICE = 100_00_00_000_00;
 const MODULE_IDS = new Set<string>(LICENSABLE_MODULES.map((m) => m.id));
 
-/** Checks and tidies a licence before it is saved. Error messages say how to fix the field. */
+/**
+ * Checks and tidies a licence before it is saved. Error messages say how to fix the field.
+ * Whether the plan exists and can be picked is checked against the plans table in
+ * `planForLicence`.
+ */
 export function validateLicence(input: LicenceInput) {
-  if (!(PLANS as readonly string[]).includes(input.plan)) throw new ValidationError("Pick a plan: Pilot, Standard or Enterprise.");
+  const plan = (input.plan ?? "").trim();
+  if (!plan) throw new ValidationError("Pick a plan.");
   for (const [label, v] of [
     ["Student cap", input.studentCap],
     ["Staff cap", input.staffCap],
@@ -51,8 +73,22 @@ export function validateLicence(input: LicenceInput) {
   if (input.endDate < input.startDate) throw new ValidationError("The end date must be on or after the start date.");
   const notes = input.notes?.trim() || null;
   if (notes && notes.length > 2000) throw new ValidationError("Keep the notes under 2,000 characters.");
+  if (input.pricePaise !== undefined && (!Number.isInteger(input.pricePaise) || input.pricePaise < 0 || input.pricePaise > MAX_PRICE)) {
+    throw new ValidationError("Enter the price before GST in rupees, like 720000. Use 0 for a free licence.");
+  }
+  if (input.discountPaise !== undefined && (!Number.isInteger(input.discountPaise) || input.discountPaise < 0)) {
+    throw new ValidationError("Enter the discount in rupees, or leave it at 0.");
+  }
+  const discountNote = input.discountNote?.trim() || null;
+  if (discountNote && discountNote.length > 300) throw new ValidationError("Keep the discount note under 300 characters.");
+  if (input.invoice) {
+    const { issueDate, dueDate } = input.invoice;
+    if (issueDate !== undefined && !isDate(issueDate)) throw new ValidationError("Enter the invoice date.");
+    if (dueDate !== undefined && !isDate(dueDate)) throw new ValidationError("Enter the due date.");
+    if (issueDate && dueDate && dueDate < issueDate) throw new ValidationError("The due date can't be before the invoice date.");
+  }
   return {
-    plan: input.plan as Plan,
+    plan,
     studentCap: input.studentCap,
     staffCap: input.staffCap,
     // Keep the catalogue order so the stored list is stable.
@@ -63,17 +99,67 @@ export function validateLicence(input: LicenceInput) {
   };
 }
 
-/** Creates or replaces a university's licence, then refreshes its warnings. */
-export async function saveLicence(actor: Actor, universityId: string, input: LicenceInput) {
+/**
+ * The plan a licence is being saved on. It must exist, and an archived plan can only stay
+ * on a licence that already has it (`currentPlan`).
+ */
+export async function planForLicence(conn: Conn, key: string, currentPlan?: string | null): Promise<Plan> {
+  const plan = await planByKey(conn, key.trim());
+  if (!plan) throw new ValidationError("Pick a plan from the list. Plans are managed on the Plans page.");
+  if (plan.archivedAt && plan.key !== currentPlan) {
+    throw new ValidationError(`${plan.name} is archived, so it can't be used for a new licence. Restore it on the Plans page or pick another plan.`);
+  }
+  return plan;
+}
+
+export type SavedLicence = Licence & { invoice: Invoice | null };
+
+/**
+ * Creates or replaces a university's licence, raises its invoice when there is something
+ * to charge, then refreshes its warnings. All in one transaction: a problem with the
+ * invoice leaves the licence as it was.
+ */
+export async function saveLicence(actor: Actor, universityId: string, input: LicenceInput, today = todayIST()): Promise<SavedLicence> {
   assertPlatform(actor, "platform.licences");
   const clean = validateLicence(input);
-  const saved = await db().transaction(async (tx) => {
+  return db().transaction(async (tx) => {
     await universityOrThrow(tx, universityId);
     const [before] = await tx.select().from(platLicences).where(eq(platLicences.universityId, universityId)).for("update");
-    const values = { ...clean, updatedAt: new Date(), updatedBy: actor.userId || null };
+    const plan = await planForLicence(tx, clean.plan, before?.plan);
+
+    // New, renewed (the term moved) or on another plan: that is what gets charged.
+    const billable = !before || before.plan !== plan.key || before.startDate !== clean.startDate || before.endDate !== clean.endDate;
+    const pricePaise = input.pricePaise ?? (billable ? plan.pricePaise : before.pricePaise);
+    const discountPaise = input.discountPaise ?? (billable ? 0 : before.discountPaise);
+    const discountNote = discountPaise > 0 ? (input.discountNote !== undefined ? input.discountNote?.trim() || null : billable ? null : before.discountNote) : null;
+    if (discountPaise > pricePaise) throw new ValidationError("The discount can't be more than the price.");
+    if (discountPaise > 0 && !discountNote) throw new ValidationError("Write why the discount was given, so finance can see it later.");
+
+    const values = { ...clean, plan: plan.key, pricePaise, discountPaise, discountNote, updatedAt: new Date(), updatedBy: actor.userId || null };
     const [row] = before
       ? await tx.update(platLicences).set(values).where(eq(platLicences.id, before.id)).returning()
       : await tx.insert(platLicences).values({ universityId, ...values }).returning();
+
+    const wanted = input.invoice === false || input.invoice === null ? false : input.invoice ? true : billable;
+    let invoice: Invoice | null = null;
+    if (wanted && pricePaise - discountPaise > 0) {
+      const terms = input.invoice || {};
+      const issueDate = terms.issueDate ?? today;
+      invoice = await issueInvoice(tx, actor, {
+        universityId,
+        licenceId: row.id,
+        periodStart: row.startDate,
+        periodEnd: row.endDate,
+        description: licenceInvoiceLine(plan.name, row.startDate, row.endDate),
+        listPricePaise: pricePaise,
+        discountPaise,
+        discountNote,
+        gstRateBp: terms.gstRateBp ?? plan.gstRateBp,
+        issueDate,
+        dueDate: terms.dueDate ?? addDays(issueDate, DEFAULT_PAYMENT_DAYS),
+      });
+    }
+
     await logAction(tx, actor, { universityId, inUniversityLog: true }, before ? "plat.licence.update" : "plat.licence.create", "plat_licence", row.id, {
       plan: row.plan,
       studentCap: row.studentCap,
@@ -81,6 +167,10 @@ export async function saveLicence(actor: Actor, universityId: string, input: Lic
       modules: row.modules,
       startDate: row.startDate,
       endDate: row.endDate,
+      pricePaise: row.pricePaise,
+      discountPaise: row.discountPaise,
+      ...(row.discountNote && { discountNote: row.discountNote }),
+      ...(invoice ? { number: invoice.number, totalPaise: invoice.totalPaise } : { invoiced: false }),
       ...(before && {
         before: {
           plan: before.plan,
@@ -89,13 +179,14 @@ export async function saveLicence(actor: Actor, universityId: string, input: Lic
           modules: before.modules,
           startDate: before.startDate,
           endDate: before.endDate,
+          pricePaise: before.pricePaise,
+          discountPaise: before.discountPaise,
         },
       }),
     });
-    await syncAlertsFor(tx, actor, universityId, todayIST());
-    return row;
+    await syncAlertsFor(tx, actor, universityId, today, { [plan.key]: plan.name });
+    return { ...row, invoice };
   });
-  return saved;
 }
 
 export type LicenceRow = {
@@ -104,6 +195,8 @@ export type LicenceRow = {
   slug: string;
   status: string;
   licence: Licence | null;
+  /** The licence's plan by name. */
+  planName: string | null;
   usage: Usage;
   studentPct: number | null;
   staffPct: number | null;
@@ -123,10 +216,11 @@ export async function listLicences(actor: Actor, today = todayIST()): Promise<Li
     .select({ id: universities.id, name: universities.name, slug: universities.slug, status: universities.status })
     .from(universities)
     .orderBy(asc(universities.name));
-  const [lics, usage, alerts] = await Promise.all([
+  const [lics, usage, alerts, names] = await Promise.all([
     conn.select().from(platLicences),
     usageFor(conn),
     conn.select({ universityId: platAlerts.universityId }).from(platAlerts).where(isNull(platAlerts.resolvedAt)),
+    planNames(conn),
   ]);
   const licOf = new Map(lics.map((l) => [l.universityId, l]));
   const alertCount = new Map<string, number>();
@@ -140,6 +234,7 @@ export async function listLicences(actor: Actor, today = todayIST()): Promise<Li
       slug: u.slug,
       status: u.status,
       licence,
+      planName: licence ? (names[licence.plan] ?? planNameFallback(licence.plan)) : null,
       usage: use,
       studentPct: licence ? pct(use.students, licence.studentCap) : null,
       staffPct: licence ? pct(use.staff, licence.staffCap) : null,
@@ -149,7 +244,7 @@ export async function listLicences(actor: Actor, today = todayIST()): Promise<Li
   });
 }
 
-/** One university's licence with its usage, for the licence form. */
+/** One university's licence with its usage, the plans it can be on and the invoices raised for it. */
 export async function licenceFor(actor: Actor, universityId: string, today = todayIST()) {
   assertPlatform(actor, "platform.licences");
   if (!isUuid(universityId)) throw new NotFoundError("Institute");
@@ -162,9 +257,12 @@ export async function licenceFor(actor: Actor, universityId: string, today = tod
     .from(platAlerts)
     .where(and(eq(platAlerts.universityId, universityId), isNull(platAlerts.resolvedAt)))
     .orderBy(asc(platAlerts.kind));
+  const [plans, invoices] = await Promise.all([planOptions(actor, { keep: licence?.plan }), licence ? invoicesForLicence(actor, licence.id, today) : []]);
   return {
     university,
     licence: licence ?? null,
+    plans,
+    invoices,
     usage,
     alerts,
     daysLeft: licence ? daysBetween(today, licence.endDate) : null,
@@ -186,9 +284,10 @@ export function licenceConditions(
   usage: Usage,
   today: string,
   universityName: string,
+  planName: string = planNameFallback(licence.plan),
 ): Condition[] {
   const out: Condition[] = [];
-  const plan = PLAN_LABELS[licence.plan as Plan] ?? licence.plan;
+  const plan = planName;
   const caps = [
     { kind: "student_cap" as const, used: usage.students, cap: licence.studentCap, noun: "student", nouns: "students" },
     { kind: "staff_cap" as const, used: usage.staff, cap: licence.staffCap, noun: "staff", nouns: "staff" },
@@ -242,14 +341,17 @@ export function licenceConditions(
  *
  * Runs on the system connection (after a licence change) and inside withTenant from the
  * hourly job, so it only uses tables row-level security lets a university's system
- * actor read.
+ * actor read. Plans are Zinny's own table, which a university's connection can't read:
+ * the job passes the plan names in, and without them the plan's key is shown as its name.
  */
-export async function syncAlertsFor(conn: Tx, actor: Actor, universityId: string, today: string) {
+export async function syncAlertsFor(conn: Tx, actor: Actor, universityId: string, today: string, names?: Record<string, string>) {
   const [uni] = await conn.select({ name: universities.name, status: universities.status }).from(universities).where(eq(universities.id, universityId));
   if (!uni) return { raised: 0, updated: 0, resolved: 0 };
   const [licence] = await conn.select().from(platLicences).where(eq(platLicences.universityId, universityId));
   const usage = (await usageFor(conn, [universityId])).get(universityId) ?? emptyUsage();
-  const wanted = licence && uni.status === "active" ? licenceConditions(licence, usage, today, uni.name) : [];
+  // Only the Zinny team's own connection (no university on the actor) can read the plans.
+  const planName = licence ? (names?.[licence.plan] ?? (actor.universityId ? undefined : (await planNames(conn))[licence.plan])) : undefined;
+  const wanted = licence && uni.status === "active" ? licenceConditions(licence, usage, today, uni.name, planName ?? planNameFallback(licence.plan)) : [];
   const open = await conn
     .select()
     .from(platAlerts)
@@ -312,9 +414,10 @@ export async function syncAlertsFor(conn: Tx, actor: Actor, universityId: string
 export async function syncAllAlerts(actor: Actor, today = todayIST()) {
   assertPlatform(actor, "platform.licences");
   const unis = await db().select({ id: universities.id }).from(universities);
+  const names = await planNames();
   const total = { raised: 0, updated: 0, resolved: 0 };
   for (const u of unis) {
-    const r = await db().transaction((tx) => syncAlertsFor(tx, actor, u.id, today));
+    const r = await db().transaction((tx) => syncAlertsFor(tx, actor, u.id, today, names));
     total.raised += r.raised;
     total.updated += r.updated;
     total.resolved += r.resolved;

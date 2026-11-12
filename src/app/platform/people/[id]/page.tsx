@@ -6,6 +6,9 @@ import { platformContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { Fact, NoAccess } from "@/modules/zinny-team-panel/components/bits";
 import { OpenInstitute } from "@/modules/zinny-team-panel/components/open-institute";
+import { SetPasswordForm } from "@/modules/zinny-team-panel/components/set-password-form";
+import { SignInAsButton } from "@/modules/zinny-team-panel/components/sign-in-as-button";
+import { PLATFORM_ROLE_LABELS, isPlatformRole } from "@/modules/zinny-team-panel/lib/constants";
 import { ViewAsButton } from "@/modules/zinny-team-panel/components/view-as-button";
 import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
 import { formatDate, formatDateTime, formatINR, timeAgo } from "@/modules/zinny-team-panel/lib/format";
@@ -31,23 +34,47 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   const now = new Date();
   const institutes = [...new Map(roles.filter((r) => r.universityId).map((r) => [r.universityId!, r])).values()];
   const paid = payments.filter((o) => o.paidAt).reduce((n, o) => n + o.totalPaise, 0);
+  const self = p.id === actor.userId;
+  const teamRoles = roles.filter((r) => !r.universityId && !r.revokedAt && (!r.endsAt || r.endsAt > now));
 
   return (
     <>
-      <header className="mb-6 flex items-center gap-4">
-        <Avatar name={p.name} size={56} />
-        <div className="min-w-0">
-          <h1 className="truncate text-[26px] font-semibold tracking-tight">{p.name}</h1>
-          <p className="truncate text-[14px] text-muted">{p.email}</p>
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <Avatar name={p.name} size={56} />
+          <div className="min-w-0">
+            <h1 className="truncate text-[26px] font-semibold tracking-tight">{p.name}</h1>
+            <p className="truncate text-[14px] text-muted">{p.email}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-start justify-end gap-2">
+          {!self && <SignInAsButton userId={p.id} name={p.name} variant="primary" />}
+          <SetPasswordForm userId={p.id} name={p.name} />
         </div>
       </header>
+      <p className="-mt-2 mb-6 max-w-3xl text-[13px] text-muted">
+        <b className="font-medium text-ink">Sign in as</b> makes you this person, with everything they can do, for up to 2 hours. <b className="font-medium text-ink">View as, read only</b> only looks
+        at their learner app and changes nothing. Both are logged here and in their institute&apos;s log.
+      </p>
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <div className="min-w-0 space-y-6">
           <Card>
             <CardTitle>Institutes and roles</CardTitle>
+            {teamRoles.length > 0 && (
+              <div className="mb-4 rounded-2xl bg-canvas p-4">
+                <div className="font-medium">Zinny team</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {teamRoles.map((r) => (
+                    <Badge key={r.id} tone="brand">
+                      {r.customRoleName ?? (isPlatformRole(r.role) ? PLATFORM_ROLE_LABELS[r.role] : ROLE_LABELS[r.role])}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
             {institutes.length === 0 ? (
-              <p className="text-[14px] text-muted">Not at any institute.</p>
+              <p className="text-[14px] text-muted">{teamRoles.length ? "Not at any institute." : "Not at any institute. This is a marketplace account."}</p>
             ) : (
               <ul className="space-y-4">
                 {institutes.map((u) => (
@@ -58,8 +85,9 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
                       </Link>
                       <span className="flex flex-wrap gap-2">
                         {roles.some((r) => r.universityId === u.universityId && !r.revokedAt && LEARNER.has(r.role)) && (
-                          <ViewAsButton universityId={u.universityId!} userId={p.id} label={roles.some((r) => r.universityId === u.universityId && r.role === "parent") ? "View as parent" : "View as student"} />
+                          <ViewAsButton universityId={u.universityId!} userId={p.id} label={roles.some((r) => r.universityId === u.universityId && r.role === "parent") ? "View as parent, read only" : "View as, read only"} />
                         )}
+                        {!self && roles.some((r) => r.universityId === u.universityId && !r.revokedAt) && <SignInAsButton userId={p.id} name={p.name} universityId={u.universityId} />}
                         <OpenInstitute universityId={u.universityId!} slug={u.universitySlug!} inside={inside.has(u.universityId!)} size="sm" />
                       </span>
                     </div>

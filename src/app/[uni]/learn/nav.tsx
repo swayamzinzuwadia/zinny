@@ -11,11 +11,13 @@ type Item = { href: string; label: string };
 export type LearnView = "student" | "parent" | "buyer";
 
 /** The learner app's sections. The first four are the phone tab bar; the rest join them on wider screens. */
-export function learnSections(base: string, view: LearnView, canShop: boolean): { primary: Item[]; more: Item[] } {
+export function learnSections(base: string, view: LearnView, canShop: boolean, buyerLive = false): { primary: Item[]; more: Item[] } {
   if (view === "parent") return { primary: [{ href: base, label: "Home" }], more: [] };
   if (view === "buyer") {
     return {
       primary: [
+        // A buyer with a seat in a live batch has classes to get to.
+        ...(buyerLive ? [{ href: `${base}/timetable`, label: "Timetable" }] : []),
         { href: "/marketplace/library", label: "My library" },
         { href: "/marketplace", label: "Marketplace" },
       ],
@@ -68,9 +70,9 @@ function useActive(base: string) {
 }
 
 /** Tabs across the top on tablets and desktops. */
-export function LearnTabs({ base, view, canShop, className }: { base: string; view: LearnView; canShop: boolean; className?: string }) {
+export function LearnTabs({ base, view, canShop, buyerLive, className }: { base: string; view: LearnView; canShop: boolean; buyerLive?: boolean; className?: string }) {
   const active = useActive(base);
-  const { primary, more } = learnSections(base, view, canShop);
+  const { primary, more } = learnSections(base, view, canShop, buyerLive);
   // A single tab (a parent's Home) is no navigation: the logo already leads home.
   if (primary.length + more.length < 2) return null;
   return (
@@ -109,9 +111,9 @@ const ICONS: Record<string, React.ReactNode> = {
 };
 
 /** The tab bar on phones (the learner app is mobile first). */
-export function LearnBottomBar({ base, view, canShop }: { base: string; view: LearnView; canShop: boolean }) {
+export function LearnBottomBar({ base, view, canShop, buyerLive }: { base: string; view: LearnView; canShop: boolean; buyerLive?: boolean }) {
   const active = useActive(base);
-  const { primary } = learnSections(base, view, canShop);
+  const { primary } = learnSections(base, view, canShop, buyerLive);
   if (primary.length < 2) return null;
   return (
     <nav

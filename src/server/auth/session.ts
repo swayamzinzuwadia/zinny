@@ -11,6 +11,10 @@ import "server-only";
  *  - Cookie flags: httpOnly, SameSite=Lax, path=/; in production also Secure with the
  *    __Host- prefix (no Domain attribute, so a subdomain can't set or read it).
  *
+ *  - A Zinny Super Admin can sign in as someone from the team panel (./impersonation.ts).
+ *    That session carries `impersonator_user_id`, lasts two hours at most, never slides,
+ *    and stops working the moment the Super Admin stops being one.
+ *
  * This file and the identity module's auth service are the only code allowed to use the
  * system connection for sign-in (brief exception): they write `sessions` and identity's
  * own global tables.
@@ -22,6 +26,7 @@ import { systemDb } from "@/db/client";
 import { roleAssignments, sessions, universities } from "@/db/schema";
 import { idnSessions } from "@/modules/identity/schema";
 import { AUTH } from "./config";
+import { IMPERSONATION_METHOD, IMPERSONATION_MS, endImpersonation, isActiveSuperAdmin, returnCookieName } from "./impersonation";
 import { randomToken, sha256 } from "./tokens";
 
 export { hashPassword } from "./passwords";
@@ -87,7 +92,12 @@ export async function createSession(userId: string, method: SessionMethod, clien
   return { token, sessionId, expiresAt, cookieExpires };
 }
 
-export type ResolvedSession = { sessionId: string; userId: string };
+export type ResolvedSession = {
+  sessionId: string;
+  userId: string;
+  /** The Super Admin really behind this session, when it is a "sign in as" session. */
+  impersonatorUserId: string | null;
+};
 
 /**
  * The live session for a token, or null. Extends the idle expiry (at most every
@@ -97,10 +107,32 @@ export async function resolveSession(token: string, now = new Date()): Promise<R
   if (!token || token.length > 200) return null;
   const db = systemDb();
   const [s] = await db
-    .select({ id: sessions.id, userId: sessions.userId, expiresAt: sessions.expiresAt, createdAt: sessions.createdAt })
+    .select({
+      id: sessions.id,
+      userId: sessions.userId,
+      expiresAt: sessions.expiresAt,
+      createdAt: sessions.createdAt,
+      impersonatorUserId: sessions.impersonatorUserId,
+      method: idnSessions.method,
+    })
     .from(sessions)
+    .leftJoin(idnSessions, eq(idnSessions.sessionId, sessions.id))
     .where(and(eq(sessions.tokenHash, sha256(token)), gt(sessions.expiresAt, now)));
   if (!s) return null;
+
+  if (s.impersonatorUserId || s.method === IMPERSONATION_METHOD) {
+    // A "sign in as" session: two hours from when it started, never extended, and only
+    // while the person behind it is still a Super Admin. If their account is deleted the
+    // column is cleared; the method still marks the session, so it can never turn into an
+    // ordinary session of the person they were signed in as.
+    const live = !!s.impersonatorUserId && s.createdAt.getTime() + IMPERSONATION_MS > now.getTime() && (await isActiveSuperAdmin(s.impersonatorUserId, now));
+    if (!live) {
+      await db.delete(sessions).where(eq(sessions.id, s.id));
+      return null;
+    }
+    return { sessionId: s.id, userId: s.userId, impersonatorUserId: s.impersonatorUserId };
+  }
+
   const hardEnd = s.createdAt.getTime() + AUTH.session.absoluteMs;
   if (hardEnd <= now.getTime()) return null;
 
@@ -109,7 +141,7 @@ export async function resolveSession(token: string, now = new Date()): Promise<R
     await db.update(sessions).set({ expiresAt: new Date(wanted) }).where(eq(sessions.id, s.id));
     await db.update(idnSessions).set({ lastSeenAt: now }).where(eq(idnSessions.sessionId, s.id));
   }
-  return { sessionId: s.id, userId: s.userId };
+  return { sessionId: s.id, userId: s.userId, impersonatorUserId: null };
 }
 
 export async function destroySessionByToken(token: string): Promise<void> {
@@ -144,7 +176,11 @@ export type SessionInfo = {
   userAgent: string | null;
 };
 
-/** This person's live sessions, most recently used first. */
+/**
+ * This person's live sessions, most recently used first. Sessions a Zinny Super Admin
+ * opened as them are left out: they aren't one of the person's devices, and they are in
+ * the institute's audit log instead.
+ */
 export async function listSessions(userId: string, now = new Date()): Promise<SessionInfo[]> {
   const rows = await systemDb()
     .select({
@@ -158,7 +194,15 @@ export async function listSessions(userId: string, now = new Date()): Promise<Se
     })
     .from(sessions)
     .leftJoin(idnSessions, eq(idnSessions.sessionId, sessions.id))
-    .where(and(eq(sessions.userId, userId), gt(sessions.expiresAt, now), gt(sessions.createdAt, new Date(now.getTime() - AUTH.session.absoluteMs))))
+    .where(
+      and(
+        eq(sessions.userId, userId),
+        isNull(sessions.impersonatorUserId),
+        or(isNull(idnSessions.method), ne(idnSessions.method, IMPERSONATION_METHOD)),
+        gt(sessions.expiresAt, now),
+        gt(sessions.createdAt, new Date(now.getTime() - AUTH.session.absoluteMs)),
+      ),
+    )
     .orderBy(desc(sql`coalesce(${idnSessions.lastSeenAt}, ${sessions.createdAt})`));
   return rows.map((r) => ({ ...r, lastSeenAt: r.lastSeenAt ?? r.createdAt, method: r.method ?? "password" }));
 }
@@ -181,6 +225,7 @@ async function freshSession(token: string, userId: string, now: Date): Promise<N
       and(
         eq(sessions.tokenHash, sha256(token)),
         eq(sessions.userId, userId),
+        isNull(sessions.impersonatorUserId),
         gt(sessions.expiresAt, now),
         gt(sessions.createdAt, new Date(now.getTime() - AUTH.session.repeatSignInMs)),
       ),
@@ -210,26 +255,50 @@ export async function startSession(
     if (fresh) return fresh;
     await destroySessionByToken(previous);
   }
+  // A new sign-in replaces everything this browser held, a Super Admin's way back included.
+  const back = jar.get(returnCookieName())?.value;
+  if (back) {
+    await destroySessionByToken(back);
+    jar.delete(returnCookieName());
+  }
   const s = await createSession(userId, method, opts.client ?? (await clientInfo()), opts.now);
   jar.set(name, s.token, cookieOptions(s.cookieExpires));
   return s;
 }
 
-/** Ends this browser's session and clears the cookie. */
+/**
+ * Ends this browser's session and clears the cookie. A Super Admin signed in as someone
+ * goes back to their own session instead (the same as "Return to the Zinny panel").
+ */
 export async function signOut(opts: { jar?: CookieJar } = {}) {
   const jar = await jarOf(opts.jar);
+  if (jar.get(returnCookieName())?.value) {
+    const { restored } = await endImpersonation({ jar, requireLive: true });
+    if (restored) return;
+  }
   const name = sessionCookieName();
   const token = jar.get(name)?.value;
   if (token) await destroySessionByToken(token);
   jar.delete(name);
 }
 
+/**
+ * The live session behind this browser's cookies, or null. When a "sign in as" session
+ * has run out, the Super Admin's own session (kept in the return cookie) counts again:
+ * they are themselves, never the person they were signed in as.
+ */
+export async function sessionFromCookies(jar: Pick<CookieJar, "get">, now = new Date()): Promise<ResolvedSession | null> {
+  const token = jar.get(sessionCookieName())?.value;
+  const session = token ? await resolveSession(token, now) : null;
+  if (session) return session;
+  const back = jar.get(returnCookieName())?.value;
+  if (!back) return null;
+  const own = await resolveSession(back, now);
+  return own && !own.impersonatorUserId ? own : null;
+}
+
 /** The signed-in session (id and person), or null. Cached for the duration of one request. */
-export const currentSession = cache(async (): Promise<ResolvedSession | null> => {
-  const token = (await cookies()).get(sessionCookieName())?.value;
-  if (!token) return null;
-  return resolveSession(token);
-});
+export const currentSession = cache(async (): Promise<ResolvedSession | null> => sessionFromCookies((await cookies()) as unknown as CookieJar));
 
 /** The signed-in user's id, or null. Cached for the duration of one request. */
 export const currentUserId = cache(async (): Promise<string | null> => (await currentSession())?.userId ?? null);

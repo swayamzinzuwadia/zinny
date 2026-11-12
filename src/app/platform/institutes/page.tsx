@@ -123,7 +123,7 @@ export default async function UniversitiesPage({ searchParams }: { searchParams:
                 <UsageMeter used={u.staff} cap={u.staffCap} compact />
               </Td>
               <Td className={WIDE_ONLY}>
-                <PlanBadge plan={u.plan} />
+                <PlanBadge name={u.planName} />
               </Td>
               <Td className="whitespace-nowrap">
                 {u.endDate ? (

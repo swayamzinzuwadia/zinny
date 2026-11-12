@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { DayTimePicker } from "@/components/day-picker";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Table, Td } from "@/components/ui";
+import { Avatar, Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Table, Tabs, Td } from "@/components/ui";
 import { SlotList } from "@/components/slots";
 import { EnrolmentRequests, SeatLimitForm } from "@/components/enrolment-requests";
 import { WeekView } from "@/components/week-view";
@@ -10,12 +10,16 @@ import { ROLE_LABELS } from "@/server/authz/roles";
 import { spaceContext } from "@/server/context";
 import { visibleSlots } from "@/server/registry";
 import { addDays, formatDate, formatTime, todayIn, weekStart } from "@/server/lib/dates";
+import { getBatchPlan, inchargeChoices, plansToCopy } from "@/server/services/batch-plan";
 import { batchRoster, getBatchDetail } from "@/server/services/batches";
 import { listEnrolmentRequests } from "@/server/services/enrolment";
-import { describeSlots, expandSessions } from "@/server/services/schedule";
+import { annotateSessions, describeSlots, expandSessions } from "@/server/services/schedule";
 import { teachersForDepartment } from "@/server/services/users";
 import { RECORDED_BATCH_LABEL } from "@/server/lib/recorded-batch";
 import { addFacultyAction, decideEnrolmentAction, overrideAction, removeFacultyAction, seatLimitAction, updateBatchAction } from "../../../actions";
+import { setInchargeAction } from "./plan-actions";
+import { PlanTab } from "./plan-tab";
+import { TimetableTab } from "./timetable-tab";
 
 /** A student's place in the batch, in words; only the in-between states (paying, accepted) need attention. */
 const ROSTER_STATUS: Record<string, { label: string; tone: "brand" | "neutral" | "warn" }> = {
@@ -25,11 +29,11 @@ const ROSTER_STATUS: Record<string, { label: string; tone: "brand" | "neutral" |
   approved: { label: "Accepted, not paid yet", tone: "warn" },
 };
 
-export default async function BatchPage({ params, searchParams }: { params: Promise<{ uni: string; id: string }>; searchParams: Promise<{ done?: string }> }) {
+export default async function BatchPage({ params, searchParams }: { params: Promise<{ uni: string; id: string }>; searchParams: Promise<{ done?: string; tab?: string; section?: string; faculty?: string }> }) {
   const { uni, id } = await params;
-  const { done } = await searchParams;
+  const { done, tab: requestedTab, section: sectionFilter, faculty: facultyFilter } = await searchParams;
   const { actor, university } = await spaceContext(uni);
-  const { batch, course, schedule, faculty, seatsTaken, target } = await getBatchDetail(actor, id);
+  const { batch, course, schedule, faculty, seatsTaken, target, incharge } = await getBatchDetail(actor, id);
   const canEdit = can(actor, "batch.update", target);
   const canStaff = can(actor, "batch.assign_faculty", target);
   const canRoster = can(actor, "enrolment.view", target);
@@ -38,10 +42,22 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
     canStaff ? teachersForDepartment(actor, batch.departmentId) : Promise.resolve([]),
     listEnrolmentRequests(actor, { batchId: id }),
   ]);
+  // Sections, the day-number plan and the dated timetable. A recorded batch has no classes to plan.
+  const tab = !batch.recorded && (requestedTab === "plan" || requestedTab === "timetable") ? requestedTab : "overview";
+  const base = `/${uni}/admin/products/batches/${id}`;
+  const [plan, incharges, copyChoices] = batch.recorded
+    ? [null, [], []]
+    : await Promise.all([
+        getBatchPlan(actor, id),
+        canEdit ? inchargeChoices(actor, id) : Promise.resolve([]),
+        canEdit && tab === "plan" ? plansToCopy(actor, id) : Promise.resolve([]),
+      ]);
+  const attention = plan && plan.sections.length > 0 ? plan.timetable.problems.length : 0;
 
   const today = todayIn(university.timezone);
   const from = weekStart(today < batch.startDate ? batch.startDate : today);
-  const sessions = expandSessions([schedule], from, addDays(from, 6));
+  const weekSessions = expandSessions([schedule], from, addDays(from, 6));
+  const sessions = plan ? annotateSessions(weekSessions, id, plan.timetable, actor.userId) : weekSessions;
   const uniform = schedule.slots.every((s) => s.startTime === schedule.slots[0]?.startTime && s.endTime === schedule.slots[0]?.endTime);
   const day = (d: Date) => formatDate(todayIn(university.timezone, d));
   const seatsLeft = batch.seatLimit - seatsTaken;
@@ -75,10 +91,74 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
         }
       />
 
+      {plan && (
+        <>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-[22px] border border-line bg-surface px-5 py-4">
+            <div className="flex items-center gap-3">
+              {incharge ? <Avatar name={incharge.name} size={40} /> : <span className="h-10 w-10 rounded-full border border-dashed border-line" aria-hidden />}
+              <div>
+                <div className="text-[13px] text-muted">Batch incharge</div>
+                <div className="text-[15px] font-medium">{incharge?.name ?? "No incharge yet"}</div>
+              </div>
+            </div>
+            {canEdit && (
+              <ActionForm action={setInchargeAction} className="flex flex-wrap items-center gap-2">
+                <input type="hidden" name="uni" value={uni} />
+                <input type="hidden" name="batchId" value={id} />
+                <Select name="userId" defaultValue={incharge?.userId ?? ""} className="w-64" aria-label="Batch incharge">
+                  <option value="">No incharge</option>
+                  {incharges.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} · {ROLE_LABELS[c.role as keyof typeof ROLE_LABELS]}
+                    </option>
+                  ))}
+                </Select>
+                <SubmitButton size="sm" variant="secondary">
+                  {incharge ? "Change incharge" : "Set incharge"}
+                </SubmitButton>
+              </ActionForm>
+            )}
+          </div>
+          <Tabs
+            active={tab}
+            tabs={[
+              { key: "overview", label: "Overview", href: base },
+              { key: "plan", label: "Sections and plan", href: `${base}?tab=plan`, count: plan.sections.length || undefined },
+              { key: "timetable", label: "Timetable", href: `${base}?tab=timetable`, count: attention || undefined },
+            ]}
+          />
+        </>
+      )}
+
+      {plan && tab === "plan" && (
+        <PlanTab
+          uni={uni}
+          plan={plan}
+          canEdit={canEdit}
+          choices={{ onBatch: faculty.map((f) => ({ userId: f.userId, name: f.name })), department: teachers.map((t) => ({ id: t.id, name: t.name })) }}
+          copyChoices={copyChoices}
+        />
+      )}
+
+      {plan && tab === "timetable" && (
+        <TimetableTab
+          uni={uni}
+          plan={plan}
+          canEdit={canEdit}
+          viewerUserId={actor.userId}
+          filter={{ section: sectionFilter, faculty: facultyFilter }}
+          heading={{
+            title: `${course.title}: ${batch.name}`,
+            detail: `${describeSlots(schedule.slots)} · ${formatDate(batch.startDate)} to ${formatDate(batch.endDate)}${incharge ? ` · Incharge: ${incharge.name}` : ""}`,
+          }}
+        />
+      )}
+
+      {tab === "overview" && (
       <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
           <Card>
-            <CardTitle hint={`Week of ${formatDate(from)}`}>Timetable</CardTitle>
+            <CardTitle hint={`Week of ${formatDate(from)}`}>This week</CardTitle>
             <WeekView from={from} today={today} sessions={sessions} compact />
           </Card>
 
@@ -296,6 +376,7 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
           )}
         </div>
       </div>
+      )}
     </>
   );
 }

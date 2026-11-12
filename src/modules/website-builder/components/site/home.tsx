@@ -440,6 +440,8 @@ export type RecordedItem = {
   /** Before GST, which is added at checkout. */
   pricePaise: number;
   compareAtPaise: number | null;
+  /** GST included; equal to pricePaise when the institute doesn't charge GST. */
+  totalPaise?: number;
 };
 
 /** What the institute sells on the marketplace. Each card opens the listing there, where anyone can buy it. */
@@ -472,7 +474,7 @@ export function RecordedShelf({ uni, items }: { uni: string; items: RecordedItem
               <span className="mt-auto pt-4 text-[15px] font-medium tabular-nums">
                 {formatINR(r.pricePaise)}{" "}
                 {r.compareAtPaise && <s className="text-[13px] font-normal text-muted">{formatINR(r.compareAtPaise)}</s>}{" "}
-                <span className="text-[13px] font-normal text-muted">+ GST</span>
+                {(r.totalPaise === undefined || r.totalPaise > r.pricePaise) && <span className="text-[13px] font-normal text-muted">+ GST</span>}
               </span>
             </Link>
           </li>

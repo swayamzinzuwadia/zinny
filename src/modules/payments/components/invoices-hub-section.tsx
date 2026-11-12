@@ -5,7 +5,7 @@ import { myInvoices } from "../invoices";
 import { inr } from "../money";
 import { invoiceDate } from "../pdf/invoice-pdf";
 
-/** learnerHubSections: the learner's latest GST invoices on My learning, linking to all of them. */
+/** learnerHubSections: the learner's latest order invoices on My learning, linking to all of them. */
 export async function InvoicesHubSection({ uni, actor }: HubSectionProps) {
   const all = await myInvoices(actor);
   if (all.length === 0) return null;

@@ -64,6 +64,13 @@
       "when": 1793807834868,
       "tag": "0008_recorded_batch_name",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794471798517,
+      "tag": "0009_plans_invoices_batch_plan_live_marketplace",
+      "breakpoints": true
     }
   ]
 }

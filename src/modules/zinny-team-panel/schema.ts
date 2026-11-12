@@ -21,15 +21,60 @@ const universityId = () =>
 
 /* ─────────────────────────── Licences ─────────────────────────── */
 
-export const platPlan = pgEnum("plat_plan", ["pilot", "standard", "enterprise"]);
+/**
+ * No longer used by any column: plat_licences.plan is now a plat_plans.key. The type stays
+ * declared so upgrading an existing database never has to ask whether it was renamed.
+ */
+export const platPlanLegacy = pgEnum("plat_plan", ["pilot", "standard", "enterprise"]);
 
-/** The current licence of one university: plan, caps, modules switched on and its term. */
+/**
+ * The plans Zinny sells: Pilot, Standard, Enterprise and any the team adds at /platform/plans.
+ * Zinny's own price list, so no university_id. `key` is what licences store and never changes.
+ * `price_paise` is before GST, for one billing period of `billing_months`.
+ */
+export const platPlans = pgTable(
+  "plat_plans",
+  {
+    id: id(),
+    key: text("key").notNull(),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    pricePaise: integer("price_paise").notNull(),
+    billingMonths: integer("billing_months").notNull(),
+    studentCap: integer("student_cap").notNull(),
+    staffCap: integer("staff_cap").notNull(),
+    /** Module ids a new licence on this plan starts with. */
+    modules: jsonb("modules").$type<string[]>().notNull().default([]),
+    gstRateBp: integer("gst_rate_bp").notNull().default(1800),
+    sortOrder: integer("sort_order").notNull().default(0),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    uniqueIndex("plat_plans_key_uq").on(t.key),
+    check("plat_plan_price", sql`${t.pricePaise} >= 0`),
+    check("plat_plan_months", sql`${t.billingMonths} between 1 and 120`),
+    check("plat_plan_caps", sql`${t.studentCap} > 0 and ${t.staffCap} > 0`),
+  ],
+);
+
+/**
+ * The current licence of one university: plan, caps, modules switched on and its term.
+ * `plan` is a plat_plans.key. The price is copied from the plan when the licence is made
+ * or moved to another plan, so a later change to the plan's price doesn't touch it.
+ */
 export const platLicences = pgTable(
   "plat_licences",
   {
     id: id(),
     universityId: universityId(),
-    plan: platPlan("plan").notNull(),
+    plan: text("plan").notNull(),
+    /** The plan's price when this licence was priced, before GST and before any discount. */
+    pricePaise: integer("price_paise").notNull().default(0),
+    discountPaise: integer("discount_paise").notNull().default(0),
+    discountNote: text("discount_note"),
     studentCap: integer("student_cap").notNull(),
     staffCap: integer("staff_cap").notNull(),
     /** Module ids switched on, e.g. ["assessments", "live-classes"]. */
@@ -45,6 +90,7 @@ export const platLicences = pgTable(
     uniqueIndex("plat_licences_university_uq").on(t.universityId),
     check("plat_licence_caps", sql`${t.studentCap} > 0 and ${t.staffCap} > 0`),
     check("plat_licence_dates", sql`${t.endDate} >= ${t.startDate}`),
+    check("plat_licence_price", sql`${t.pricePaise} >= 0 and ${t.discountPaise} >= 0 and ${t.discountPaise} <= ${t.pricePaise}`),
   ],
 );
 
@@ -181,7 +227,9 @@ export const platPartnerNotes = pgTable(
 /**
  * Zinny's own GST invoices to universities for their licences. Separate from the
  * universities' invoices to their students (core `invoices`). Seller and buyer details
- * are copied at issue, so an invoice never changes after it is issued.
+ * are copied at issue. While an invoice is unpaid its amount, discount, description, period
+ * and dates can be revised (never its number); every revision is in the audit log.
+ * `base_paise` is the taxable amount: list price minus discount.
  */
 export const platInvoices = pgTable(
   "plat_invoices",
@@ -193,7 +241,13 @@ export const platInvoices = pgTable(
     periodStart: date("period_start").notNull(),
     periodEnd: date("period_end").notNull(),
     description: text("description").notNull(),
+    /** Price before the discount. Null on invoices issued before discounts existed (then it equals base_paise). */
+    listPricePaise: integer("list_price_paise"),
+    discountPaise: integer("discount_paise").notNull().default(0),
+    discountNote: text("discount_note"),
     basePaise: integer("base_paise").notNull(),
+    /** The licence this invoice was raised for, when it came from one. */
+    licenceId: uuid("licence_id").references(() => platLicences.id, { onDelete: "set null" }),
     gstRateBp: integer("gst_rate_bp").notNull(),
     cgstPaise: integer("cgst_paise").notNull().default(0),
     sgstPaise: integer("sgst_paise").notNull().default(0),
@@ -214,9 +268,13 @@ export const platInvoices = pgTable(
     buyerAddress: text("buyer_address"),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: createdAt(),
+    revisedAt: timestamp("revised_at", { withTimezone: true }),
+    revisedBy: uuid("revised_by").references(() => users.id, { onDelete: "set null" }),
   },
   (t) => [
     uniqueIndex("plat_invoices_number_uq").on(t.number),
+    index("plat_invoices_licence_idx").on(t.licenceId),
+    check("plat_invoice_discount", sql`${t.discountPaise} >= 0 and (${t.listPricePaise} is null or ${t.listPricePaise} = ${t.basePaise} + ${t.discountPaise})`),
     index("plat_invoices_university_idx").on(t.universityId, t.issueDate),
     check("plat_invoice_number_len", sql`char_length(${t.number}) <= 16`),
     check("plat_invoice_status", sql`${t.status} in ('unpaid', 'paid')`),

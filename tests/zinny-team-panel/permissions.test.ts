@@ -100,7 +100,7 @@ describe("the sidebar shows only the sections a person's roles allow", () => {
     expect(keys(sup)).toEqual(["overview", "support", "analytics"]);
     expect(keys(qa)).toEqual(["overview", "content"]);
     expect(keys(fin)).toEqual(["overview", "universities", "billing"]);
-    expect(navFor(fin).find((s) => s.key === "universities")!.items.map((i) => i.label)).toEqual(["Licences"]);
+    expect(navFor(fin).find((s) => s.key === "universities")!.items.map((i) => i.label)).toEqual(["Licences", "Plans"]);
     expect(keys(am)).toEqual(["overview", "universities", "content", "analytics"]);
     expect(navFor(am).find((s) => s.key === "content")!.access).toBe("View");
     // Partners was taken out of the panel, so the Partnerships role on its own opens nothing.
