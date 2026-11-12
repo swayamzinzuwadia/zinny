@@ -56,6 +56,10 @@ type QuickCoursePayload = {
   newTeachers: { name: string; email: string }[];
   teachMyself: boolean;
   publish: boolean;
+  incharge: string;
+  /** Rupees, before GST; null when not selling on the marketplace. */
+  marketplacePrice: string | null;
+  lateJoin: boolean;
 };
 
 /** The New course page: course, department, first batch, teachers and publishing in one go. */
@@ -71,6 +75,9 @@ export async function quickCourseAction(_: QuickCourseState, data: FormData): Pr
   if (price && !/^\d+(\.\d{1,2})?$/.test(price))
     return { error: "Enter the price as a number of rupees, like 4999. Use 0 for a free course.", section: "course", at: Date.now() };
   const seatLimit = p.batch ? Number(p.batch.seatLimit || "0") : 0;
+  const mktPrice = p.marketplacePrice === null ? null : p.marketplacePrice.replace(/[,₹\s]/g, "");
+  if (mktPrice !== null && !/^\d+(\.\d{1,2})?$/.test(mktPrice))
+    return { error: "Enter the marketplace price as a number of rupees, like 4999.", section: "publish", at: Date.now() };
   let created: { courseId: string } | null = null;
   try {
     created = await createCourseQuickly(actor, {
@@ -92,6 +99,8 @@ export async function quickCourseAction(_: QuickCourseState, data: FormData): Pr
       newTeachers: p.newTeachers.filter((t) => t.name.trim() || t.email.trim()),
       teachMyself: p.teachMyself,
       publish: p.publish,
+      incharge: p.incharge || null,
+      marketplace: mktPrice === null ? null : { pricePaise: rupeesToPaise(mktPrice), lateJoin: p.lateJoin },
     });
   } catch (e) {
     if (e instanceof AppError) {
@@ -247,9 +256,10 @@ export async function removeFacultyAction(_: ActionState, data: FormData): Promi
   const { uni, actor } = await ctx(data);
   const batchId = str(data, "batchId");
   return attempt(async () => {
-    await removeFaculty(actor, batchId, str(data, "userId"));
+    const { sectionsWithoutFaculty: left } = await removeFaculty(actor, batchId, str(data, "userId"));
     revalidatePath(`/${uni}/admin/products/batches/${batchId}`);
-    return "Faculty removed.";
+    if (left.length === 0) return "Faculty removed.";
+    return `Faculty removed. ${left.join(", ")} now ${left.length === 1 ? "has" : "have"} no faculty: pick someone under Sections and plan.`;
   });
 }
 

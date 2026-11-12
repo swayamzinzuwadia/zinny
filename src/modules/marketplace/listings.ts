@@ -6,13 +6,14 @@
  * A whole course is sold as it is. A single lecture becomes a one-lesson course of its own,
  * so buying it opens that lecture and nothing else.
  */
-import { and, asc, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
-import { courses, enrolments, orders } from "@/db/schema";
+import { batchSlots, batches, courses, orders } from "@/db/schema";
+import { describeSlots } from "@/server/services/schedule";
 import { copyCourseInto, copyLectureInto, lessonCourseId, readyVideoLessons, recordedOutline } from "@/modules/content-progress/recorded";
-import { assertCan, audit, courseTarget, createLectureCourse, ensureRecordedBatch, reach, withTenant, type Actor } from "@/server/core";
+import { assertCan, audit, courseTarget, createLectureCourse, ensureRecordedBatch, reach, todayFor, withTenant, type Actor } from "@/server/core";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError, isUniqueViolation } from "@/server/errors";
-import { mktCodes, mktComboCourses, mktListings, type CodeKind, type CodeStatus, type ListingKind, type ListingStatus } from "./schema";
+import { mktCodes, mktComboCourses, mktListings, mktSeatSales, type CodeKind, type CodeStatus, type ListingKind, type ListingStatus } from "./schema";
 
 const uni = (actor: Actor) => actor.universityId!;
 
@@ -36,25 +37,96 @@ const rethrowDuplicate = (err: unknown) => {
   throw err;
 };
 
+/**
+ * How many people hold what a listing sells. Recorded: everyone in its hidden batch. A live
+ * batch also holds the institute's own students, so only the seats sold through the marketplace
+ * count. Spelled out in full: with no join, drizzle leaves a column bare and it would match the
+ * inner tables' columns of the same name.
+ */
+const BUYERS = sql<number>`(case when mkt_listings.kind = 'batch'
+  then (select count(*)::int from mkt_seat_sales s join orders o on o.id = s.order_id join enrolments e on e.id = o.enrolment_id
+        where s.listing_id = mkt_listings.id and o.status = 'paid' and e.status in ('active', 'completed'))
+  else (select count(*)::int from enrolments e where e.batch_id = mkt_listings.batch_id and e.status in ('active', 'completed')) end)`;
+
+/**
+ * Where a live batch's listing stands. "on_sale" and "full" are on the marketplace (a full batch
+ * shows, but can't be bought). The rest are off it without anyone pausing the listing: the batch
+ * ended, was closed or archived, started without late joining, or now needs faculty approval.
+ */
+export type BatchListingState = "on_sale" | "full" | "paused" | "ended" | "closed" | "started" | "needs_approval";
+
+export type BatchListingInfo = {
+  batchName: string;
+  startDate: string;
+  endDate: string;
+  timings: string;
+  seatLimit: number;
+  /** Every seat in use, the institute's own students included. */
+  seatsTaken: number;
+  state: BatchListingState;
+};
+
+const seatsTakenSql = sql<number>`(select count(*)::int from enrolments e where e.batch_id = batches.id and (e.status in ('active', 'approved') or (e.status = 'held' and e.hold_expires_at > now())))`;
+
+/** For live batch listings: the batch behind each and whether buyers can get it right now. */
+async function batchListingInfo(tx: Tx, listings: { id: string; batchId: string; kind: ListingKind; status: ListingStatus; lateJoin: boolean }[]) {
+  const out = new Map<string, BatchListingInfo>();
+  const live = listings.filter((l) => l.kind === "batch");
+  if (live.length === 0) return out;
+  const ids = live.map((l) => l.batchId);
+  const [rows, slots, today] = await Promise.all([
+    tx.select({ batch: batches, taken: seatsTakenSql }).from(batches).where(inArray(batches.id, ids)),
+    tx.select().from(batchSlots).where(inArray(batchSlots.batchId, ids)),
+    todayFor(tx),
+  ]);
+  for (const l of live) {
+    const row = rows.find((r) => r.batch.id === l.batchId);
+    if (!row) continue;
+    const b = row.batch;
+    const state: BatchListingState =
+      l.status !== "live"
+        ? "paused"
+        : b.endDate < today
+          ? "ended"
+          : b.status !== "open"
+            ? "closed"
+            : b.approvalRequired
+              ? "needs_approval"
+              : !l.lateJoin && b.startDate <= today
+                ? "started"
+                : row.taken >= b.seatLimit
+                  ? "full"
+                  : "on_sale";
+    out.set(l.id, {
+      batchName: b.name,
+      startDate: b.startDate,
+      endDate: b.endDate,
+      timings: describeSlots(slots.filter((s) => s.batchId === b.id)),
+      seatLimit: b.seatLimit,
+      seatsTaken: row.taken,
+      state,
+    });
+  }
+  return out;
+}
+
 export async function listListings(actor: Actor) {
   const r = reach(actor, "course.update", uni(actor));
   if (!r.all && r.departmentIds.size === 0) return [];
   return withTenant(actor, async (tx) => {
     const rows = await tx
-      .select({
-        listing: mktListings,
-        departmentId: courses.departmentId,
-        buyers: sql<number>`(select count(*)::int from enrolments e where e.batch_id = ${mktListings.batchId} and e.status in ('active', 'completed'))`,
-      })
+      .select({ listing: mktListings, departmentId: courses.departmentId, buyers: BUYERS })
       .from(mktListings)
       .innerJoin(courses, eq(courses.id, mktListings.courseId))
+      .where(ne(mktListings.status, "removed"))
       .orderBy(desc(mktListings.createdAt));
     const mine = rows.filter((x) => r.all || r.departmentIds.has(x.departmentId));
     const includes = await comboTitles(
       tx,
       mine.filter((x) => x.listing.kind === "combo").map((x) => x.listing.id),
     );
-    return mine.map(({ listing, buyers }) => ({ ...listing, buyers, includes: includes.get(listing.id) ?? [] }));
+    const batchInfo = await batchListingInfo(tx, mine.map((x) => x.listing));
+    return mine.map(({ listing, buyers }) => ({ ...listing, buyers, includes: includes.get(listing.id) ?? [], batch: batchInfo.get(listing.id) ?? null }));
   });
 }
 
@@ -81,28 +153,30 @@ export async function salesSummary(actor: Actor, today: string) {
   const empty = { live: 0, paused: 0, buyers: 0, earnedPaise: 0, earnedThisMonthPaise: 0 };
   if (!r.all && r.departmentIds.size === 0) return empty;
   return withTenant(actor, async (tx) => {
+    // Removed listings still count for what they sold and earned; they just aren't on sale or paused.
     const mine = (
       await tx
-        .select({ status: mktListings.status, batchId: mktListings.batchId, departmentId: courses.departmentId })
+        .select({ id: mktListings.id, kind: mktListings.kind, status: mktListings.status, batchId: mktListings.batchId, departmentId: courses.departmentId, buyers: BUYERS })
         .from(mktListings)
         .innerJoin(courses, eq(courses.id, mktListings.courseId))
     ).filter((l) => r.all || r.departmentIds.has(l.departmentId));
     if (mine.length === 0) return empty;
-    const batchIds = mine.map((l) => l.batchId);
+    // A live batch's own students aren't marketplace buyers, so its orders count only through their sales.
+    const recordedBatchIds = mine.filter((l) => l.kind !== "batch").map((l) => l.batchId);
+    const liveListingIds = mine.filter((l) => l.kind === "batch").map((l) => l.id);
     const monthStart = new Date(`${today.slice(0, 7)}-01T00:00:00+05:30`);
-    const [[{ buyers }], [money]] = await Promise.all([
-      tx
-        .select({ buyers: sql<number>`count(*)::int` })
-        .from(enrolments)
-        .where(and(inArray(enrolments.batchId, batchIds), inArray(enrolments.status, ["active", "completed"]))),
-      tx
-        .select({
-          total: sql<number>`coalesce(sum(${orders.basePaise}), 0)::int`,
-          month: sql<number>`coalesce(sum(${orders.basePaise}) filter (where ${gte(orders.paidAt, monthStart)}), 0)::int`,
-        })
-        .from(orders)
-        .where(and(inArray(orders.batchId, batchIds), eq(orders.status, "paid"), isNotNull(orders.gatewayPaymentId))),
-    ]);
+    const sold = or(
+      recordedBatchIds.length ? inArray(orders.batchId, recordedBatchIds) : undefined,
+      liveListingIds.length ? inArray(orders.id, tx.select({ id: mktSeatSales.orderId }).from(mktSeatSales).where(inArray(mktSeatSales.listingId, liveListingIds))) : undefined,
+    );
+    const [money] = await tx
+      .select({
+        total: sql<number>`coalesce(sum(${orders.basePaise}), 0)::int`,
+        month: sql<number>`coalesce(sum(${orders.basePaise}) filter (where ${gte(orders.paidAt, monthStart)}), 0)::int`,
+      })
+      .from(orders)
+      .where(and(sold, eq(orders.status, "paid"), isNotNull(orders.gatewayPaymentId)));
+    const buyers = mine.reduce((n, l) => n + l.buyers, 0);
     return {
       live: mine.filter((l) => l.status === "live").length,
       paused: mine.filter((l) => l.status === "paused").length,
@@ -126,8 +200,9 @@ export async function listableSources(actor: Actor) {
         .orderBy(courses.title)
     ).filter((c) => r.all || r.departmentIds.has(c.departmentId));
     const lessons = await readyVideoLessons(tx, mine.map((c) => c.id));
-    const listed = await tx.select({ courseId: mktListings.courseId, sourceLessonId: mktListings.sourceLessonId }).from(mktListings);
-    const listedCourses = new Set(listed.map((l) => l.courseId));
+    const listed = await tx.select({ courseId: mktListings.courseId, kind: mktListings.kind, sourceLessonId: mktListings.sourceLessonId }).from(mktListings);
+    // A course's live batches can be on sale next to its recordings, so only a recorded listing takes the course.
+    const listedCourses = new Set(listed.filter((l) => l.kind !== "batch").map((l) => l.courseId));
     const listedLessons = new Set(listed.map((l) => l.sourceLessonId));
     return mine
       .map((c) => {
@@ -150,7 +225,7 @@ async function loadCourseForListing(tx: Tx, actor: Actor, courseId: string) {
   return course;
 }
 
-export async function createListing(actor: Actor, input: ListingFields & { kind: Exclude<ListingKind, "combo">; sourceId: string }) {
+export async function createListing(actor: Actor, input: ListingFields & { kind: "course" | "lecture"; sourceId: string }) {
   const fields = cleanFields(input);
   return withTenant(actor, async (tx) => {
     let courseId: string;
@@ -184,30 +259,178 @@ export async function createListing(actor: Actor, input: ListingFields & { kind:
 
 async function loadListing(tx: Tx, actor: Actor, listingId: string) {
   const [listing] = await tx.select().from(mktListings).where(eq(mktListings.id, listingId));
-  if (!listing) throw new NotFoundError("Listing");
+  if (!listing || listing.status === "removed") throw new NotFoundError("Listing");
   assertCan(actor, "course.update", await courseTarget(tx, uni(actor), listing.courseId));
   return listing;
 }
 
+/** One listing, for its edit page. `batch` is set for a live batch. */
 export async function getListing(actor: Actor, listingId: string) {
-  return withTenant(actor, (tx) => loadListing(tx, actor, listingId));
+  return withTenant(actor, async (tx) => {
+    const listing = await loadListing(tx, actor, listingId);
+    const [{ buyers }] = await tx.select({ buyers: BUYERS }).from(mktListings).where(eq(mktListings.id, listing.id));
+    return { ...listing, buyers, batch: (await batchListingInfo(tx, [listing])).get(listing.id) ?? null };
+  });
 }
 
-export async function updateListing(actor: Actor, listingId: string, input: ListingFields) {
+/** `lateJoin` only means something for a live batch; it is left alone when not given. */
+export async function updateListing(actor: Actor, listingId: string, input: ListingFields & { lateJoin?: boolean }) {
   const fields = cleanFields(input);
   return withTenant(actor, async (tx) => {
-    await loadListing(tx, actor, listingId);
-    await tx.update(mktListings).set({ ...fields, updatedAt: new Date() }).where(eq(mktListings.id, listingId));
-    await audit(tx, actor, "marketplace.update", "mkt_listing", listingId, fields);
+    const listing = await loadListing(tx, actor, listingId);
+    const lateJoin = listing.kind === "batch" && input.lateJoin !== undefined ? { lateJoin: input.lateJoin } : {};
+    await tx.update(mktListings).set({ ...fields, ...lateJoin, updatedAt: new Date() }).where(eq(mktListings.id, listingId));
+    await audit(tx, actor, "marketplace.update", "mkt_listing", listingId, { ...fields, ...lateJoin });
   });
 }
 
 /** Paused listings leave the marketplace; people who already bought keep their access. */
-export async function setListingStatus(actor: Actor, listingId: string, status: ListingStatus) {
+export async function setListingStatus(actor: Actor, listingId: string, status: Exclude<ListingStatus, "removed">) {
   return withTenant(actor, async (tx) => {
     await loadListing(tx, actor, listingId);
     await tx.update(mktListings).set({ status, updatedAt: new Date() }).where(eq(mktListings.id, listingId));
     await audit(tx, actor, status === "live" ? "marketplace.resume" : "marketplace.pause", "mkt_listing", listingId);
+  });
+}
+
+/* ───────────────────────────── Live batches ───────────────────────────── */
+
+type BatchRow = typeof batches.$inferSelect;
+
+/**
+ * Why a batch can't be sold on the marketplace, in words for the admin; null when it can.
+ * A listable batch is a real one (not the hidden recorded batch), open, not over, with class
+ * timings, and without faculty approval: a buyer pays and is enrolled at once, so there is
+ * nobody to accept them first.
+ */
+export function batchListingProblem(batch: Pick<BatchRow, "recorded" | "status" | "endDate" | "approvalRequired">, slotCount: number, today: string): string | null {
+  if (batch.recorded) return "This is the hidden batch behind a recorded course. List the recordings instead.";
+  if (batch.status !== "open") return `This batch is ${batch.status}. Only an open batch can be listed.`;
+  if (batch.endDate < today) return "This batch has ended.";
+  if (slotCount === 0) return "This batch has no class timings yet. Add its days and times first.";
+  if (batch.approvalRequired)
+    return "Faculty accept each student in this batch, but marketplace buyers pay and join straight away. Switch off \"Faculty accept each student\" on the batch to list it.";
+  return null;
+}
+
+export type ListableBatch = {
+  id: string;
+  name: string;
+  courseId: string;
+  courseTitle: string;
+  startDate: string;
+  endDate: string;
+  timings: string;
+  seatLimit: number;
+  seatsTaken: number;
+  /** Why it can't be listed; null when it can. */
+  problem: string | null;
+};
+
+/**
+ * The real batches this person could put on the marketplace (of one course, or of all their
+ * courses), each with the reason when it can't be listed. Batches already listed, ended
+ * batches and archived ones are left out.
+ */
+export async function listableBatches(actor: Actor, courseId?: string): Promise<ListableBatch[]> {
+  const r = reach(actor, "course.update", uni(actor));
+  if (!r.all && r.departmentIds.size === 0) return [];
+  return withTenant(actor, async (tx) => {
+    const today = await todayFor(tx);
+    const rows = (
+      await tx
+        .select({ batch: batches, courseTitle: courses.title, taken: seatsTakenSql })
+        .from(batches)
+        .innerJoin(courses, eq(courses.id, batches.courseId))
+        .where(
+          and(
+            eq(batches.recorded, false),
+            ne(batches.status, "archived"),
+            gte(batches.endDate, today),
+            inArray(courses.status, ["draft", "published"]),
+            courseId ? eq(batches.courseId, courseId) : undefined,
+          ),
+        )
+        .orderBy(asc(courses.title), asc(batches.startDate), asc(batches.name))
+    ).filter((x) => r.all || r.departmentIds.has(x.batch.departmentId));
+    if (rows.length === 0) return [];
+    const ids = rows.map((x) => x.batch.id);
+    const [slots, listed] = await Promise.all([
+      tx.select().from(batchSlots).where(inArray(batchSlots.batchId, ids)),
+      tx.select({ batchId: mktListings.batchId }).from(mktListings).where(and(inArray(mktListings.batchId, ids), ne(mktListings.status, "removed"))),
+    ]);
+    const taken = new Set(listed.map((l) => l.batchId));
+    return rows
+      .filter((x) => !taken.has(x.batch.id))
+      .map(({ batch: b, courseTitle, taken: seatsTaken }) => {
+        const mine = slots.filter((s) => s.batchId === b.id);
+        return {
+          id: b.id,
+          name: b.name,
+          courseId: b.courseId,
+          courseTitle,
+          startDate: b.startDate,
+          endDate: b.endDate,
+          timings: describeSlots(mine),
+          seatLimit: b.seatLimit,
+          seatsTaken,
+          problem: batchListingProblem(b, mine.length, today),
+        };
+      });
+  });
+}
+
+/**
+ * Puts a seat in a real batch on the marketplace at its own price (the institute's own
+ * students keep joining it free, as before). The listing carries the course's title unless
+ * another is given. Buyers are enrolled in this very batch, within its seat limit.
+ */
+export async function createBatchListing(
+  actor: Actor,
+  input: { batchId: string; title?: string; description: string; pricePaise: number; compareAtPaise?: number | null; lateJoin?: boolean },
+) {
+  return withTenant(actor, (tx) => createBatchListingTx(tx, actor, input)).catch(rethrowDuplicate);
+}
+
+/** createBatchListing inside a transaction the caller already holds (the New course page lists the first batch with it). */
+export async function createBatchListingTx(
+  tx: Tx,
+  actor: Actor,
+  input: { batchId: string; title?: string; description: string; pricePaise: number; compareAtPaise?: number | null; lateJoin?: boolean },
+) {
+  const [batch] = await tx.select().from(batches).where(eq(batches.id, input.batchId));
+  if (!batch) throw new NotFoundError("Batch");
+  const course = await loadCourseForListing(tx, actor, batch.courseId);
+  const fields = cleanFields({ ...input, title: input.title?.trim() || course.title });
+  const slots = await tx.select({ id: batchSlots.id }).from(batchSlots).where(eq(batchSlots.batchId, batch.id));
+  const problem = batchListingProblem(batch, slots.length, await todayFor(tx));
+  if (problem) throw new ValidationError(problem);
+  if (course.status === "archived") throw new ValidationError("This course is archived, so its batches can't be listed.");
+  const [listing] = await tx
+    .insert(mktListings)
+    .values({ universityId: uni(actor), courseId: course.id, batchId: batch.id, kind: "batch", lateJoin: input.lateJoin ?? false, createdBy: actor.userId, ...fields })
+    .returning();
+  await audit(tx, actor, "marketplace.list", "mkt_listing", listing.id, {
+    kind: "batch",
+    courseId: course.id,
+    batchId: batch.id,
+    title: fields.title,
+    pricePaise: fields.pricePaise,
+    lateJoin: listing.lateJoin,
+  });
+  return listing;
+}
+
+/**
+ * Takes a live batch off the marketplace for good. People who bought a seat keep it, and it
+ * stays in their library; the batch can be listed again later as a new listing.
+ */
+export async function removeBatchListing(actor: Actor, listingId: string) {
+  return withTenant(actor, async (tx) => {
+    const listing = await loadListing(tx, actor, listingId);
+    if (listing.kind !== "batch") throw new ValidationError("Only a live batch can be removed. Pause a recorded listing instead: its buyers keep watching.");
+    await tx.update(mktListings).set({ status: "removed", updatedAt: new Date() }).where(eq(mktListings.id, listingId));
+    await audit(tx, actor, "marketplace.remove", "mkt_listing", listingId, { batchId: listing.batchId });
   });
 }
 
@@ -280,9 +503,17 @@ export async function courseMarketplace(actor: Actor, courseId: string) {
   return withTenant(actor, async (tx) => {
     const course = await loadCourseForListing(tx, actor, courseId);
     const lessons = await readyVideoLessons(tx, [course.id]);
-    // Spelled out in full: with no join, drizzle leaves the column bare and it would match enrolments.batch_id.
-    const buyers = sql<number>`(select count(*)::int from enrolments e where e.batch_id = mkt_listings.batch_id and e.status in ('active', 'completed'))`;
-    const [whole] = await tx.select({ listing: mktListings, buyers }).from(mktListings).where(eq(mktListings.courseId, course.id));
+    const buyers = BUYERS;
+    const [whole] = await tx
+      .select({ listing: mktListings, buyers })
+      .from(mktListings)
+      .where(and(eq(mktListings.courseId, course.id), eq(mktListings.kind, "course")));
+    const liveRows = await tx
+      .select({ listing: mktListings, buyers })
+      .from(mktListings)
+      .where(and(eq(mktListings.courseId, course.id), eq(mktListings.kind, "batch"), ne(mktListings.status, "removed")))
+      .orderBy(asc(mktListings.createdAt));
+    const batchInfo = await batchListingInfo(tx, liveRows.map((l) => l.listing));
     const lectures = lessons.length
       ? await tx
           .select({ listing: mktListings, buyers })
@@ -303,6 +534,8 @@ export async function courseMarketplace(actor: Actor, courseId: string) {
       lectures: lectures.map((l) => ({ ...l.listing, buyers: l.buyers })),
       unlistedLectures: lessons.filter((l) => !listedLessons.has(l.id)).map((l) => ({ id: l.id, title: l.title })),
       combos,
+      /** This course's live batches on the marketplace. */
+      batches: liveRows.map((l) => ({ ...l.listing, buyers: l.buyers, batch: batchInfo.get(l.listing.id) ?? null })),
     };
   });
 }

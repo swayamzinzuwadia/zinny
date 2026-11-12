@@ -19,6 +19,7 @@ import { assertCan, reach, type Actor, type Target } from "../authz/engine";
 import { ConflictError, NotFoundError, ValidationError } from "../errors";
 import { earliestStart, formatDate, normaliseTime } from "../lib/dates";
 import { audit, withTenant } from "../tenant";
+import { clearFacultyFromSectionsTx } from "./batch-plan";
 import { loadCourse } from "./courses";
 import { hodsOf, notify } from "./notifications";
 import { describeSlots, validateSlots, type ScheduledBatch, type Slot } from "./schedule";
@@ -89,7 +90,7 @@ export async function scheduledBatches(tx: Tx, batchIds: string[]): Promise<(Sch
 }
 
 /** Students currently in a batch (for notifications). */
-async function studentsIn(tx: Tx, batchId: string): Promise<string[]> {
+export async function studentsIn(tx: Tx, batchId: string): Promise<string[]> {
   const rows = await tx
     .select({ userId: enrolments.userId })
     .from(enrolments)
@@ -99,7 +100,7 @@ async function studentsIn(tx: Tx, batchId: string): Promise<string[]> {
 
 export type FacultyInput = { userId: string; role: "permanent_faculty" | "visiting_faculty"; endsAt?: Date | null };
 
-async function addFacultyTx(tx: Tx, actor: Actor, batch: typeof batches.$inferSelect, f: FacultyInput) {
+export async function addFacultyTx(tx: Tx, actor: Actor, batch: typeof batches.$inferSelect, f: FacultyInput) {
   // Must already teach in this department (added under Users → Teaching).
   const now = new Date();
   const roles = await tx
@@ -114,7 +115,7 @@ async function addFacultyTx(tx: Tx, actor: Actor, batch: typeof batches.$inferSe
       ),
     );
   const membership = roles.find((r) => !r.endsAt || r.endsAt > now);
-  if (!membership) throw new ValidationError("This person doesn't teach in this department yet. Add them as a new teacher on the batch form, or under Users, Teaching.");
+  if (!membership) throw new ValidationError("Add this person to the department's teaching staff first.");
   // Visiting faculty can't outlast their department access.
   let endsAt = f.endsAt ?? null;
   if (f.role === "visiting_faculty") {
@@ -367,10 +368,13 @@ export async function assignFaculty(actor: Actor, batchId: string, f: FacultyInp
   });
 }
 
-/** A batch always keeps at least one faculty member. */
+/**
+ * A batch always keeps at least one faculty member. Sections this person taught are left
+ * without faculty; their titles come back so the caller can say so.
+ */
 export async function removeFaculty(actor: Actor, batchId: string, userId: string) {
   return withTenant(actor, async (tx) => {
-    const { target } = await loadBatch(tx, uni(actor), batchId, { lock: true });
+    const { batch, target } = await loadBatch(tx, uni(actor), batchId, { lock: true });
     assertCan(actor, "batch.assign_faculty", target);
     const now = new Date();
     const current = (
@@ -383,7 +387,9 @@ export async function removeFaculty(actor: Actor, batchId: string, userId: strin
       .update(roleAssignments)
       .set({ revokedAt: now })
       .where(and(eq(roleAssignments.batchId, batchId), eq(roleAssignments.userId, userId), isNull(roleAssignments.revokedAt)));
-    await audit(tx, actor, "batch.remove_faculty", "batch", batchId, { userId });
+    const cleared = await clearFacultyFromSectionsTx(tx, batch, userId);
+    await audit(tx, actor, "batch.remove_faculty", "batch", batchId, { userId, ...(cleared.sections.length > 0 && { sectionsLeftWithoutFaculty: cleared.sections }) });
+    return { sectionsWithoutFaculty: cleared.sections };
   });
 }
 
@@ -399,10 +405,14 @@ export async function listBatches(actor: Actor, courseId: string) {
       .filter((id) => r.all || target.departmentIds!.some((d) => r.departmentIds.has(d)) || r.batchIds.has(id));
     if (ids.length === 0) assertCan(actor, "batch.view", target);
     const sched = await scheduledBatches(tx, ids);
+    const incharges = ids.length
+      ? await tx.select({ batchId: batches.id, name: users.name }).from(batches).innerJoin(users, eq(users.id, batches.inchargeUserId)).where(inArray(batches.id, ids))
+      : [];
     const out = [];
     for (const b of sched) {
       const taken = await seatsTaken(tx, b.batchId);
-      out.push({ ...b, timings: describeSlots(b.slots), seatsTaken: taken, seatsLeft: Math.max(0, b.seatLimit - taken) });
+      const incharge = incharges.find((i) => i.batchId === b.batchId)?.name ?? null;
+      out.push({ ...b, timings: describeSlots(b.slots), seatsTaken: taken, seatsLeft: Math.max(0, b.seatLimit - taken), incharge });
     }
     return out.sort(
       (a, b) => a.startDate.localeCompare(b.startDate) || earliestStart(a.slots).localeCompare(earliestStart(b.slots)) || a.batchName.localeCompare(b.batchName),
@@ -484,6 +494,7 @@ export async function getBatchDetail(actor: Actor, batchId: string) {
         .orderBy(asc(users.name))
     ).filter((f) => !f.endsAt || f.endsAt > now);
     const taken = await seatsTaken(tx, batchId);
-    return { batch, course, schedule: sched, faculty, seatsTaken: taken, target };
+    const [incharge] = batch.inchargeUserId ? await tx.select({ userId: users.id, name: users.name }).from(users).where(eq(users.id, batch.inchargeUserId)) : [];
+    return { batch, course, schedule: sched, faculty, seatsTaken: taken, target, incharge: incharge ?? null };
   });
 }

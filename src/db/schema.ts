@@ -109,6 +109,8 @@ export const universities = pgTable("universities", {
   address: text("address"),
   /** Up to 4 characters, so invoice numbers stay within GST's 16-character limit. */
   invoicePrefix: text("invoice_prefix").notNull().default("ZN"),
+  /** Off = the institute doesn't charge GST: new orders and invoices carry no tax (Finance → Sales → Settings). */
+  gstEnabled: boolean("gst_enabled").notNull().default(true),
   branding: jsonb("branding").$type<{ primaryColor?: string; logoUrl?: string }>().notNull().default({}),
   status: text("status").notNull().default("active"),
   createdAt: createdAt(),
@@ -132,6 +134,8 @@ export const sessions = pgTable(
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: createdAt(),
+    /** Set when a Zinny Super Admin signed in as this person from the team panel: who they really are. */
+    impersonatorUserId: uuid("impersonator_user_id").references(() => users.id, { onDelete: "set null" }),
   },
   // Identity lists and ends a person's sessions by user (wave 1 integration).
   (t) => [index("sessions_user_idx").on(t.userId)],
@@ -184,6 +188,8 @@ export const batches = pgTable("batches", {
   recorded: boolean("recorded").notNull().default(false),
   /** Faculty accept or decline each enrolment before the student gets a seat. */
   approvalRequired: boolean("approval_required").notNull().default(false),
+  /** The person who looks after this batch as a whole (department teaching staff or an institute admin). */
+  inchargeUserId: uuid("incharge_user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: createdAt(),
 }, (t) => [
   check("batch_dates", sql`${t.endDate} >= ${t.startDate}`),
@@ -297,6 +303,43 @@ export const sessionOverrides = pgTable("session_overrides", {
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: createdAt(),
 });
+
+/**
+ * A part of a batch's syllabus ("Direct tax", "GST", "Revision") taught by one faculty member.
+ * Sections are planned by day number, never by date: see batch_plan_days.
+ */
+export const batchSections = pgTable("batch_sections", {
+  id: id(),
+  universityId: universityId(),
+  batchId: uuid("batch_id").notNull().references(() => batches.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description").notNull().default(""),
+  /** Must be faculty on this batch; cleared when they leave it. */
+  facultyUserId: uuid("faculty_user_id").references(() => users.id, { onDelete: "set null" }),
+  position: integer("position").notNull().default(0),
+  createdAt: createdAt(),
+}, (t) => [index("batch_sections_batch_idx").on(t.batchId)]);
+
+/**
+ * The day-number plan: "Day 7 is GST". Day N is the batch's Nth class date, worked out on
+ * read from its dates, weekly timings and one-off changes, so nothing here ever holds a date.
+ * Several sections may share a day; then each may carry its own times.
+ */
+export const batchPlanDays = pgTable("batch_plan_days", {
+  id: id(),
+  universityId: universityId(),
+  batchId: uuid("batch_id").notNull().references(() => batches.id, { onDelete: "cascade" }),
+  sectionId: uuid("section_id").notNull().references(() => batchSections.id, { onDelete: "cascade" }),
+  dayNumber: integer("day_number").notNull(),
+  topic: text("topic"),
+  startTime: time("start_time"),
+  endTime: time("end_time"),
+}, (t) => [
+  check("plan_day_number", sql`${t.dayNumber} >= 1`),
+  check("plan_day_times", sql`(${t.startTime} is null and ${t.endTime} is null) or coalesce(${t.endTime} > ${t.startTime}, false)`),
+  uniqueIndex("batch_plan_days_section_day_uq").on(t.sectionId, t.dayNumber),
+  index("batch_plan_days_batch_idx").on(t.batchId),
+]);
 
 /* ─────────────────────── Students ─────────────────────── */
 

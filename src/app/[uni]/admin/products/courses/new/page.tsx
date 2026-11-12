@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { Empty, PageHeader } from "@/components/ui";
 import { spaceContext } from "@/server/context";
-import { modules } from "@/server/registry";
-import { quickCourseOptions } from "@/server/services/quick-course";
+import { marketplaceInstalled, quickCourseOptions } from "@/server/services/quick-course";
 import { NewCourseForm } from "./new-course-form";
 
 export const metadata = { title: "New course" };
@@ -37,8 +36,8 @@ export default async function NewCoursePage({ params }: { params: Promise<{ uni:
         uni={uni}
         me={actor.userId}
         options={options}
-        showGst={!!university.gstin}
-        marketplace={modules().some((m) => m.id === "marketplace")}
+        showGst={university.gstEnabled}
+        marketplace={marketplaceInstalled()}
         cancelHref={back}
       />
     </>

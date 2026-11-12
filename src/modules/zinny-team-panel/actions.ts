@@ -10,9 +10,12 @@ import type { ActionState } from "@/components/forms";
 import { attempt, str } from "@/server/action";
 import { platformContext } from "@/server/context";
 import { deleteRole, resetRole, roleDraft, saveRole } from "@/server/core";
-import { parseRupees } from "./lib/format";
+import { currentSession } from "@/server/auth/session";
+import { formatDate, formatINR, parseRupees } from "./lib/format";
+import { setPersonPassword, startImpersonation, stopImpersonation } from "./services/accounts";
 import { addRole, inviteMember, removeRole } from "./services/team";
-import { createInvoice, markInvoicePaid, markInvoiceUnpaid } from "./services/billing";
+import { createInvoice, markInvoicePaid, markInvoiceUnpaid, reviseInvoice } from "./services/billing";
+import { archivePlan, createPlan, restorePlan, updatePlan, type PlanInput } from "./services/plans";
 import { flagCourse, markReviewed, resolveFlag } from "./services/content";
 import { acknowledgeAlert, saveLicence, syncAllAlerts, type LicenceInput } from "./services/licences";
 import { forceEndSupport, leaveSupport, startSupport } from "./services/support";
@@ -28,8 +31,21 @@ function whole(data: FormData, key: string) {
   return /^\d+$/.test(v) ? Number(v) : Number.NaN;
 }
 
+/** Rupees from a form field as paise. Empty is `empty`; anything that isn't an amount throws with `message`. */
+function rupees(data: FormData, key: string, message: string, empty = 0) {
+  const raw = str(data, key);
+  if (!raw) return empty;
+  const paise = parseRupees(raw);
+  if (!Number.isFinite(paise)) throw new ValidationError(message);
+  return paise;
+}
+
+/**
+ * The licence form: plan, caps, modules, term, the price and discount, and the invoice to
+ * raise with it. "Don't create an invoice" ticked sends `invoice: false`.
+ */
 function licenceFrom(data: FormData): LicenceInput {
-  return {
+  const base = {
     plan: str(data, "plan"),
     studentCap: whole(data, "studentCap"),
     staffCap: whole(data, "staffCap"),
@@ -37,6 +53,30 @@ function licenceFrom(data: FormData): LicenceInput {
     startDate: str(data, "startDate"),
     endDate: str(data, "endDate"),
     notes: str(data, "notes"),
+  };
+  // A form without the charge fields (an older page still open) leaves the price to the service.
+  if (!data.has("price")) return base;
+  return {
+    ...base,
+    pricePaise: rupees(data, "price", "Enter the price before GST in rupees, like 720000 or 7,20,000."),
+    discountPaise: rupees(data, "discount", "Enter the discount in rupees, like 20000, or leave it empty."),
+    discountNote: str(data, "discountNote"),
+    invoice: data.get("noInvoice") === "on" ? false : { issueDate: str(data, "invoiceDate") || undefined, dueDate: str(data, "invoiceDueDate") || undefined },
+  };
+}
+
+function planFrom(data: FormData): PlanInput {
+  return {
+    key: str(data, "key"),
+    name: str(data, "name"),
+    description: str(data, "description"),
+    pricePaise: rupees(data, "price", "Enter the price before GST in rupees, like 720000 or 7,20,000.", Number.NaN),
+    billingMonths: whole(data, "billingMonths"),
+    studentCap: whole(data, "studentCap"),
+    staffCap: whole(data, "staffCap"),
+    modules: data.getAll("modules").map(String),
+    gstRateBp: Math.round(Number(str(data, "gst")) * 100),
+    sortOrder: str(data, "sortOrder") ? whole(data, "sortOrder") : undefined,
   };
 }
 
@@ -51,6 +91,8 @@ export async function createUniversityAction(_: ActionState, data: FormData): Pr
       slug: str(data, "slug"),
       adminName: str(data, "adminName"),
       adminEmail: str(data, "adminEmail"),
+      // Not trimmed: a password is used exactly as typed.
+      adminPassword: String(data.get("adminPassword") ?? "") || null,
       invoicePrefix: str(data, "invoicePrefix"),
       licence: data.get("withLicence") === "on" ? licenceFrom(data) : null,
     });
@@ -99,11 +141,98 @@ export async function saveLicenceAction(_: ActionState, data: FormData): Promise
   const actor = await platformContext();
   const id = str(data, "universityId");
   return attempt(async () => {
-    await saveLicence(actor, id, licenceFrom(data));
+    const saved = await saveLicence(actor, id, licenceFrom(data));
     revalidatePath("/platform", "layout");
-    return "Licence saved. Warnings are up to date.";
+    return saved.invoice
+      ? `Licence saved. Invoice ${saved.invoice.number} for ${formatINR(saved.invoice.totalPaise)} is raised and due on ${formatDate(saved.invoice.dueDate)}.`
+      : "Licence saved. No invoice was created.";
   });
 }
+
+/* ── Plans ── */
+
+/** Creates a plan, or changes the one named by `planId`. */
+export async function savePlanAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  const id = str(data, "planId");
+  let created = "";
+  const res = await attempt(async () => {
+    if (id) {
+      const p = await updatePlan(actor, id, planFrom(data));
+      revalidatePath("/platform", "layout");
+      return `${p.name} saved. Licences and invoices made from now on use it; existing ones keep their price.`;
+    }
+    created = (await createPlan(actor, planFrom(data))).id;
+  });
+  if (created) {
+    revalidatePath("/platform", "layout");
+    redirect("/platform/plans?created=1");
+  }
+  return res;
+}
+
+export async function archivePlanAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  return attempt(async () => {
+    const p = await archivePlan(actor, str(data, "planId"));
+    revalidatePath("/platform", "layout");
+    return `${p.name} is archived. Institutes already on it keep it.`;
+  });
+}
+
+export async function restorePlanAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  return attempt(async () => {
+    const p = await restorePlan(actor, str(data, "planId"));
+    revalidatePath("/platform", "layout");
+    return `${p.name} can be chosen for new licences again.`;
+  });
+}
+
+/* ── Accounts: set a password, sign in as someone ── */
+
+export async function setPasswordAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  const session = await currentSession();
+  return attempt(async () => {
+    const r = await setPersonPassword(actor, str(data, "userId"), {
+      // Not trimmed: a password is used exactly as typed.
+      password: String(data.get("password") ?? ""),
+      confirm: String(data.get("confirm") ?? ""),
+      signOutEverywhere: data.get("signOutEverywhere") === "on",
+      keepSessionId: session?.sessionId,
+    });
+    revalidatePath("/platform", "layout");
+    const ended = r.signedOutEverywhere ? ` They are signed out everywhere (${r.sessionsEnded} session${r.sessionsEnded === 1 ? "" : "s"} ended).` : " Their open sessions stay signed in.";
+    return `Password set for ${r.name}.${ended} Pass it on safely: it isn't shown again.`;
+  });
+}
+
+/**
+ * Signs the Super Admin in as someone and goes to where that person lands. The redirect
+ * comes from the server, so the next page is rendered with the new session straight away.
+ */
+export async function signInAsAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  let landing = "";
+  const res = await attempt(async () => {
+    landing = (await startImpersonation(actor, str(data, "userId"), { universityId: str(data, "universityId") || null })).landing;
+  });
+  if (landing) redirect(landing);
+  return res;
+}
+
+/** Ends "sign in as" and goes back to the Super Admin's own session, on the person's page in the panel. */
+export async function returnToPanelAction(): Promise<ActionState> {
+  let next = "";
+  const res = await attempt(async () => {
+    next = (await stopImpersonation()).next;
+  });
+  if (next) redirect(next);
+  return res;
+}
+
+/* ── Licence warnings ── */
 
 export async function acknowledgeAlertAction(_: ActionState, data: FormData): Promise<ActionState> {
   const actor = await platformContext();
@@ -210,14 +339,14 @@ export async function createInvoiceAction(_: ActionState, data: FormData): Promi
   const actor = await platformContext();
   let id = "";
   const res = await attempt(async () => {
-    const basePaise = parseRupees(str(data, "amount"));
-    if (!Number.isFinite(basePaise)) throw new ValidationError("Enter the amount before GST in rupees, like 45000 or 45,000.50.");
     const inv = await createInvoice(actor, {
       universityId: str(data, "universityId"),
       periodStart: str(data, "periodStart"),
       periodEnd: str(data, "periodEnd"),
       description: str(data, "description"),
-      basePaise,
+      listPricePaise: rupees(data, "amount", "Enter the amount before GST in rupees, like 45000 or 45,000.50.", Number.NaN),
+      discountPaise: rupees(data, "discount", "Enter the discount in rupees, like 5000, or leave it empty."),
+      discountNote: str(data, "discountNote"),
       gstRateBp: Math.round(Number(str(data, "gst")) * 100),
       issueDate: str(data, "issueDate"),
       dueDate: str(data, "dueDate"),
@@ -229,6 +358,25 @@ export async function createInvoiceAction(_: ActionState, data: FormData): Promi
     redirect(`/platform/billing/${id}`);
   }
   return res;
+}
+
+export async function reviseInvoiceAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  const id = str(data, "invoiceId");
+  return attempt(async () => {
+    const inv = await reviseInvoice(actor, id, {
+      description: str(data, "description"),
+      periodStart: str(data, "periodStart"),
+      periodEnd: str(data, "periodEnd"),
+      listPricePaise: rupees(data, "amount", "Enter the amount before GST in rupees, like 45000 or 45,000.50.", Number.NaN),
+      discountPaise: rupees(data, "discount", "Enter the discount in rupees, like 5000, or leave it empty."),
+      discountNote: str(data, "discountNote"),
+      issueDate: str(data, "issueDate"),
+      dueDate: str(data, "dueDate"),
+    });
+    revalidatePath("/platform", "layout");
+    return `${inv.number} revised. The total is now ${formatINR(inv.totalPaise)}.`;
+  });
 }
 
 export async function markPaidAction(_: ActionState, data: FormData): Promise<ActionState> {

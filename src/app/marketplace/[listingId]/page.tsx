@@ -12,8 +12,11 @@ import { BuyNow } from "@/modules/marketplace/components/buy-now";
 import { CodeField } from "@/modules/marketplace/components/code-field";
 import { BookCard, Jacket, lessonsLine } from "@/modules/marketplace/components/jacket";
 import { ListingBook } from "@/modules/marketplace/components/listing-book";
-import { KIND_LABEL, Price } from "@/modules/marketplace/components/price";
-import { browseMarketplace, listingDetail, marketplaceAccess } from "@/modules/marketplace/service";
+import { instituteFaces } from "@/modules/marketplace/components/browse";
+import { datesLine } from "@/modules/marketplace/components/live";
+import { FORMAT_LINE, KIND_LABEL, Price } from "@/modules/marketplace/components/price";
+import { browseMarketplace, listingDetail, marketplaceAccess, splitCatalog } from "@/modules/marketplace/service";
+import { LiveListing } from "./live-listing";
 import { inr } from "@/modules/payments/money";
 import { getSite } from "@/modules/website-builder/cached";
 
@@ -23,7 +26,13 @@ export async function generateMetadata({ params }: { params: Promise<{ listingId
   const { listingId } = await params;
   const item = await listingDetail(listingId, null);
   if (!item) return { title: "Marketplace" };
-  return { title: item.title, description: item.description || `${KIND_LABEL[item.kind]} from ${item.institute} on the Zinny marketplace.` };
+  if (item.live) {
+    return {
+      title: `${item.title}: live batch from ${item.institute}`,
+      description: item.description || `Live batch from ${item.institute}: ${datesLine(item.live)}, ${item.live.timings}. ${item.live.classes} classes.`,
+    };
+  }
+  return { title: item.title, description: item.description || `${KIND_LABEL[item.kind]} from ${item.institute} on the Zinny marketplace. Recorded: watch any time.` };
 }
 
 /** "A", "A and B", "A, B and C". */
@@ -47,17 +56,37 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
   const userId = await currentUserId();
   const [item, { canShop }] = await Promise.all([listingDetail(listingId, userId), userId ? marketplaceAccess(userId) : { canShop: false }]);
   if (!item) notFound();
-  const [site, siblings, carted] = await Promise.all([
+  const [site, everything, carted] = await Promise.all([
     getSite(item.instituteSlug),
-    browseMarketplace({ institute: item.instituteSlug }),
+    browseMarketplace({ institute: item.instituteSlug, format: "all" }),
     userId && canShop && !item.ownedEnrolmentId ? inCart(userId, item.id) : false,
   ]);
+  const theirs = splitCatalog(everything);
+  const siblings = theirs.recorded;
+
+  // A seat in a live batch is a different thing to buy, so it gets a page of its own shape.
+  if (item.live) {
+    const [face] = await instituteFaces([{ name: item.institute, slug: item.instituteSlug, recorded: theirs.recorded.length, live: theirs.live.length }]);
+    return (
+      <LiveListing
+        item={item}
+        live={item.live}
+        canShop={canShop}
+        signedIn={!!userId}
+        carted={carted}
+        face={face}
+        hasSite={face.hasSite}
+        moreLive={theirs.live.filter((l) => l.id !== item.id).slice(0, 3)}
+        moreRecorded={theirs.recorded.slice(0, 4)}
+      />
+    );
+  }
   const lessonCount = item.outline.sections.reduce((n, s) => n + s.lessons.length, 0);
   // Each lesson's place in the whole list, so the contents write in one after another.
   const lessonsBefore = item.outline.sections.map((_, si) => item.outline.sections.slice(0, si).reduce((n, s) => n + s.lessons.length, 0));
   const facts = `${KIND_LABEL[item.kind]} · ${lessonsLine(lessonCount, item.minutes)}`;
   const more = siblings.filter((s) => s.id !== item.id).slice(0, 4);
-  const shelf = `/marketplace?institute=${item.instituteSlug}`;
+  const shelf = `/marketplace/institutes/${item.instituteSlug}`;
 
   const titlePage = (
     <>
@@ -72,7 +101,8 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
           <div className="text-muted">{facts}</div>
         </div>
       </div>
-      <h1 className="mt-7 text-[clamp(2.2rem,4.4vw,3.4rem)] leading-[1.04] font-semibold [text-wrap:balance]">
+      <p className="mt-6 inline-flex rounded-full bg-brand-soft px-3 py-1 text-[13px] font-medium text-brand-deep">{FORMAT_LINE.recorded}</p>
+      <h1 className="mt-3 text-[clamp(2.2rem,4.4vw,3.4rem)] leading-[1.04] font-semibold [text-wrap:balance]">
         {item.title}
       </h1>
       {item.description && <p className="mt-4 text-[16px] leading-relaxed whitespace-pre-line text-ink/80">{item.description}</p>}
@@ -85,14 +115,16 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
 
       <div className="mt-8 border-t border-line pt-6">
         <div className="flex flex-wrap items-center gap-3">
-          <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} size="lg" />
+          <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} size="lg" gst={item.totalPaise > item.pricePaise} />
           {item.percentOff && item.compareAtPaise && (
             <span data-stamp className="rounded-full bg-gold px-3 py-1 text-[13.5px] font-semibold text-brand-deep">
               Save {inr(item.compareAtPaise - item.pricePaise)}, {item.percentOff}% off
             </span>
           )}
         </div>
-        <p className="mt-2 text-[13.5px] text-muted">GST is added at checkout, and a GST invoice comes with your purchase.</p>
+        <p className="mt-2 text-[13.5px] text-muted">
+          {item.totalPaise > item.pricePaise ? "GST is added at checkout, and a GST invoice comes with your purchase." : "This is the full price. An invoice comes with your purchase."}
+        </p>
 
         <div className="mt-5 max-w-sm">
           {item.ownedEnrolmentId ? (
@@ -184,6 +216,10 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
               Marketplace
             </Link>
             <span aria-hidden>/</span>
+            <Link href="/marketplace/recorded" className="hover:text-canvas">
+              Recorded
+            </Link>
+            <span aria-hidden>/</span>
             <Link href={shelf} className="hover:text-canvas">
               {item.institute}
             </Link>
@@ -199,7 +235,7 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
               More from {item.institute}
             </h2>
             <Link href={shelf} className="shrink-0 pb-1 text-[14px] font-medium text-brand hover:underline">
-              Their shelf
+              Their page
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-x-7 lg:grid-cols-4">

@@ -57,7 +57,7 @@ export function Learners({ shelf, count }: { shelf: ReactNode; count: number }) 
         {count > 0 && (
           <div className="mt-16">
             <p className="mb-6 text-[14px] text-canvas/60">
-              {count >= COUNT_FROM ? `On the shelf right now: ${count} recordings. ` : "On the shelf right now. "}Prices are before GST, which is added at checkout.
+              {count >= COUNT_FROM ? `On the shelf right now: ${count} recordings. ` : "On the shelf right now. "}Where an institute charges GST, it is added at checkout.
             </p>
             <div data-drop className="rounded-[20px] bg-canvas p-5 text-ink sm:p-8">
               {shelf}

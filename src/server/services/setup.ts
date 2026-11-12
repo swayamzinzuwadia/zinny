@@ -136,7 +136,7 @@ export async function setupChecklist(actor: Actor, uni: string): Promise<SetupCh
           {
             key: "marketplace" as const,
             label: "List on the marketplace",
-            hint: "Sell a course's recordings to learners across Zinny.",
+            hint: "Sell seats in a live batch, or a course's recordings, to learners across Zinny.",
             done: facts.listed,
             href: `${base}/marketplace`,
             action: "Open marketplace",
@@ -166,7 +166,7 @@ export async function courseNextSteps(actor: Actor, uni: string, courseId: strin
         ${hasLessons ? sql`exists(select 1 from content_lessons where course_id = ${courseId})` : sql`true`} as "lessons",
         exists(select 1 from role_assignments where role = 'student' and revoked_at is null) as "students",
         exists(select 1 from enrolments where course_id = ${courseId} and status in ('active', 'requested', 'approved', 'held')) as "enrolled",
-        ${hasMarketplace ? sql`exists(select 1 from mkt_listings where course_id = ${courseId})` : sql`true`} as "listed"
+        ${hasMarketplace ? sql`exists(select 1 from mkt_listings where course_id = ${courseId} and status <> 'removed')` : sql`true`} as "listed"
     `);
     return rows[0];
   });

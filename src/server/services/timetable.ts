@@ -10,6 +10,7 @@ import { assertCan, type Actor } from "../authz/engine";
 import { NotFoundError } from "../errors";
 import { addDays, todayIn, weekStart } from "../lib/dates";
 import { withTenant } from "../tenant";
+import { annotateWithPlansTx } from "./batch-plan";
 import { scheduledBatches } from "./batches";
 import { expandSessions } from "./schedule";
 
@@ -41,11 +42,11 @@ export async function studentTimetable(actor: Actor, range?: { from: string; to:
       .from(enrolments)
       .where(and(eq(enrolments.userId, ownerUserId), eq(enrolments.status, "active")));
     const sched = await scheduledBatches(tx, rows.map((r) => r.batchId));
-    return { today, from, to, sessions: expandSessions(sched, from, to) };
+    return { today, from, to, sessions: await annotateWithPlansTx(tx, actor.universityId!, sched, expandSessions(sched, from, to)) };
   });
 }
 
-/** Faculty see the classes of the batches they teach. */
+/** Faculty see the classes of the batches they teach, each with its section; `taughtByMe` marks their own sections. */
 export async function facultyTimetable(actor: Actor, range?: { from: string; to: string }) {
   return withTenant(actor, async (tx) => {
     const now = new Date();
@@ -66,7 +67,7 @@ export async function facultyTimetable(actor: Actor, range?: { from: string; to:
     const from = range?.from ?? weekStart(today);
     const to = range?.to ?? addDays(from, 6);
     const sched = await scheduledBatches(tx, mine.map((a) => a.batchId!));
-    return { today, from, to, sessions: expandSessions(sched, from, to) };
+    return { today, from, to, sessions: await annotateWithPlansTx(tx, actor.universityId!, sched, expandSessions(sched, from, to), actor.userId) };
   });
 }
 

@@ -5,7 +5,7 @@
  */
 import { eq } from "drizzle-orm";
 import type { Tx } from "@/db/client";
-import { assertCan, audit, can, withTenant, type Actor } from "@/server/core";
+import { assertCan, audit, can, setGstEnabled, withTenant, type Actor } from "@/server/core";
 import { ValidationError } from "@/server/errors";
 import { DEFAULT_SAC } from "./config";
 import { uni, universityRow } from "./internal";
@@ -25,8 +25,10 @@ export async function settingsFor(tx: Tx, universityId: string): Promise<Invoice
 
 export type SettingsView = InvoiceSettings & {
   canEdit: boolean;
+  /** Whether the institute charges GST on fees. Off = prices, orders and invoices carry no tax. */
+  gstEnabled: boolean;
   seller: { name: string; legalName: string | null; address: string | null; gstin: string | null; state: string; invoicePrefix: string };
-  /** What's missing for a valid GST invoice, in plain words. */
+  /** What's missing for a valid GST invoice, in plain words. Always empty while GST is off. */
   gaps: string[];
 };
 
@@ -36,14 +38,13 @@ export async function getInvoiceSettings(actor: Actor): Promise<SettingsView> {
   return withTenant(actor, async (tx) => {
     const s = await settingsFor(tx, uni(actor));
     const u = await universityRow(tx);
-    const gaps = [
-      !u.legalName && "the legal name",
-      !u.address && "the registered address",
-      !u.gstin && "the GSTIN",
-    ].filter(Boolean) as string[];
+    const gaps = u.gstEnabled
+      ? ([!u.legalName && "the legal name", !u.address && "the registered address", !u.gstin && "the GSTIN"].filter(Boolean) as string[])
+      : [];
     return {
       ...s,
       canEdit: can(actor, "finance.manage", { universityId: uni(actor) }),
+      gstEnabled: u.gstEnabled,
       seller: { name: u.name, legalName: u.legalName, address: u.address, gstin: u.gstin, state: stateLabel(u.stateCode), invoicePrefix: u.invoicePrefix },
       gaps,
     };
@@ -70,4 +71,14 @@ export async function updateInvoiceSettings(actor: Actor, input: { sacCode: stri
     });
     return { sacCode: row.sacCode, invoiceFooter: row.invoiceFooter, saved: true };
   });
+}
+
+/**
+ * Turns "Charge GST on fees" on or off (core `setGstEnabled`: needs `finance.manage`,
+ * audited). Off: new orders are created with no GST and new invoices are plain invoices.
+ * Orders and invoices that already exist keep what they were created with, and turning
+ * GST back on only affects new ones.
+ */
+export async function updateGstSetting(actor: Actor, enabled: boolean) {
+  return setGstEnabled(actor, enabled);
 }

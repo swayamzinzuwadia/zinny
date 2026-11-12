@@ -50,8 +50,11 @@ async function learner(name = "neha") {
   return r.userId;
 }
 
+let lessonSeq = 0;
+
 async function addLesson(universityId: string, courseId: string, title: string, over: Partial<typeof contentLessons.$inferInsert> = {}) {
-  const [section] = await systemDb().insert(contentSections).values({ universityId, courseId, title: "Week 1" }).returning();
+  // Each lesson gets its own section; the position keeps them in the order they were added.
+  const [section] = await systemDb().insert(contentSections).values({ universityId, courseId, title: "Week 1", position: lessonSeq++ }).returning();
   const [lesson] = await systemDb()
     .insert(contentLessons)
     .values({
@@ -106,7 +109,11 @@ describe("signing up on your own", () => {
 describe("demo accounts on the sign-in page", () => {
   it("offers only the accounts this database has", async () => {
     await systemDb().insert(users).values({ email: "neha@zinny.demo", name: "Neha Kulkarni" }).onConflictDoNothing();
-    expect((await availableDemoAccounts()).map(([, email]) => email)).toEqual(["neha@zinny.demo"]);
+    // Other test files may have seeded the demo institute first, so compare with what the database holds.
+    const offered = (await availableDemoAccounts()).map(([, email]) => email);
+    expect(offered).toContain("neha@zinny.demo");
+    const present = (await systemDb().select({ email: users.email }).from(users)).map((u) => u.email);
+    expect(offered.filter((email) => !present.includes(email))).toEqual([]);
   });
 });
 
@@ -251,7 +258,7 @@ describe("the catalogue", () => {
     expect((await browseMarketplace({ institute: a.uni.slug })).map((i) => i.id)).toEqual([a.listing.id]);
     expect((await browseMarketplace({ institute: a.uni.slug, q: "nothing like this" })).map((i) => i.id)).toEqual([]);
     expect((await browseMarketplace()).map((i) => i.id)).toEqual(expect.arrayContaining([a.listing.id, b.listing.id]));
-    expect(await marketplaceInstitute(a.uni.slug)).toEqual({ name: a.uni.name, slug: a.uni.slug });
+    expect(await marketplaceInstitute(a.uni.slug)).toMatchObject({ name: a.uni.name, slug: a.uni.slug });
     expect((await listingDetail(a.listing.id, null))?.ownedEnrolmentId).toBeNull();
 
     await systemDb().update(universities).set({ status: "suspended" }).where(eq(universities.id, b.uni.id));

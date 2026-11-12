@@ -65,7 +65,7 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <Badge tone={course.status === "published" ? "brand" : "neutral"}>{STATUS_LABEL[course.status] ?? course.status}</Badge>
-            <span>{course.pricePaise ? `${formatINR(course.pricePaise)} + ${course.gstRateBp / 100}% GST` : "Free"}</span>
+            <span>{course.pricePaise ? (university.gstEnabled ? `${formatINR(course.pricePaise)} + ${course.gstRateBp / 100}% GST` : formatINR(course.pricePaise)) : "Free"}</span>
             <span>· {department.name}</span>
           </span>
         }
@@ -139,6 +139,7 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
                         <SeatMap limit={b.seatLimit} taken={b.seatsTaken} />
                       </div>
                       <div className="mt-2 truncate text-xs text-muted">{b.faculty?.join(", ") || "No faculty"}</div>
+                      <div className="truncate text-xs text-muted">{b.incharge ? `Incharge: ${b.incharge}` : "No incharge yet"}</div>
                     </Link>
                     {canEditBatches && (
                       <div className="mt-3 border-t border-line pt-3">
@@ -252,15 +253,23 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
               <Field label="Price (₹)" hint="Shown on your website. Your own students join for free.">
                 <Input name="price" defaultValue={course.pricePaise / 100} />
               </Field>
-              <Field label="GST">
-                <Select name="gst" defaultValue={course.gstRateBp / 100}>
-                  {[0, 5, 12, 18, 28].map((g) => (
-                    <option key={g} value={g}>
-                      {g}%
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+              {university.gstEnabled ? (
+                <Field label="GST">
+                  <Select name="gst" defaultValue={course.gstRateBp / 100}>
+                    {[0, 5, 12, 18, 28].map((g) => (
+                      <option key={g} value={g}>
+                        {g}%
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : (
+                <Field label="GST" hint="GST is turned off for this institute, so the price is the total. Finance, Sales, Invoice settings turns it back on.">
+                  {/* The saved rate is kept for when GST is turned back on. */}
+                  <input type="hidden" name="gst" value={course.gstRateBp / 100} />
+                  <Input value="Not charged" disabled readOnly aria-label="GST" />
+                </Field>
+              )}
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="certificate" defaultChecked={course.certificateEnabled} className="accent-brand" />

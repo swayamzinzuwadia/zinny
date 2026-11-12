@@ -17,6 +17,9 @@ import { createCourseTx, loadCourse, updateCourseTx } from "./courses";
 import { createDepartmentTx, freeDepartmentCode } from "./departments";
 import type { Slot } from "./schedule";
 import { addPersonTx, canAddTeachers, teachMyselfTx } from "./users";
+import { setInchargeTx } from "./batch-plan";
+import { modules } from "../registry";
+import { createBatchListingTx } from "@/modules/marketplace/listings";
 
 const TEACHING_ROLES = ["hod", "permanent_faculty", "visiting_faculty"] as const;
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -54,6 +57,13 @@ export type QuickCourseInput = {
   teachMyself?: boolean;
   /** Publish now, so students can enrol. Needs the batch. */
   publish?: boolean;
+  /**
+   * Who runs the batch: an existing teacher's id, "me", or "new:<email>" for a teacher added
+   * here. Left out, it is the person themselves when they teach it, else the first teacher.
+   */
+  incharge?: string | null;
+  /** Also sell seats in the first batch on the marketplace, at this price before GST. Needs the batch. */
+  marketplace?: { pricePaise: number; lateJoin?: boolean } | null;
 };
 
 export type QuickCourseResult = {
@@ -63,7 +73,14 @@ export type QuickCourseResult = {
   departmentCreated: boolean;
   teachersAdded: number;
   published: boolean;
+  /** The live batch listing, when the first batch was put on the marketplace. */
+  listingId: string | null;
 };
+
+/** The marketplace is a module: selling a live batch from here needs it installed. */
+export function marketplaceInstalled() {
+  return modules().some((m) => m.id === "marketplace");
+}
 
 /** A ValidationError that says which part of the form to fix. */
 function inSection(section: QuickSection, e: unknown): never {
@@ -115,6 +132,22 @@ function precheck(actor: Actor, input: QuickCourseInput) {
     }
   }
   if (input.publish && !input.batch) fail("publish", "Students enrol in a batch, so publishing needs the first batch. Add it, or untick \"Publish now\".");
+  if (input.marketplace) {
+    if (!marketplaceInstalled()) fail("publish", "The marketplace isn't available here. Untick \"Also sell a seat on the marketplace\".");
+    if (!input.batch) fail("publish", "The marketplace sells seats in a batch. Add the first batch, or untick \"Also sell a seat on the marketplace\".");
+    if (!Number.isInteger(input.marketplace.pricePaise) || input.marketplace.pricePaise < 100)
+      fail("publish", "Set a marketplace price of at least ₹1. The marketplace sells paid seats only.");
+  }
+}
+
+/** The incharge picked on the form, as a user id: see QuickCourseInput.incharge. */
+function inchargeId(input: QuickCourseInput, actor: Actor, newIds: Map<string, string>, facultyIds: string[]): string | null {
+  const pick = input.incharge;
+  if (pick === "me") return actor.userId;
+  if (pick?.startsWith("new:")) return newIds.get(pick.slice(4).trim().toLowerCase()) ?? null;
+  if (pick) return pick;
+  if (input.teachMyself) return actor.userId;
+  return facultyIds[0] ?? null;
 }
 
 export async function createCourseQuickly(actor: Actor, input: QuickCourseInput): Promise<QuickCourseResult> {
@@ -143,12 +176,15 @@ export async function createCourseQuickly(actor: Actor, input: QuickCourseInput)
 
     // 3. Teaching staff: new teachers and the person themselves join the department first.
     const facultyIds = new Set(input.teacherIds ?? []);
+    const newIds = new Map<string, string>();
     let teachersAdded = 0;
     await part("teachers", async () => {
       if ((input.newTeachers?.length || input.teachMyself) && !canAddTeachers(actor, departmentId))
         throw new ForbiddenError("You can't add teaching staff to this department. Pick people who already teach in it.");
       for (const t of input.newTeachers ?? []) {
-        facultyIds.add(await addPersonTx(tx, actor, { name: t.name, email: t.email, role: "permanent_faculty", departmentId }));
+        const id = await addPersonTx(tx, actor, { name: t.name, email: t.email, role: "permanent_faculty", departmentId });
+        facultyIds.add(id);
+        newIds.set(t.email.trim().toLowerCase(), id);
         teachersAdded++;
       }
       if (input.teachMyself) {
@@ -167,10 +203,27 @@ export async function createCourseQuickly(actor: Actor, input: QuickCourseInput)
       const faculty = await part("teachers", () => facultyRoles(tx, departmentId, [...facultyIds]));
       const batch = await part("batch", () => createBatchTx(tx, actor, { courseId: course.id, ...input.batch!, faculty }));
       batchId = batch.id;
+      // Its incharge: one of its teachers (the batch plan's own rules decide who may be one).
+      const incharge = inchargeId(input, actor, newIds, [...facultyIds]);
+      if (incharge) await part("teachers", () => setInchargeTx(tx, actor, batch.id, incharge));
     }
 
     // 5. Publish.
     if (input.publish) await part("publish", () => updateCourseTx(tx, actor, course.id, { status: "published" }));
+
+    // 6. A seat in the batch on the marketplace, with the marketplace's own listing rules.
+    let listingId: string | null = null;
+    if (input.marketplace && batchId) {
+      const listing = await part("publish", () =>
+        createBatchListingTx(tx, actor, {
+          batchId: batchId!,
+          description: input.description ?? "",
+          pricePaise: input.marketplace!.pricePaise,
+          lateJoin: input.marketplace!.lateJoin ?? false,
+        }),
+      );
+      listingId = listing.id;
+    }
 
     await audit(tx, actor, "course.quick_create", "course", course.id, {
       departmentId,
@@ -179,8 +232,9 @@ export async function createCourseQuickly(actor: Actor, input: QuickCourseInput)
       teachers: facultyIds.size,
       teachersAdded,
       published: !!input.publish,
+      listingId,
     });
-    return { courseId: course.id, batchId, departmentId, departmentCreated, teachersAdded, published: !!input.publish };
+    return { courseId: course.id, batchId, departmentId, departmentCreated, teachersAdded, published: !!input.publish, listingId };
   });
 }
 

@@ -81,7 +81,7 @@ export function Stars({ rating, size = 16, className }: { rating: number; size?:
 
 export function priceLine(c: { pricePaise: number; gstRateBp: number }) {
   if (!c.pricePaise) return "Free";
-  return `${formatINR(c.pricePaise)} + ${c.gstRateBp / 100}% GST`;
+  return c.gstRateBp ? `${formatINR(c.pricePaise)} + ${c.gstRateBp / 100}% GST` : formatINR(c.pricePaise);
 }
 
 /** "Starts Mon 2 Nov" or "Running now". */

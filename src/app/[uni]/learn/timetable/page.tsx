@@ -48,9 +48,14 @@ export default async function Timetable({ params, searchParams }: { params: Prom
       {upcoming.length > 0 && (
         <div className="mt-6 space-y-2">
           {upcoming.map((s, i) => (
-            <div key={i} className="flex items-center justify-between rounded-2xl border border-line bg-surface px-4 py-3 text-sm">
-              <span>
+            <div key={i} className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-sm">
+              <span className="min-w-0">
                 <b>{s.courseTitle}</b> · {s.date === t.today ? "Today" : formatDate(s.date, { weekday: true })}, {formatTime(s.startTime)}
+                {(s.section || s.sectionFaculty?.length || s.faculty.length > 0) && (
+                  <span className="block truncate text-[13px] text-muted">
+                    {[s.section, (s.sectionFaculty?.length ? s.sectionFaculty : s.faculty).join(" and ") && `with ${(s.sectionFaculty?.length ? s.sectionFaculty : s.faculty).join(" and ")}`, s.topic].filter(Boolean).join(" · ")}
+                  </span>
+                )}
               </span>
               {/* A plain link, never prefetched: the join route records attendance, then redirects to the meeting. */}
               <a href={joinPath(uni, s.batchId, s.date, s.startTime)} target="_blank" rel="noreferrer" className={buttonClass("primary", "sm")}>

@@ -4,13 +4,14 @@ import { PageTrail } from "@/components/page-trail";
 import { Logo } from "@/components/ui";
 import { signOut } from "@/server/auth/session";
 import { spaceContext } from "@/server/context";
-import { marketplaceAccess } from "@/modules/marketplace/service";
+import { hasLiveSeat, marketplaceAccess } from "@/modules/marketplace/service";
 import { hasInvoices } from "@/modules/payments/invoices";
 import { stopViewAsAction } from "@/modules/zinny-team-panel/actions";
 import { AccountMenu, type AccountLink } from "./account-menu";
 import { LEARN_PARENTS, LearnBottomBar, LearnTabs } from "./nav";
 import { learnView } from "./view";
 import { ViewAsBar } from "./view-as-bar";
+import { ImpersonationBanner } from "@/modules/zinny-team-panel/components/impersonation-banner";
 
 export default async function LearnLayout({ children, params }: { children: React.ReactNode; params: Promise<{ uni: string }> }) {
   const { uni } = await params;
@@ -20,7 +21,12 @@ export default async function LearnLayout({ children, params }: { children: Reac
   const view = learnView(actor, isParent);
   // Someone who only bought from this institute: its space is just the way into those purchases.
   const buyerOnly = view === "buyer";
-  const [{ canShop }, invoices] = await Promise.all([marketplaceAccess(actor.userId), view === "parent" ? false : hasInvoices(actor)]);
+  const [{ canShop }, invoices, buyerLive] = await Promise.all([
+    marketplaceAccess(actor.userId),
+    view === "parent" ? false : hasInvoices(actor),
+    // A buyer with a seat in a live batch also gets the timetable, where their classes and join links are.
+    buyerOnly ? hasLiveSeat(actor.userId, university.id) : false,
+  ]);
   const base = `/${uni}/learn`;
 
   async function logout() {
@@ -57,6 +63,7 @@ export default async function LearnLayout({ children, params }: { children: Reac
 
   return (
     <div className={view === "parent" ? "min-h-dvh pb-12" : "min-h-dvh pb-28 sm:pb-12"}>
+      <ImpersonationBanner slug={uni} />
       {actor.viewedBy && <ViewAsBar name={actor.name} stop={stopViewAsAction} />}
       <header data-learn-chrome className={`sticky z-30 border-b border-line/70 bg-canvas/85 backdrop-blur-md ${actor.viewedBy ? "top-9" : "top-0"}`}>
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3 sm:gap-6 sm:px-6">
@@ -77,7 +84,7 @@ export default async function LearnLayout({ children, params }: { children: Reac
         </div>
         {/* The sections get a row of their own: next to the logo, nine tabs don't fit a laptop screen. */}
         <div className="mx-auto hidden max-w-6xl px-4 pb-2.5 sm:block sm:px-6">
-          <LearnTabs base={base} view={view} canShop={canShop} />
+          <LearnTabs base={base} view={view} canShop={canShop} buyerLive={buyerLive} />
         </div>
       </header>
       <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-8">
@@ -88,7 +95,7 @@ export default async function LearnLayout({ children, params }: { children: Reac
         )}
         <main>{children}</main>
       </div>
-      <LearnBottomBar base={base} view={view} canShop={canShop} />
+      <LearnBottomBar base={base} view={view} canShop={canShop} buyerLive={buyerLive} />
     </div>
   );
 }

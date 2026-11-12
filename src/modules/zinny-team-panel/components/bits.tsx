@@ -2,7 +2,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Badge, Empty, cx } from "@/components/ui";
-import { PLAN_LABELS, type Plan } from "../lib/constants";
 import { formatCount } from "../lib/format";
 
 /** Shown instead of a section the person's platform roles don't open. */
@@ -26,9 +25,10 @@ export function StatusBadge({ status }: { status: string }) {
   return status === "active" ? <Badge tone="brand">Active</Badge> : status === "suspended" ? <Badge tone="danger">Suspended</Badge> : <Badge>{status}</Badge>;
 }
 
-export function PlanBadge({ plan }: { plan: string | null }) {
-  if (!plan) return <Badge tone="warn">No licence</Badge>;
-  return <Badge tone={plan === "enterprise" ? "brand" : "neutral"}>{PLAN_LABELS[plan as Plan] ?? plan}</Badge>;
+/** A licence's plan by name (plans are data: see services/plans.ts). No name means no licence. */
+export function PlanBadge({ name }: { name: string | null }) {
+  if (!name) return <Badge tone="warn">No licence</Badge>;
+  return <Badge>{name}</Badge>;
 }
 
 /**

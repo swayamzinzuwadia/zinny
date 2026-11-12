@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import { cx } from "@/components/ui";
 import type { ListingKind } from "../schema";
-import { KIND_LABEL, Price } from "./price";
+import { FORMAT_LINE, KIND_LABEL, Price } from "./price";
 
 /**
  * The marketplace is a bookshop of recordings: every listing is a cloth-bound book in one of the
@@ -69,7 +69,8 @@ export function Jacket({ item, className, fill = false }: { item: JacketItem; cl
             {item.title}
           </span>
           <span className="mt-[9%] text-[5.6cqw] opacity-75">
-            {KIND_LABEL[item.kind]} · {item.lessons} {item.lessons === 1 ? "lesson" : "lessons"}
+            {KIND_LABEL[item.kind]}
+            {item.kind !== "batch" && ` · ${item.lessons} ${item.lessons === 1 ? "lesson" : "lessons"}`}
           </span>
         </div>
       </div>
@@ -88,20 +89,33 @@ export function Jacket({ item, className, fill = false }: { item: JacketItem; cl
   );
 }
 
-export type ShelfItem = JacketItem & { pricePaise: number; compareAtPaise: number | null; minutes: number; instituteSlug: string };
+export type ShelfItem = JacketItem & { pricePaise: number; compareAtPaise: number | null; totalPaise?: number; minutes: number; instituteSlug: string };
 
-/** A book face-out on a shelf: the jacket, then title, imprint and price under it. The whole card opens the listing. */
+/**
+ * A book face-out on a shelf: the jacket, then what it is (a recording), title, imprint and price
+ * under it. The jacket and title open the listing; the institute's name opens the institute's page.
+ */
 export function BookCard({ item, showInstitute = true }: { item: ShelfItem; showInstitute?: boolean }) {
   return (
-    <Link href={`/marketplace/${item.id}`} className="group flex flex-col rounded-[14px] outline-offset-4">
-      <Jacket item={item} className="transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-1.5 group-focus-visible:-translate-y-1.5" />
-      <span className="mt-4 line-clamp-2 text-[15px] leading-snug font-medium text-ink group-hover:text-brand">{item.title}</span>
+    <article className="flex flex-col">
+      <Link href={`/marketplace/${item.id}`} className="group flex flex-col rounded-[14px] outline-offset-4">
+        <Jacket item={item} className="transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-y-1.5 group-focus-visible:-translate-y-1.5" />
+        <span className="mt-4 text-[12px] font-medium text-brand">{FORMAT_LINE.recorded}</span>
+        <span className="mt-1 line-clamp-2 text-[15px] leading-snug font-medium text-ink group-hover:text-brand">{item.title}</span>
+      </Link>
       <span className="mt-1 text-[13px] text-muted">
-        {showInstitute ? `${item.institute} · ` : ""}
+        {showInstitute && (
+          <>
+            <Link href={`/marketplace/institutes/${item.instituteSlug}`} className="hover:text-brand hover:underline">
+              {item.institute}
+            </Link>
+            {" · "}
+          </>
+        )}
         {lessonsLine(item.lessons, item.minutes)}
       </span>
-      <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} className="mt-2" />
-    </Link>
+      <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} gst={item.totalPaise === undefined || item.totalPaise > item.pricePaise} className="mt-2" />
+    </article>
   );
 }
 

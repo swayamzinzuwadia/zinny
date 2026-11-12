@@ -96,6 +96,7 @@ export const MENU: MenuSection[] = [
     hint: "All money in one place",
     items: [
       { label: "Sales", href: "/finance/sales" },
+      { label: "Invoices", href: "/finance/invoices" },
       { label: "Reports", href: "/finance/reports" },
     ],
   },

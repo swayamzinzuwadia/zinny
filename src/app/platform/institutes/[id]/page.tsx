@@ -8,12 +8,15 @@ import { NotFoundError } from "@/server/errors";
 import { setStatusAction, updateBasicsAction } from "@/modules/zinny-team-panel/actions";
 import { Fact, NoAccess, PlanBadge, RenewalText, StatusBadge, UsageMeter } from "@/modules/zinny-team-panel/components/bits";
 import { OpenInstitute } from "@/modules/zinny-team-panel/components/open-institute";
+import { PersonActions } from "@/modules/zinny-team-panel/components/person-actions";
 import { canSeeContentFlags, isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
 import { COMMON_TIMEZONES, FLAG_LABEL, GST_STATES, MODULE_LABEL, STATE_NAME } from "@/modules/zinny-team-panel/lib/constants";
 import { formatCount, formatDate, formatINR, timeAgo } from "@/modules/zinny-team-panel/lib/format";
 import { invoicesForUniversity } from "@/modules/zinny-team-panel/services/billing";
 import { activeSessions } from "@/modules/zinny-team-panel/services/support";
+import { institutePeople } from "@/modules/zinny-team-panel/services/people";
 import { getUniversity } from "@/modules/zinny-team-panel/services/universities";
+import { ROLE_LABELS } from "@/server/authz/roles";
 
 export const metadata = { title: "Institute" };
 
@@ -36,6 +39,7 @@ export default async function UniversityPage({ params, searchParams }: { params:
   const invoices = can.finance ? await invoicesForUniversity(actor, u.id) : [];
   const suspended = u.status === "suspended";
   const superAdmin = isSuperAdmin(actor);
+  const people = superAdmin ? await institutePeople(actor, u.id) : null;
   const inside = can.support && (await activeSessions(actor)).some((s) => s.staffUserId === actor.userId && s.universityId === u.id);
 
   return (
@@ -45,7 +49,7 @@ export default async function UniversityPage({ params, searchParams }: { params:
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge status={u.status} />
-            <PlanBadge plan={licence?.plan ?? null} />
+            <PlanBadge name={data.planName} />
             <span>zinny.app/{u.slug}</span>
             <span className="text-faint">· on Zinny since {formatDate(u.createdAt.toISOString().slice(0, 10))}</span>
           </span>
@@ -162,6 +166,41 @@ export default async function UniversityPage({ params, searchParams }: { params:
             </Card>
           )}
 
+          {people && (
+            <Card>
+              <CardTitle
+                hint={
+                  <Link href={`/platform/people?university=${u.id}`} className="hover:text-brand">
+                    All {formatCount(people.total)} people
+                  </Link>
+                }
+              >
+                People
+              </CardTitle>
+              {people.rows.length === 0 ? (
+                <p className="text-[14px] text-muted">Nobody has a role here yet.</p>
+              ) : (
+                <ul className="divide-y divide-line">
+                  {people.rows.map((p) => (
+                    <li key={p.userId} className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                      <div className="min-w-0">
+                        <Link href={`/platform/people/${p.userId}`} className="block truncate text-[14px] font-medium hover:text-brand">
+                          {p.name}
+                        </Link>
+                        <div className="truncate text-[12.5px] text-muted">
+                          {p.roles.map((r) => ROLE_LABELS[r]).join(", ")} · {p.email}
+                          {!p.canSignIn && " · no password yet"}
+                        </div>
+                      </div>
+                      <PersonActions userId={p.userId} name={p.name} universityId={u.id} self={p.userId === actor.userId} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="mt-4 text-[12.5px] text-muted">Admins and staff first. Setting a password and signing in as someone are logged here and in this institute&apos;s own log.</p>
+            </Card>
+          )}
+
           {can.finance && (
             <Card>
               <CardTitle hint={<Link href={`/platform/billing/new?university=${u.id}`} className="hover:text-brand">New invoice</Link>}>Zinny invoices</CardTitle>
@@ -215,7 +254,11 @@ export default async function UniversityPage({ params, searchParams }: { params:
               <>
                 <dl className="grid grid-cols-2 gap-4">
                   <Fact label="Plan">
-                    <PlanBadge plan={licence.plan} />
+                    <PlanBadge name={data.planName} />
+                  </Fact>
+                  <Fact label="Price before GST">
+                    {licence.pricePaise === 0 ? "Free" : formatINR(licence.pricePaise - licence.discountPaise)}
+                    {licence.discountPaise > 0 && <div className="text-[12.5px] text-muted">after {formatINR(licence.discountPaise)} discount</div>}
                   </Fact>
                   <Fact label="Term">
                     {formatDate(licence.startDate)} to {formatDate(licence.endDate)}

@@ -202,6 +202,9 @@ async function courseCards(tx: Tx, today: string): Promise<PublicCourseCard[]> {
     .innerJoin(departments, eq(departments.id, courses.departmentId))
     .where(eq(courses.status, "published"))
     .orderBy(asc(courses.title));
+  // GST turned off by the institute (Finance → Sales → Invoice settings): prices show with no GST.
+  const [seller] = await tx.select({ gstEnabled: universities.gstEnabled }).from(universities).where(sql`${universities.id} = zinny_current_university()`);
+  const gstOn = seller?.gstEnabled ?? true;
   const open = await openBatchesOf(tx, rows.map((r) => r.course.id), today);
   return rows.map(({ course, departmentName }) => {
     const mine = open.filter((b) => b.courseId === course.id).sort((a, b) => a.startDate.localeCompare(b.startDate) || a.earliest.localeCompare(b.earliest));
@@ -213,7 +216,7 @@ async function courseCards(tx: Tx, today: string): Promise<PublicCourseCard[]> {
       description: course.description,
       departmentName,
       pricePaise: course.pricePaise,
-      gstRateBp: course.gstRateBp,
+      gstRateBp: gstOn ? course.gstRateBp : 0,
       openBatches: mine.length,
       seatsLeft: mine.reduce((n, b) => n + b.seatsLeft, 0),
       nextBatch: next ? { name: next.name, startDate: next.startDate, started: next.started, timings: next.timings } : null,

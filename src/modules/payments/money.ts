@@ -141,3 +141,39 @@ export function stateLabel(code: string) {
   const name = GST_STATES[code];
   return name ? `${name} (${code})` : code;
 }
+
+export type InvoiceAmounts = {
+  subtotalPaise: number;
+  discountPaise: number;
+  taxablePaise: number;
+  gstPaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  igstPaise: number;
+  totalPaise: number;
+};
+
+/**
+ * The money on an invoice the institute raises: the discount comes off the lines, GST is
+ * worked out on what's left and split by place of supply. Pure, so the form's live totals
+ * and the service agree. Same rules as core `gstFor` and `splitGst` (a test holds them
+ * together): GST rounds to the nearest paisa; intra-state is CGST + SGST with the odd
+ * paisa on SGST; inter-state is IGST.
+ */
+export function invoiceAmounts(o: { lines: { quantity: number; unitPricePaise: number }[]; discountPaise: number; gstRateBp: number; intraState: boolean }): InvoiceAmounts {
+  const subtotalPaise = o.lines.reduce((n, l) => n + l.quantity * l.unitPricePaise, 0);
+  const discountPaise = Math.max(0, o.discountPaise);
+  const taxablePaise = Math.max(0, subtotalPaise - discountPaise);
+  const gstPaise = Math.round((taxablePaise * o.gstRateBp) / 10_000);
+  const cgstPaise = o.intraState ? Math.floor(gstPaise / 2) : 0;
+  return {
+    subtotalPaise,
+    discountPaise,
+    taxablePaise,
+    gstPaise,
+    cgstPaise,
+    sgstPaise: o.intraState ? gstPaise - cgstPaise : 0,
+    igstPaise: o.intraState ? 0 : gstPaise,
+    totalPaise: taxablePaise + gstPaise,
+  };
+}

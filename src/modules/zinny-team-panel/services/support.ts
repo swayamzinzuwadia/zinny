@@ -11,7 +11,8 @@ import { and, asc, desc, eq, gt, gte, isNull, lt, sql, type SQL } from "drizzle-
 import { auditLog, roleAssignments, supportSessions, universities, users } from "@/db/schema";
 import { assertPlatform, enterSupportMode, exitSupportMode, type Actor } from "@/server/core";
 import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
-import { FLAG_LABEL, MODULE_LABEL, PLAN_LABELS, PLATFORM_ROLE_LABELS, isPlatformRole, type Plan } from "../lib/constants";
+import { FLAG_LABEL, MODULE_LABEL, PLATFORM_ROLE_LABELS, isPlatformRole } from "../lib/constants";
+import { planNameFallback } from "./plans";
 import { formatDate, formatDateTime, formatINR, isDate } from "../lib/format";
 import { db, isUuid, logAction, universityOrThrow } from "./shared";
 
@@ -167,8 +168,15 @@ export const ACTION_LABELS: Record<string, string> = {
   "support.force_end": "Force-ended a support session",
   "plat.people.view": "Viewed the people list",
   "plat.person.view": "Viewed a person's details",
-  "plat.view_as.start": "Started viewing as a student",
+  "plat.view_as.start": "Started viewing as a student, read only",
   "plat.view_as.stop": "Stopped viewing as a student",
+  "plat.impersonate.start": "Signed in as someone",
+  "plat.impersonate.stop": "Stopped being signed in as someone",
+  "plat.password.set": "Set someone's password",
+  "plat.plan.create": "Created a plan",
+  "plat.plan.update": "Changed a plan",
+  "plat.plan.archive": "Archived a plan",
+  "plat.plan.restore": "Restored a plan",
   "university.create": "Created the institute",
   "university.update": "Changed the institute's details",
   "platform.role_grant": "Gave a Zinny team role",
@@ -195,6 +203,7 @@ export const ACTION_LABELS: Record<string, string> = {
   "plat.invoice.create": "Issued a Zinny invoice",
   "plat.invoice.paid": "Marked a Zinny invoice paid",
   "plat.invoice.unpaid": "Marked a Zinny invoice unpaid",
+  "plat.invoice.revise": "Revised a Zinny invoice",
   "plat.log.export": "Exported the activity log",
 };
 
@@ -209,9 +218,16 @@ const DETAIL_LABELS: Record<string, string> = {
   reason: "Reason",
   endReason: "Reason",
   name: "Name",
+  email: "Email",
   title: "Course",
   number: "Invoice",
+  pricePaise: "Price",
+  listPricePaise: "List price",
+  discountPaise: "Discount",
+  discountNote: "Discount note",
   totalPaise: "Total",
+  billingMonths: "Months",
+  sessionsEnded: "Sessions ended",
   dueDate: "Due",
   paidOn: "Paid on",
   reference: "Reference",
@@ -238,12 +254,13 @@ const sentence = (v: string) => (v.charAt(0).toUpperCase() + v.slice(1)).replace
 
 function detailValue(key: string, v: unknown): string | null {
   if (v === null || v === undefined || v === "" || typeof v === "boolean") return null;
+  if (key === "discountPaise" && v === 0) return null;
   if (key.endsWith("Paise") && typeof v === "number") return formatINR(v);
   if (key === "modules" && Array.isArray(v)) return `${v.length} of ${Object.keys(MODULE_LABEL).length}`;
   if (Array.isArray(v) || typeof v === "object") return null;
   const s = String(v);
   if (isDate(s)) return formatDate(s);
-  if (key === "plan") return PLAN_LABELS[s as Plan] ?? sentence(s);
+  if (key === "plan") return planNameFallback(s);
   if (key === "role") return isPlatformRole(s) ? PLATFORM_ROLE_LABELS[s] : sentence(s);
   if (key === "category") return FLAG_LABEL[s] ?? sentence(s);
   if (key === "kind" || key === "status") return sentence(s);
@@ -257,6 +274,8 @@ function detailValue(key: string, v: unknown): string | null {
 export function describeDetails(data: Record<string, unknown> | null | undefined, opts: { action?: string; skipReason?: string | null } = {}): string {
   // A licence warning's title says it all ("Demo Institute is at 92% of its student cap").
   if (opts.action?.startsWith("plat.alert.")) return typeof data?.title === "string" ? data.title : "";
+  // A revision is its changes: "Total: ₹53,100 → ₹47,200 · Due: 12 Nov 2026 → 30 Nov 2026".
+  if (opts.action === "plat.invoice.revise") return [typeof data?.number === "string" ? `Invoice: ${data.number}` : "", ...describeChanges(data?.before, data?.after)].filter(Boolean).slice(0, 5).join(" · ");
   const parts: string[] = [];
   for (const [key, raw] of Object.entries(data ?? {})) {
     const label = DETAIL_LABELS[key];
@@ -267,6 +286,48 @@ export function describeDetails(data: Record<string, unknown> | null | undefined
     if (parts.length === 4) break;
   }
   return parts.join(" · ");
+}
+
+const CHANGE_LABELS: Record<string, string> = {
+  listPricePaise: "List price",
+  discountPaise: "Discount",
+  discountNote: "Discount note",
+  basePaise: "Net",
+  totalPaise: "Total",
+  description: "Description",
+  periodStart: "Period from",
+  periodEnd: "Period to",
+  issueDate: "Invoice date",
+  dueDate: "Due date",
+};
+
+function changeValue(key: string, v: unknown): string {
+  if (v === null || v === undefined || v === "") return "none";
+  if (key.endsWith("Paise") && typeof v === "number") return formatINR(v);
+  const s = String(v);
+  return isDate(s) ? formatDate(s) : s;
+}
+
+/** "Due date: 12 Nov 2026 → 30 Nov 2026" for each value a revision changed. */
+export function describeChanges(before: unknown, after: unknown): string[] {
+  const b = (before ?? {}) as Record<string, unknown>;
+  const a = (after ?? {}) as Record<string, unknown>;
+  return Object.keys(CHANGE_LABELS)
+    .filter((k) => k in a || k in b)
+    .map((k) => `${CHANGE_LABELS[k]}: ${changeValue(k, b[k])} → ${changeValue(k, a[k])}`);
+}
+
+/** The Super Admin who was signed in as the entry's person when it was written, if any. */
+export function impersonatorIn(data: Record<string, unknown> | null | undefined): { userId: string; name: string } | null {
+  const by = data?.impersonatedBy as { userId?: unknown; name?: unknown } | undefined;
+  return by && typeof by.name === "string" && typeof by.userId === "string" ? { userId: by.userId, name: by.name } : null;
+}
+
+/** "Asha Rao, by Zara (Zinny)" when a Super Admin was signed in as the person; otherwise their name. */
+export function whoLabel(actorName: string | null, data: Record<string, unknown> | null | undefined): string {
+  const who = actorName ?? "Zinny system";
+  const by = impersonatorIn(data);
+  return by ? `${who}, by ${by.name} (Zinny)` : who;
 }
 
 export type LogScope = "support" | "all";
@@ -314,11 +375,12 @@ const istStart = (date: string) => new Date(`${date}T00:00:00+05:30`);
 function whereFor(f: LogFilters): SQL {
   const conds: (SQL | undefined)[] = [
     f.scope === "support"
-      ? sql`(${auditLog.supportSessionId} is not null or ${auditLog.action} like 'support.%')`
+      ? sql`(${auditLog.supportSessionId} is not null or ${auditLog.action} like 'support.%' or ${auditLog.action} like 'plat.impersonate.%' or ${auditLog.data} ? 'impersonatedBy')`
       : sql`(${auditLog.supportSessionId} is not null or ${auditLog.action} like 'support.%' or ${auditLog.action} like 'plat.%'
-             or ${auditLog.action} like 'platform.%' or ${auditLog.action} like 'university.%')`,
+             or ${auditLog.action} like 'platform.%' or ${auditLog.action} like 'university.%' or ${auditLog.data} ? 'impersonatedBy')`,
     f.universityId ? sql`(${auditLog.universityId} = ${f.universityId} or ${auditLog.data}->>'universityId' = ${f.universityId})` : undefined,
-    f.personId ? eq(auditLog.actorUserId, f.personId) : undefined,
+    // A team member's entries include what they did while signed in as someone else.
+    f.personId ? sql`(${auditLog.actorUserId} = ${f.personId} or ${auditLog.data}->'impersonatedBy'->>'userId' = ${f.personId})` : undefined,
     f.action ? eq(auditLog.action, f.action) : undefined,
     f.from ? gte(auditLog.at, istStart(f.from)) : undefined,
     f.to ? lt(auditLog.at, new Date(istStart(f.to).getTime() + 86_400_000)) : undefined,
@@ -415,7 +477,7 @@ export async function activityLogCsv(actor: Actor, filters: LogFilters): Promise
     .limit(EXPORT_LIMIT + 1)) as LogEntry[];
   const truncated = rows.length > EXPORT_LIMIT;
   const list = rows.slice(0, EXPORT_LIMIT);
-  const head = ["When (IST)", "Person", "Email", "Institute", "Action", "What happened", "Record", "Record id", "Support session", "Session reason", "Details"];
+  const head = ["When (IST)", "Person", "Email", "Institute", "Action", "What happened", "Record", "Record id", "Support session", "Session reason", "Details", "Signed in as them (Zinny)"];
   const lines = [head.map(cell).join(",")];
   for (const r of list) {
     lines.push(
@@ -431,6 +493,7 @@ export async function activityLogCsv(actor: Actor, filters: LogFilters): Promise
         r.supportSessionId ?? "",
         r.sessionReason ?? "",
         r.data && Object.keys(r.data).length ? r.data : "",
+        impersonatorIn(r.data)?.name ?? "",
       ]
         .map(cell)
         .join(","),

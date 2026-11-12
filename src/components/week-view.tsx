@@ -38,6 +38,12 @@ export function WeekView({ from, today, sessions, compact = false }: { from: str
                       {formatTime(s.startTime)}–{formatTime(s.endTime)}
                     </div>
                     <div className="font-medium">{s.courseTitle}</div>
+                    {s.section && (
+                      <div className="opacity-90">
+                        {s.section}
+                        {s.taughtByMe && " · you teach"}
+                      </div>
+                    )}
                     {!compact && <div className="opacity-80">{s.batchName}</div>}
                     {s.kind !== "regular" && <div className="mt-0.5 text-[11px] opacity-80">{s.kind === "extra" ? "Extra class" : "Moved here"}</div>}
                   </div>

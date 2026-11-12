@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { SubmitButton } from "@/components/forms";
 import { Card, Field, Input, Notice, Select, buttonClass, cx } from "@/components/ui";
 import type { QuickCourseOptions, QuickSection } from "@/server/services/quick-course";
@@ -89,6 +89,10 @@ export function NewCourseForm({
   const [newTeachers, setNewTeachers] = useState<{ name: string; email: string }[]>([]);
   const [teachMyself, setTeachMyself] = useState(staff.length === 0 && canAddTeachers);
   const [publish, setPublish] = useState(true);
+  const [incharge, setIncharge] = useState("");
+  const [sell, setSell] = useState(false);
+  const [mktPrice, setMktPrice] = useState("");
+  const [lateJoin, setLateJoin] = useState(false);
 
   // A new department starts with nobody teaching in it: offer to teach it yourself.
   function pickDepartment(id: string) {
@@ -108,7 +112,18 @@ export function NewCourseForm({
     if (state?.section) document.getElementById(`section-${state.section}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [state]);
 
-  const errorIn = (s: QuickSection) => (state?.error && state.section === s ? state.error : undefined);
+  // Who can be the batch's incharge: its teachers, the person themselves first when they teach it.
+  const myName = staff.find((s) => s.id === me)?.name;
+  const teachingMe = canAddTeachers && !iTeachHere && teachMyself;
+  const inchargeOptions = [
+    ...(teachingMe ? [{ value: "me", label: "You" }] : []),
+    ...staff.filter((s) => teacherIds.includes(s.id)).map((s) => ({ value: s.id, label: s.id === me ? `${myName} (you)` : s.name })),
+    ...(canAddTeachers ? newTeachers : []).filter((t) => t.email.trim()).map((t) => ({ value: `new:${t.email.trim()}`, label: t.name.trim() || t.email.trim() })),
+  ];
+  const inchargeValue = inchargeOptions.some((o) => o.value === incharge) ? incharge : (inchargeOptions[0]?.value ?? "");
+
+  // An error shows until the form changes: by then it may already be fixed.
+  const errorIn = (s: QuickSection) => (shownError && state?.section === s ? state.error : undefined);
 
   const payload = JSON.stringify({
     title,
@@ -134,16 +149,27 @@ export function NewCourseForm({
     newTeachers: canAddTeachers ? newTeachers : [],
     teachMyself: canAddTeachers && !iTeachHere && teachMyself,
     publish: batchOn && publish,
+    incharge: batchOn ? inchargeValue : "",
+    marketplacePrice: marketplace && batchOn && sell ? mktPrice : null,
+    lateJoin,
   });
 
   const paid = Number(price.replace(/[,₹\s]/g, "")) > 0;
+
+  const latestPayload = useRef(payload);
+  latestPayload.current = payload;
+  const [errorPayload, setErrorPayload] = useState<string | null>(null);
+  useEffect(() => {
+    if (state?.error) setErrorPayload(latestPayload.current);
+  }, [state]);
+  const shownError = !!state?.error && errorPayload === payload;
 
   return (
     <form action={action} className="max-w-3xl space-y-5">
       <input type="hidden" name="uni" value={uni} />
       <input type="hidden" name="payload" value={payload} />
 
-      {state?.error && !state.section && <Notice tone="danger">{state.error}</Notice>}
+      {shownError && !state?.section && <Notice tone="danger">{state?.error}</Notice>}
 
       <Section id="course" n={1} title="Course" error={errorIn("course")}>
         <Field label="Title">
@@ -153,7 +179,14 @@ export function NewCourseForm({
           <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Speak with confidence in 12 weeks" />
         </Field>
         <div className={cx("grid gap-3", showGst && "sm:grid-cols-2")}>
-          <Field label="Price (₹)" hint="0 means free. Your own students always join for free; the price is for your website.">
+          <Field
+            label="Price (₹)"
+            hint={
+              showGst
+                ? "0 means free. Your own students always join for free; the price is for your website."
+                : "0 means free. GST is off for this institute, so this is the total. Your own students always join for free."
+            }
+          >
             <Input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" />
           </Field>
           {showGst && (
@@ -329,6 +362,17 @@ export function NewCourseForm({
         ) : (
           staff.length === 0 && <p className="text-[14px] text-muted">Nobody teaches in this department yet. Ask an institute admin to add teaching staff.</p>
         )}
+        {batchOn && inchargeOptions.length > 1 && (
+          <Field label="Batch incharge" hint="Runs the batch: its sections, day plan and timetable. Change it later on the batch page.">
+            <Select value={inchargeValue} onChange={(e) => setIncharge(e.target.value)}>
+              {inchargeOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
       </Section>
 
       <Section id="publish" n={5} title="When it's ready" error={errorIn("publish")}>
@@ -337,18 +381,34 @@ export function NewCourseForm({
           <span className="block text-muted">{batchOn ? "Untick to keep it as a draft only staff can see." : "Students enrol in a batch, so add the first batch to publish now."}</span>
         </Check>
         {marketplace && (
-          <p className="text-[13px] text-muted">
-            Selling on the Zinny marketplace is for recorded courses. Once the course has video lessons, list it from its Marketplace tab.
-          </p>
+          <>
+            <Check checked={batchOn && sell} onChange={(on) => { setSell(on); if (on && !mktPrice && paid) setMktPrice(price); }} disabled={!batchOn}>
+              <span className="font-medium">Also sell a seat in this batch on the marketplace</span>
+              <span className="block text-muted">
+                {batchOn ? "Learners across Zinny can buy a seat. Your own students still join for free." : "Add the first batch to sell its seats."}
+              </span>
+            </Check>
+            {batchOn && sell && (
+              <div className="space-y-3 border-l-2 border-line pl-4 sm:pl-6">
+                <Field label="Marketplace price (₹)" hint={showGst ? "Before GST. At least ₹1." : "At least ₹1."}>
+                  <Input value={mktPrice} onChange={(e) => setMktPrice(e.target.value)} inputMode="decimal" placeholder={paid ? price : "1999"} />
+                </Field>
+                <Check checked={lateJoin} onChange={setLateJoin}>
+                  Buyers can join after the batch starts
+                </Check>
+              </div>
+            )}
+            <p className="text-[13px] text-muted">To sell recordings instead, add video lessons first, then list the course from its Marketplace tab.</p>
+          </>
         )}
       </Section>
 
       <div className="flex flex-wrap items-center gap-3 pb-6">
-        <SubmitButton pendingText="Creating…">{batchOn ? "Create course and batch" : "Create course"}</SubmitButton>
+        <SubmitButton pendingText="Creating…">{!batchOn ? "Create course" : marketplace && sell ? "Create course, batch and listing" : "Create course and batch"}</SubmitButton>
         <Link href={cancelHref} className={buttonClass("ghost")}>
           Cancel
         </Link>
-        {state?.error && state.section && <span className="text-[13px] text-danger">Nothing was saved. Fix the part marked above and try again.</span>}
+        {shownError && state?.section && <span className="text-[13px] text-danger">Nothing was saved. Fix the part marked above and try again.</span>}
       </div>
     </form>
   );
