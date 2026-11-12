@@ -389,29 +389,36 @@ export async function createBatchListing(
   actor: Actor,
   input: { batchId: string; title?: string; description: string; pricePaise: number; compareAtPaise?: number | null; lateJoin?: boolean },
 ) {
-  return withTenant(actor, async (tx) => {
-    const [batch] = await tx.select().from(batches).where(eq(batches.id, input.batchId));
-    if (!batch) throw new NotFoundError("Batch");
-    const course = await loadCourseForListing(tx, actor, batch.courseId);
-    const fields = cleanFields({ ...input, title: input.title?.trim() || course.title });
-    const slots = await tx.select({ id: batchSlots.id }).from(batchSlots).where(eq(batchSlots.batchId, batch.id));
-    const problem = batchListingProblem(batch, slots.length, await todayFor(tx));
-    if (problem) throw new ValidationError(problem);
-    if (course.status === "archived") throw new ValidationError("This course is archived, so its batches can't be listed.");
-    const [listing] = await tx
-      .insert(mktListings)
-      .values({ universityId: uni(actor), courseId: course.id, batchId: batch.id, kind: "batch", lateJoin: input.lateJoin ?? false, createdBy: actor.userId, ...fields })
-      .returning();
-    await audit(tx, actor, "marketplace.list", "mkt_listing", listing.id, {
-      kind: "batch",
-      courseId: course.id,
-      batchId: batch.id,
-      title: fields.title,
-      pricePaise: fields.pricePaise,
-      lateJoin: listing.lateJoin,
-    });
-    return listing;
-  }).catch(rethrowDuplicate);
+  return withTenant(actor, (tx) => createBatchListingTx(tx, actor, input)).catch(rethrowDuplicate);
+}
+
+/** createBatchListing inside a transaction the caller already holds (the New course page lists the first batch with it). */
+export async function createBatchListingTx(
+  tx: Tx,
+  actor: Actor,
+  input: { batchId: string; title?: string; description: string; pricePaise: number; compareAtPaise?: number | null; lateJoin?: boolean },
+) {
+  const [batch] = await tx.select().from(batches).where(eq(batches.id, input.batchId));
+  if (!batch) throw new NotFoundError("Batch");
+  const course = await loadCourseForListing(tx, actor, batch.courseId);
+  const fields = cleanFields({ ...input, title: input.title?.trim() || course.title });
+  const slots = await tx.select({ id: batchSlots.id }).from(batchSlots).where(eq(batchSlots.batchId, batch.id));
+  const problem = batchListingProblem(batch, slots.length, await todayFor(tx));
+  if (problem) throw new ValidationError(problem);
+  if (course.status === "archived") throw new ValidationError("This course is archived, so its batches can't be listed.");
+  const [listing] = await tx
+    .insert(mktListings)
+    .values({ universityId: uni(actor), courseId: course.id, batchId: batch.id, kind: "batch", lateJoin: input.lateJoin ?? false, createdBy: actor.userId, ...fields })
+    .returning();
+  await audit(tx, actor, "marketplace.list", "mkt_listing", listing.id, {
+    kind: "batch",
+    courseId: course.id,
+    batchId: batch.id,
+    title: fields.title,
+    pricePaise: fields.pricePaise,
+    lateJoin: listing.lateJoin,
+  });
+  return listing;
 }
 
 /**

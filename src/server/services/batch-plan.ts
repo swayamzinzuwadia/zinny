@@ -240,29 +240,32 @@ export async function inchargeChoices(actor: Actor, batchId: string) {
 
 /** Sets the batch's incharge, or clears it with `null`. */
 export async function setIncharge(actor: Actor, batchId: string, userId: string | null) {
-  return withTenant(actor, async (tx) => {
-    const { batch, target } = await loadBatch(tx, uni(actor), batchId, { lock: true });
-    assertCan(actor, "batch.update", target);
-    if ((batch.inchargeUserId ?? null) === userId) return { changed: false };
-    let name: string | null = null;
-    if (userId) {
-      const pick = (await inchargeCandidatesTx(tx, batch)).find((c) => c.id === userId);
-      if (!pick) throw new ValidationError("The incharge must be on this department's teaching staff, or an institute admin.");
-      name = pick.name;
-    }
-    await tx.update(batches).set({ inchargeUserId: userId }).where(eq(batches.id, batchId));
-    if (userId && userId !== actor.userId) {
-      const [course] = await tx.select({ title: courses.title }).from(courses).where(eq(courses.id, batch.courseId));
-      await notify(tx, uni(actor), [userId], {
-        kind: "batch.incharge",
-        title: `You are the incharge of ${course.title}: ${batch.name}`,
-        body: "Its sections, plan and timetable are on the batch page.",
-        data: { batchId },
-      });
-    }
-    await audit(tx, actor, "batch.incharge", "batch", batchId, { from: batch.inchargeUserId, to: userId });
-    return { changed: true, name };
-  });
+  return withTenant(actor, (tx) => setInchargeTx(tx, actor, batchId, userId));
+}
+
+/** setIncharge inside a transaction the caller already holds (the New course page sets the first batch's incharge). */
+export async function setInchargeTx(tx: Tx, actor: Actor, batchId: string, userId: string | null) {
+  const { batch, target } = await loadBatch(tx, uni(actor), batchId, { lock: true });
+  assertCan(actor, "batch.update", target);
+  if ((batch.inchargeUserId ?? null) === userId) return { changed: false };
+  let name: string | null = null;
+  if (userId) {
+    const pick = (await inchargeCandidatesTx(tx, batch)).find((c) => c.id === userId);
+    if (!pick) throw new ValidationError("The incharge must be on this department's teaching staff, or an institute admin.");
+    name = pick.name;
+  }
+  await tx.update(batches).set({ inchargeUserId: userId }).where(eq(batches.id, batchId));
+  if (userId && userId !== actor.userId) {
+    const [course] = await tx.select({ title: courses.title }).from(courses).where(eq(courses.id, batch.courseId));
+    await notify(tx, uni(actor), [userId], {
+      kind: "batch.incharge",
+      title: `You are the incharge of ${course.title}: ${batch.name}`,
+      body: "Its sections, plan and timetable are on the batch page.",
+      data: { batchId },
+    });
+  }
+  await audit(tx, actor, "batch.incharge", "batch", batchId, { from: batch.inchargeUserId, to: userId });
+  return { changed: true, name };
 }
 
 /* ─────────────────────────── Changing the plan ─────────────────────────── */

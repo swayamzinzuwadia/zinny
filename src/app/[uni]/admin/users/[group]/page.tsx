@@ -71,7 +71,33 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
             </form>
           )}
           {people.length === 0 ? (
-            <Empty title={q ? `Nobody matches “${q}”` : "Nobody here yet"}>{q ? "Check the spelling, or search by email instead." : undefined}</Empty>
+            <Empty title={q ? `Nobody matches “${q}”` : "Nobody here yet"}>
+              {q ? (
+                "Check the spelling, or search by email instead."
+              ) : g === "teaching" && depts.length === 0 ? (
+                <>
+                  Teachers belong to a department, and there isn&apos;t one yet.{" "}
+                  <Link href={`/${uni}/admin/products/courses/new`} className="font-medium text-brand hover:underline">
+                    Create a course
+                  </Link>{" "}
+                  to make its department and add its teacher on one page, or{" "}
+                  <Link href={`/${uni}/admin/users/departments`} className="font-medium text-brand hover:underline">
+                    add a department
+                  </Link>{" "}
+                  first.
+                </>
+              ) : g === "students" && canAdd ? (
+                <>
+                  Add students on the right, import a list under Bulk import, or share your joining code from the{" "}
+                  <Link href={`/${uni}/admin`} className="font-medium text-brand hover:underline">
+                    dashboard
+                  </Link>
+                  .
+                </>
+              ) : canAdd ? (
+                "Add someone on the right."
+              ) : undefined}
+            </Empty>
           ) : (
             <Table head={["Name", "Roles", ""]}>
               {people.map((p) => (

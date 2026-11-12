@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import type { Tx } from "@/db/client";
 import { batches, courses, departments, programs, roleAssignments, users } from "@/db/schema";
 import { assertCan, reach, type Actor } from "../authz/engine";
 import { ConflictError, NotFoundError, ValidationError } from "../errors";
@@ -59,17 +60,34 @@ export async function listDepartments(actor: Actor) {
 
 export async function createDepartment(actor: Actor, input: { code: string; name: string }) {
   assertCan(actor, "department.manage", { universityId: uni(actor) });
+  return withTenant(actor, (tx) => createDepartmentTx(tx, actor, input));
+}
+
+/** createDepartment inside a transaction the caller already holds (the quick course flow). */
+export async function createDepartmentTx(tx: Tx, actor: Actor, input: { code: string; name: string }) {
+  assertCan(actor, "department.manage", { universityId: uni(actor) });
   const code = input.code.trim().toUpperCase();
   const name = input.name.trim();
   if (!/^[A-Z0-9-]{2,12}$/.test(code)) throw new ValidationError("Code should be 2–12 letters or numbers, like CS or MKT.");
   if (name.length < 2) throw new ValidationError("Give the department a name.");
-  return withTenant(actor, async (tx) => {
-    const [dup] = await tx.select().from(departments).where(eq(departments.code, code));
-    if (dup) throw new ConflictError(`A department with code ${code} already exists.`);
-    const [dept] = await tx.insert(departments).values({ universityId: uni(actor), code, name }).returning();
-    await audit(tx, actor, "department.create", "department", dept.id, { code, name });
-    return dept;
-  });
+  const [dup] = await tx.select().from(departments).where(eq(departments.code, code));
+  if (dup) throw new ConflictError(`A department with code ${code} already exists.`);
+  const [dept] = await tx.insert(departments).values({ universityId: uni(actor), code, name }).returning();
+  await audit(tx, actor, "department.create", "department", dept.id, { code, name });
+  return dept;
+}
+
+/**
+ * A free department code made from a name: "Computer Science" → CS, "General" → GEN. Adds a
+ * number when the code is taken (CS2, CS3…), so a person who only typed a name never sees a clash.
+ */
+export async function freeDepartmentCode(tx: Tx, name: string): Promise<string> {
+  const words = name.toUpperCase().replace(/[^A-Z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+  let base = words.length > 1 ? words.map((w) => w[0]).join("").slice(0, 6) : (words[0] ?? "").slice(0, 3);
+  if (base.length < 2) base = (base + "DEPT").slice(0, 4);
+  const taken = new Set((await tx.select({ code: departments.code }).from(departments)).map((d) => d.code.toUpperCase()));
+  if (!taken.has(base)) return base;
+  for (let n = 2; ; n++) if (!taken.has(`${base}${n}`)) return `${base}${n}`;
 }
 
 /** Makes someone the Head of Department. One HOD per department: the previous one is replaced. */

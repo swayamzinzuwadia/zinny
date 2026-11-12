@@ -1,13 +1,11 @@
 import Link from "next/link";
-import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Table, Td } from "@/components/ui";
+import { Badge, ButtonLink, Empty, PageHeader, Table, Td } from "@/components/ui";
 import { can } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { listCourses } from "@/server/services/courses";
 import { listDepartments } from "@/server/services/departments";
 import { formatINR } from "@/server/services/finance";
 import { marketplaceOnlyCourseIds } from "@/modules/marketplace/listings";
-import { createCourseAction } from "../../actions";
 
 export const metadata = { title: "Courses" };
 
@@ -18,83 +16,60 @@ export default async function CoursesPage({ params }: { params: Promise<{ uni: s
   const { actor, university } = await spaceContext(uni);
   const [all, depts, forSale] = await Promise.all([listCourses(actor), listDepartments(actor), marketplaceOnlyCourseIds(actor)]);
   const courses = all.filter((c) => !forSale.has(c.id));
-  const creatable = depts.filter((d) => can(actor, "course.create", { universityId: university.id, departmentIds: [d.id] }));
+  // Someone who can make a department can always start a course: the New course page makes both.
+  const canCreate =
+    can(actor, "department.manage", { universityId: university.id }) ||
+    depts.some((d) => can(actor, "course.create", { universityId: university.id, departmentIds: [d.id] }));
+  const newHref = `/${uni}/admin/products/courses/new`;
 
   return (
     <>
-      <PageHeader title="Courses" subtitle="Each course lives in one department. Batches inside it set the days, timings and seats." />
-      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-        <div>
-          {courses.length === 0 ? (
-            <Empty title="No courses yet">{creatable.length ? "Create the first one on the right." : "Courses you teach will show here."}</Empty>
-          ) : (
-            <Table head={["Course", "Department", "Batches", "Students", "Price", "Status"]}>
-              {courses.map((c) => (
-                <tr key={c.id} className="hover:bg-canvas/60">
-                  <Td>
-                    <Link href={`/${uni}/admin/products/courses/${c.id}`} className="font-medium text-ink hover:text-brand">
-                      {c.title}
-                    </Link>
-                  </Td>
-                  <Td className="text-muted">{c.departmentName}</Td>
-                  <Td className="tabular-nums">{c.batchCount}</Td>
-                  <Td className="tabular-nums">{c.studentCount}</Td>
-                  <Td className="tabular-nums">{c.pricePaise ? formatINR(c.pricePaise) : "Free"}</Td>
-                  <Td>
-                    <Badge tone={STATUS_TONE[c.status]}>{c.status[0].toUpperCase() + c.status.slice(1)}</Badge>
-                  </Td>
-                </tr>
-              ))}
-            </Table>
-          )}
-        </div>
-
-        {creatable.length > 0 && (
-          <Card className="h-fit">
-            <CardTitle>New course</CardTitle>
-            <ActionForm action={createCourseAction} className="space-y-4">
-              <input type="hidden" name="uni" value={uni} />
-              <Field label="Title">
-                <Input name="title" placeholder="Data Analytics" required />
-              </Field>
-              <Field label="Department">
-                <Select name="departmentId" required>
-                  {creatable.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Short description">
-                <Input name="description" placeholder="What students will learn" />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Price (₹)" hint="Shown on your website. Your own students join for free.">
-                  <Input name="price" inputMode="decimal" defaultValue="0" />
-                </Field>
-                {university.gstEnabled ? (
-                  <Field label="GST">
-                    <Select name="gst" defaultValue="18">
-                      {[0, 5, 12, 18, 28].map((g) => (
-                        <option key={g} value={g}>
-                          {g}%
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
+      <PageHeader
+        title="Courses"
+        subtitle="Each course lives in one department. Batches inside it set the days, timings and seats."
+        actions={canCreate ? <ButtonLink href={newHref}>New course</ButtonLink> : null}
+      />
+      {courses.length === 0 ? (
+        canCreate ? (
+          <Empty title="No courses yet">
+            <p>Create your first course on one page: its department, first batch, timings and teacher. Only the title is needed.</p>
+            <div className="mt-4">
+              <ButtonLink href={newHref}>Create your first course</ButtonLink>
+            </div>
+          </Empty>
+        ) : (
+          <Empty title="No courses for you yet">
+            Courses you teach show here once you&apos;re added to a batch. Institute admins and heads of department create courses and choose who teaches them.
+          </Empty>
+        )
+      ) : (
+        <Table head={["Course", "Department", "Batches", "Students", "Price", "Status"]}>
+          {courses.map((c) => (
+            <tr key={c.id} className="hover:bg-canvas/60">
+              <Td>
+                <Link href={`/${uni}/admin/products/courses/${c.id}`} className="font-medium text-ink hover:text-brand">
+                  {c.title}
+                </Link>
+              </Td>
+              <Td className="text-muted">{c.departmentName}</Td>
+              <Td className="tabular-nums">
+                {c.batchCount === 0 ? (
+                  <Link href={`/${uni}/admin/products/courses/${c.id}?tab=batches`} className="font-medium text-brand hover:underline">
+                    Add a batch
+                  </Link>
                 ) : (
-                  <Field label="GST" hint="GST is turned off for this institute, so the price is the total.">
-                    <input type="hidden" name="gst" value="18" />
-                    <Input value="Not charged" disabled readOnly aria-label="GST" />
-                  </Field>
+                  c.batchCount
                 )}
-              </div>
-              <SubmitButton>Create and add batches</SubmitButton>
-            </ActionForm>
-          </Card>
-        )}
-      </div>
+              </Td>
+              <Td className="tabular-nums">{c.studentCount}</Td>
+              <Td className="tabular-nums">{c.pricePaise ? formatINR(c.pricePaise) : "Free"}</Td>
+              <Td>
+                <Badge tone={STATUS_TONE[c.status]}>{c.status[0].toUpperCase() + c.status.slice(1)}</Badge>
+              </Td>
+            </tr>
+          ))}
+        </Table>
+      )}
     </>
   );
 }

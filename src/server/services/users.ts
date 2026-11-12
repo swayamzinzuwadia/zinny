@@ -275,21 +275,63 @@ export type NewPerson = {
 };
 
 export async function addPerson(actor: Actor, input: NewPerson) {
-  if (!emailRe.test(input.email)) throw new ValidationError("Enter a valid email.");
+  checkNewPerson(input);
+  return withTenant(actor, (tx) => addPersonTx(tx, actor, input));
+}
+
+function checkNewPerson(input: Pick<NewPerson, "name" | "email">) {
+  if (!emailRe.test(input.email.trim())) throw new ValidationError("Enter a valid email.");
   if (input.name.trim().length < 2) throw new ValidationError("Enter the person's name.");
-  return withTenant(actor, async (tx) => {
-    const userId = await upsertPerson(tx, input.email, input.name, input.phone);
-    const { created, assignment } = await assignRoleTxFlagged(tx, actor, {
-      userId,
-      role: input.role,
-      customRoleId: input.customRoleId ?? null,
-      departmentId: input.departmentId ?? null,
-      endsAt: input.endsAt ?? null,
-    });
-    await audit(tx, actor, "user.add", "user", userId, { email: input.email.toLowerCase(), role: assignment.role });
-    if (created) await inviteIfNoPassword(tx, actor, userId, assignment.role);
-    return userId;
+}
+
+/**
+ * addPerson inside a transaction the caller already holds (the quick course flow adds a
+ * teacher with it). The role check is the same: admins give any role, a HOD only faculty
+ * roles in their own department.
+ */
+export async function addPersonTx(tx: Tx, actor: Actor, input: NewPerson) {
+  checkNewPerson(input);
+  const userId = await upsertPerson(tx, input.email.trim(), input.name.trim(), input.phone);
+  const { created, assignment } = await assignRoleTxFlagged(tx, actor, {
+    userId,
+    role: input.role,
+    customRoleId: input.customRoleId ?? null,
+    departmentId: input.departmentId ?? null,
+    endsAt: input.endsAt ?? null,
   });
+  await audit(tx, actor, "user.add", "user", userId, { email: input.email.trim().toLowerCase(), role: assignment.role });
+  if (created) await inviteIfNoPassword(tx, actor, userId, assignment.role);
+  return userId;
+}
+
+/**
+ * Makes the actor themselves teaching staff of a department, so they can teach a batch there
+ * (an institute owner who teaches). Nothing changes if they already teach there.
+ */
+export async function teachMyselfTx(tx: Tx, actor: Actor, departmentId: string) {
+  const now = new Date();
+  const [already] = (
+    await tx
+      .select()
+      .from(roleAssignments)
+      .where(
+        and(
+          eq(roleAssignments.userId, actor.userId),
+          eq(roleAssignments.departmentId, departmentId),
+          inArray(roleAssignments.role, ["hod", "permanent_faculty", "visiting_faculty"]),
+          isNull(roleAssignments.revokedAt),
+        ),
+      )
+  ).filter((a) => !a.endsAt || a.endsAt > now);
+  if (already) return already;
+  return assignRoleTx(tx, actor, { userId: actor.userId, role: "permanent_faculty", departmentId });
+}
+
+/** Can this person put themselves (or a new teacher) on the teaching staff of this department? */
+export function canAddTeachers(actor: Actor, departmentId: string | null) {
+  const universityId = uni(actor);
+  if (can(actor, "user.manage_roles", { universityId })) return true;
+  return !!departmentId && can(actor, "user.manage_roles", { universityId, departmentIds: [departmentId] });
 }
 
 /* ─────────────────────────── CSV import ─────────────────────────── */

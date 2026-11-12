@@ -78,26 +78,31 @@ function validateCourse(input: Partial<CourseInput>) {
 export async function createCourse(actor: Actor, input: CourseInput) {
   assertCan(actor, "course.create", { universityId: uni(actor), departmentIds: [input.departmentId] });
   validateCourse(input);
-  return withTenant(actor, async (tx) => {
-    const [dept] = await tx.select().from(departments).where(eq(departments.id, input.departmentId));
-    if (!dept) throw new NotFoundError("Department");
-    const [course] = await tx
-      .insert(courses)
-      .values({
-        universityId: uni(actor),
-        departmentId: input.departmentId,
-        title: input.title.trim(),
-        description: input.description?.trim() ?? "",
-        pricePaise: input.pricePaise,
-        gstRateBp: input.gstRateBp ?? 1800,
-        certificateEnabled: input.certificateEnabled ?? true,
-        programId: input.programId ?? null,
-        createdBy: actor.userId,
-      })
-      .returning();
-    await audit(tx, actor, "course.create", "course", course.id, { title: course.title, departmentId: dept.id });
-    return course;
-  });
+  return withTenant(actor, (tx) => createCourseTx(tx, actor, input));
+}
+
+/** createCourse inside a transaction the caller already holds (the quick course flow). */
+export async function createCourseTx(tx: Tx, actor: Actor, input: CourseInput) {
+  assertCan(actor, "course.create", { universityId: uni(actor), departmentIds: [input.departmentId] });
+  validateCourse(input);
+  const [dept] = await tx.select().from(departments).where(eq(departments.id, input.departmentId));
+  if (!dept) throw new NotFoundError("Department");
+  const [course] = await tx
+    .insert(courses)
+    .values({
+      universityId: uni(actor),
+      departmentId: input.departmentId,
+      title: input.title.trim(),
+      description: input.description?.trim() ?? "",
+      pricePaise: input.pricePaise,
+      gstRateBp: input.gstRateBp ?? 1800,
+      certificateEnabled: input.certificateEnabled ?? true,
+      programId: input.programId ?? null,
+      createdBy: actor.userId,
+    })
+    .returning();
+  await audit(tx, actor, "course.create", "course", course.id, { title: course.title, departmentId: dept.id });
+  return course;
 }
 
 /**
@@ -121,35 +126,37 @@ export async function createLectureCourse(tx: Tx, actor: Actor, source: typeof c
   return course;
 }
 
-export async function updateCourse(
-  actor: Actor,
-  courseId: string,
-  patch: Partial<Omit<CourseInput, "departmentId">> & { status?: "draft" | "published" | "archived" },
-) {
+export type CoursePatch = Partial<Omit<CourseInput, "departmentId">> & { status?: "draft" | "published" | "archived" };
+
+export async function updateCourse(actor: Actor, courseId: string, patch: CoursePatch) {
   validateCourse(patch);
-  return withTenant(actor, async (tx) => {
-    const { target } = await loadCourse(tx, uni(actor), courseId);
-    assertCan(actor, "course.update", target);
-    if (patch.status === "published") {
-      const open = await tx.select({ id: batches.id }).from(batches).where(and(eq(batches.courseId, courseId), eq(batches.status, "open")));
-      if (open.length === 0) throw new ValidationError("Add at least one open batch before publishing.");
-    }
-    const [course] = await tx
-      .update(courses)
-      .set({
-        ...(patch.title !== undefined && { title: patch.title.trim() }),
-        ...(patch.description !== undefined && { description: patch.description.trim() }),
-        ...(patch.pricePaise !== undefined && { pricePaise: patch.pricePaise }),
-        ...(patch.gstRateBp !== undefined && { gstRateBp: patch.gstRateBp }),
-        ...(patch.certificateEnabled !== undefined && { certificateEnabled: patch.certificateEnabled }),
-        ...(patch.programId !== undefined && { programId: patch.programId }),
-        ...(patch.status !== undefined && { status: patch.status }),
-      })
-      .where(eq(courses.id, courseId))
-      .returning();
-    await audit(tx, actor, "course.update", "course", courseId, patch as Record<string, unknown>);
-    return course;
-  });
+  return withTenant(actor, (tx) => updateCourseTx(tx, actor, courseId, patch));
+}
+
+/** updateCourse inside a transaction the caller already holds (the quick course flow publishes with it). */
+export async function updateCourseTx(tx: Tx, actor: Actor, courseId: string, patch: CoursePatch) {
+  validateCourse(patch);
+  const { target } = await loadCourse(tx, uni(actor), courseId);
+  assertCan(actor, "course.update", target);
+  if (patch.status === "published") {
+    const open = await tx.select({ id: batches.id }).from(batches).where(and(eq(batches.courseId, courseId), eq(batches.status, "open")));
+    if (open.length === 0) throw new ValidationError("Add at least one open batch before publishing.");
+  }
+  const [course] = await tx
+    .update(courses)
+    .set({
+      ...(patch.title !== undefined && { title: patch.title.trim() }),
+      ...(patch.description !== undefined && { description: patch.description.trim() }),
+      ...(patch.pricePaise !== undefined && { pricePaise: patch.pricePaise }),
+      ...(patch.gstRateBp !== undefined && { gstRateBp: patch.gstRateBp }),
+      ...(patch.certificateEnabled !== undefined && { certificateEnabled: patch.certificateEnabled }),
+      ...(patch.programId !== undefined && { programId: patch.programId }),
+      ...(patch.status !== undefined && { status: patch.status }),
+    })
+    .where(eq(courses.id, courseId))
+    .returning();
+  await audit(tx, actor, "course.update", "course", courseId, patch as Record<string, unknown>);
+  return course;
 }
 
 export async function deleteCourse(actor: Actor, courseId: string) {
