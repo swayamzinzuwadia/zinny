@@ -2,7 +2,10 @@ import { cx } from "@/components/ui";
 import { inr } from "@/modules/payments/money";
 import type { ListingKind } from "../schema";
 
-export const KIND_LABEL: Record<ListingKind, string> = { course: "Course", lecture: "Lecture", combo: "Combo" };
+export const KIND_LABEL: Record<ListingKind, string> = { course: "Course", lecture: "Lecture", combo: "Combo", batch: "Live batch" };
+
+/** What a buyer is getting, said plainly on every card and listing: a recording, or a seat in live classes. */
+export const FORMAT_LINE = { recorded: "Recorded · watch any time", live: "Live · fixed dates and times" } as const;
 
 /**
  * A listed price as the marketplace shows it: before GST, with the usual price struck through

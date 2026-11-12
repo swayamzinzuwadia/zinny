@@ -425,7 +425,100 @@ export async function holdRecordedSeat(actor: Actor, input: { batchId: string; p
   return startGatewayOrder(actor, held);
 }
 
-export type PaymentOutcome = { status: "enrolled" | "already_paid" | "refund_due"; enrolmentId: string; invoiceNumber?: string };
+/**
+ * A marketplace purchase of a seat in one of the institute's real, live batches, at the
+ * listing's price. The seat limit holds exactly as it does for the institute's own students:
+ * the seat is kept for SEAT_HOLD_MINUTES while the buyer pays, and a full batch can't be bought.
+ * Nobody decides on marketplace buyers one by one, so a batch whose faculty accept each student
+ * can't be sold this way. `lateJoin` lets people buy after the batch has started.
+ * The person gets nothing until confirmPayment activates the seat.
+ */
+export async function holdMarketplaceSeat(actor: Actor, input: { batchId: string; pricePaise: number; lateJoin: boolean }) {
+  assertCan(actor, "self.enrol", { universityId: uni(actor), ownerUserId: actor.userId });
+
+  const held = await withTenant(actor, async (tx) => {
+    const { batch } = await loadBatch(tx, uni(actor), input.batchId, { lock: true });
+    if (batch.recorded) throw new ConflictError("This isn't a live batch.", "not_live");
+    const [course] = await tx.select().from(courses).where(eq(courses.id, batch.courseId));
+    const today = await universityToday(tx, uni(actor));
+    if (batch.status !== "open" || batch.endDate < today || batch.approvalRequired || course.status === "archived") {
+      throw new ConflictError(`${batch.name} is no longer open for new students.`, "batch_closed");
+    }
+    if (!input.lateJoin && batch.startDate <= today) {
+      throw new ConflictError(`${batch.name} has started and isn't taking new students any more.`, "batch_started");
+    }
+    await expireStaleHolds(tx, { batchId: batch.id });
+    await expireStaleHolds(tx, { userId: actor.userId });
+
+    const [live] = await tx
+      .select()
+      .from(enrolments)
+      .where(
+        and(
+          eq(enrolments.userId, actor.userId),
+          eq(enrolments.courseId, course.id),
+          inArray(enrolments.status, ["held", "active", "completed", "requested", "approved"]),
+        ),
+      );
+    if (live && live.status !== "held") {
+      throw new ConflictError(
+        live.status === "requested" || live.status === "approved" ? `You have already asked to join ${course.title} at this institute.` : "You already have this course.",
+        "already_enrolled",
+      );
+    }
+    if (live?.batchId === batch.id) {
+      const [order] = await tx.select().from(orders).where(eq(orders.enrolmentId, live.id));
+      return {
+        status: "held" as const,
+        enrolmentId: live.id,
+        orderId: order.id,
+        totalPaise: order.totalPaise,
+        expiresAt: live.holdExpiresAt!,
+        gateway: order.gateway,
+        checkout: order.gatewayOrderId ? { order_id: order.gatewayOrderId, resumed: true } : {},
+      };
+    }
+    if (live) {
+      // A purchase of the course's recordings (or of another of its batches) that was never paid for gives way to this one.
+      await tx.update(enrolments).set({ status: "cancelled" }).where(eq(enrolments.id, live.id));
+      await tx.update(orders).set({ status: "expired" }).where(and(eq(orders.enrolmentId, live.id), eq(orders.status, "pending")));
+    }
+
+    if ((await seatsTaken(tx, batch.id)) >= batch.seatLimit) {
+      throw new ConflictError(`${batch.name} is full.`, "batch_full");
+    }
+
+    const expiresAt = new Date(Date.now() + SEAT_HOLD_MINUTES * 60_000);
+    const [e] = await tx
+      .insert(enrolments)
+      .values({ universityId: uni(actor), userId: actor.userId, courseId: course.id, batchId: batch.id, status: "held", holdExpiresAt: expiresAt })
+      .returning();
+    const gst = gstFor(input.pricePaise, course.gstRateBp);
+    const [order] = await tx
+      .insert(orders)
+      .values({
+        universityId: uni(actor),
+        userId: actor.userId,
+        courseId: course.id,
+        batchId: batch.id,
+        enrolmentId: e.id,
+        basePaise: input.pricePaise,
+        gstPaise: gst,
+        totalPaise: input.pricePaise + gst,
+        gateway: gateway().name,
+      })
+      .returning();
+    await audit(tx, actor, "enrolment.hold", "enrolment", e.id, { batchId: batch.id, orderId: order.id, marketplace: true, live: true });
+    return { status: "held" as const, enrolmentId: e.id, orderId: order.id, totalPaise: order.totalPaise, expiresAt, gateway: order.gateway, checkout: {} };
+  }).catch((err) => {
+    if (isUniqueViolation(err)) throw new ConflictError("You already have this course.", "already_enrolled");
+    throw err;
+  });
+
+  return startGatewayOrder(actor, held);
+}
+
+export type PaymentOutcome ={ status: "enrolled" | "already_paid" | "refund_due"; enrolmentId: string; invoiceNumber?: string };
 
 /**
  * Called when the gateway confirms payment (webhook or verified checkout callback).

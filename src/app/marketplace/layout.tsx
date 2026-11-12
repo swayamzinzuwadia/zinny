@@ -4,6 +4,7 @@ import { Logo } from "@/components/ui";
 import { AccountMenu, type AccountLink } from "@/app/[uni]/learn/account-menu";
 import { cartCount } from "@/modules/marketplace/cart";
 import { CartLink } from "@/modules/marketplace/components/cart-link";
+import { MarketNav } from "@/modules/marketplace/components/market-nav";
 import { marketplaceAccess } from "@/modules/marketplace/service";
 import { loadActor } from "@/server/actor";
 import { currentUserId, homeSpacesFor, signOut } from "@/server/auth/session";
@@ -37,16 +38,7 @@ export default async function MarketplaceLayout({ children }: { children: React.
           <Link href={person ? "/marketplace" : "/"} className="flex shrink-0 items-center">
             <Logo height={26} tone="cream" />
           </Link>
-          <nav aria-label="Marketplace" className="flex min-w-0 gap-0.5 text-[14px]">
-            <Link href="/marketplace" className={navLink}>
-              Marketplace
-            </Link>
-            {person && (
-              <Link href="/marketplace/library" className={navLink}>
-                My library
-              </Link>
-            )}
-          </nav>
+          <MarketNav signedIn={!!person} className="hidden md:block" />
           <div className="ml-auto flex shrink-0 items-center gap-1 text-[14px]">
             {person ? (
               <>
@@ -68,6 +60,8 @@ export default async function MarketplaceLayout({ children }: { children: React.
             )}
           </div>
         </div>
+        {/* On phones the sections get a row of their own: five links don't fit beside the logo and the cart. */}
+        <MarketNav signedIn={!!person} className="mx-auto max-w-6xl px-2 pb-2 sm:px-4 md:hidden" />
       </header>
       <main className="flex-1 pb-20">{children}</main>
       {/* The pitch to institutes is for visitors; people shopping or watching don't need it. */}
@@ -76,7 +70,7 @@ export default async function MarketplaceLayout({ children }: { children: React.
           <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:flex-row sm:items-end sm:justify-between sm:px-6">
             <div className="max-w-md">
               <h2 className="text-[26px] leading-tight font-semibold">Run an institute?</h2>
-              <p className="mt-2 text-[15px] leading-relaxed text-canvas/70">Put your recorded courses on these shelves and sell them to learners everywhere, straight from your own Zinny space.</p>
+              <p className="mt-2 text-[15px] leading-relaxed text-canvas/70">Put your recorded courses and your live batches here and sell them to learners everywhere, straight from your own Zinny space.</p>
             </div>
             <Link
               href="/book-a-demo"

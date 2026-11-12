@@ -38,7 +38,8 @@ export async function addToCart(userId: string, listingId: string) {
   const [item] = await liveListingsByIds([listingId]);
   if (!item) throw new NotFoundError("Listing");
   if ((await ownedCourseIds(userId, [item.courseId])).size) throw new ConflictError("This is already on your shelf.", "already_owned");
-  if ((await cartCount(userId)) >= CART_LIMIT) throw new ValidationError(`A cart holds up to ${CART_LIMIT} recordings. Check out what's in it first.`);
+  if (item.live?.seatsLeft === 0) throw new ConflictError(`${item.live.batchName} is full, so it can't go in your cart.`, "batch_full");
+  if ((await cartCount(userId)) >= CART_LIMIT) throw new ValidationError(`A cart holds up to ${CART_LIMIT} items. Check out what's in it first.`);
   await systemDb().insert(mktCartItems).values({ userId, listingId }).onConflictDoNothing();
   return { count: await cartCount(userId) };
 }

@@ -28,7 +28,7 @@ export function CartLink({ count: initial }: { count: number }) {
     <Link
       href="/marketplace/cart"
       id="nav-cart"
-      aria-label={count ? `Your cart, ${count} ${count === 1 ? "recording" : "recordings"}` : "Your cart"}
+      aria-label={count ? `Your cart, ${count} ${count === 1 ? "item" : "items"}` : "Your cart"}
       className="relative flex size-10 items-center justify-center rounded-full text-canvas/85 [transition-property:background-color,color] duration-150 hover:bg-canvas/10 hover:text-canvas"
     >
       <svg aria-hidden viewBox="0 0 24 24" className="size-[22px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">

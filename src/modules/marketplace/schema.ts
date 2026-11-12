@@ -3,12 +3,15 @@
  * Money is integer paise.
  */
 import { sql } from "drizzle-orm";
-import { check, index, integer, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, index, integer, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { batches, courses, orders, universities, users } from "@/db/schema";
 import { contentLessons } from "@/modules/content-progress/schema";
 
-export type ListingKind = "course" | "lecture" | "combo";
-export type ListingStatus = "live" | "paused";
+/** "batch" is a seat in one of the institute's real, live batches; the other three are recorded. */
+export type ListingKind = "course" | "lecture" | "combo" | "batch";
+export type RecordedKind = Exclude<ListingKind, "batch">;
+/** "removed" keeps the row for the people who bought through it; it is never shown or sold again. */
+export type ListingStatus = "live" | "paused" | "removed";
 
 /**
  * People who signed up on their own, for the marketplace. They belong to no institute, so
@@ -22,9 +25,10 @@ export const mktLearners = pgTable("mkt_learners", {
 });
 
 /**
- * One recorded course or single lecture an institute sells. What buyers get is `course`,
- * in its hidden recorded `batch`; a lecture is a one-lesson course of its own (see
- * listings.ts), so progress, invoices and refunds work the same for both.
+ * One thing an institute sells. Recorded (course, lecture, combo): buyers get `course` in its
+ * hidden recorded `batch`; a lecture is a one-lesson course of its own (see listings.ts), so
+ * progress, invoices and refunds work the same for all three. Live (batch): buyers get a normal
+ * seat in `batch`, one of the institute's real batches, within its seat limit.
  */
 export const mktListings = pgTable(
   "mkt_listings",
@@ -48,16 +52,22 @@ export const mktListings = pgTable(
     pricePaise: integer("price_paise").notNull(),
     /** Before GST. The usual price, shown struck through next to `pricePaise`. */
     compareAtPaise: integer("compare_at_paise"),
+    /** Live batches only: whether people may still buy a seat after the batch has started. */
+    lateJoin: boolean("late_join").notNull().default(false),
     status: text("status").$type<ListingStatus>().notNull().default("live"),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("mkt_listings_course_uq").on(t.courseId),
+    // One listing per batch: a recorded course has one hidden batch, and each live batch is listed once.
+    // A course can so have its recordings and several live batches on sale. Removed listings don't count.
+    uniqueIndex("mkt_listings_batch_uq").on(t.batchId).where(sql`${t.status} <> 'removed'`),
+    index("mkt_listings_course_idx").on(t.courseId),
     index("mkt_listings_status_idx").on(t.status, t.createdAt),
-    check("mkt_listing_kind", sql`${t.kind} in ('course', 'lecture', 'combo')`),
-    check("mkt_listing_status", sql`${t.status} in ('live', 'paused')`),
+    // Renamed when "batch" and "removed" were added: drizzle-kit push leaves a check alone when only its text changes.
+    check("mkt_listing_kinds", sql`${t.kind} in ('course', 'lecture', 'combo', 'batch')`),
+    check("mkt_listing_statuses", sql`${t.status} in ('live', 'paused', 'removed')`),
     check("mkt_listing_price", sql`${t.pricePaise} > 0`),
     check("mkt_listing_compare_at", sql`${t.compareAtPaise} is null or ${t.compareAtPaise} > ${t.pricePaise}`),
   ],
@@ -134,6 +144,29 @@ export const mktRedemptions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("mkt_redemptions_order_uq").on(t.orderId), index("mkt_redemptions_code_idx").on(t.codeId)],
+);
+
+/**
+ * An order for a seat in a live batch that was bought through the marketplace. A real batch
+ * also holds the institute's own students, so this is what tells a marketplace seat apart:
+ * for the buyer's library, the seats-sold count and what a full refund ends.
+ */
+export const mktSeatSales = pgTable(
+  "mkt_seat_sales",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    universityId: uuid("university_id")
+      .notNull()
+      .references(() => universities.id, { onDelete: "cascade" }),
+    listingId: uuid("listing_id")
+      .notNull()
+      .references(() => mktListings.id, { onDelete: "cascade" }),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("mkt_seat_sales_order_uq").on(t.orderId), index("mkt_seat_sales_listing_idx").on(t.listingId)],
 );
 
 /** A learner's cart: listings they mean to buy together. Spans institutes, so only the system connection reads it. */

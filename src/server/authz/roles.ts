@@ -236,7 +236,8 @@ export const ROLE_GRANTS: Record<RoleName, readonly Action[]> = {
   sponsor: [],
   corporate_partner: [],
   // Held at an institute only because of a marketplace purchase, so its live catalogue stays closed.
-  individual_learner: ["self.enrol", "self.view_learning", ...LEARNER_MODULE_ACTIONS, ...PROFILE],
+  // A seat bought in a live batch comes with its classes: joining checks the buyer is in that batch.
+  individual_learner: ["self.enrol", "self.view_learning", ...LEARNER_MODULE_ACTIONS, "self.join_class", ...PROFILE],
 
   // ── Custom roles: only the basics here. What else they grant comes from custom_roles.
   custom_institute: ["university.view", "department.view", ...PROFILE],
