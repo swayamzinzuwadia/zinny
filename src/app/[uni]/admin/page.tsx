@@ -4,7 +4,7 @@ import { SwitchRequests } from "@/components/switch-requests";
 import { EnrolmentRequests } from "@/components/enrolment-requests";
 import { TodayBoard } from "@/components/today-board";
 import { Badge, Card, CardTitle, SeatMap, Stat, cx } from "@/components/ui";
-import { can } from "@/server/authz/engine";
+import { can, reach } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { slotsInReach } from "@/server/registry";
 import { formatDate } from "@/server/lib/dates";
@@ -12,7 +12,10 @@ import { dashboard } from "@/server/services/dashboard";
 import { listEnrolmentRequests, listSwitchRequests } from "@/server/services/enrolment";
 import { canAdmit, getJoinSettings, listJoinRequests } from "@/modules/identity/joining";
 import { InviteStrip } from "@/modules/identity/components/invite-strip";
-import { decideEnrolmentAction } from "./actions";
+import { cookies } from "next/headers";
+import { SetupChecklistCard } from "@/components/setup-checklist";
+import { setupChecklist, setupHiddenCookie } from "@/server/services/setup";
+import { decideEnrolmentAction, dismissSetupAction } from "./actions";
 import { formatINR } from "@/server/services/finance";
 import { firstName } from "@/server/lib/names";
 
@@ -33,6 +36,12 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
   const { actor, university } = await spaceContext(uni);
   const base = `/${uni}/admin`;
   const data = await dashboard(actor);
+  // "Get set up" for a new institute: until every step is done, or the admin hides it.
+  const hidden = (await cookies()).get(setupHiddenCookie(university.id))?.value === "1";
+  const checklist = hidden ? null : await setupChecklist(actor, uni);
+  const setup = checklist && checklist.done < checklist.total ? checklist : null;
+  const courseReach = reach(actor, "course.create", university.id);
+  const canNewCourse = can(actor, "department.manage", { universityId: university.id }) || courseReach.all || courseReach.departmentIds.size > 0;
   const requests = data.canDecideSwitches ? await listSwitchRequests(actor) : [];
   // Students asking for a seat (faculty, HODs, admins) and asking to join (admins, HODs), and
   // the joining code for the people who accept new students.
@@ -83,6 +92,7 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
 
   return (
     <div className="space-y-6">
+      {setup && <SetupChecklistCard uni={uni} checklist={setup} dismiss={dismissSetupAction} />}
       <TodayBoard data={data} firstName={firstName(actor.name)} base={base} summary={summary} />
       {joining && (
         <InviteStrip uni={uni} institute={university.name} code={joining.code} mode={joining.mode} canManage={can(actor, "settings.manage", { universityId: university.id })} />
@@ -202,7 +212,14 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
           <Card>
             <CardTitle hint="Taken and free">Seats by batch</CardTitle>
             {data.seats.length === 0 ? (
-              <p className="text-[14px] text-muted">No open batches yet.</p>
+              <p className="text-[14px] text-muted">
+                No open batches yet.{" "}
+                {canNewCourse && (
+                  <Link href={`${base}/products/courses/new`} className="font-medium text-brand hover:underline">
+                    Create a course with its first batch
+                  </Link>
+                )}
+              </p>
             ) : (
               <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
                 {data.seats.map((s) => (

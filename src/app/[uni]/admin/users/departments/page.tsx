@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Card, CardTitle, Empty, Field, Input, PageHeader, Select } from "@/components/ui";
 import { can } from "@/server/authz/engine";
@@ -38,7 +39,23 @@ export default async function DepartmentsPage({ params }: { params: Promise<{ un
       <PageHeader title="Departments" subtitle="Each department has a Head, its faculty and its courses. Students see only their departments' courses." />
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
         <div className="grid gap-3 md:grid-cols-2">
-          {depts.length === 0 && <Empty title="No departments yet" />}
+          {depts.length === 0 && (
+            <div className="md:col-span-2">
+              <Empty title="No departments yet">
+                {canManage ? (
+                  <>
+                    Create one on the right, or{" "}
+                    <Link href={`/${uni}/admin/products/courses/new`} className="font-medium text-brand hover:underline">
+                      create your first course
+                    </Link>{" "}
+                    and its department together.
+                  </>
+                ) : (
+                  "An institute admin creates departments."
+                )}
+              </Empty>
+            </div>
+          )}
           {depts.map((d) => {
             const staff = staffOf(d.id, d.name);
             return (

@@ -114,7 +114,7 @@ async function addFacultyTx(tx: Tx, actor: Actor, batch: typeof batches.$inferSe
       ),
     );
   const membership = roles.find((r) => !r.endsAt || r.endsAt > now);
-  if (!membership) throw new ValidationError("Add this person to the department's teaching staff first.");
+  if (!membership) throw new ValidationError("This person doesn't teach in this department yet. Add them as a new teacher on the batch form, or under Users, Teaching.");
   // Visiting faculty can't outlast their department access.
   let endsAt = f.endsAt ?? null;
   if (f.role === "visiting_faculty") {
@@ -183,47 +183,55 @@ export async function ensureRecordedBatch(tx: Tx, actor: Actor, course: { id: st
 }
 
 export async function createBatch(actor: Actor, input: BatchInput) {
+  checkBatchInput(input);
+  return withTenant(actor, (tx) => createBatchTx(tx, actor, input));
+}
+
+/** Everything about a new batch that can be checked before touching the database. */
+export function checkBatchInput(input: BatchInput) {
   validateBatch(input);
   const slotError = validateSlots(input.slots);
   if (slotError) throw new ValidationError(slotError);
   if (input.faculty.length === 0) throw new ValidationError("Assign at least one faculty member.");
+}
 
-  return withTenant(actor, async (tx) => {
-    const { course } = await loadCourse(tx, uni(actor), input.courseId);
-    assertCan(actor, "batch.create", { universityId: uni(actor), departmentIds: [course.departmentId] });
-    const [batch] = await tx
-      .insert(batches)
-      .values({
-        universityId: uni(actor),
-        courseId: course.id,
-        departmentId: course.departmentId,
-        name: input.name.trim(),
-        startDate: input.startDate,
-        endDate: input.endDate,
-        seatLimit: input.seatLimit,
-        meetingUrl: input.meetingUrl?.trim() || null,
-        approvalRequired: input.approvalRequired ?? false,
-        status: "open",
-      })
-      .returning();
-    await tx.insert(batchSlots).values(
-      input.slots.map((s) => ({
-        universityId: uni(actor),
-        batchId: batch.id,
-        weekday: s.weekday,
-        startTime: normaliseTime(s.startTime),
-        endTime: normaliseTime(s.endTime),
-      })),
-    );
-    for (const f of input.faculty) await addFacultyTx(tx, actor, batch, f);
-    await audit(tx, actor, "batch.create", "batch", batch.id, {
+/** createBatch inside a transaction the caller already holds (the quick course flow). */
+export async function createBatchTx(tx: Tx, actor: Actor, input: BatchInput) {
+  checkBatchInput(input);
+  const { course } = await loadCourse(tx, uni(actor), input.courseId);
+  assertCan(actor, "batch.create", { universityId: uni(actor), departmentIds: [course.departmentId] });
+  const [batch] = await tx
+    .insert(batches)
+    .values({
+      universityId: uni(actor),
       courseId: course.id,
-      name: batch.name,
-      seatLimit: batch.seatLimit,
-      timings: describeSlots(input.slots),
-    });
-    return batch;
+      departmentId: course.departmentId,
+      name: input.name.trim(),
+      startDate: input.startDate,
+      endDate: input.endDate,
+      seatLimit: input.seatLimit,
+      meetingUrl: input.meetingUrl?.trim() || null,
+      approvalRequired: input.approvalRequired ?? false,
+      status: "open",
+    })
+    .returning();
+  await tx.insert(batchSlots).values(
+    input.slots.map((s) => ({
+      universityId: uni(actor),
+      batchId: batch.id,
+      weekday: s.weekday,
+      startTime: normaliseTime(s.startTime),
+      endTime: normaliseTime(s.endTime),
+    })),
+  );
+  for (const f of input.faculty) await addFacultyTx(tx, actor, batch, f);
+  await audit(tx, actor, "batch.create", "batch", batch.id, {
+    courseId: course.id,
+    name: batch.name,
+    seatLimit: batch.seatLimit,
+    timings: describeSlots(input.slots),
   });
+  return batch;
 }
 
 export type BatchPatch = Partial<Pick<BatchInput, "name" | "startDate" | "endDate" | "seatLimit" | "slots" | "meetingUrl" | "approvalRequired">> & {

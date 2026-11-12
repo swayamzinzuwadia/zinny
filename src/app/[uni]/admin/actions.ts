@@ -1,14 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/forms";
 import type { RoleName } from "@/db/schema";
 import { attempt, num, rupeesToPaise, str } from "@/server/action";
 import { spaceContext } from "@/server/context";
-import { ValidationError } from "@/server/errors";
-import { addSessionOverride, assignFaculty, createBatch, removeFaculty, setSeatLimit, updateBatch } from "@/server/services/batches";
-import { createCourse, updateCourse } from "@/server/services/courses";
+import { AppError, ValidationError } from "@/server/errors";
+import { addSessionOverride, assignFaculty, removeFaculty, setSeatLimit, updateBatch } from "@/server/services/batches";
+import { updateCourse } from "@/server/services/courses";
+import { createBatchWithTeachers, createCourseQuickly, type QuickSection } from "@/server/services/quick-course";
+import { canSeeSetup, setupHiddenCookie } from "@/server/services/setup";
 import { createDepartment, setHod } from "@/server/services/departments";
 import { decideEnrolment, decideSwitch, listSwitchRequests } from "@/server/services/enrolment";
 import { deleteRole, parseRoleChoice, resetRole, roleDraft, saveRole } from "@/server/services/roles";
@@ -31,21 +34,84 @@ function slotsFrom(data: FormData): Slot[] {
 
 /* ── Courses ── */
 
-export async function createCourseAction(_: ActionState, data: FormData): Promise<ActionState> {
+export type QuickCourseState = (NonNullable<ActionState> & { section?: QuickSection }) | null;
+
+/** What the New course page posts: one JSON field, so the page keeps everything as typed. */
+type QuickCoursePayload = {
+  title: string;
+  description: string;
+  price: string;
+  gst: string | null;
+  departmentId: string | null;
+  newDepartmentName: string;
+  batch: {
+    name: string;
+    startDate: string;
+    endDate: string;
+    seatLimit: string;
+    meetingUrl: string;
+    slots: { weekday: number; startTime: string; endTime: string }[];
+  } | null;
+  teacherIds: string[];
+  newTeachers: { name: string; email: string }[];
+  teachMyself: boolean;
+  publish: boolean;
+};
+
+/** The New course page: course, department, first batch, teachers and publishing in one go. */
+export async function quickCourseAction(_: QuickCourseState, data: FormData): Promise<QuickCourseState> {
   const { uni, actor } = await ctx(data);
-  let id = "";
-  const res = await attempt(async () => {
-    const c = await createCourse(actor, {
-      departmentId: str(data, "departmentId"),
-      title: str(data, "title"),
-      description: str(data, "description"),
-      pricePaise: rupeesToPaise(str(data, "price")),
-      gstRateBp: num(data, "gst") * 100,
+  let p: QuickCoursePayload;
+  try {
+    p = JSON.parse(str(data, "payload"));
+  } catch {
+    return { error: "The form didn't arrive in one piece. Reload the page and try again.", at: Date.now() };
+  }
+  const price = p.price.replace(/[,₹\s]/g, "");
+  if (price && !/^\d+(\.\d{1,2})?$/.test(price))
+    return { error: "Enter the price as a number of rupees, like 4999. Use 0 for a free course.", section: "course", at: Date.now() };
+  const seatLimit = p.batch ? Number(p.batch.seatLimit || "0") : 0;
+  let created: { courseId: string } | null = null;
+  try {
+    created = await createCourseQuickly(actor, {
+      title: p.title,
+      description: p.description,
+      pricePaise: rupeesToPaise(price),
+      gstRateBp: p.gst === null || p.gst === "" ? undefined : Number(p.gst) * 100,
+      departmentId: p.departmentId || null,
+      newDepartmentName: p.departmentId ? null : p.newDepartmentName.trim() || "General",
+      batch: p.batch && {
+        name: p.batch.name.trim() || "Batch 1",
+        startDate: p.batch.startDate,
+        endDate: p.batch.endDate,
+        seatLimit,
+        meetingUrl: p.batch.meetingUrl.trim() || null,
+        slots: p.batch.slots,
+      },
+      teacherIds: p.teacherIds,
+      newTeachers: p.newTeachers.filter((t) => t.name.trim() || t.email.trim()),
+      teachMyself: p.teachMyself,
+      publish: p.publish,
     });
-    id = c.id;
-  });
-  if (id) redirect(`/${uni}/admin/products/courses/${id}?tab=batches`);
-  return res;
+  } catch (e) {
+    if (e instanceof AppError) {
+      const section = (e.details as { section?: QuickSection } | undefined)?.section;
+      return { error: e.message, section, at: Date.now() };
+    }
+    console.error(e);
+    return { error: "Something went wrong, and nothing was saved. Please try again.", at: Date.now() };
+  }
+  revalidatePath(`/${uni}/admin`, "layout");
+  redirect(`/${uni}/admin/products/courses/${created.courseId}?created=1`);
+}
+
+/** Hides the dashboard's "Get set up" card for this institute, in this browser. */
+export async function dismissSetupAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const { uni, actor } = await ctx(data);
+  if (!canSeeSetup(actor)) return { error: "Only institute admins see the setup checklist.", at: Date.now() };
+  (await cookies()).set(setupHiddenCookie(actor.universityId!), "1", { path: `/${uni}`, maxAge: 60 * 60 * 24 * 365, httpOnly: true, sameSite: "lax" });
+  revalidatePath(`/${uni}/admin`);
+  return { ok: "Checklist hidden.", at: Date.now() };
 }
 
 export async function updateCourseAction(_: ActionState, data: FormData): Promise<ActionState> {
@@ -81,9 +147,8 @@ export async function createBatchAction(_: ActionState, data: FormData): Promise
   const { uni, actor } = await ctx(data);
   const courseId = str(data, "courseId");
   return attempt(async () => {
-    const facultyIds = data.getAll("faculty").map(String).filter(Boolean);
-    const visiting = new Set(data.getAll("visiting").map(String));
-    await createBatch(actor, {
+    // Faculty already in the department, plus (optionally) a new teacher or the person themselves.
+    await createBatchWithTeachers(actor, {
       courseId,
       name: str(data, "name"),
       startDate: str(data, "startDate"),
@@ -91,7 +156,9 @@ export async function createBatchAction(_: ActionState, data: FormData): Promise
       seatLimit: num(data, "seatLimit"),
       meetingUrl: str(data, "meetingUrl") || null,
       slots: slotsFrom(data),
-      faculty: facultyIds.map((userId) => ({ userId, role: visiting.has(userId) ? "visiting_faculty" : "permanent_faculty" })),
+      teacherIds: data.getAll("faculty").map(String).filter(Boolean),
+      newTeachers: [{ name: str(data, "newTeacherName"), email: str(data, "newTeacherEmail") }],
+      teachMyself: str(data, "teachMyself") === "on",
       approvalRequired: str(data, "approvalRequired") === "on",
     });
     revalidatePath(`/${uni}/admin/products/courses/${courseId}`);
