@@ -99,6 +99,7 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
                         <SeatMap limit={b.seatLimit} taken={b.seatsTaken} />
                       </div>
                       <div className="mt-2 truncate text-xs text-muted">{b.faculty?.join(", ") || "No faculty"}</div>
+                      <div className="truncate text-xs text-muted">{b.incharge ? `Incharge: ${b.incharge}` : "No incharge yet"}</div>
                     </Link>
                     {canEditBatches && (
                       <div className="mt-3 border-t border-line pt-3">

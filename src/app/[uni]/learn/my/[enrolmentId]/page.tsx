@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge, Card, Empty, Tabs } from "@/components/ui";
+import { Badge, Card, Empty, Tabs, buttonClass } from "@/components/ui";
 import { SlotOutlet } from "@/components/slots";
 import { spaceContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
-import { formatDate, todayIn } from "@/server/lib/dates";
+import { formatDate, formatTime, todayIn } from "@/server/lib/dates";
 import { visibleSlots } from "@/server/registry";
+import { myBatchTimetable } from "@/server/services/batch-plan";
 import { myEnrolment } from "@/server/services/enrolment";
 import { SwitchBatch } from "../switch-batch";
 import { sendParentsHome } from "../../view";
@@ -29,6 +30,9 @@ export default async function CourseHub({ params, searchParams }: { params: Prom
     throw err;
   });
   const b = e.batchRecord;
+  // The batch's dated timetable: its incharge and the next class, with section, faculty and topic.
+  const timetable = b.recorded ? null : await myBatchTimetable(actor, enrolmentId).catch(() => null);
+  const nextDay = timetable?.days.find((d) => d.date === timetable.nextClassDate) ?? null;
   const target = { universityId: university.id, departmentIds: [b.departmentId], batchIds: [b.id], ownerUserId: actor.userId };
 
   const tabs = visibleSlots("learnerCourseTabs", actor, target);
@@ -54,7 +58,7 @@ export default async function CourseHub({ params, searchParams }: { params: Prom
           <p className="mt-1 text-[14px] text-muted">From {university.name}. Yours to watch at your own pace.</p>
         ) : (
         <Card className="mt-4 p-5">
-          <dl className="grid gap-3 text-[14px] sm:grid-cols-3">
+          <dl className="grid gap-3 text-[14px] sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <dt className="text-muted">Batch</dt>
               <dd className="font-medium">{e.batch.name}</dd>
@@ -70,7 +74,41 @@ export default async function CourseHub({ params, searchParams }: { params: Prom
               <dt className="text-muted">Faculty</dt>
               <dd className="font-medium">{e.batch.faculty.length ? e.batch.faculty.join(", ") : "To be announced"}</dd>
             </div>
+            <div>
+              <dt className="text-muted">Batch incharge</dt>
+              <dd className="font-medium">{timetable?.incharge ?? "To be announced"}</dd>
+            </div>
           </dl>
+          {timetable && timetable.days.length > 0 && (
+            <div className={nextDay ? "mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gold bg-gold-soft/40 px-4 py-3" : "mt-4"}>
+              {nextDay && (
+                <div className="min-w-0 text-[14px]">
+                  <div className="text-[13px] font-medium text-gold-strong">
+                    {nextDay.date === timetable.today ? "Today" : "Next class"} · Day {nextDay.dayNumber} of {timetable.days.length}
+                  </div>
+                  {nextDay.entries.map((en, k) => {
+                    const teachers = [...new Set(en.sections.map((s) => s.facultyName).filter(Boolean))];
+                    const topics = en.sections.map((s) => s.topic).filter(Boolean);
+                    return (
+                      <div key={k} className="mt-0.5">
+                        <span className="font-medium">
+                          {k === 0 && `${formatDate(nextDay.date, { weekday: true })}, `}
+                          {formatTime(en.startTime)}–{formatTime(en.endTime)}
+                          {en.sections.length > 0 && ` · ${en.sections.map((s) => s.title).join(" and ")}`}
+                        </span>
+                        {(teachers.length > 0 || topics.length > 0) && (
+                          <span className="block text-[13px] text-muted">{[teachers.length > 0 && `with ${teachers.join(" and ")}`, ...topics].filter(Boolean).join(" · ")}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <Link href={`/${uni}/learn/my/${enrolmentId}/timetable`} className={buttonClass("secondary", "sm")}>
+                See the full timetable
+              </Link>
+            </div>
+          )}
           {e.status === "active" && (
             <SwitchBatch
               uni={uni}

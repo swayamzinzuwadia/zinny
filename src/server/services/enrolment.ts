@@ -707,8 +707,8 @@ export async function listSwitchRequests(actor: Actor, status: "pending" | "appr
 
 /* ─────────────────────────── Enrolment requests ─────────────────────────── */
 
-/** Who is asked to accept a seat: the batch's current faculty and the department's HODs. */
-async function approversOf(tx: Tx, batch: { id: string; departmentId: string }) {
+/** Who is asked to accept a seat: the batch's current faculty, its incharge and the department's HODs. */
+async function approversOf(tx: Tx, batch: { id: string; departmentId: string; inchargeUserId?: string | null }) {
   const now = new Date();
   const faculty = (
     await tx
@@ -718,7 +718,7 @@ async function approversOf(tx: Tx, batch: { id: string; departmentId: string }) 
   )
     .filter((f) => !f.endsAt || f.endsAt > now)
     .map((f) => f.userId);
-  return [...new Set([...faculty, ...(await hodsOf(tx, batch.departmentId))])];
+  return [...new Set([...faculty, ...(batch.inchargeUserId ? [batch.inchargeUserId] : []), ...(await hodsOf(tx, batch.departmentId))])];
 }
 
 export type EnrolmentRequest = {
