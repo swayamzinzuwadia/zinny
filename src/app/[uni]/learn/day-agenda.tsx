@@ -6,6 +6,9 @@ import { cx } from "@/components/ui";
 import { addDays, formatDate, formatTime, isoWeekday, toMinutes, weekdayLabel } from "@/server/lib/dates";
 import type { Session } from "@/server/services/schedule";
 
+/** The section's own faculty when the day is planned, otherwise the batch's. */
+const teachers = (s: Session) => (s.sectionFaculty?.length ? s.sectionFaculty : s.faculty);
+
 /**
  * The week strip on the learner home: one button per day. Tapping a day shows that day's
  * classes in the card below ("Today", "Tomorrow", or the date). `children` sits beside it.
@@ -133,9 +136,15 @@ export function DayAgenda({
                       {s.kind === "rescheduled" && <span className="ml-2">Moved here</span>}
                     </div>
                     <div className="font-medium">{s.courseTitle}</div>
+                    {s.section && (
+                      <div className="text-[14px]">
+                        {s.section}
+                        {s.topic && <span className="text-muted">: {s.topic}</span>}
+                      </div>
+                    )}
                     <div className="text-[13px] text-muted">
                       {s.batchName}
-                      {s.faculty.length > 0 && `, with ${s.faculty.join(" and ")}`}
+                      {teachers(s).length > 0 && `, with ${teachers(s).join(" and ")}`}
                     </div>
                   </li>
                 );

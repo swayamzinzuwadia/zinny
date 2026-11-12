@@ -20,6 +20,7 @@ import { seeds } from "../server/registry";
 import { loadActor, systemActorFor } from "../server/actor";
 import type { Actor } from "../server/authz/engine";
 import { addDays, todayIn, weekStart } from "../server/lib/dates";
+import { createSection, getBatchPlan, setIncharge, type PlanDayInput } from "../server/services/batch-plan";
 import { createBatch, facultyExpiryAlerts } from "../server/services/batches";
 import { createCourse, updateCourse } from "../server/services/courses";
 import { createDepartment, listDepartments } from "../server/services/departments";
@@ -184,11 +185,86 @@ export async function seedDemo(): Promise<SeedContext> {
     courseId: dm.id, name: "Evening", startDate: runningSince, endDate: termEnd, seatLimit: 25,
     slots: days([2, 4], "19:00", "21:00"), faculty: [{ userId: neel.id, role: "permanent_faculty" }],
   });
-  await createBatch(mehul, {
+  const dmSaturday = await createBatch(mehul, {
     courseId: dm.id, name: "Saturday intensive", startDate: nextSaturday, endDate: termEnd, seatLimit: 20,
     slots: days([6], "14:00", "18:00"), faculty: [{ userId: neel.id, role: "permanent_faculty" }],
   });
   await updateCourse(mehul, dm.id, { status: "published" });
+
+  // Incharge, sections with their own faculty, and a day-number plan for every batch. Done before
+  // anyone enrols, so no student gets a "plan updated" notification for the first draft.
+  console.log("Batch incharges, sections and plans…");
+  type SeedSection = { title: string; faculty: string | null; share: number; topics?: string[]; about?: string };
+  const range = (from: number, to: number) => Array.from({ length: Math.max(0, to - from + 1) }, (_, i) => from + i);
+  const withTopics = (numbers: number[], topics: string[] = []): PlanDayInput[] => numbers.map((dayNumber, i) => ({ dayNumber, topic: topics[i] ?? null }));
+  /** Splits the batch's class days between the sections by their share, in order, with nothing left over. */
+  const planBatch = async (as: Actor, batchId: string, inchargeId: string, sections: SeedSection[]) => {
+    await setIncharge(as, batchId, inchargeId);
+    const total = (await getBatchPlan(as, batchId)).timetable.classDays;
+    const whole = sections.reduce((n, x) => n + x.share, 0);
+    let next = 1;
+    for (const [i, sec] of sections.entries()) {
+      const last = i === sections.length - 1 ? total : Math.min(total, next + Math.max(1, Math.round((total * sec.share) / whole)) - 1);
+      await createSection(as, batchId, { title: sec.title, description: sec.about ?? "", facultyUserId: sec.faculty, days: withTopics(range(next, last), sec.topics) });
+      next = last + 1;
+    }
+  };
+  const daPlan = (lead: string, second: string): SeedSection[] => [
+    { title: "Excel foundations", faculty: lead, share: 20, topics: ["Cleaning messy data", "Lookups and references", "Pivot tables", "Charts that answer a question"], about: "Spreadsheets as an analysis tool." },
+    { title: "SQL for analysis", faculty: second, share: 30, topics: ["Select, filter, sort", "Joins", "Grouping and aggregates", "Window functions"] },
+    { title: "Dashboards and storytelling", faculty: lead, share: 25, topics: ["Choosing the right chart", "Building a dashboard"] },
+    { title: "Capstone project", faculty: second, share: 20, topics: ["Project briefing"] },
+    { title: "Revision", faculty: lead, share: 5 },
+  ];
+  const hemaId = (await byEmail("hema@demo.edu")).id;
+  const mehulId = (await byEmail("mehul@demo.edu")).id;
+  await planBatch(hema, daMorning.id, hemaId, daPlan(farah.id, hemaId));
+  await planBatch(hema, daEvening.id, farah.id, daPlan(farah.id, hemaId));
+  // The weekend batch is Vikram's alone, and his access ends soon: its timetable says so.
+  await planBatch(hema, daWeekend.id, hemaId, [
+    { title: "Excel foundations", faculty: vikram.id, share: 30, topics: ["Cleaning messy data", "Pivot tables"] },
+    { title: "SQL for analysis", faculty: vikram.id, share: 40, topics: ["Select, filter, sort", "Joins"] },
+    { title: "Dashboards and capstone", faculty: vikram.id, share: 30 },
+  ]);
+  const pyPlan: SeedSection[] = [
+    { title: "Python basics", faculty: farah.id, share: 30, topics: ["Variables and types", "Conditions and loops", "Functions", "Lists and dictionaries"] },
+    { title: "Working with data", faculty: hemaId, share: 30, topics: ["Reading files", "Cleaning with pandas"] },
+    { title: "Projects", faculty: farah.id, share: 30, topics: ["Project 1: expense tracker"] },
+    { title: "Revision and viva", faculty: hemaId, share: 10 },
+  ];
+  await planBatch(hema, pyWeekend.id, farah.id, pyPlan);
+  await planBatch(hema, pyEvening.id, farah.id, pyPlan);
+  const dmPlan: SeedSection[] = [
+    { title: "Marketing fundamentals", faculty: mehulId, share: 20, topics: ["Customers and positioning", "The marketing funnel"] },
+    { title: "Search and social ads", faculty: neel.id, share: 35, topics: ["Keyword research", "Writing ad copy", "Budgets and bidding"] },
+    { title: "Content and email", faculty: neel.id, share: 25, topics: ["Content calendar"] },
+    { title: "Analytics and reporting", faculty: mehulId, share: 20 },
+  ];
+  await planBatch(mehul, dmEvening.id, mehulId, dmPlan);
+  await planBatch(mehul, dmSaturday.id, neel.id, dmPlan);
+
+  // Machine Learning is the batch that shows every warning: two class days with nothing planned,
+  // a section without faculty, visiting faculty whose access ends first, and a plan that runs
+  // two days past the end date. Day 12 is shared by two sections, each with its own hour.
+  {
+    await setIncharge(hema, mlMorning.id, farah.id);
+    const total = (await getBatchPlan(hema, mlMorning.id)).timetable.classDays;
+    const add = (title: string, facultyUserId: string | null, days: PlanDayInput[], description = "") => createSection(hema, mlMorning.id, { title, description, facultyUserId, days });
+    await add(
+      "Python for machine learning",
+      farah.id,
+      [...withTopics(range(1, 11), ["NumPy arrays", "Pandas data frames", "Plotting with matplotlib", "Train and test splits"]), { dayNumber: 12, topic: "Recap and quiz", startTime: "10:00", endTime: "11:00" }],
+      "The Python every later section relies on.",
+    );
+    await add("Regression", hemaId, [
+      { dayNumber: 12, topic: "What a model is", startTime: "11:00", endTime: "12:00" },
+      ...withTopics(range(13, 30), ["Simple linear regression", "Multiple regression", "Reading the coefficients", "Regularisation", "Regression case study"]),
+    ]);
+    await add("Classification", vikram.id, withTopics(range(31, 45), ["Logistic regression", "Decision trees", "Random forests"]));
+    // Days 46 and 47 are left out on purpose.
+    await add("Model evaluation", null, withTopics(range(48, 60), ["Accuracy, precision and recall", "Cross-validation"]));
+    await add("Capstone and revision", farah.id, withTopics(range(61, total + 2), ["Capstone briefing"]));
+  }
 
   // Institute courses are free for the institute's students: they're enrolled at once.
   console.log("Enrolments…");
