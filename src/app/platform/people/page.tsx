@@ -3,7 +3,7 @@ import { Avatar, Badge, Empty, PageHeader, Select, Td, cx } from "@/components/u
 import { ROLE_LABELS } from "@/server/authz/roles";
 import { platformContext } from "@/server/context";
 import { NoAccess, PanelTable, WIDE_ONLY } from "@/modules/zinny-team-panel/components/bits";
-import { SignInAsButton } from "@/modules/zinny-team-panel/components/sign-in-as-button";
+import { PersonActions } from "@/modules/zinny-team-panel/components/person-actions";
 import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
 import { formatCount, formatDate } from "@/modules/zinny-team-panel/lib/format";
 import { PEOPLE_GROUPS, isPeopleGroup, listPeople, peopleCounts, type PeopleGroup, type PersonRow } from "@/modules/zinny-team-panel/services/people";
@@ -48,7 +48,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
     <>
       <PageHeader
         title="People"
-        subtitle="Every account on Zinny: institute admins, staff, students, parents, marketplace learners and the Zinny team. Open a person to set their password, or sign in as them from here. Only Super Admins can open this page, and each view is kept in the activity log."
+        subtitle="Every account on Zinny: institute admins, staff, students, parents, marketplace learners and the Zinny team. Set anyone's password or sign in as them from their row, or open them for more. Only Super Admins can open this page, and each view is kept in the activity log."
       />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -126,7 +126,9 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
               <Td className={cx(WIDE_ONLY, "whitespace-nowrap tabular")}>{p.phone ?? <span className="text-faint">Not set</span>}</Td>
               <Td className="whitespace-nowrap">{p.canSignIn ? "Active" : <span className="text-gold-strong">Invited</span>}</Td>
               <Td className={cx(WIDE_ONLY, "whitespace-nowrap tabular")}>{formatDate(p.joinedAt.toISOString().slice(0, 10))}</Td>
-              <Td className="text-right">{p.userId !== actor.userId && <SignInAsButton userId={p.userId} name={p.name} universityId={p.universityId} />}</Td>
+              <Td className="text-right">
+                <PersonActions userId={p.userId} name={p.name} universityId={p.universityId} self={p.userId === actor.userId} />
+              </Td>
             </tr>
           ))}
         </PanelTable>
