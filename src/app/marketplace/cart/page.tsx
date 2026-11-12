@@ -78,7 +78,7 @@ export default async function Cart() {
                       </span>
                     )}
                     <div className="mt-auto flex flex-wrap items-end justify-between gap-3 pt-3">
-                      <Price pricePaise={l.pricePaise} compareAtPaise={l.compareAtPaise} />
+                      <Price pricePaise={l.pricePaise} compareAtPaise={l.compareAtPaise} gst={l.totalPaise > l.pricePaise} />
                       <ActionForm action={removeFromCartAction} resetOnSuccess={false}>
                         <input type="hidden" name="listingId" value={l.id} />
                         <SubmitButton variant="ghost" size="sm" pendingText="Taking it out…">

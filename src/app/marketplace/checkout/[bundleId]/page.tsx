@@ -52,7 +52,7 @@ export default async function BundleCheckoutPage({ params }: { params: Promise<{
                 <div className="min-w-0">
                   <div className="text-[15px] font-medium">{titles.get(i.batchId) ?? i.title}</div>
                   <div className="mt-0.5 text-[13px] text-muted">
-                    {i.institute} · {inr(i.basePaise)} + GST {inr(i.gstPaise)}
+                    {i.institute} · {inr(i.basePaise)}{i.gstPaise > 0 ? ` + GST ${inr(i.gstPaise)}` : ""}
                   </div>
                   <div className="mt-1 text-[12.5px] font-medium text-brand">
                     {liveBatches.has(i.batchId) ? `${FORMAT_LINE.live} · a seat in ${liveBatches.get(i.batchId)}` : FORMAT_LINE.recorded}

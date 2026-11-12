@@ -16,17 +16,20 @@ export function Price({
   compareAtPaise,
   size = "sm",
   className,
+  gst = true,
 }: {
   pricePaise: number;
   compareAtPaise: number | null;
   size?: "sm" | "lg";
   className?: string;
+  /** False when the selling institute doesn't charge GST: the price shown is the whole price. */
+  gst?: boolean;
 }) {
   return (
     <span className={cx("inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5", className)}>
       <span className={cx("tabular font-semibold whitespace-nowrap", size === "lg" ? "text-[34px] leading-none" : "text-[16px]")}>{inr(pricePaise)}</span>
       {compareAtPaise && <s className={cx("tabular whitespace-nowrap text-muted", size === "lg" ? "text-[17px]" : "text-[13px]")}>{inr(compareAtPaise)}</s>}
-      <span className={cx("whitespace-nowrap text-muted", size === "lg" ? "text-[14px]" : "text-[12px]")}>+ GST</span>
+      {gst && <span className={cx("whitespace-nowrap text-muted", size === "lg" ? "text-[14px]" : "text-[12px]")}>+ GST</span>}
     </span>
   );
 }

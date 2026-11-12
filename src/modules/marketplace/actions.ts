@@ -30,7 +30,7 @@ export async function buyAction(_: ActionState, data: FormData): Promise<ActionS
     return attempt(async () => {
       if (!code) throw new ValidationError("Type a code first.");
       const q = await quoteCode(listingId, code);
-      return `Code applied: ${inr(q.pricePaise)} + GST, saving ${inr(q.savedPaise)}. GST is added at checkout.`;
+      return `Code applied: ${inr(q.pricePaise)}, saving ${inr(q.savedPaise)}. If the institute charges GST, it is added at checkout.`;
     });
   }
   const userId = await currentUserId();

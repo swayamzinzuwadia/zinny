@@ -115,14 +115,16 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
 
       <div className="mt-8 border-t border-line pt-6">
         <div className="flex flex-wrap items-center gap-3">
-          <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} size="lg" />
+          <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} size="lg" gst={item.totalPaise > item.pricePaise} />
           {item.percentOff && item.compareAtPaise && (
             <span data-stamp className="rounded-full bg-gold px-3 py-1 text-[13.5px] font-semibold text-brand-deep">
               Save {inr(item.compareAtPaise - item.pricePaise)}, {item.percentOff}% off
             </span>
           )}
         </div>
-        <p className="mt-2 text-[13.5px] text-muted">GST is added at checkout, and a GST invoice comes with your purchase.</p>
+        <p className="mt-2 text-[13.5px] text-muted">
+          {item.totalPaise > item.pricePaise ? "GST is added at checkout, and a GST invoice comes with your purchase." : "This is the full price. An invoice comes with your purchase."}
+        </p>
 
         <div className="mt-5 max-w-sm">
           {item.ownedEnrolmentId ? (

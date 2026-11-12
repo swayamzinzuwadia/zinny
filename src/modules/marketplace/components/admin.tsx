@@ -36,7 +36,7 @@ export function ListingFieldsInputs({
 function PriceInputs({ pricePaise, compareAtPaise }: { pricePaise?: number; compareAtPaise?: number | null }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="Price before GST (₹)" hint="GST is added at the course's rate.">
+      <Field label="Price before GST (₹)" hint="If your institute charges GST, it is added at the course's rate.">
         <Input name="price" required inputMode="decimal" placeholder="1499" defaultValue={pricePaise ? String(pricePaise / 100) : undefined} />
       </Field>
       <Field label="Compare-at price (₹)" hint="Optional. The usual price, shown struck through.">

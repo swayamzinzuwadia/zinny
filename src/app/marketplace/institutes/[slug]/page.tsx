@@ -67,7 +67,7 @@ function UpcomingRow({ item }: { item: LiveCatalogItem }) {
             </span>
           </span>
           <span className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 sm:flex-col sm:items-end sm:gap-1">
-            <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} />
+            <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} gst={item.totalPaise > item.pricePaise} />
             {full ? (
               <span className="text-[13px] font-medium text-ink">Batch full</span>
             ) : (

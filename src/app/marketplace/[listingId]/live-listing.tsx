@@ -107,14 +107,14 @@ export function LiveListing({
             {/* The ticket: price, seats and the way to buy. */}
             <aside aria-label="Buy a seat" className="self-start rounded-[22px] bg-canvas p-6 text-ink shadow-[0_30px_60px_-30px_rgb(0_0_0/0.7)]">
               <div className="flex flex-wrap items-center gap-3">
-                <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} size="lg" />
+                <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} size="lg" gst={item.totalPaise > item.pricePaise} />
                 {item.percentOff && item.compareAtPaise && (
                   <span className="rounded-full bg-gold px-3 py-1 text-[13.5px] font-semibold text-brand-deep">
                     Save {inr(item.compareAtPaise - item.pricePaise)}, {item.percentOff}% off
                   </span>
                 )}
               </div>
-              <p className="mt-2 text-[13.5px] text-muted">For one seat. GST is added at checkout, and a GST invoice comes with your purchase.</p>
+              <p className="mt-2 text-[13.5px] text-muted">{item.totalPaise > item.pricePaise ? "For one seat. GST is added at checkout, and a GST invoice comes with your purchase." : "For one seat. This is the full price, and an invoice comes with your purchase."}</p>
               <LiveBadges live={live} className="mt-4" />
               {!full && !fewSeatsLeft(live) && (
                 <p className="mt-3 text-[14px] text-ink/80">

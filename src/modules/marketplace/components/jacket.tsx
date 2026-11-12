@@ -89,7 +89,7 @@ export function Jacket({ item, className, fill = false }: { item: JacketItem; cl
   );
 }
 
-export type ShelfItem = JacketItem & { pricePaise: number; compareAtPaise: number | null; minutes: number; instituteSlug: string };
+export type ShelfItem = JacketItem & { pricePaise: number; compareAtPaise: number | null; totalPaise?: number; minutes: number; instituteSlug: string };
 
 /**
  * A book face-out on a shelf: the jacket, then what it is (a recording), title, imprint and price
@@ -114,7 +114,7 @@ export function BookCard({ item, showInstitute = true }: { item: ShelfItem; show
         )}
         {lessonsLine(item.lessons, item.minutes)}
       </span>
-      <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} className="mt-2" />
+      <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} gst={item.totalPaise === undefined || item.totalPaise > item.pricePaise} className="mt-2" />
     </article>
   );
 }

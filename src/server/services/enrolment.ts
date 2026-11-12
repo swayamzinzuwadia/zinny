@@ -493,7 +493,7 @@ export async function holdMarketplaceSeat(actor: Actor, input: { batchId: string
       .insert(enrolments)
       .values({ universityId: uni(actor), userId: actor.userId, courseId: course.id, batchId: batch.id, status: "held", holdExpiresAt: expiresAt })
       .returning();
-    const gst = gstFor(input.pricePaise, course.gstRateBp);
+    const gst = await orderGst(tx, uni(actor), input.pricePaise, course.gstRateBp);
     const [order] = await tx
       .insert(orders)
       .values({

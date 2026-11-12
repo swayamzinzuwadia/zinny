@@ -121,7 +121,7 @@ export function LiveCard({ item, showInstitute = true }: { item: LiveCatalogItem
         <LiveBadges live={live} className="mt-4 px-4 pb-4 sm:px-5" />
       </Link>
       <div className="mt-auto flex flex-wrap items-end justify-between gap-x-4 gap-y-1 border-t border-dashed border-line px-4 py-3.5 sm:px-5">
-        <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} />
+        <Price pricePaise={item.pricePaise} compareAtPaise={item.compareAtPaise} gst={item.totalPaise > item.pricePaise} />
         {showInstitute && (
           <Link href={`/marketplace/institutes/${item.instituteSlug}`} className="min-w-0 truncate text-[13px] text-muted hover:text-brand hover:underline">
             {item.institute}
