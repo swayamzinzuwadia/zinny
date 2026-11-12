@@ -52,7 +52,7 @@ export async function CertificatesCourseTab({ uni, actor, course, target }: Cour
         <Stat label="Revoked" value={data.counts.revoked} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-3">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="text-[17px] font-medium">Issued certificates</h2>

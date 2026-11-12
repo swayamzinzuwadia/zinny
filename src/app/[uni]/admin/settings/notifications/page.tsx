@@ -96,7 +96,7 @@ async function SetupTab({ uni }: { uni: string }) {
   // Provider names and their configuration are for the Zinny team (in support mode); the institute sees whether each channel works.
   const team = !!actor.supportSessionId;
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+    <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
       <Card>
         <CardTitle>{team ? "Providers" : "Channels"}</CardTitle>
         <ul className="divide-y divide-line">

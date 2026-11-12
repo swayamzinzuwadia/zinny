@@ -74,7 +74,7 @@ export default async function SettingsHub({ params }: { params: Promise<{ uni: s
   return (
     <>
       <PageHeader title="Settings" subtitle="Institute-wide settings, each kept next to the work it affects. Open one to change it." />
-      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="grid content-start gap-3 sm:grid-cols-2">
           {cards
             .filter((c) => open.has(c.opens))

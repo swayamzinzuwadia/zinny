@@ -52,7 +52,7 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
   return (
     <>
       <PageHeader title={TITLES[g][0]} subtitle={TITLES[g][1]} />
-      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div>
           {everyone.length > 0 && (
             <form method="get" className="mb-4 flex flex-wrap items-center gap-2">

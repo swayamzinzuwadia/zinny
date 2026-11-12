@@ -23,7 +23,7 @@ export default async function CoursesPage({ params }: { params: Promise<{ uni: s
   return (
     <>
       <PageHeader title="Courses" subtitle="Each course lives in one department. Batches inside it set the days, timings and seats." />
-      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div>
           {courses.length === 0 ? (
             <Empty title="No courses yet">{creatable.length ? "Create the first one on the right." : "Courses you teach will show here."}</Empty>

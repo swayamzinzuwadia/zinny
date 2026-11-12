@@ -26,7 +26,7 @@ export default async function BadgesPage({ params }: { params: Promise<{ uni: st
     <>
       <SectionNav uni={uni} active="/badges" />
       <PageHeader title="Badges" subtitle="Milestones students collect. Each badge is earned once, and the student gets a notification." />
-      <div className={cx("grid gap-6", canCreate && "xl:grid-cols-[1fr_360px]")}>
+      <div className={cx("grid gap-6", canCreate && "grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]")}>
         <div className="min-w-0 space-y-6">
           {badges.length === 0 ? (
             <Empty title="No badges yet">{canCreate ? "Create the first one on the right, like Bookworm for 10 lessons." : "Badges your institute sets up will show here."}</Empty>

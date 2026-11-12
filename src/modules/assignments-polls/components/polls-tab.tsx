@@ -23,7 +23,7 @@ export async function CoursePollsTab({ uni, actor, course, university }: CourseT
   const canAdd = form.canAll || form.batches.length > 0;
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+    <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
       <div className="space-y-4">
         {polls.length === 0 && <Empty title="No polls yet">Ask students a quick question, like which day suits an extra class.</Empty>}
         {polls.map((p) => (

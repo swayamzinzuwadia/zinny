@@ -82,7 +82,7 @@ export default async function TemplatePage({ params }: { params: Promise<{ uni: 
       />
 
       {canManage && (
-        <div className="mt-6 grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
+        <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
           <Card>
             <CardTitle hint="PNG or JPEG, up to 500 KB">Signatures</CardTitle>
             {t.signatories.length === 0 ? (

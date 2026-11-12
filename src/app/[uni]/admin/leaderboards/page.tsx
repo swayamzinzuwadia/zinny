@@ -34,7 +34,7 @@ export default async function LeaderboardPage({ params, searchParams }: { params
     <>
       <SectionNav uni={uni} active="" />
       <PageHeader title="Leaderboard" subtitle="Students ranked by the XP they earned in a course or batch. Ties share a rank." />
-      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-6">
           {data.groups.length > 0 && (
             <Card className="p-4 sm:p-5">

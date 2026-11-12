@@ -68,7 +68,7 @@ export default async function InvitesPage({ params }: { params: Promise<{ uni: s
         <Stat label="Joined in 30 days" value={accepted.length} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-6">
           {open.length === 0 ? (
             <Empty title="Everyone has joined">

@@ -84,7 +84,7 @@ export default async function PoolPage({ params, searchParams }: { params: Promi
               }
             />
           ) : (
-            <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
+            <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px]">
               <div className="space-y-4">
                 <form className="flex items-end gap-2" action={base}>
                   <input type="hidden" name="panel" value="import" />
@@ -128,7 +128,7 @@ export default async function PoolPage({ params, searchParams }: { params: Promi
         </Card>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_260px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_260px]">
         <div className="min-w-0 space-y-3">
           <form className="flex flex-wrap gap-2" action={base}>
             {f.pool !== "all" && <input type="hidden" name="pool" value={f.pool} />}

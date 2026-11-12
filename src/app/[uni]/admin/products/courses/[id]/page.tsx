@@ -72,7 +72,7 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
       <Tabs active={tab} tabs={tabs.map(({ key, label }) => ({ key, label, href: `${base}?tab=${key}`, count: key === "batches" && tab === "batches" ? batches.length : undefined }))} />
 
       {tab === "batches" && (
-        <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+        <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-6">
             {batches.length === 0 ? (
               <Empty title="No batches yet">Add a batch for each schedule students can pick: weekday morning, evening, weekend.</Empty>

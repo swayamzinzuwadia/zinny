@@ -28,7 +28,7 @@ export default async function TeamPage() {
           </ButtonLink>
         }
       />
-      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-3">
           {team.map((m) => {
             const missing = ASSIGNABLE_PLATFORM_ROLES.filter((r) => !m.roles.some((x) => x.role === r));

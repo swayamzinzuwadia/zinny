@@ -15,7 +15,7 @@ export default async function ImportPage({ params }: { params: Promise<{ uni: st
         title="Bulk import"
         subtitle="Upload a CSV of students and staff. Every row is checked first; nothing is saved unless all rows are valid. Re-importing the same file never creates duplicates."
       />
-      <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]">
         <Card>
           <ImportForm uni={uni} />
         </Card>

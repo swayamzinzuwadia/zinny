@@ -55,7 +55,7 @@ export default async function JoinRequestsPage({ params, searchParams }: { param
             : "Students asking to join your department. Accept them, and they see your department's courses."
         }
       />
-      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-4">
           {done && <Notice>{done}</Notice>}
           {pending.length === 0 && <Empty title="No one is waiting">New requests appear here, and on your dashboard.</Empty>}

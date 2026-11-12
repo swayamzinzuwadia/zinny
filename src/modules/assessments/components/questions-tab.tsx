@@ -26,7 +26,7 @@ export async function QuestionsTab({ uni, actor, testId, search, base }: { uni: 
   };
 
   return (
-    <div className="grid gap-6 2xl:grid-cols-[1fr_1fr]">
+    <div className="grid gap-6 grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_1fr]">
       <div className="space-y-6">
         <Card>
           <CardTitle hint={`${plural(data.questionCount, "question")}, ${data.marksAreExact ? "" : "about "}${fmtMarks(data.totalMarks)} marks`}>In this test</CardTitle>

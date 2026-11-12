@@ -75,7 +75,7 @@ export function TemplateEditor({
     setDraft((d) => ({ ...d, signatories: d.signatories.map((s, j) => (j === i ? { ...s, ...patch } : s)) }));
 
   return (
-    <div className="grid items-start gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
       <form action={formAction} className="space-y-5 rounded-[22px] border border-line bg-surface p-6">
         <input type="hidden" name="uni" value={uni} />
         <input type="hidden" name="templateId" value={templateId} />

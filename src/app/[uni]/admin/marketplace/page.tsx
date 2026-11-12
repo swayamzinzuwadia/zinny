@@ -26,7 +26,7 @@ export default async function MarketplaceListings({ params }: { params: Promise<
           </Link>
         }
       />
-      <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div>
           {listings.length === 0 ? (
             <Empty title="Nothing on sale yet">

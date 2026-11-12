@@ -51,7 +51,7 @@ export default async function EnquiryPage({ params }: { params: Promise<{ uni: s
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6">
           <Card>
             <CardTitle hint={e.courseTitle ? `About ${e.courseTitle}` : "General enquiry"}>Message</CardTitle>

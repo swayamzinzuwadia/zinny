@@ -92,7 +92,7 @@ export function SettingsTab({ uni, info, wholeCourse, pickable }: { uni: string;
   const ro = !info.canManage;
   const isSeries = t.kind === "series";
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+    <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]">
       <Card>
         <CardTitle>Settings</CardTitle>
         <ActionForm action={updateSettingsAction} className="space-y-5" resetOnSuccess={false}>
@@ -314,7 +314,7 @@ export async function SeriesTab({ uni, actor, seriesId }: { uni: string; actor: 
   const s = await seriesTests(actor, seriesId);
   const fields = { uni, testId: seriesId };
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+    <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]">
       <Card>
         <CardTitle hint="Students see the series as one item, with its tests in this order">Tests in this series</CardTitle>
         {s.children.length === 0 ? (

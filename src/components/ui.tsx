@@ -35,11 +35,11 @@ export function Logo({ height = 32, tone = "green" }: { height?: number; tone?: 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
   return (
     <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-      <div>
+      <div className="min-w-0">
         <h1 className="text-[30px] font-semibold leading-tight">{title}</h1>
         {subtitle && <div className="mt-1.5 max-w-2xl text-[15px] text-muted">{subtitle}</div>}
       </div>
-      {actions && <div className="flex gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
   );
 }

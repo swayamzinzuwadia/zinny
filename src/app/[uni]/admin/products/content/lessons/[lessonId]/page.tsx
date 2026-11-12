@@ -81,7 +81,7 @@ export default async function LessonEditorPage({ params }: { params: Promise<{ u
       />
       {!canEdit && <Notice tone="neutral">You can view this lesson. Only the course&apos;s HOD, admins and faculty who teach one of its batches can change it.</Notice>}
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_380px]">
+      <div className="mt-6 grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
         <Card>
           <CardTitle hint={KIND_LABEL[lesson.kind]}>Content</CardTitle>
           <p className="-mt-2 mb-5 text-[14px] text-muted">{KIND_HELP[lesson.kind]}</p>

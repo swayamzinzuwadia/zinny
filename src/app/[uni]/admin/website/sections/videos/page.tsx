@@ -48,7 +48,7 @@ export default async function VideosPage({ params }: { params: Promise<{ uni: st
     <>
       <PageHeader title="Videos" subtitle="YouTube videos for the Videos section: campus tours, sample classes, convocation. They play on your website without leaving it." />
       <SectionTabs uni={uni} active="videos" counts={counts} />
-      <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div>
           {rows.length === 0 ? (
             <Empty title="No videos yet">Paste a YouTube link on the right to add the first one.</Empty>
