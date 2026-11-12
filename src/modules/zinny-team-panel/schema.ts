@@ -22,6 +22,12 @@ const universityId = () =>
 /* ─────────────────────────── Licences ─────────────────────────── */
 
 /**
+ * No longer used by any column: plat_licences.plan is now a plat_plans.key. The type stays
+ * declared so upgrading an existing database never has to ask whether it was renamed.
+ */
+export const platPlanLegacy = pgEnum("plat_plan", ["pilot", "standard", "enterprise"]);
+
+/**
  * The plans Zinny sells: Pilot, Standard, Enterprise and any the team adds at /platform/plans.
  * Zinny's own price list, so no university_id. `key` is what licences store and never changes.
  * `price_paise` is before GST, for one billing period of `billing_months`.

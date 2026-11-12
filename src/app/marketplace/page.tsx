@@ -72,7 +72,7 @@ export default async function Marketplace({ searchParams }: { searchParams: Prom
             </p>
             <SearchBar action="/marketplace" q={q} placeholder="Search courses, batches and institutes" label="Search the marketplace" />
             <p className="mt-6 text-[14px] text-canvas/60">
-              {everything.length === 0 ? "The shelves are being stocked." : "Prices are before GST, which is added at checkout."}
+              {everything.length === 0 ? "The shelves are being stocked." : "Where an institute charges GST, it is added at checkout."}
             </p>
             {!userId ? (
               <p className="mt-2 text-[14px] text-canvas/75">

@@ -15,6 +15,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Only this checkout's tests: agent worktrees under .claude/worktrees have their own copies.
+    include: ["tests/**/*.test.{ts,tsx}"],
     globalSetup: ["./tests/global-setup.ts"],
     setupFiles: ["./tests/env.ts"],
     fileParallelism: false,
