@@ -134,6 +134,8 @@ export const sessions = pgTable(
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: createdAt(),
+    /** Set when a Zinny Super Admin signed in as this person from the team panel: who they really are. */
+    impersonatorUserId: uuid("impersonator_user_id").references(() => users.id, { onDelete: "set null" }),
   },
   // Identity lists and ends a person's sessions by user (wave 1 integration).
   (t) => [index("sessions_user_idx").on(t.userId)],

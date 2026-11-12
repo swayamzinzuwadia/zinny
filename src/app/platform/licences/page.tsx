@@ -5,7 +5,7 @@ import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { checkLicencesAction } from "@/modules/zinny-team-panel/actions";
 import { NoAccess, PanelTable, PlanBadge, RenewalText, StatusBadge, UsageMeter, WIDE_ONLY } from "@/modules/zinny-team-panel/components/bits";
-import { MODULE_LABEL, PLAN_LABELS, PLANS } from "@/modules/zinny-team-panel/lib/constants";
+import { MODULE_LABEL } from "@/modules/zinny-team-panel/lib/constants";
 import { formatCount, formatDate } from "@/modules/zinny-team-panel/lib/format";
 import { listAlerts, listLicences } from "@/modules/zinny-team-panel/services/licences";
 
@@ -18,24 +18,33 @@ export default async function LicencesPage() {
   const licensed = rows.filter((r) => r.licence);
   const renewing = licensed.filter((r) => r.daysLeft !== null && r.daysLeft >= 0 && r.daysLeft <= 30).length;
   const ended = licensed.filter((r) => r.daysLeft !== null && r.daysLeft < 0).length;
+  // How many institutes are on each plan, by the plan's name, biggest first.
+  const byPlan = new Map<string, number>();
+  for (const r of licensed) byPlan.set(r.planName ?? "", (byPlan.get(r.planName ?? "") ?? 0) + 1);
+  const planHint = [...byPlan].sort((a, b) => b[1] - a[1]).map(([name, n]) => `${n} ${name}`).join(" · ") || "No licences yet";
   const nearCap = licensed.filter((r) => (r.studentPct ?? 0) >= 90 || (r.staffPct ?? 0) >= 90).length;
 
   return (
     <>
       <PageHeader
         title="Licences"
-        subtitle="Plan, caps, modules and term for each institute, with usage against the caps. Warnings appear on the home page at 90% of a cap and 30 days before a licence ends."
+        subtitle="Plan, price, caps, modules and term for each institute, with usage against the caps. Setting up or renewing a licence invoices the institute for its plan. Warnings appear on the home page at 90% of a cap and 30 days before a licence ends."
         actions={
+          <div className="flex flex-wrap items-start justify-end gap-2">
+            <Link href="/platform/plans" className="inline-flex h-10 items-center whitespace-nowrap rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
+              Plans and prices
+            </Link>
           <ActionForm action={checkLicencesAction} className="flex flex-col items-end">
             <SubmitButton variant="secondary" pendingText="Checking…">
               Check all licences now
             </SubmitButton>
           </ActionForm>
+          </div>
         }
       />
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Licensed" value={`${formatCount(licensed.length)} of ${formatCount(rows.length)}`} hint={PLANS.map((p) => `${licensed.filter((r) => r.licence?.plan === p).length} ${PLAN_LABELS[p]}`).join(" · ")} />
+        <Stat label="Licensed" value={`${formatCount(licensed.length)} of ${formatCount(rows.length)}`} hint={planHint} />
         <Stat label="Renewing in 30 days" value={formatCount(renewing)} hint={ended ? `${ended} already ended` : "None ended"} />
         <Stat label="At 90% of a cap" value={formatCount(nearCap)} hint="Students or staff" />
         <Stat label="Open warnings" value={formatCount(alerts.length)} hint={`${alerts.filter((a) => a.acknowledgedAt).length} marked as handled`} />
@@ -67,11 +76,11 @@ export default async function LicencesPage() {
                   </div>
                 )}
                 <div className="mt-1 xl:hidden">
-                  <PlanBadge plan={r.licence?.plan ?? null} />
+                  <PlanBadge name={r.planName} />
                 </div>
               </Td>
               <Td className={WIDE_ONLY}>
-                <PlanBadge plan={r.licence?.plan ?? null} />
+                <PlanBadge name={r.planName} />
               </Td>
               <Td>
                 <UsageMeter used={r.usage.students} cap={r.licence?.studentCap ?? null} compact />

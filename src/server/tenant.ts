@@ -36,7 +36,11 @@ export async function withTenant<T>(actor: Actor, fn: (tx: Tx) => Promise<T>): P
   return result;
 }
 
-/** Every change is logged. Support-mode changes carry the support session, so they show who, what and when. */
+/**
+ * Every change is logged. Support-mode changes carry the support session, so they show who,
+ * what and when. Changes made by a Super Admin signed in as someone are logged as that
+ * person, with `data.impersonatedBy` saying who really did it.
+ */
 export async function audit(
   tx: Tx,
   actor: Actor,
@@ -52,6 +56,6 @@ export async function audit(
     action,
     entity,
     entityId,
-    data,
+    data: actor.impersonatedBy ? { ...data, impersonatedBy: actor.impersonatedBy } : data,
   });
 }

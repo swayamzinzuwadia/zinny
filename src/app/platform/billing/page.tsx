@@ -19,7 +19,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     <>
       <PageHeader
         title="Zinny invoices"
-        subtitle="Zinny's GST invoices to institutes for their licences. These are separate from the invoices institutes issue to their students."
+        subtitle="Zinny's GST invoices to institutes for their licences. A licence raises its own invoice; an unpaid one can be revised. These are separate from the invoices institutes issue to their students."
         actions={<ButtonLink href={`/platform/billing/new${f.university ? `?university=${f.university}` : ""}`}>New invoice</ButtonLink>}
       />
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
@@ -37,7 +37,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         ]}
       />
       {invoices.length === 0 ? (
-        <Empty title="No invoices here">Issue one from New invoice.</Empty>
+        <Empty title="No invoices here">Setting up or renewing a licence raises one. You can also issue one from New invoice.</Empty>
       ) : (
         <PanelTable
           head={[
@@ -62,7 +62,10 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
               <Td className={cx(WIDE_ONLY, "whitespace-nowrap text-[13px] text-muted")}>
                 {formatDate(i.periodStart, { year: false })} to {formatDate(i.periodEnd)}
               </Td>
-              <Td className={cx(WIDE_ONLY, "tabular whitespace-nowrap")}>{formatINR(i.basePaise)}</Td>
+              <Td className={cx(WIDE_ONLY, "tabular whitespace-nowrap")}>
+                {formatINR(i.basePaise)}
+                {i.discountPaise > 0 && <div className="text-[12.5px] text-muted">after {formatINR(i.discountPaise)} off</div>}
+              </Td>
               <Td className={cx(WIDE_ONLY, "tabular whitespace-nowrap text-muted")}>{formatINR(i.cgstPaise + i.sgstPaise + i.igstPaise)}</Td>
               <Td className="tabular whitespace-nowrap font-medium">{formatINR(i.totalPaise)}</Td>
               <Td className="whitespace-nowrap">{formatDate(i.dueDate)}</Td>

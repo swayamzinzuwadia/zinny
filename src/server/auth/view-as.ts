@@ -13,7 +13,13 @@ const MINUTES = 30;
 export type ViewAsTarget = { universityId: string; userId: string };
 
 export async function readViewAs(): Promise<ViewAsTarget | null> {
-  const value = (await cookies()).get(COOKIE)?.value;
+  // Outside a request (jobs, tests) there are no cookies, so nobody is being viewed.
+  let value: string | undefined;
+  try {
+    value = (await cookies()).get(COOKIE)?.value;
+  } catch {
+    return null;
+  }
   const [universityId, userId] = (value ?? "").split(":");
   return universityId && userId ? { universityId, userId } : null;
 }

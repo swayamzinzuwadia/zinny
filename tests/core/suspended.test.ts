@@ -5,8 +5,11 @@ import { closeDb, systemDb } from "@/db/client";
 import { supportSessions, universities } from "@/db/schema";
 import { grant, makeUser, setupCourse } from "../fixtures";
 
-const session = vi.hoisted(() => ({ userId: null as string | null }));
-vi.mock("@/server/auth/session", () => ({ currentUserId: async () => session.userId }));
+const session = vi.hoisted(() => ({ userId: null as string | null, impersonatorUserId: null as string | null }));
+vi.mock("@/server/auth/session", () => ({
+  currentUserId: async () => session.userId,
+  currentSession: async () => (session.userId ? { sessionId: "s", userId: session.userId, impersonatorUserId: session.impersonatorUserId } : null),
+}));
 
 const { spaceContext } = await import("@/server/context");
 
@@ -49,5 +52,21 @@ describe("suspended universities", () => {
     const r = await outcome(ctx.uni.slug);
     await setStatus("active");
     expect(r).toBe("in");
+  });
+
+  it("doesn't block a Super Admin signed in as one of its people", async () => {
+    await setStatus("suspended");
+    const zara = await makeUser("Zara Super");
+    await grant(zara.id, "super_admin", {});
+    // The session is the Institute Admin's, with the Super Admin behind it.
+    session.userId = ctx.admin.userId;
+    session.impersonatorUserId = zara.id;
+    const inside = await outcome(ctx.uni.slug);
+    // The same person on their own session is still kept out.
+    session.impersonatorUserId = null;
+    const alone = await outcome(ctx.uni.slug);
+    await setStatus("active");
+    expect(inside).toBe("in");
+    expect(alone).toContain(`/suspended?uni=${ctx.uni.slug}`);
   });
 });

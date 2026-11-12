@@ -1,6 +1,7 @@
 /**
- * Demo data for the Zinny team panel: licences for the Demo University and Riverside
- * College, Zinny invoices, partners, a content-review flag, Zinny team members for every
+ * Demo data for the Zinny team panel: the plans (Pilot, Standard, Enterprise and one custom
+ * plan), licences for the Demo University and Riverside College priced from them with the
+ * invoice each one raised (one paid, one discounted and revised, one overdue), partners, a content-review flag, Zinny team members for every
  * platform role, and one finished support session.
  *
  * Writes only plat_ tables, and goes through the core API for everything else
@@ -11,13 +12,14 @@ import { eq, inArray, sql } from "drizzle-orm";
 import type { SeedContext } from "@/contracts/module";
 import { users, universities } from "@/db/schema";
 import { enterSupportMode, exitSupportMode, grantPlatformRole, type Actor } from "@/server/core";
-import { platInvoiceCounters, platInvoices, platPartners } from "./schema";
+import { platInvoiceCounters, platInvoices, platPartners, platPlans } from "./schema";
 import { LICENSABLE_MODULES, type PlatformRole } from "./lib/constants";
 import { addDays, financialYear } from "./lib/format";
-import { createInvoice, markInvoicePaid } from "./services/billing";
+import { createInvoice, markInvoicePaid, reviseInvoice } from "./services/billing";
 import { flagCourse, markReviewed } from "./services/content";
 import { saveLicence } from "./services/licences";
 import { addContact, addNote, createPartner } from "./services/partners";
+import { createPlan, ensureDefaultPlans } from "./services/plans";
 import { createUniversityWithLicence } from "./services/universities";
 import { db } from "./services/shared";
 
@@ -53,10 +55,36 @@ export async function seed(ctx: SeedContext) {
   const farida = await teamActor("farida@zinny.demo", "finance_admin");
   const parth = await teamActor("parth@zinny.demo", "partnerships");
 
-  // Demo University: a Pilot ending in 20 days, at 12 of 13 students (92%), so both warnings show.
+  // Plans: the three every Zinny has, and one the team made itself.
+  await ensureDefaultPlans();
   const allModules = LICENSABLE_MODULES.map((m) => m.id);
+  const [campusPlus] = await db().select({ id: platPlans.id }).from(platPlans).where(eq(platPlans.key, "campus-plus"));
+  if (!campusPlus) {
+    await createPlan(zara, {
+      key: "campus-plus",
+      name: "Campus Plus",
+      description: "For colleges of up to 400 students that don't need the website builder.",
+      pricePaise: 3_60_000_00,
+      billingMonths: 12,
+      studentCap: 400,
+      staffCap: 30,
+      modules: allModules.filter((m) => m !== "website-builder"),
+      sortOrder: 15,
+    });
+  }
+
+  // Zinny invoices are numbered straight after the ones that survive a re-seed.
+  const fy = financialYear(today);
+  await db()
+    .update(platInvoiceCounters)
+    // Only numbers shaped <prefix>/<year>/<seq> count (other rows, e.g. test fixtures, are skipped).
+    .set({ lastSeq: sql`coalesce((select max(split_part(${platInvoices.number}, '/', 3)::int) from ${platInvoices} where ${platInvoices.financialYear} = ${fy} and split_part(${platInvoices.number}, '/', 3) ~ '^[0-9]+$'), 0)` })
+    .where(eq(platInvoiceCounters.financialYear, fy));
+
+  // Demo University: a Pilot ending in 20 days, at 12 of 13 students (92%), so both warnings
+  // show. Saving the licence raises its invoice at the plan's price; it was paid on time.
   const demoStart = addDays(today, -70);
-  await saveLicence(zara, ctx.universityId, {
+  const demo = await saveLicence(zara, ctx.universityId, {
     plan: "pilot",
     studentCap: 13,
     staffCap: 25,
@@ -64,9 +92,23 @@ export async function seed(ctx: SeedContext) {
     startDate: demoStart,
     endDate: addDays(today, 20),
     notes: "Pilot for the Computer Science and Marketing departments. Renewal call booked with Asha.",
+    invoice: { issueDate: demoStart, dueDate: addDays(demoStart, 15) },
+  });
+  if (demo.invoice) await markInvoicePaid(farida, demo.invoice.id, { paidOn: addDays(demoStart, 9), reference: "UTR HDFC0042871193" });
+  // A charge outside the licence, now overdue.
+  await createInvoice(farida, {
+    universityId: ctx.universityId,
+    periodStart: addDays(today, -40),
+    periodEnd: addDays(today, 20),
+    description: "Extra onboarding for the Marketing department",
+    listPricePaise: 12_000_00,
+    gstRateBp: 1800,
+    issueDate: addDays(today, -40),
+    dueDate: addDays(today, -25),
   });
 
-  // A second university, created through core, on a Standard licence.
+  // A second university, created through core, on a Standard licence with a first-year
+  // discount. Its invoice was revised once: finance agreed a later due date.
   let [riverside] = await db().select().from(universities).where(eq(universities.slug, "riverside"));
   const riversideStart = addDays(today, -120);
   const riversideLicence = {
@@ -76,7 +118,9 @@ export async function seed(ctx: SeedContext) {
     modules: allModules,
     startDate: riversideStart,
     endDate: addDays(riversideStart, 364),
-    notes: "Annual licence, paid in two halves.",
+    notes: "Annual licence. Founding institute discount agreed with the principal.",
+    discountPaise: 72_000_00,
+    discountNote: "Founding institute offer: 10% off the first year",
   };
   if (!riverside) {
     const created = await createUniversityWithLicence(zara, {
@@ -85,64 +129,37 @@ export async function seed(ctx: SeedContext) {
       adminName: "Rahul Rao",
       adminEmail: "rahul@riverside.edu",
       invoicePrefix: "RCC",
-      licence: riversideLicence,
+      licence: { ...riversideLicence, invoice: { issueDate: addDays(today, -6), dueDate: addDays(today, 9) } },
     });
     [riverside] = await db().select().from(universities).where(eq(universities.id, created.id));
-  } else {
-    await saveLicence(zara, riverside.id, riversideLicence);
-  }
-
-  // Zinny invoices. Number them straight after the ones that survive a re-seed.
-  const fy = financialYear(today);
-  await db()
-    .update(platInvoiceCounters)
-    // Only numbers shaped <prefix>/<year>/<seq> count (other rows, e.g. test fixtures, are skipped).
-    .set({ lastSeq: sql`coalesce((select max(split_part(${platInvoices.number}, '/', 3)::int) from ${platInvoices} where ${platInvoices.financialYear} = ${fy} and split_part(${platInvoices.number}, '/', 3) ~ '^[0-9]+$'), 0)` })
-    .where(eq(platInvoiceCounters.financialYear, fy));
-  const pilot = await createInvoice(farida, {
-    universityId: ctx.universityId,
-    periodStart: demoStart,
-    periodEnd: addDays(today, 20),
-    description: "Zinny Pilot licence, up to 13 students and 25 staff",
-    basePaise: 45_000_00,
-    gstRateBp: 1800,
-    issueDate: demoStart,
-    dueDate: addDays(demoStart, 15),
-  });
-  await markInvoicePaid(farida, pilot.id, { paidOn: addDays(demoStart, 9), reference: "UTR HDFC0042871193" });
-  await createInvoice(farida, {
-    universityId: ctx.universityId,
-    periodStart: addDays(today, -40),
-    periodEnd: addDays(today, 20),
-    description: "Extra onboarding for the Marketing department",
-    basePaise: 12_000_00,
-    gstRateBp: 1800,
-    issueDate: addDays(today, -40),
-    dueDate: addDays(today, -25),
-  });
-  const existing = await db().select({ id: platInvoices.id }).from(platInvoices).where(eq(platInvoices.universityId, riverside.id));
-  if (existing.length === 0) {
-    const first = await createInvoice(farida, {
+    const [raised] = await db().select().from(platInvoices).where(eq(platInvoices.universityId, riverside.id));
+    if (raised) {
+      await reviseInvoice(farida, raised.id, {
+        description: raised.description,
+        periodStart: raised.periodStart,
+        periodEnd: raised.periodEnd,
+        listPricePaise: raised.listPricePaise ?? raised.basePaise + raised.discountPaise,
+        discountPaise: raised.discountPaise,
+        discountNote: raised.discountNote,
+        issueDate: raised.issueDate,
+        dueDate: addDays(today, 24),
+      });
+    }
+    // And one it has already paid.
+    const training = await createInvoice(farida, {
       universityId: riverside.id,
       periodStart: riversideStart,
-      periodEnd: addDays(riversideStart, 181),
-      description: "Zinny Standard licence, first half",
-      basePaise: 3_60_000_00,
+      periodEnd: addDays(riversideStart, 30),
+      description: "Staff training, two days on campus",
+      listPricePaise: 60_000_00,
       gstRateBp: 1800,
       issueDate: riversideStart,
       dueDate: addDays(riversideStart, 15),
     });
-    await markInvoicePaid(farida, first.id, { paidOn: addDays(riversideStart, 12), reference: "UTR ICIC0019920451" });
-    await createInvoice(farida, {
-      universityId: riverside.id,
-      periodStart: addDays(riversideStart, 182),
-      periodEnd: addDays(riversideStart, 364),
-      description: "Zinny Standard licence, second half",
-      basePaise: 3_60_000_00,
-      gstRateBp: 1800,
-      issueDate: today,
-      dueDate: addDays(today, 15),
-    });
+    await markInvoicePaid(farida, training.id, { paidOn: addDays(riversideStart, 12), reference: "UTR ICIC0019920451" });
+  } else {
+    // Seeding again keeps Riverside and its invoices; the licence is only brought up to date.
+    await saveLicence(zara, riverside.id, { ...riversideLicence, invoice: false });
   }
 
   // Content review: one course cleared, one flagged. The rest wait in the queue.

@@ -97,7 +97,8 @@ describe("licence rules", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ plan: "enterprise", studentCap: 5000, updatedBy: am.userId });
     const log = await systemDb().select().from(auditLog).where(eq(auditLog.universityId, U.id));
-    expect(log.map((l) => l.action).sort()).toEqual(["plat.licence.create", "plat.licence.update"]);
+    // Setting up the licence and moving it to another plan each raise an invoice too.
+    expect(log.map((l) => l.action).sort()).toEqual(["plat.invoice.create", "plat.invoice.create", "plat.licence.create", "plat.licence.update"]);
     expect(log.find((l) => l.action === "plat.licence.update")!.data).toMatchObject({ plan: "enterprise", before: { plan: "standard" } });
   });
 

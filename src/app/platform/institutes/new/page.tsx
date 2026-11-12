@@ -5,8 +5,12 @@ import { platformContext } from "@/server/context";
 import { createUniversityAction } from "@/modules/zinny-team-panel/actions";
 import { NoAccess } from "@/modules/zinny-team-panel/components/bits";
 import { OptionalLicence } from "@/modules/zinny-team-panel/components/optional-licence";
-import { LICENSABLE_MODULES, PLAN_DEFAULTS } from "@/modules/zinny-team-panel/lib/constants";
-import { addDays, addMonths, todayIST } from "@/modules/zinny-team-panel/lib/format";
+import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
+import { DEFAULT_PAYMENT_DAYS, zinnySeller } from "@/modules/zinny-team-panel/lib/constants";
+import { todayIST } from "@/modules/zinny-team-panel/lib/format";
+import { licenceDefaults } from "@/modules/zinny-team-panel/lib/licence";
+import { planOptions } from "@/modules/zinny-team-panel/services/plans";
+import { PASSWORD_MIN } from "@/server/auth/passwords";
 
 export const metadata = { title: "New institute" };
 
@@ -15,13 +19,16 @@ export default async function NewUniversityPage() {
   if (!canPlatform(actor, "platform.manage_universities")) return <NoAccess section="Institutes" />;
   const canLicence = canPlatform(actor, "platform.licences");
   const today = todayIST();
-  const d = PLAN_DEFAULTS.pilot;
+  const plans = canLicence ? await planOptions(actor) : [];
+  // A new institute usually starts on the Pilot; without one, on the first plan on offer.
+  const first = plans.find((p) => p.key === "pilot") ?? plans[0];
+  const superAdmin = isSuperAdmin(actor);
 
   return (
     <>
       <PageHeader
         title="New institute"
-        subtitle="Creates its private space and invites its Institute Admin by email. Nothing is visible to students until the admin sets it up."
+        subtitle="Creates its private space, invites its Institute Admin by email and, with a licence, invoices it for the plan. Nothing is visible to students until the admin sets it up."
       />
       <ActionForm action={createUniversityAction} resetOnSuccess={false} className="max-w-5xl space-y-6">
         <div className="grid gap-6 lg:grid-cols-2">
@@ -47,23 +54,28 @@ export default async function NewUniversityPage() {
                 <Field label="Email" hint="They get an email to set their password.">
                   <Input name="adminEmail" type="email" placeholder="name@institute.edu" required />
                 </Field>
+                {superAdmin && (
+                  <Field
+                    label="Password"
+                    hint={`Optional. Set it now and they can sign in straight away; pass it on safely, it isn't shown again. At least ${PASSWORD_MIN} characters. Left empty, they set their own from the invitation.`}
+                  >
+                    <Input name="adminPassword" type="password" autoComplete="new-password" minLength={PASSWORD_MIN} />
+                  </Field>
+                )}
               </div>
             </div>
           </Card>
           <Card className="h-fit">
             <CardTitle>Licence</CardTitle>
-            {canLicence ? (
+            {canLicence && first ? (
               <OptionalLicence
-                initial={{
-                  plan: "pilot",
-                  studentCap: d.studentCap,
-                  staffCap: d.staffCap,
-                  modules: LICENSABLE_MODULES.map((m) => m.id),
-                  startDate: today,
-                  endDate: addDays(addMonths(today, d.months), -1),
-                  notes: "",
-                }}
+                plans={plans}
+                initial={licenceDefaults(first, today)}
+                // A new institute starts in Zinny's default state until its GST details are filled in.
+                charge={{ invoiceDate: today, paymentDays: DEFAULT_PAYMENT_DAYS, intraState: zinnySeller().stateCode === "27" }}
               />
+            ) : canLicence ? (
+              <p className="text-[14px] text-muted">Every plan is archived. Restore one on the Plans page, then set up the licence from Licences.</p>
             ) : (
               <p className="text-[14px] text-muted">A Super Admin, Account Manager or Finance Admin sets up the licence afterwards.</p>
             )}

@@ -67,7 +67,15 @@ describe("new invoice terms", () => {
     const c = await setupCourse({ name: "Terms U" });
     await saveLicence(am, c.uni.id, licence({ plan: "standard", studentCap: 250, staffCap: 20, startDate: "2026-06-01", endDate: "2027-05-31" }));
     const terms = await invoiceTermsByUniversity(fin);
-    expect(terms[c.uni.id]).toEqual({ periodStart: "2026-06-01", periodEnd: "2027-05-31", description: "Zinny Standard licence, up to 250 students and 20 staff" });
+    // The line says the plan and the period; the price is the one copied onto the licence.
+    expect(terms[c.uni.id]).toEqual({
+      periodStart: "2026-06-01",
+      periodEnd: "2027-05-31",
+      description: "Zinny Standard licence, 1 Jun 2026 to 31 May 2027",
+      listPricePaise: 7_20_000_00,
+      discountPaise: 0,
+      discountNote: "",
+    });
     await expect(invoiceTermsByUniversity(sup)).rejects.toThrow();
   });
 });

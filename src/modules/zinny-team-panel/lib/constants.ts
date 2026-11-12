@@ -3,17 +3,7 @@ import type { RoleName } from "@/db/schema";
 
 /* ── Licences ── */
 
-export const PLANS = ["pilot", "standard", "enterprise"] as const;
-export type Plan = (typeof PLANS)[number];
-
-export const PLAN_LABELS: Record<Plan, string> = { pilot: "Pilot", standard: "Standard", enterprise: "Enterprise" };
-
-/** What each plan usually comes with, used to prefill a new licence. Every value can be changed. */
-export const PLAN_DEFAULTS: Record<Plan, { studentCap: number; staffCap: number; months: number }> = {
-  pilot: { studentCap: 100, staffCap: 10, months: 3 },
-  standard: { studentCap: 1000, staffCap: 60, months: 12 },
-  enterprise: { studentCap: 10000, staffCap: 500, months: 12 },
-};
+/* Plans live in plat_plans and are managed at /platform/plans (services/plans.ts). */
 
 /** Modules a licence can switch on: the product modules a university uses. */
 export const LICENSABLE_MODULES = [

@@ -11,6 +11,7 @@ import { ROLE_LABELS } from "@/server/authz/roles";
 import { spaceContext } from "@/server/context";
 import { exitSupportMode } from "@/server/services/support";
 import { getPreferences } from "@/modules/notifications-delivery/service";
+import { ImpersonationBanner } from "@/modules/zinny-team-panel/components/impersonation-banner";
 
 export default async function AdminLayout({ children, params }: { children: React.ReactNode; params: Promise<{ uni: string }> }) {
   const { uni } = await params;
@@ -70,6 +71,7 @@ export default async function AdminLayout({ children, params }: { children: Reac
 
   return (
     <div className="min-h-dvh">
+      <ImpersonationBanner slug={uni} />
       {actor.supportSessionId && (
         // Stays in view while scrolling, so nobody forgets they're inside someone else's institute.
         <div role="status" className="sticky top-0 z-30 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 bg-gold px-4 py-2 text-[13px] text-brand-deep">

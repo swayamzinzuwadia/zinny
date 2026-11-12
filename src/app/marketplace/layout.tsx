@@ -9,6 +9,7 @@ import { marketplaceAccess } from "@/modules/marketplace/service";
 import { loadActor } from "@/server/actor";
 import { currentUserId, homeSpacesFor, signOut } from "@/server/auth/session";
 import { display } from "@/modules/marketing/fonts";
+import { ImpersonationBanner } from "@/modules/zinny-team-panel/components/impersonation-banner";
 
 const navLink = "rounded-full px-2.5 py-2 sm:px-3 whitespace-nowrap text-canvas/75 [transition-property:color,background-color] duration-150 hover:bg-canvas/10 hover:text-canvas";
 
@@ -33,6 +34,7 @@ export default async function MarketplaceLayout({ children }: { children: React.
       id="marketplace-root"
       className={`display-headings flex min-h-dvh flex-col bg-canvas selection:bg-gold selection:text-brand-deep [&_:focus-visible]:outline-2 [&_:focus-visible]:outline-offset-2 [&_:focus-visible]:outline-gold ${display.variable}`}
     >
+      <ImpersonationBanner />
       <header className="sticky top-0 z-30 bg-brand-deep text-canvas shadow-[0_1px_0_rgb(250_246_234/0.08)]">
         <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3 sm:gap-6 sm:px-6">
           <Link href={person ? "/marketplace" : "/"} className="flex shrink-0 items-center">
