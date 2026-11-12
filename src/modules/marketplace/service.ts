@@ -71,7 +71,7 @@ async function liveListings(filter?: SQL): Promise<CatalogItem[]> {
       listing: mktListings,
       institute: universities.name,
       instituteSlug: universities.slug,
-      gstRateBp: courses.gstRateBp,
+      gstRateBp: sql<number>`case when ${universities.gstEnabled} then ${courses.gstRateBp} else 0 end`,
       lessons: sql<number>`(select count(*)::int from content_lessons l where l.course_id = ${mktListings.courseId} and l.ready and l.kind <> 'live')`,
       minutes: sql<number>`(select coalesce(sum(l.duration_minutes), 0)::int from content_lessons l where l.course_id = ${mktListings.courseId} and l.ready and l.kind <> 'live')`,
     })

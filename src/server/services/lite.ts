@@ -21,6 +21,7 @@ export async function universityLite(tx: Tx): Promise<UniversityLite> {
       timezone: universities.timezone,
       legalName: universities.legalName,
       gstin: universities.gstin,
+      gstEnabled: universities.gstEnabled,
       branding: universities.branding,
     })
     .from(universities)

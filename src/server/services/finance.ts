@@ -3,11 +3,39 @@ import { desc, eq, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { batches, courses, invoiceCounters, invoices, orders, universities, users } from "@/db/schema";
 import { assertCan, type Actor } from "../authz/engine";
+import { NotFoundError } from "../errors";
 import { financialYear, todayIn } from "../lib/dates";
-import { withTenant } from "../tenant";
+import { audit, withTenant } from "../tenant";
 
 export function gstFor(basePaise: number, rateBp: number) {
   return Math.round((basePaise * rateBp) / 10_000);
+}
+
+/** Whether the institute charges GST. Off means new orders and invoices carry no tax. */
+export async function gstEnabledFor(tx: Tx, universityId: string) {
+  const [u] = await tx.select({ gstEnabled: universities.gstEnabled }).from(universities).where(eq(universities.id, universityId));
+  return u?.gstEnabled ?? true;
+}
+
+/** GST for a new order: the course's rate, or nothing when the institute has turned GST off. */
+export async function orderGst(tx: Tx, universityId: string, basePaise: number, rateBp: number) {
+  return (await gstEnabledFor(tx, universityId)) ? gstFor(basePaise, rateBp) : 0;
+}
+
+/**
+ * Turns GST on or off for the institute. Needs `finance.manage`. Only orders and invoices
+ * created from now on change; anything already issued keeps what it was issued with.
+ */
+export async function setGstEnabled(actor: Actor, enabled: boolean) {
+  assertCan(actor, "finance.manage", { universityId: actor.universityId! });
+  return withTenant(actor, async (tx) => {
+    const [before] = await tx.select({ gstEnabled: universities.gstEnabled }).from(universities).where(eq(universities.id, actor.universityId!)).for("update");
+    if (!before) throw new NotFoundError("Institute");
+    if (before.gstEnabled === enabled) return { gstEnabled: enabled, changed: false };
+    await tx.update(universities).set({ gstEnabled: enabled }).where(eq(universities.id, actor.universityId!));
+    await audit(tx, actor, "finance.gst_setting", "university", actor.universityId!, { gstEnabled: { from: before.gstEnabled, to: enabled } });
+    return { gstEnabled: enabled, changed: true };
+  });
 }
 
 /** Intra-state supply → CGST + SGST (half each). Inter-state → IGST. */
@@ -52,7 +80,8 @@ export async function issueInvoice(tx: Tx, orderId: string) {
       orderId: order.id,
       number,
       financialYear: fy,
-      sellerGstin: uni.gstin,
+      // With GST off (and no tax on the order) the invoice is a plain one: no GSTIN, no tax rows.
+      sellerGstin: uni.gstEnabled || order.gstPaise > 0 ? uni.gstin : null,
       sellerName: uni.legalName ?? uni.name,
       buyerName: buyer.name,
       buyerEmail: buyer.email,

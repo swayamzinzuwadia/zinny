@@ -45,7 +45,7 @@ export { cancelHold, holdRecordedSeat } from "../services/enrolment";
 export { todayIn } from "../lib/dates";
 export { ensureRecordedBatch } from "../services/batches";
 export { createLectureCourse } from "../services/courses";
-export { gstFor } from "../services/finance";
+export { gstFor, splitGst, nextInvoiceNumber, gstEnabledFor, setGstEnabled } from "../services/finance";
 export { loadActor } from "../actor";
 
 // Zinny team (platform context, no university)

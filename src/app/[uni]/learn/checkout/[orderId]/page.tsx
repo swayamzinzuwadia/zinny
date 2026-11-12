@@ -50,14 +50,18 @@ export default async function Checkout({ params }: { params: Promise<{ uni: stri
             <dt className="text-muted">Course fee</dt>
             <dd className="tabular">{inr(order.basePaise)}</dd>
           </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-muted">CGST {pct(v.split.halfRatePercent)}</dt>
-            <dd className="tabular">{inr(v.split.cgstPaise)}</dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-muted">SGST {pct(v.split.halfRatePercent)}</dt>
-            <dd className="tabular">{inr(v.split.sgstPaise)}</dd>
-          </div>
+          {v.gst && (
+            <>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">CGST {pct(v.split.halfRatePercent)}</dt>
+                <dd className="tabular">{inr(v.split.cgstPaise)}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">SGST {pct(v.split.halfRatePercent)}</dt>
+                <dd className="tabular">{inr(v.split.sgstPaise)}</dd>
+              </div>
+            </>
+          )}
           <div className="flex justify-between gap-4 border-t border-line pt-3 text-[16px] font-semibold">
             <dt>Total</dt>
             <dd className="tabular">{inr(order.totalPaise)}</dd>
@@ -160,7 +164,7 @@ export default async function Checkout({ params }: { params: Promise<{ uni: stri
       </Card>
 
       <p className="mt-3 text-center text-xs text-muted">
-        After payment, your GST invoice is emailed to you and kept in{" "}
+        After payment, your {v.gst ? "GST invoice" : "invoice"} is emailed to you and kept in{" "}
         <Link href={`/${uni}/learn/invoices`} className="underline underline-offset-2">
           Invoices
         </Link>

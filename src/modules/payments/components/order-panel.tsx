@@ -47,7 +47,7 @@ export function OrderPanel({ uni, d, closeHref }: { uni: string; d: Detail; clos
         </div>
         <dl className="mt-3 text-[14px]">
           <Row label="Course fee">{inr(o.basePaise)}</Row>
-          {gst && gst.igst > 0 ? (
+          {o.gstPaise === 0 && (!gst || gst.cgst + gst.sgst + gst.igst === 0) ? null : gst && gst.igst > 0 ? (
             <Row label="IGST">{inr(gst.igst)}</Row>
           ) : (
             <>
@@ -87,7 +87,7 @@ export function OrderPanel({ uni, d, closeHref }: { uni: string; d: Detail; clos
       </div>
 
       <div>
-        <h3 className="mb-1.5 text-[14px] font-medium">GST invoice</h3>
+        <h3 className="mb-1.5 text-[14px] font-medium">{o.gstPaise > 0 ? "GST invoice" : "Invoice"}</h3>
         {d.invoice ? (
           <div className="flex flex-wrap items-center justify-between gap-2 text-[14px]">
             <span>

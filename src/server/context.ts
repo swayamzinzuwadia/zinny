@@ -23,6 +23,7 @@ export const universityBySlug = cache(async (slug: string): Promise<UniversityLi
       timezone: universities.timezone,
       legalName: universities.legalName,
       gstin: universities.gstin,
+      gstEnabled: universities.gstEnabled,
     })
     .from(universities)
     .where(eq(universities.slug, slug));

@@ -17,7 +17,8 @@ import { appUrl } from "./config";
 import { dayIn, loadOrder, uni, universityRow } from "./internal";
 import { inr } from "./money";
 import { renderInvoicePdf, type InvoicePdfData } from "./pdf/invoice-pdf";
-import { payInvoiceDocuments, payRefunds } from "./schema";
+import { manualInvoicePdf, myManualInvoicesIn, type MyManualInvoice } from "./manual-invoices";
+import { payInvoiceDocuments, payManualInvoices, payRefunds } from "./schema";
 import { settingsFor } from "./settings";
 
 export type InvoiceRow = typeof invoices.$inferSelect;
@@ -36,6 +37,14 @@ export function gstRatePercent(basePaise: number, gstPaise: number, courseRateBp
   if (courseRateBp !== null && Math.round((basePaise * courseRateBp) / 10_000) === gstPaise) return courseRateBp / 100;
   if (basePaise === 0) return 0;
   return Math.round((gstPaise * 10_000) / basePaise) / 100;
+}
+
+/**
+ * Whether an order invoice is a GST one. Core issues invoices with no GSTIN and no tax
+ * while the institute has GST turned off; those print as a plain "Invoice".
+ */
+export function invoiceHasGst(i: { sellerGstin: string | null; cgstPaise: number; sgstPaise: number; igstPaise: number }) {
+  return i.cgstPaise + i.sgstPaise + i.igstPaise > 0 || !!i.sellerGstin;
 }
 
 /** Splits core's "Course — Batch" description. */
@@ -62,6 +71,7 @@ export async function invoicePdfData(tx: Tx, invoice: InvoiceRow, snapshot?: { s
     seller: { legalName: invoice.sellerName, tradeName: u.name, address: u.address, gstin: invoice.sellerGstin, stateCode: u.stateCode },
     invoice: { number: invoice.number, date: dayIn(u.timezone, invoice.issuedAt), placeOfSupply: invoice.placeOfSupply },
     buyer: { name: invoice.buyerName, email: invoice.buyerEmail },
+    gst: invoiceHasGst(invoice),
     line: { course, batch, sac: settings.sacCode, basePaise: invoice.basePaise },
     tax: { cgstPaise: invoice.cgstPaise, sgstPaise: invoice.sgstPaise, igstPaise: invoice.igstPaise, ratePercent: gstRatePercent(invoice.basePaise, gst, c?.gstRateBp ?? null) },
     totalPaise: invoice.totalPaise,
@@ -117,7 +127,12 @@ export async function invoiceDownload(actor: Actor, invoiceId: string): Promise<
   if (!/^[0-9a-f-]{36}$/i.test(invoiceId)) throw new NotFoundError("Invoice");
   return withTenant(actor, async (tx) => {
     const [invoice] = await tx.select().from(invoices).where(eq(invoices.id, invoiceId));
-    if (!invoice) throw new NotFoundError("Invoice");
+    if (!invoice) {
+      // Not an order invoice: one the institute raised itself, for staff or the person billed.
+      const manual = await manualInvoicePdf(tx, actor, invoiceId);
+      if (!manual) throw new NotFoundError("Invoice");
+      return { fileName: invoiceFileName(manual.number), bytes: manual.bytes, number: manual.number };
+    }
     const [order] = await tx.select({ userId: orders.userId }).from(orders).where(eq(orders.id, invoice.orderId));
     const own = order?.userId === actor.userId && can(actor, "self.view_invoices", { universityId: uni(actor), ownerUserId: actor.userId });
     if (!own && !can(actor, "finance.view", { universityId: uni(actor) })) throw new NotFoundError("Invoice");
@@ -134,6 +149,8 @@ export type MyInvoice = {
   batch: string;
   totalPaise: number;
   gstPaise: number;
+  /** False for an invoice issued while the institute had GST turned off. */
+  gst: boolean;
   orderStatus: string;
   refundedPaise: number;
   refundInFlightPaise: number;
@@ -153,7 +170,9 @@ export async function hasInvoices(actor: Actor): Promise<boolean> {
       .innerJoin(orders, eq(orders.id, invoices.orderId))
       .where(eq(orders.userId, actor.userId))
       .limit(1);
-    return !!row;
+    if (row) return true;
+    const [billed] = await tx.select({ id: payManualInvoices.id }).from(payManualInvoices).where(eq(payManualInvoices.userId, actor.userId)).limit(1);
+    return !!billed;
   });
 }
 
@@ -186,6 +205,7 @@ export async function myInvoices(actor: Actor): Promise<MyInvoice[]> {
         batch: b,
         totalPaise: invoice.totalPaise,
         gstPaise: invoice.cgstPaise + invoice.sgstPaise + invoice.igstPaise,
+        gst: invoiceHasGst(invoice),
         orderStatus,
         refundedPaise: mine.filter((r) => r.status === "processed").reduce((n, r) => n + r.amountPaise, 0),
         refundInFlightPaise: mine.filter((r) => r.status !== "processed").reduce((n, r) => n + r.amountPaise, 0),
@@ -194,21 +214,31 @@ export async function myInvoices(actor: Actor): Promise<MyInvoice[]> {
   });
 }
 
-/** Email text for a new invoice. */
-export function invoiceEmail(o: { universityName: string; slug: string; number: string; course: string; totalPaise: number; name: string }) {
+/** Invoices the institute raised for the learner (exam fees, hostel…), newest first. Needs `self.view_invoices`. */
+export async function myManualInvoices(actor: Actor): Promise<MyManualInvoice[]> {
+  assertCan(actor, "self.view_invoices", { universityId: uni(actor), ownerUserId: actor.userId });
+  return withTenant(actor, async (tx) => {
+    const [u] = await tx.select({ timezone: universities.timezone }).from(universities).where(eq(universities.id, uni(actor)));
+    return myManualInvoicesIn(tx, actor, dayIn(u?.timezone ?? "Asia/Kolkata", new Date()));
+  });
+}
+
+/** Email text for a new invoice. `gst: false` for an institute that doesn't charge GST. */
+export function invoiceEmail(o: { universityName: string; slug: string; number: string; course: string; totalPaise: number; name: string; gst?: boolean }) {
   const link = `${appUrl()}/${o.slug}/learn/invoices`;
-  const subject = `Your GST invoice ${o.number} from ${o.universityName}`;
+  const what = o.gst === false ? "invoice" : "GST invoice";
+  const subject = `Your ${what} ${o.number} from ${o.universityName}`;
   const text = [
     `Hi ${o.name},`,
     "",
     `Thank you for your payment of ${inr(o.totalPaise)} for ${o.course}.`,
-    `Your GST invoice ${o.number} is ready. Download it any time from Invoices in your account:`,
+    `Your ${what} ${o.number} is ready. Download it any time from Invoices in your account:`,
     link,
     "",
     o.universityName,
   ].join("\n");
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  const html = `<p>Hi ${esc(o.name)},</p><p>Thank you for your payment of <b>${esc(inr(o.totalPaise))}</b> for ${esc(o.course)}.</p><p>Your GST invoice <b>${esc(o.number)}</b> is ready. Download it any time from Invoices in your account.</p><p><a href="${esc(link)}">Open my invoices</a></p><p>${esc(o.universityName)}</p>`;
+  const html = `<p>Hi ${esc(o.name)},</p><p>Thank you for your payment of <b>${esc(inr(o.totalPaise))}</b> for ${esc(o.course)}.</p><p>Your ${what} <b>${esc(o.number)}</b> is ready. Download it any time from Invoices in your account.</p><p><a href="${esc(link)}">Open my invoices</a></p><p>${esc(o.universityName)}</p>`;
   return { subject, text, html };
 }
 
@@ -229,7 +259,7 @@ export async function renderAndEmailInvoice(tx: Tx, actor: Actor, orderId: strin
   if (!claimed) return "already_emailed";
   const u = await universityRow(tx);
   const { course } = splitDescription(invoice.description, "");
-  const mail = invoiceEmail({ universityName: u.name, slug: u.slug, number: invoice.number, course, totalPaise: invoice.totalPaise, name: invoice.buyerName });
+  const mail = invoiceEmail({ universityName: u.name, slug: u.slug, number: invoice.number, course, totalPaise: invoice.totalPaise, name: invoice.buyerName, gst: invoiceHasGst(invoice) });
   await sendEmail({ to: invoice.buyerEmail, ...mail, kind: "payments.invoice", universityId: invoice.universityId });
   await audit(tx, actor, "invoice.emailed", "invoice", invoice.id, { number: invoice.number });
   return "emailed";
