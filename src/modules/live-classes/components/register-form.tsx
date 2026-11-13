@@ -25,11 +25,11 @@ const OPTIONS: { value: AttendanceStatus; label: string; on: string }[] = [
   { value: "absent", label: "Absent", on: "bg-danger text-canvas" },
 ];
 
-function SaveButton({ dirty }: { dirty: number }) {
+function SaveButton({ dirty, fresh }: { dirty: number; fresh: boolean }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" disabled={pending || dirty === 0} className={buttonClass("primary")}>
-      {pending ? "Saving…" : dirty === 0 ? "No changes" : `Save ${dirty} change${dirty === 1 ? "" : "s"}`}
+      {pending ? "Saving…" : dirty === 0 ? "No changes" : fresh ? "Save attendance" : `Save ${dirty} change${dirty === 1 ? "" : "s"}`}
     </button>
   );
 }
@@ -45,6 +45,7 @@ export function RegisterForm({
   start,
   rows,
   editable,
+  presetPresent = false,
 }: {
   uni: string;
   batchId: string;
@@ -52,10 +53,19 @@ export function RegisterForm({
   start: string;
   rows: RegisterRow[];
   editable: boolean;
+  /**
+   * Nobody has a status yet (a class taught in the room): start everyone as present, so
+   * taking attendance is tapping the absent few and saving once.
+   */
+  presetPresent?: boolean;
 }) {
   const [state, action] = useActionState<ActionState, FormData>(saveRegisterAction, null);
   const initial = useMemo(() => Object.fromEntries(rows.map((r) => [r.userId, { status: r.status, note: r.note }])), [rows]);
-  const [values, setValues] = useState(initial);
+  const [values, setValues] = useState(() =>
+    presetPresent && editable
+      ? Object.fromEntries(rows.map((r) => [r.userId, { ...initial[r.userId], status: r.status ?? (r.current && !r.lateEnrolment ? ("present" as const) : null) }]))
+      : initial,
+  );
   const [openNote, setOpenNote] = useState<Record<string, boolean>>({});
   // The page refreshes while a class is on (students joining). Take the new statuses for rows
   // nobody has touched here, and keep every unsaved edit.
@@ -86,6 +96,11 @@ export function RegisterForm({
       <input type="hidden" name="batchId" value={batchId} />
       <input type="hidden" name="date" value={date} />
       <input type="hidden" name="start" value={start} />
+      {editable && presetPresent && (
+        <p className="mb-3 rounded-2xl bg-brand-soft px-4 py-3 text-[14px] text-brand-strong">
+          Everyone starts as present. Tap Absent or Late for anyone who wasn&apos;t, then save once.
+        </p>
+      )}
       {editable && rows.some((r) => !values[r.userId]?.status) && (
         <div className="mb-3 flex flex-wrap items-center gap-2 text-[13px] text-muted">
           <span>Students without a status:</span>
@@ -168,7 +183,7 @@ export function RegisterForm({
       {editable && (
         <div className="sticky bottom-3 z-10 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-full border border-line bg-surface/95 px-4 py-2 backdrop-blur">
           <span className="text-[13px] text-muted">{dirty ? "Unsaved changes are highlighted." : "Students who join through Zinny are marked automatically."}</span>
-          <SaveButton dirty={dirty} />
+          <SaveButton dirty={dirty} fresh={presetPresent && rows.every((r) => !r.status)} />
         </div>
       )}
       {state?.error && <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">{state.error}</p>}

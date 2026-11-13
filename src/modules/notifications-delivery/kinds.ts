@@ -252,6 +252,8 @@ export const MODULE_KINDS: KindDefinition[] = [
   moduleKind("gamification.challenge_won", "Challenge won", "A learner finished a challenge among its winners.", "learners", ["student"], "Open the leaderboard", "/learn/leaderboard"),
   moduleKind("payment.refunded", "Refund processed", "A refund for a learner's payment was processed.", "learners", LEARNERS, "Open my invoices", "/learn/invoices"),
   moduleKind("payments.invoice", "GST invoice", "A learner's GST invoice is ready after payment.", "learners", LEARNERS, "Open my invoices", "/learn/invoices"),
+  moduleKind("payments.fee_reminder", "Fee reminder", "An invoice the institute raised is unpaid past its due date. Sent when staff press Send reminders.", "learners", LEARNERS, "Open my invoices", "/learn/invoices"),
+  moduleKind("batch.announcement", "Batch announcement", "Faculty, a HOD or an admin sent a message to everyone in a batch.", "learners", ["student"], "Open Zinny", "/learn"),
   moduleKind("finance.refund_failed", "Refund failed", "Razorpay couldn't process a refund. Goes to Accounts and the Institute Admin.", "staff", ["accounts_fees", "institute_admin"], "Open Sales", "/admin/finance/sales"),
 ];
 
@@ -283,10 +285,12 @@ export const LEARNER_DESCRIPTION: Readonly<Record<string, string>> = {
   "gamification.challenge_won": "You finish a challenge among its winners.",
   "payment.refunded": "A refund of your payment is on its way to you.",
   "payments.invoice": "The GST invoice for something you paid for is ready.",
+  "payments.fee_reminder": "An invoice the institute gave you is still unpaid after its due date.",
+  "batch.announcement": "Your teacher or the institute sends a message to your batch.",
 };
 
 /** Kinds about money. Institute courses are free for their students, so most learners never get one. */
-export const PAYMENT_KINDS: ReadonlySet<string> = new Set(["payment.refund_due", "payment.refunded", "payments.invoice"]);
+export const PAYMENT_KINDS: ReadonlySet<string> = new Set(["payment.refund_due", "payment.refunded", "payments.invoice", "payments.fee_reminder"]);
 
 /**
  * Whether a kind belongs on a learner's own settings page: never a staff kind, and a payment

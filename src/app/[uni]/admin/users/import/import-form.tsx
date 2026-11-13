@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Badge, buttonClass, Textarea } from "@/components/ui";
+import { Badge, Field, Select, buttonClass, Textarea } from "@/components/ui";
 import { importAction, type ImportState } from "../../actions";
 
 const SAMPLE = `name,email,phone,role,department,access_ends
@@ -14,7 +14,7 @@ const TEMPLATE = `name,email,phone,role,department,access_ends
 Ravi Kumar,ravi@example.edu,9800000001,student,CS,
 `;
 
-export function ImportForm({ uni }: { uni: string }) {
+export function ImportForm({ uni, batches = [] }: { uni: string; batches?: { id: string; label: string; seatsLeft: number }[] }) {
   const [state, action] = useActionState<ImportState, FormData>(importAction, null);
   const rows = state?.result?.rows ?? [];
   return (
@@ -33,6 +33,18 @@ export function ImportForm({ uni }: { uni: string }) {
         <span className="mb-1.5 block text-[13px] font-medium">Or paste the rows</span>
         <Textarea name="csv" rows={8} defaultValue={state?.csv ?? ""} placeholder={SAMPLE} />
       </label>
+      {batches.length > 0 && (
+        <Field label="Put the students in a batch (optional)" hint="Every student in the file gets a seat in it. Staff rows are added as usual.">
+          <Select name="batchId" defaultValue="">
+            <option value="">No batch</option>
+            {batches.map((b) => (
+              <option key={b.id} value={b.id} disabled={b.seatsLeft <= 0}>
+                {b.label} ({b.seatsLeft <= 0 ? "full" : `${b.seatsLeft} seat${b.seatsLeft === 1 ? "" : "s"} left`})
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
       <div className="flex gap-2">
         <button name="mode" value="check" className={buttonClass("secondary")}>
           Check file

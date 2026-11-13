@@ -222,7 +222,7 @@ async function assignRoleTxFlagged(tx: Tx, actor: Actor, given: RoleInput) {
  * Emits user.invited when someone was just given a role and can't sign in yet
  * (no password). Identity turns it into an invitation email.
  */
-async function inviteIfNoPassword(tx: Tx, actor: Actor, userId: string, role: RoleName) {
+export async function inviteIfNoPassword(tx: Tx, actor: Actor, userId: string, role: RoleName) {
   const [u] = await tx
     .select({ id: users.id, email: users.email, name: users.name, passwordHash: users.passwordHash })
     .from(users)
@@ -259,7 +259,7 @@ export async function revokeRole(actor: Actor, assignmentId: string) {
 
 /* ─────────────────────────── Adding people ─────────────────────────── */
 
-async function upsertPerson(tx: Tx, email: string, name: string, phone?: string | null): Promise<string> {
+export async function upsertPerson(tx: Tx, email: string, name: string, phone?: string | null): Promise<string> {
   const res = await tx.execute<{ id: string }>(sql`select zinny_upsert_user(${email}, ${name}, ${phone ?? ""}) as id`);
   return res[0].id;
 }
@@ -351,7 +351,7 @@ export type ImportRow = {
  * Columns: name, email, phone, role, department, access_ends
  * Everything is checked first. Nothing is saved unless every row is valid.
  */
-export async function importPeople(actor: Actor, csv: string, opts: { commit: boolean }) {
+export async function importPeople(actor: Actor, csv: string, opts: { commit: boolean; batchId?: string | null }) {
   assertCan(actor, "user.import", { universityId: uni(actor) });
   const parsed = Papa.parse<Record<string, string>>(csv.trim(), {
     header: true,
@@ -401,7 +401,12 @@ export async function importPeople(actor: Actor, csv: string, opts: { commit: bo
 
     const errors = rows.filter((r) => !r.ok).length;
     let saved = 0;
+    let placed: { added: number; already: number; elsewhere: number; clashes: number; batchName: string } | null = null;
+    if (opts.batchId && errors === 0 && !rows.some((r) => r.input?.role === "student")) {
+      throw new ValidationError("The file has no students to put in the batch. Add student rows, or pick no batch.");
+    }
     if (opts.commit && errors === 0) {
+      const studentIds: string[] = [];
       for (const r of rows) {
         const userId = await upsertPerson(tx, r.input!.email, r.input!.name, r.input!.phone);
         const { created } = await assignRoleTxFlagged(tx, actor, {
@@ -412,7 +417,15 @@ export async function importPeople(actor: Actor, csv: string, opts: { commit: bo
         });
         if (created) await inviteIfNoPassword(tx, actor, userId, r.input!.role);
         if (r.input!.studentDepartmentId) await addStudentDepartmentsTx(tx, actor, userId, [r.input!.studentDepartmentId]);
+        if (r.input!.role === "student") studentIds.push(userId);
         saved++;
+      }
+      // Every student in the file into one batch, in the same transaction: a full batch saves nothing.
+      // A file can't stop to ask about each clash, so the import adds them anyway and says how many clash.
+      if (opts.batchId) {
+        const { placeStudentsTx } = await import("./daily");
+        const p = await placeStudentsTx(tx, actor, opts.batchId, studentIds, { acknowledgeClash: true });
+        placed = { added: p.added.length, already: p.already.length, elsewhere: p.elsewhere.length, clashes: p.clashes.length, batchName: `${p.courseTitle}, ${p.batchName}` };
       }
       await audit(tx, actor, "user.import", "user", null, { rows: saved });
     }
@@ -421,6 +434,7 @@ export async function importPeople(actor: Actor, csv: string, opts: { commit: bo
       total: rows.length,
       errors,
       saved,
+      placed,
     };
   });
 }

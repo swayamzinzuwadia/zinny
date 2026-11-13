@@ -12,6 +12,9 @@ import { listPeople } from "@/server/services/users";
 import { studentDepartmentMap } from "@/server/services/students";
 import type { RoleName } from "@/db/schema";
 import { addPersonAction, graduateAction, linkParentAction, revokeRoleAction, studentDepartmentsAction } from "../../actions";
+import { addToBatchAction } from "../../daily-actions";
+import { BulkPlaceBar, BulkTick } from "@/components/bulk-place";
+import { quickChoices } from "@/server/services/daily";
 
 const TITLES = {
   administration: ["Administration", "Institute Admin, Board / Owner and Accounts & Fees."],
@@ -47,6 +50,9 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
   // Students only see the courses of their departments; Admins and HODs decide which.
   const admit = reach(actor, "user.admit", university.id);
   const admitDepts = depts.filter((d) => admit.all || admit.departmentIds.has(d.id));
+  // Students can be ticked and put into a batch together by people who admit students.
+  const placeBatches = g === "students" ? (await quickChoices(actor)).place : [];
+  const bulk = placeBatches.length > 0;
   const studentDepts = g === "students" ? await studentDepartmentMap(actor, people.map((p) => p.id)) : new Map<string, { id: string; name: string }[]>();
 
   return (
@@ -99,9 +105,16 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
               ) : undefined}
             </Empty>
           ) : (
-            <Table head={["Name", "Roles", ""]}>
+            <>
+            {bulk && <BulkPlaceBar uni={uni} batches={placeBatches.map((b) => ({ id: b.id, label: b.label, seatsLeft: b.seatsLeft }))} action={addToBatchAction} />}
+            <Table head={bulk ? ["", "Name", "Roles", ""] : ["Name", "Roles", ""]}>
               {people.map((p) => (
                 <tr key={p.id}>
+                  {bulk && (
+                    <Td className="w-8">
+                      {p.roles.some((r) => r.role === "student") && <BulkTick userId={p.id} name={p.name} />}
+                    </Td>
+                  )}
                   <Td>
                     <div className="font-medium">{p.name}</div>
                     <div className="text-sm text-muted">{p.email}</div>
@@ -207,6 +220,7 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
                 </tr>
               ))}
             </Table>
+            </>
           )}
         </div>
 

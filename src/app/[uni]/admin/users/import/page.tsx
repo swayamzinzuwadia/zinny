@@ -1,6 +1,7 @@
 import { Card, PageHeader } from "@/components/ui";
 import { assertCan } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
+import { quickChoices } from "@/server/services/daily";
 import { ImportForm } from "./import-form";
 
 export const metadata = { title: "Bulk import" };
@@ -9,6 +10,7 @@ export default async function ImportPage({ params }: { params: Promise<{ uni: st
   const { uni } = await params;
   const { actor, university } = await spaceContext(uni);
   assertCan(actor, "user.import", { universityId: university.id });
+  const { place } = await quickChoices(actor);
   return (
     <>
       <PageHeader
@@ -17,7 +19,7 @@ export default async function ImportPage({ params }: { params: Promise<{ uni: st
       />
       <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]">
         <Card>
-          <ImportForm uni={uni} />
+          <ImportForm uni={uni} batches={place.map((b) => ({ id: b.id, label: b.label, seatsLeft: b.seatsLeft }))} />
         </Card>
         <Card className="h-fit text-sm">
           <div className="mb-2 font-semibold">Columns</div>

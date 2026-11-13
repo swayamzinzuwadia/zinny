@@ -211,10 +211,19 @@ const linesOf = (tx: Tx, invoiceId: string) => tx.select().from(payManualInvoice
  */
 export async function createManualInvoice(actor: Actor, input: InvoiceInput): Promise<ManualInvoiceRow> {
   assertCan(actor, "finance.manage", { universityId: uni(actor) });
+  return withTenant(actor, (tx) => createManualInvoiceTx(tx, actor, input));
+}
+
+/**
+ * createManualInvoice inside a transaction the caller holds (the dashboard's "Record a fee
+ * payment" issues the invoice and records its payment together). Same rules and permission.
+ */
+export async function createManualInvoiceTx(tx: Tx, actor: Actor, input: InvoiceInput): Promise<ManualInvoiceRow> {
+  assertCan(actor, "finance.manage", { universityId: uni(actor) });
   const lines = cleanLines(input.lines);
   const money = cleanMoney(lines, input);
   const notes = cleanNotes(input.notes);
-  return withTenant(actor, async (tx) => {
+  {
     const u = await universityRow(tx);
     const today = todayIn(u.timezone);
     const dates = cleanDates({ issueDate: input.issueDate?.trim() || today, dueDate: input.dueDate }, today);
@@ -291,7 +300,7 @@ export async function createManualInvoice(actor: Actor, input: InvoiceInput): Pr
       });
     }
     return inv;
-  });
+  }
 }
 
 export type InvoiceEdit = { lines: LineInput[]; discountPaise?: number; discountNote?: string; issueDate: string; dueDate?: string | null; notes?: string };
@@ -361,6 +370,12 @@ function fyOf(date: string) {
 /** Marks an unpaid invoice paid. Needs `finance.manage`. */
 export async function recordManualPayment(actor: Actor, id: string, input: { paidOn: string; mode: string; reference?: string }): Promise<ManualInvoiceRow> {
   assertCan(actor, "finance.manage", { universityId: uni(actor) });
+  return withTenant(actor, (tx) => recordManualPaymentTx(tx, actor, id, input));
+}
+
+/** recordManualPayment inside a transaction the caller holds. Same rules and permission. */
+export async function recordManualPaymentTx(tx: Tx, actor: Actor, id: string, input: { paidOn: string; mode: string; reference?: string }): Promise<ManualInvoiceRow> {
+  assertCan(actor, "finance.manage", { universityId: uni(actor) });
   if (!(PAYMENT_MODES as readonly string[]).includes(input.mode)) throw new ValidationError("Pick how it was paid: cash, UPI, bank transfer, cheque, card or other.");
   const mode = input.mode as PaymentMode;
   const reference = (input.reference ?? "").replace(/\s+/g, " ").trim();
@@ -368,7 +383,7 @@ export async function recordManualPayment(actor: Actor, id: string, input: { pai
   if (!reference && (mode === "upi" || mode === "bank_transfer" || mode === "cheque")) {
     throw new ValidationError(`Add the ${mode === "cheque" ? "cheque number" : mode === "upi" ? "UPI transaction id" : "bank reference (UTR)"} so this payment can be traced later.`);
   }
-  return withTenant(actor, async (tx) => {
+  {
     const before = await loadForUpdate(tx, id);
     if (before.status === "paid") throw new ValidationError("This invoice is already marked paid.");
     if (before.status === "cancelled") throw new ValidationError("A cancelled invoice can't take a payment. Create a new invoice instead.");
@@ -383,7 +398,7 @@ export async function recordManualPayment(actor: Actor, id: string, input: { pai
       .returning();
     await audit(tx, actor, "manual_invoice.paid", "pay_manual_invoice", id, { number: before.number, paidOn: input.paidOn, mode, reference: reference || null, totalPaise: before.totalPaise });
     return row;
-  });
+  }
 }
 
 /** Takes a recorded payment back (a bounced cheque, a wrong entry): the invoice is unpaid and editable again. Needs `finance.manage`. */

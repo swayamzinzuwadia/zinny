@@ -6,6 +6,38 @@ import { buttonClass, cx, type ButtonVariant } from "./ui";
 
 export type ActionState = { ok?: string; error?: string; at?: number } | null;
 export type FormAction = (prev: ActionState, data: FormData) => Promise<ActionState>;
+/** An answer that may instead be a timetable clash warning, which the form turns into "Add anyway". */
+export type ClashState = (NonNullable<ActionState> & { clash?: string }) | null;
+export type ClashFormAction = (prev: ClashState, data: FormData) => Promise<ClashState>;
+
+/**
+ * The warning a form shows when adding a student would clash with their other batches.
+ * "Add anyway" sends the same form again with `acknowledge=1`; the other button drops it.
+ */
+export function ClashPrompt({ warning, onCancel, pending }: { warning: string; onCancel: () => void; pending?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-warn-soft p-3 text-sm text-warn" role="alert">
+      <div className="font-semibold">Timetable clash</div>
+      <p className="mt-1">{warning}</p>
+      <input type="hidden" name="acknowledge" value="1" />
+      <div className="mt-3 flex flex-wrap gap-2">
+        {pending === undefined ? (
+          <SubmitButton size="sm" pendingText="Adding…">
+            Add anyway
+          </SubmitButton>
+        ) : (
+          // A form sent by hand (not through its action) passes its own pending state.
+          <button type="submit" disabled={pending} className={buttonClass("primary", "sm")}>
+            {pending ? "Adding…" : "Add anyway"}
+          </button>
+        )}
+        <button type="button" className={buttonClass("secondary", "sm")} onClick={onCancel}>
+          Don&apos;t add
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function SubmitButton({ children, variant = "primary", size = "md", pendingText }: { children: ReactNode; variant?: ButtonVariant; size?: "md" | "sm"; pendingText?: string }) {
   const { pending } = useFormStatus();
