@@ -60,6 +60,8 @@ export type Session = {
   topic?: string | null;
   /** On a faculty member's own timetable: they teach this class's section. */
   taughtByMe?: boolean;
+  /** On a student's timetable: their other classes at the same time (markClashes). */
+  clashesWith?: SessionClash[];
 };
 
 /** All sessions of the given batches between `from` and `to` (inclusive), sorted by time. */
@@ -103,45 +105,101 @@ export type Clash = {
   batchName: string;
   courseTitle: string;
   weekday: number;
-  /** e.g. "Mon 9 am–11 am" */
+  /** e.g. "Mon 9 am–11 am", or for a one-off class "Sat, 21 Nov, 2 pm–4 pm" */
   when: string;
+  /** Set for a clash on one date only: a class of either batch that was moved or added. */
+  date?: string;
 };
+
+/** At most this many one-off clashes are reported per pair of batches: the warning only needs the first few. */
+export const MAX_ONE_OFF_CLASHES = 6;
+
+/** A batch's one-off classes (moved here or extra), wherever they fall. */
+function oneOffSessions(b: ScheduledBatch): Session[] {
+  const dated = (b.overrides ?? []).filter((o) => (o.kind === "rescheduled" && o.newDate) || o.kind === "extra");
+  if (dated.length === 0) return [];
+  const dates = dated.map((o) => (o.kind === "rescheduled" ? o.newDate! : o.date)).sort();
+  return expandSessions([{ ...b, slots: [] }], dates[0], dates[dates.length - 1]).filter((s) => s.kind !== "regular");
+}
 
 /**
  * Does `candidate` overlap any batch the student already has?
- * Two batches clash when their date ranges overlap AND, on a weekday that
- * actually occurs in that overlap, their timings overlap.
+ *
+ * Weekly: two batches clash when their date ranges overlap AND, on a weekday that actually
+ * occurs in that overlap, their weekly timings overlap. Reported once per weekday ("Mon 9 am–11 am").
+ *
+ * One-off: a class moved or added on a single date, by either batch, that lands on a class of
+ * the other batch clashes on that date ("Sat, 21 Nov, 2 pm–4 pm"). Only the dates of one-off
+ * classes are expanded, so the work stays small however long the batches run, and at most
+ * MAX_ONE_OFF_CLASHES are reported per pair.
  */
 export function findClashes(candidate: ScheduledBatch, existing: ScheduledBatch[]): Clash[] {
   const clashes: Clash[] = [];
+  const candidateOneOffs = oneOffSessions(candidate);
   for (const other of existing) {
     if (other.batchId === candidate.batchId) continue;
+    const label = { batchId: other.batchId, batchName: other.batchName, courseTitle: other.courseTitle };
     const from = maxDate(candidate.startDate, other.startDate);
     const to = minDate(candidate.endDate, other.endDate);
-    if (from > to) continue;
 
-    const weekdaysInOverlap = new Set<number>();
-    const span = Math.min(daysBetween(from, to), 6);
-    for (let i = 0; i <= span; i++) weekdaysInOverlap.add(isoWeekday(addDays(from, i)));
+    if (from <= to) {
+      const weekdaysInOverlap = new Set<number>();
+      const span = Math.min(daysBetween(from, to), 6);
+      for (let i = 0; i <= span; i++) weekdaysInOverlap.add(isoWeekday(addDays(from, i)));
 
-    const seen = new Set<number>();
-    for (const a of candidate.slots) {
-      for (const b of other.slots) {
-        if (a.weekday !== b.weekday || !weekdaysInOverlap.has(a.weekday) || seen.has(a.weekday)) continue;
-        if (timesOverlap(a.startTime, a.endTime, b.startTime, b.endTime)) {
-          seen.add(a.weekday);
-          clashes.push({
-            batchId: other.batchId,
-            batchName: other.batchName,
-            courseTitle: other.courseTitle,
-            weekday: a.weekday,
-            when: `${weekdayLabel(b.weekday)} ${formatTime(b.startTime)}–${formatTime(b.endTime)}`,
-          });
+      const seen = new Set<number>();
+      for (const a of candidate.slots) {
+        for (const b of other.slots) {
+          if (a.weekday !== b.weekday || !weekdaysInOverlap.has(a.weekday) || seen.has(a.weekday)) continue;
+          if (timesOverlap(a.startTime, a.endTime, b.startTime, b.endTime)) {
+            seen.add(a.weekday);
+            clashes.push({ ...label, weekday: a.weekday, when: `${weekdayLabel(b.weekday)} ${formatTime(b.startTime)}–${formatTime(b.endTime)}` });
+          }
         }
       }
     }
+
+    // One-off classes can fall outside a batch's own dates, so they are checked whatever the overlap.
+    const pairs: { date: string; mine: Session; theirs: Session }[] = [];
+    for (const mine of candidateOneOffs) {
+      for (const theirs of expandSessions([other], mine.date, mine.date)) pairs.push({ date: mine.date, mine, theirs });
+    }
+    for (const theirs of oneOffSessions(other)) {
+      // The candidate's own one-offs were paired above.
+      for (const mine of expandSessions([candidate], theirs.date, theirs.date)) if (mine.kind === "regular") pairs.push({ date: theirs.date, mine, theirs });
+    }
+    const dated = new Set<string>();
+    for (const { date, mine, theirs } of pairs.sort((x, y) => (x.date + x.theirs.startTime).localeCompare(y.date + y.theirs.startTime))) {
+      if (dated.size >= MAX_ONE_OFF_CLASHES) break;
+      const key = `${date} ${theirs.startTime}`;
+      if (dated.has(key) || !timesOverlap(mine.startTime, mine.endTime, theirs.startTime, theirs.endTime)) continue;
+      dated.add(key);
+      clashes.push({
+        ...label,
+        weekday: isoWeekday(date),
+        date,
+        when: `${formatDate(date, { weekday: true })}, ${formatTime(theirs.startTime)}–${formatTime(theirs.endTime)}`,
+      });
+    }
   }
   return clashes;
+}
+
+/** Another class a session overlaps on a student's timetable. */
+export type SessionClash = { batchId: string; batchName: string; courseTitle: string; startTime: string; endTime: string };
+
+/**
+ * Marks each session that overlaps a session of another batch on the same date: the student
+ * can't be in both. For a student's own timetable, after they joined despite the warning.
+ */
+export function markClashes(sessions: Session[]): Session[] {
+  const byDate = new Map<string, Session[]>();
+  for (const s of sessions) byDate.set(s.date, [...(byDate.get(s.date) ?? []), s]);
+  return sessions.map((s) => {
+    const hits = (byDate.get(s.date) ?? []).filter((o) => o.batchId !== s.batchId && timesOverlap(o.startTime, o.endTime, s.startTime, s.endTime));
+    if (hits.length === 0) return s;
+    return { ...s, clashesWith: hits.map((o) => ({ batchId: o.batchId, batchName: o.batchName, courseTitle: o.courseTitle, startTime: o.startTime, endTime: o.endTime })) };
+  });
 }
 
 /** Slots inside one batch must not overlap each other. */

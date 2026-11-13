@@ -48,6 +48,7 @@ export const MENU: MenuSection[] = [
     hint: "Everything you sell and teach",
     items: [
       { label: "Courses", href: "/products/courses" },
+      { label: "My timetable", href: "/products/timetable" },
       { label: "Tests", href: "/products/tests" },
       { label: "Assignments", href: "/products/assignments" },
       { label: "Learning progress", href: "/products/content" },
@@ -154,6 +155,13 @@ export const SECTION_ACCESS: Partial<Record<RoleName, Partial<Record<SectionKey,
   visiting_faculty: { dashboard: "batches", products: "batches", users: "students" },
 };
 
+/** Faculty on at least one batch here: their classes make a timetable of their own. */
+function teachesBatches(actor: Actor, universityId: string, now: Date) {
+  return actor.assignments.some(
+    (a) => isActive(a, now) && a.universityId === universityId && a.scopeType === "batch" && (a.role === "permanent_faculty" || a.role === "visiting_faculty"),
+  );
+}
+
 const RANK: Record<Access, number> = { full: 5, dept: 4, batches: 3, students: 3, view: 2 };
 
 /** Sections this actor sees, with the strongest access any of their roles gives. */
@@ -185,6 +193,8 @@ export function menuFor(actor: Actor, universityId: string, now = new Date()) {
           ? { ...s, items: s.items.filter((i) => i.href !== "/products/certificates") }
           : s,
       )
+      // My timetable is for people who teach batches.
+      .map((s) => (s.key === "products" && !teachesBatches(actor, universityId, now) ? { ...s, items: s.items.filter((i) => i.href !== "/products/timetable") } : s))
       // Scoped viewers only get the people lists they can actually use. Faculty find their students on their batch pages.
       .map((s) => {
         if (s.key !== "users") return s;

@@ -24,8 +24,8 @@ export { markEnrolmentCompleted } from "../services/core-api";
 
 // Calendar
 export { scheduledBatches } from "../services/batches";
-export { expandSessions } from "../services/schedule";
-export type { ScheduledBatch, Session, Slot, Override } from "../services/schedule";
+export { expandSessions, findClashes } from "../services/schedule";
+export type { Clash, ScheduledBatch, Session, Slot, Override } from "../services/schedule";
 export { studentTimetable } from "../services/timetable";
 
 // Messages and files

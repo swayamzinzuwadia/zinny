@@ -18,7 +18,7 @@ import { contentCourseProgress } from "@/modules/content-progress/schema";
 import { recordedOutline, type RecordedOutline } from "@/modules/content-progress/recorded";
 import { spacesFor } from "@/server/auth/session";
 import { audit, cancelHold, gstFor, holdRecordedSeat, loadActor, systemActorFor, todayIn, withTenant } from "@/server/core";
-import { expandSessions, holdMarketplaceSeat, type Slot } from "@/server/core";
+import { expandSessions, findClashes, holdMarketplaceSeat, type Clash, type ScheduledBatch, type Slot } from "@/server/core";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
 import { daysBetween, minutesNowIn, toMinutes } from "@/server/lib/dates";
 import { joinWindowOpen } from "@/server/lib/links";
@@ -671,6 +671,83 @@ export async function hasLiveSeat(userId: string, universityId: string) {
     .where(and(eq(enrolments.userId, userId), eq(enrolments.universityId, universityId), eq(enrolments.status, "active"), eq(batches.recorded, false)))
     .limit(1);
   return !!row;
+}
+
+/* ───────────────────────────── Timetable clashes ───────────────────────────── */
+
+type ClashSource = ScheduledBatch & { timezone: string; institute: string; universityId: string };
+
+/** Dates, weekly timings and one-off changes of these batches, from any institute. Reads only. */
+async function schedulesAcross(batchIds: string[]): Promise<Map<string, ClashSource>> {
+  const ids = [...new Set(batchIds)];
+  const out = new Map<string, ClashSource>();
+  if (ids.length === 0) return out;
+  const db = systemDb();
+  const [rows, slots, overrides] = await Promise.all([
+    db
+      .select({ batch: batches, courseTitle: courses.title, timezone: universities.timezone, institute: universities.name })
+      .from(batches)
+      .innerJoin(courses, eq(courses.id, batches.courseId))
+      .innerJoin(universities, eq(universities.id, batches.universityId))
+      .where(and(inArray(batches.id, ids), eq(batches.recorded, false))),
+    db.select().from(batchSlots).where(inArray(batchSlots.batchId, ids)),
+    db.select().from(sessionOverrides).where(inArray(sessionOverrides.batchId, ids)),
+  ]);
+  for (const { batch: b, courseTitle, timezone, institute } of rows) {
+    out.set(b.id, {
+      batchId: b.id,
+      batchName: b.name,
+      courseId: b.courseId,
+      courseTitle,
+      startDate: b.startDate,
+      endDate: b.endDate,
+      slots: slots.filter((s) => s.batchId === b.id).map((s) => ({ weekday: s.weekday, startTime: s.startTime, endTime: s.endTime })),
+      overrides: overrides
+        .filter((o) => o.batchId === b.id)
+        .map((o) => ({ date: o.date, kind: o.kind, newDate: o.newDate, startTime: o.startTime, endTime: o.endTime, note: o.note })),
+      timezone,
+      institute,
+      universityId: b.universityId,
+    });
+  }
+  return out;
+}
+
+/**
+ * For each live batch a buyer is looking at, the classes it would clash with: the batches the
+ * buyer already has a seat in (or is paying for) at any institute, since one Zinny account
+ * learns everywhere, plus, with `together`, the other batches in the same list (a cart).
+ * A batch at another institute is named with that institute. Batches whose institutes keep
+ * different time zones aren't compared: their class times aren't on the same clock.
+ * Reads only. A warning, never a block.
+ */
+export async function liveClashes(userId: string | null, batchIds: string[], opts: { together?: boolean } = {}): Promise<Map<string, Clash[]>> {
+  const out = new Map<string, Clash[]>();
+  if (!userId || batchIds.length === 0) return out;
+  const mine = await systemDb()
+    .select({ batchId: enrolments.batchId, courseId: enrolments.courseId })
+    .from(enrolments)
+    .where(
+      and(
+        eq(enrolments.userId, userId),
+        or(eq(enrolments.status, "active"), and(eq(enrolments.status, "held"), sql`${enrolments.holdExpiresAt} > now()`)),
+      ),
+    );
+  const sched = await schedulesAcross([...batchIds, ...mine.map((m) => m.batchId)]);
+  const named = (b: ClashSource, from: ClashSource): ScheduledBatch =>
+    b.universityId === from.universityId ? b : { ...b, batchName: `${b.batchName}, ${b.institute}` };
+  for (const id of new Set(batchIds)) {
+    const candidate = sched.get(id);
+    if (!candidate) continue;
+    const others = [...mine.map((m) => m.batchId), ...(opts.together ? batchIds : [])]
+      .filter((other, i, all) => all.indexOf(other) === i && other !== id)
+      .map((other) => sched.get(other))
+      .filter((b): b is ClashSource => !!b && b.courseId !== candidate.courseId && b.timezone === candidate.timezone)
+      .map((b) => named(b, candidate));
+    const clashes = findClashes(candidate, others);
+    if (clashes.length > 0) out.set(id, clashes);
+  }
+  return out;
 }
 
 /* ───────────────────────────── For the cart ───────────────────────────── */

@@ -9,7 +9,8 @@ import { bundleView } from "@/modules/payments/bundles";
 import { BundleCheckout } from "@/modules/payments/components/bundle-checkout";
 import { inr } from "@/modules/payments/money";
 import { FORMAT_LINE } from "@/modules/marketplace/components/price";
-import { listingTitlesByBatch, liveBatchNames } from "@/modules/marketplace/service";
+import { ClashNote } from "@/modules/marketplace/components/clash-note";
+import { listingTitlesByBatch, liveBatchNames, liveClashes } from "@/modules/marketplace/service";
 
 export const metadata = { title: "Checkout" };
 export const dynamic = "force-dynamic";
@@ -27,6 +28,8 @@ export default async function BundleCheckoutPage({ params }: { params: Promise<{
   });
   // Each line reads as it did on the shelf, not by the name of the course behind it.
   const [titles, liveBatches] = await Promise.all([listingTitlesByBatch(b.items.map((i) => i.batchId)), liveBatchNames(b.items.map((i) => i.batchId))]);
+  // Seats held here count as the learner's own while they pay, so two seats in this checkout that meet together show up too.
+  const clashes = b.status === "pending" ? await liveClashes(userId, b.items.filter((i) => liveBatches.has(i.batchId)).map((i) => i.batchId)) : new Map();
   const seats = b.items.filter((i) => liveBatches.has(i.batchId)).length;
   const subtotal = b.items.reduce((n, i) => n + i.basePaise, 0);
   const gst = b.items.reduce((n, i) => n + i.gstPaise, 0);
@@ -57,6 +60,7 @@ export default async function BundleCheckoutPage({ params }: { params: Promise<{
                   <div className="mt-1 text-[12.5px] font-medium text-brand">
                     {liveBatches.has(i.batchId) ? `${FORMAT_LINE.live} · a seat in ${liveBatches.get(i.batchId)}` : FORMAT_LINE.recorded}
                   </div>
+                  <ClashNote clashes={clashes.get(i.batchId)} className="mt-2 text-[13.5px]" after="You can still pay for it." />
                 </div>
                 <div className="tabular shrink-0 text-[15px]">{inr(i.totalPaise)}</div>
               </li>
