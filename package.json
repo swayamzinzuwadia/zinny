@@ -6,7 +6,7 @@
     "gen": "tsx scripts/gen-registry.ts",
     "predev": "npm run gen",
     "dev": "node scripts/next.mjs dev",
-    "prebuild": "npm run gen",
+    "prebuild": "npm run gen && tsx scripts/deploy-db.ts",
     "build": "next build",
     "start": "node scripts/next.mjs start",
     "lint": "eslint",
