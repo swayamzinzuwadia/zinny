@@ -4,8 +4,10 @@
  *  - Put students straight into a batch (one, or many from the Students list or a CSV),
  *    the way accepting a request does: institute courses are free for their students,
  *    so the seat is active at once. Needs `user.admit` for the batch's department
- *    (admins everywhere, HODs in their department). Seats are checked; a student who
- *    already has a place in the course is left as they are.
+ *    (admins everywhere, HODs in their department). Each student goes through the batch
+ *    page's own rule (`addStudentToBatchTx` in enrolment.ts): seats, a clash warning with
+ *    "Add anyway", a request in the course giving way. A student who already studies the
+ *    course is left as they are.
  *  - "Add a student": the account, the batch and, if they paid at the desk, the fee
  *    receipt, in one transaction (addStudentQuickly).
  *  - "Send an announcement" to one or more batches (`batch.teach`: the batch's faculty,
@@ -19,11 +21,12 @@ import { and, eq, inArray, isNull, notInArray } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { batchSlots, batches, courses, departments, enrolments, roleAssignments, universities, users } from "@/db/schema";
 import { assertCan, can, reach, type Actor } from "../authz/engine";
-import { emit } from "../events";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors";
+import { clashSentence } from "../lib/clashes";
 import { formatDate, todayIn } from "../lib/dates";
 import { audit, withTenant } from "../tenant";
 import { loadBatch, seatsTaken, studentsIn } from "./batches";
+import { addStudentToBatchTx, expireStaleHolds, studentClashesTx } from "./enrolment";
 import { notify } from "./notifications";
 import { admitStudentTx, ensureStudentRoleTx } from "./students";
 import { inviteIfNoPassword, upsertPerson } from "./users";
@@ -61,15 +64,25 @@ export type PlacementResult = {
   already: { userId: string; name: string }[];
   /** Have a place in another batch of the course: move them with a batch switch instead. */
   elsewhere: { userId: string; name: string }[];
+  /**
+   * Students whose other batches clash with this one. Without `acknowledgeClash` nobody is
+   * added and this lists them, so the page can ask "Add anyway"; with it, they're added and
+   * this says whose timetable now marks a clash.
+   */
+  clashes: { userId: string; name: string; warning: string }[];
+  /** True when nothing was added because of the clashes above. */
+  waitingOnClash: boolean;
 };
 
 /**
- * Puts students into a batch inside an open transaction. Checks `user.admit` on the batch's
- * department, that the batch is running and has the seats, and gives each student the
- * student role and the batch's department if they lacked them. A request already waiting
- * in this batch is accepted.
+ * Puts students into a batch inside an open transaction, by the same rules as adding one
+ * student on the batch page (`addStudentToBatchTx`): the batch must be running and have the
+ * seats, a request or accepted seat in the course gives way to the new place, and a clash
+ * with the student's other batches is a warning first. On top of that it needs `user.admit`
+ * for the batch's department and gives anyone who lacks it the student role. All or nothing:
+ * not enough seats saves nobody.
  */
-export async function placeStudentsTx(tx: Tx, actor: Actor, batchId: string, userIds: string[]): Promise<PlacementResult> {
+export async function placeStudentsTx(tx: Tx, actor: Actor, batchId: string, userIds: string[], opts: { acknowledgeClash?: boolean } = {}): Promise<PlacementResult> {
   if (!UUID.test(batchId)) throw new NotFoundError("Batch");
   const ids = [...new Set(userIds)].filter((id) => UUID.test(id));
   if (ids.length === 0) throw new ValidationError("Pick at least one student.");
@@ -89,23 +102,27 @@ export async function placeStudentsTx(tx: Tx, actor: Actor, batchId: string, use
   if (people.length !== ids.length) throw new ValidationError("Someone in the list isn't part of this institute. Add them as a student first.");
   const nameOf = new Map(people.map((p) => [p.id, p.name]));
 
+  await expireStaleHolds(tx, { batchId: batch.id });
   const live = await tx
     .select()
     .from(enrolments)
     .where(and(inArray(enrolments.userId, ids), eq(enrolments.courseId, batch.courseId), notInArray(enrolments.status, [...FINISHED])));
-  const result: PlacementResult = { batchName: batch.name, courseTitle: course.title, added: [], already: [], elsewhere: [] };
-  const toInsert: string[] = [];
-  const toAccept: typeof live = [];
+  const result: PlacementResult = { batchName: batch.name, courseTitle: course.title, added: [], already: [], elsewhere: [], clashes: [], waitingOnClash: false };
+  const toPlace: string[] = [];
+  let ownSeats = 0;
   for (const userId of ids) {
-    const mine = live.find((e) => e.userId === userId);
+    const mine = live.find((e) => e.userId === userId && (e.status === "active" || e.status === "completed"));
+    const pending = live.find((e) => e.userId === userId && e.batchId === batch.id && (e.status === "approved" || e.status === "held"));
     const who = { userId, name: nameOf.get(userId)! };
-    if (!mine) toInsert.push(userId);
-    else if (mine.batchId !== batch.id) result.elsewhere.push(who);
-    else if (mine.status === "requested") toAccept.push(mine);
-    else result.already.push(who);
+    if (mine?.batchId === batch.id) result.already.push(who);
+    else if (mine) result.elsewhere.push(who);
+    else {
+      toPlace.push(userId);
+      if (pending) ownSeats++; // an accepted seat or hold here already counts as taken
+    }
   }
-  const needed = toInsert.length + toAccept.length;
-  if (needed === 0) return result;
+  if (toPlace.length === 0) return result;
+  const needed = toPlace.length - ownSeats;
   const left = batch.seatLimit - (await seatsTaken(tx, batch.id));
   if (needed > left) {
     throw new ConflictError(
@@ -116,56 +133,40 @@ export async function placeStudentsTx(tx: Tx, actor: Actor, batchId: string, use
     );
   }
 
-  const now = new Date();
-  const decided = { decidedAt: now, decidedBy: actor.userId || null };
-  for (const userId of [...toInsert, ...toAccept.map((e) => e.userId)]) {
-    await admitStudentTx(tx, actor, userId, [batch.departmentId]);
+  for (const userId of toPlace) {
+    const c = await studentClashesTx(tx, userId, batch.id, batch.courseId);
+    if (c.length) result.clashes.push({ userId, name: nameOf.get(userId)!, warning: clashSentence(c, `${nameOf.get(userId)}'s place in ${course.title}, ${batch.name}`) });
   }
-  const placed: { enrolmentId: string; userId: string }[] = [];
-  if (toInsert.length) {
-    const rows = await tx
-      .insert(enrolments)
-      .values(toInsert.map((userId) => ({ universityId: uni(actor), userId, courseId: batch.courseId, batchId: batch.id, status: "active" as const, enrolledAt: now, ...decided })))
-      .returning({ id: enrolments.id, userId: enrolments.userId });
-    placed.push(...rows.map((r) => ({ enrolmentId: r.id, userId: r.userId })));
+  if (result.clashes.length && !opts.acknowledgeClash) {
+    result.waitingOnClash = true;
+    return result;
   }
-  for (const e of toAccept) {
-    await tx.update(enrolments).set({ status: "active", enrolledAt: now, ...decided }).where(eq(enrolments.id, e.id));
-    placed.push({ enrolmentId: e.id, userId: e.userId });
+
+  for (const userId of toPlace) {
+    await ensureStudentRoleTx(tx, actor, userId);
+    const r = await addStudentToBatchTx(tx, actor, { batchId: batch.id, userId, acknowledgeClash: true });
+    if (r.status === "enrolled") result.added.push({ userId, name: r.student.name });
   }
-  const startsLater = batch.startDate > (await today(tx, actor));
-  await notify(
-    tx,
-    uni(actor),
-    placed.map((p) => p.userId),
-    {
-      kind: "enrolment.confirmed",
-      title: `You're enrolled in ${course.title}`,
-      body: startsLater ? `${batch.name} starts on ${formatDate(batch.startDate)}. It's on your timetable.` : `${batch.name} is on your timetable now.`,
-      data: { courseId: course.id, batchId: batch.id },
-    },
-  );
-  for (const p of placed) {
-    await audit(tx, actor, "enrolment.add", "enrolment", p.enrolmentId, { userId: p.userId, batchId: batch.id });
-    await emit(tx, actor, "enrolment.confirmed", { enrolmentId: p.enrolmentId, userId: p.userId, courseId: course.id, batchId: batch.id });
-  }
-  result.added = placed.map((p) => ({ userId: p.userId, name: nameOf.get(p.userId)! }));
   return result;
 }
 
 /** Puts one or many existing students into a batch (Students list, "Add to batch"). */
-export async function addStudentsToBatch(actor: Actor, batchId: string, userIds: string[]): Promise<PlacementResult> {
+export async function addStudentsToBatch(actor: Actor, batchId: string, userIds: string[], opts: { acknowledgeClash?: boolean } = {}): Promise<PlacementResult> {
   if (!canPlaceStudents(actor)) throw new ForbiddenError();
-  return withTenant(actor, (tx) => placeStudentsTx(tx, actor, batchId, userIds));
+  return withTenant(actor, (tx) => placeStudentsTx(tx, actor, batchId, userIds, opts));
 }
 
 /** A sentence saying what happened, for the page that asked. */
 export function placementSummary(r: PlacementResult): string {
   const names = (l: { name: string }[]) => (l.length <= 3 ? l.map((x) => x.name).join(", ") : `${l.slice(0, 2).map((x) => x.name).join(", ")} and ${l.length - 2} more`);
+  if (r.waitingOnClash) {
+    return `${r.clashes.map((c) => c.warning).join(" ")} Nobody was added yet. Add them anyway, or untick ${r.clashes.length === 1 ? "this student" : "these students"}.`;
+  }
   const parts = [
     r.added.length ? `${r.added.length === 1 ? r.added[0].name : `${r.added.length} students`} added to ${r.courseTitle}, ${r.batchName}. They've been told.` : "",
     r.already.length ? `${names(r.already)} ${r.already.length === 1 ? "was" : "were"} already in it.` : "",
     r.elsewhere.length ? `${names(r.elsewhere)} already ${r.elsewhere.length === 1 ? "has a place" : "have places"} in another batch of this course; move them with a batch switch.` : "",
+    r.added.length && r.clashes.length ? `${names(r.clashes)} ${r.clashes.length === 1 ? "has" : "have"} a clash with another batch; their timetable marks it.` : "",
   ].filter(Boolean);
   return parts.join(" ") || "Nothing to change.";
 }
@@ -181,15 +182,34 @@ export type QuickStudentInput = {
   departmentId?: string | null;
   /** They paid at the desk: record it (needs `finance.manage`). Amount left out = the course price. */
   fee?: { amountPaise?: number | null; mode: string; reference?: string | null } | null;
+  /** They already study in a batch that clashes with this one, and staff said add them anyway. */
+  acknowledgeClash?: boolean;
 };
 
-export type QuickStudentResult = { userId: string; placement: PlacementResult | null; invoiceNumber: string | null };
+export type QuickStudentResult =
+  | { status: "added"; userId: string; placement: PlacementResult | null; invoiceNumber: string | null; /** Emailed a link to set a password (new here, no password yet). */ invited: boolean }
+  /** Nothing saved: the batch clashes with the student's other batches. Ask, then send `acknowledgeClash`. */
+  | { status: "clash"; warning: string };
+
+/** Thrown inside the transaction so a clash warning saves nothing; caught just outside it. */
+class ClashWarning extends Error {
+  constructor(readonly warning: string) {
+    super(warning);
+  }
+}
 
 /**
  * The account, the batch place and the fee receipt in one transaction. If any part fails,
  * nothing is saved. A person who already has an account (by email) is reused.
  */
 export async function addStudentQuickly(actor: Actor, input: QuickStudentInput): Promise<QuickStudentResult> {
+  return addStudentQuicklyOrWarn(actor, input).catch((e) => {
+    if (e instanceof ClashWarning) return { status: "clash" as const, warning: e.warning };
+    throw e;
+  });
+}
+
+async function addStudentQuicklyOrWarn(actor: Actor, input: QuickStudentInput): Promise<QuickStudentResult> {
   if (!canPlaceStudents(actor)) throw new ForbiddenError();
   const name = input.name.replace(/\s+/g, " ").trim();
   const email = input.email.trim().toLowerCase();
@@ -215,7 +235,8 @@ export async function addStudentQuickly(actor: Actor, input: QuickStudentInput):
     let placement: PlacementResult | null = null;
     let courseId: string | null = null;
     if (input.batchId) {
-      placement = await placeStudentsTx(tx, actor, input.batchId, [userId]);
+      placement = await placeStudentsTx(tx, actor, input.batchId, [userId], { acknowledgeClash: input.acknowledgeClash });
+      if (placement.waitingOnClash) throw new ClashWarning(`${placement.clashes[0].warning} Add them anyway, or pick another batch.`);
       if (placement.elsewhere.length) {
         throw new ConflictError(`${name} already has a place in another batch of ${placement.courseTitle}. Move them with a batch switch instead.`, "elsewhere");
       }
@@ -225,13 +246,18 @@ export async function addStudentQuickly(actor: Actor, input: QuickStudentInput):
       await admitStudentTx(tx, actor, userId, [input.departmentId!]);
     }
     await audit(tx, actor, "user.add", "user", userId, { email, role: "student", batchId: input.batchId ?? null });
-    if (newStudent) await inviteIfNoPassword(tx, actor, userId, "student");
+    let invited = false;
+    if (newStudent) {
+      const [u] = await tx.select({ passwordHash: users.passwordHash }).from(users).where(eq(users.id, userId));
+      invited = !u?.passwordHash;
+      await inviteIfNoPassword(tx, actor, userId, "student");
+    }
     let invoiceNumber: string | null = null;
     if (input.fee) {
       const fee = await recordFeeTx(tx, actor, { userId, courseId, amountPaise: input.fee.amountPaise ?? null, mode: input.fee.mode, reference: input.fee.reference });
       invoiceNumber = fee.number;
     }
-    return { userId, placement, invoiceNumber };
+    return { status: "added" as const, userId, placement, invoiceNumber, invited };
   });
 }
 

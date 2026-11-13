@@ -6,6 +6,7 @@ import { auditLog, batches, enrolments, notifications, roleAssignments, studentD
 import { loadActor } from "@/server/actor";
 import { ConflictError, ForbiddenError, ValidationError } from "@/server/errors";
 import { createBatch } from "@/server/services/batches";
+import { createCourse } from "@/server/services/courses";
 import { addStudentsToBatch, placementSummary, quickChoices } from "@/server/services/daily";
 import { decideEnrolment } from "@/server/services/enrolment";
 import { importPeople } from "@/server/services/users";
@@ -26,7 +27,7 @@ describe("adding existing students to a batch", () => {
     expect(rows.map((e) => e.status)).toEqual(["active", "active"]);
     const told = await systemDb().select().from(notifications).where(and(eq(notifications.userId, a.userId), eq(notifications.kind, "enrolment.confirmed")));
     expect(told).toHaveLength(1);
-    const audits = await systemDb().select().from(auditLog).where(and(eq(auditLog.universityId, ctx.uni.id), eq(auditLog.action, "enrolment.add")));
+    const audits = await systemDb().select().from(auditLog).where(and(eq(auditLog.universityId, ctx.uni.id), eq(auditLog.action, "enrolment.add_by_staff")));
     expect(audits).toHaveLength(2);
     const events = await eventsOfType("enrolment.confirmed", ctx.uni.id);
     expect(events.map((e) => e.payload.userId).sort()).toEqual([a.userId, b.userId].sort());
@@ -80,17 +81,60 @@ describe("adding existing students to a batch", () => {
     expect(placementSummary(r)).toMatch(/In Evening already has a place in another batch of this course; move them with a batch switch/);
   });
 
-  it("accepts a student's waiting request instead of adding a second place", async () => {
+  it("a student's waiting request, in this batch or another of the course, gives way to the place", async () => {
     const ctx = await setupCourse({ name: "Place Request U" });
-    // A request waiting for staff, as a student's "Ask for a seat" leaves it.
-    const s = await ctx.student("Waiting Student");
-    await systemDb().insert(enrolments).values({ universityId: ctx.uni.id, userId: s.userId, courseId: ctx.course.id, batchId: ctx.batch.id, status: "requested" });
-    const r = await addStudentsToBatch(ctx.admin, ctx.batch.id, [s.userId]);
-    expect(r.added).toHaveLength(1);
-    const rows = await systemDb().select().from(enrolments).where(eq(enrolments.userId, s.userId));
-    expect(rows.map((e) => e.status)).toEqual(["active"]);
-    // Nothing left to decide.
-    await expect(decideEnrolment(ctx.admin, rows[0].id, true)).rejects.toBeInstanceOf(ConflictError);
+    const other = await createBatch(ctx.hod, {
+      courseId: ctx.course.id,
+      name: "Evening",
+      startDate: "2030-11-04",
+      endDate: "2031-01-31",
+      seatLimit: 10,
+      slots: slots(WEEKDAYS, "18:00", "19:00"),
+      faculty: [{ userId: ctx.facultyUserId, role: "permanent_faculty" }],
+    });
+    // Requests waiting for staff, as a student's "Ask for a seat" leaves them.
+    const here = await ctx.student("Waiting Here");
+    const there = await ctx.student("Waiting There");
+    await systemDb().insert(enrolments).values([
+      { universityId: ctx.uni.id, userId: here.userId, courseId: ctx.course.id, batchId: ctx.batch.id, status: "requested" },
+      { universityId: ctx.uni.id, userId: there.userId, courseId: ctx.course.id, batchId: other.id, status: "requested" },
+    ]);
+    const r = await addStudentsToBatch(ctx.admin, ctx.batch.id, [here.userId, there.userId]);
+    expect(r.added).toHaveLength(2);
+    for (const s of [here, there]) {
+      const rows = await systemDb().select().from(enrolments).where(eq(enrolments.userId, s.userId));
+      expect(rows.map((e) => e.status).sort()).toEqual(["active", "cancelled"]);
+      expect(rows.find((e) => e.status === "active")!.batchId).toBe(ctx.batch.id);
+      // Nothing left to decide.
+      await expect(decideEnrolment(ctx.admin, rows.find((e) => e.status === "cancelled")!.id, true)).rejects.toBeInstanceOf(ConflictError);
+    }
+  });
+
+  it("warns about a clash with the students' other batches and adds nobody until told to add anyway", async () => {
+    const ctx = await setupCourse({ name: "Place Clash U" });
+    // Another course at an overlapping time (setupCourse's batch is Mon–Fri 9–11 am).
+    const ml = await createCourse(ctx.hod, { departmentId: ctx.dept.id, title: "Machine Learning", pricePaise: 0 });
+    const mlBatch = await createBatch(ctx.hod, {
+      courseId: ml.id,
+      name: "ML morning",
+      startDate: "2030-11-04",
+      endDate: "2031-01-31",
+      seatLimit: 10,
+      slots: slots(WEEKDAYS, "10:00", "12:00"),
+      faculty: [{ userId: ctx.facultyUserId, role: "permanent_faculty" }],
+    });
+    const busy = await ctx.student("Busy Student");
+    const free = await ctx.student("Free Student");
+    await addStudentsToBatch(ctx.admin, ctx.batch.id, [busy.userId]);
+    const warn = await addStudentsToBatch(ctx.admin, mlBatch.id, [busy.userId, free.userId]);
+    expect(warn.waitingOnClash).toBe(true);
+    expect(warn.added).toEqual([]);
+    expect(warn.clashes.map((c) => c.name)).toEqual(["Busy Student"]);
+    expect(placementSummary(warn)).toMatch(/^Busy Student's place in Machine Learning, ML morning clashes with Data Analytics – Weekday morning .*Nobody was added yet/);
+    expect(await systemDb().select().from(enrolments).where(eq(enrolments.batchId, mlBatch.id))).toHaveLength(0);
+    const added = await addStudentsToBatch(ctx.admin, mlBatch.id, [busy.userId, free.userId], { acknowledgeClash: true });
+    expect(added.added.map((x) => x.name).sort()).toEqual(["Busy Student", "Free Student"]);
+    expect(placementSummary(added)).toMatch(/Busy Student has a clash with another batch; their timetable marks it/);
   });
 
   it("refuses people who aren't part of the institute, ended batches and an empty pick", async () => {

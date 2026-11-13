@@ -51,9 +51,9 @@ function ago(d: Date) {
   return `${Math.round(h / 24)} d ago`;
 }
 
-export default async function Dashboard({ params, searchParams }: { params: Promise<{ uni: string }>; searchParams: Promise<{ done?: string }> }) {
+export default async function Dashboard({ params, searchParams }: { params: Promise<{ uni: string }>; searchParams: Promise<{ done?: string; classDone?: string }> }) {
   const { uni } = await params;
-  const { done } = await searchParams;
+  const { done, classDone } = await searchParams;
   const { actor, university } = await spaceContext(uni);
   const base = `/${uni}/admin`;
   const data = await dashboard(actor);
@@ -147,7 +147,7 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
       />
       <div className={cx("grid grid-cols-1 gap-6", today && showNeeds && "xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]")}>
         {today && (
-          <TodayPanel uni={uni} actor={actor} classes={today.classes} today={today.today} tz={today.tz} cancelAction={cancelClassAction} moveAction={moveClassAction} />
+          <TodayPanel uni={uni} actor={actor} classes={today.classes} today={today.today} tz={today.tz} cancelAction={cancelClassAction} moveAction={moveClassAction} notice={classDone?.slice(0, 300)} />
         )}
         {showNeeds && (
           <Card>

@@ -24,6 +24,7 @@ export function TodayPanel({
   tz,
   cancelAction,
   moveAction,
+  notice,
 }: {
   uni: string;
   actor: Actor;
@@ -32,10 +33,13 @@ export function TodayPanel({
   tz: string;
   cancelAction: FormAction;
   moveAction: FormAction;
+  /** What just happened to a class that left the list (cancelled or moved). */
+  notice?: string;
 }) {
   return (
     <Card>
       <CardTitle hint={classes.length ? `${classes.length} class${classes.length === 1 ? "" : "es"}` : undefined}>Today&apos;s classes</CardTitle>
+      {notice && <p className="mb-3 rounded-2xl bg-brand-soft px-4 py-3 text-[14px] text-brand-strong">{notice}</p>}
       {classes.length === 0 ? (
         <p className="rounded-2xl bg-canvas px-4 py-5 text-[14px] text-muted">No classes today in your batches.</p>
       ) : (
@@ -52,6 +56,7 @@ export function TodayPanel({
                 <input type="hidden" name="batchId" value={s.batchId} />
                 <input type="hidden" name="date" value={s.date} />
                 <input type="hidden" name="start" value={s.startTime} />
+                <input type="hidden" name="label" value={`${s.courseTitle}, ${s.batchName}`} />
               </>
             );
             return (
@@ -95,12 +100,15 @@ export function TodayPanel({
                       {registerButton(s)}
                     </Link>
                   )}
-                  {fresh && (
-                    <ActionForm action={markRestPresentAction} resetOnSuccess={false}>
+                  {/* Kept mounted once marked, so "8 students marked present" stays after the refresh. */}
+                  {markable && (
+                    <ActionForm action={markRestPresentAction} resetOnSuccess={false} className={fresh ? undefined : "contents"}>
                       {hidden}
-                      <SubmitButton size="sm" variant="secondary" pendingText="Saving…">
-                        Mark everyone present
-                      </SubmitButton>
+                      {fresh && (
+                        <SubmitButton size="sm" variant="secondary" pendingText="Saving…">
+                          Mark everyone present
+                        </SubmitButton>
+                      )}
                     </ActionForm>
                   )}
                   {s.canMark && s.state === "upcoming" && <span className="text-[13px] text-muted">Attendance opens at {clockIn(s.window.opensAt, tz)}</span>}

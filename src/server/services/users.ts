@@ -401,7 +401,7 @@ export async function importPeople(actor: Actor, csv: string, opts: { commit: bo
 
     const errors = rows.filter((r) => !r.ok).length;
     let saved = 0;
-    let placed: { added: number; already: number; elsewhere: number; batchName: string } | null = null;
+    let placed: { added: number; already: number; elsewhere: number; clashes: number; batchName: string } | null = null;
     if (opts.batchId && errors === 0 && !rows.some((r) => r.input?.role === "student")) {
       throw new ValidationError("The file has no students to put in the batch. Add student rows, or pick no batch.");
     }
@@ -421,10 +421,11 @@ export async function importPeople(actor: Actor, csv: string, opts: { commit: bo
         saved++;
       }
       // Every student in the file into one batch, in the same transaction: a full batch saves nothing.
+      // A file can't stop to ask about each clash, so the import adds them anyway and says how many clash.
       if (opts.batchId) {
         const { placeStudentsTx } = await import("./daily");
-        const p = await placeStudentsTx(tx, actor, opts.batchId, studentIds);
-        placed = { added: p.added.length, already: p.already.length, elsewhere: p.elsewhere.length, batchName: `${p.courseTitle}, ${p.batchName}` };
+        const p = await placeStudentsTx(tx, actor, opts.batchId, studentIds, { acknowledgeClash: true });
+        placed = { added: p.added.length, already: p.already.length, elsewhere: p.elsewhere.length, clashes: p.clashes.length, batchName: `${p.courseTitle}, ${p.batchName}` };
       }
       await audit(tx, actor, "user.import", "user", null, { rows: saved });
     }

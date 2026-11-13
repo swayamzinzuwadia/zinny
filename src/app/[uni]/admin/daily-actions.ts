@@ -6,10 +6,12 @@
  * Each one calls a service; the rules live there.
  */
 import { revalidatePath } from "next/cache";
-import type { ActionState } from "@/components/forms";
+import { redirect } from "next/navigation";
+import type { ActionState, ClashState } from "@/components/forms";
 import { attempt, rupeesToPaise, str } from "@/server/action";
 import { spaceContext } from "@/server/context";
 import { ValidationError } from "@/server/errors";
+import { formatTime } from "@/server/lib/dates";
 import { addSessionOverride } from "@/server/services/batches";
 import { addStudentQuickly, addStudentsToBatch, placementSummary, sendAnnouncement } from "@/server/services/daily";
 import { decideJoinRequest } from "@/modules/identity/joining";
@@ -27,6 +29,14 @@ function refresh(uni: string, batchId?: string) {
   if (batchId) revalidatePath(`/${uni}/admin/products/batches/${batchId}`);
 }
 
+/**
+ * A cancelled or moved class leaves today's list, taking its form's message with it, so the
+ * answer goes back to the dashboard in the address and Today's classes shows it.
+ */
+function classDone(uni: string, message: string): never {
+  redirect(`/${uni}/admin?classDone=${encodeURIComponent(message)}`);
+}
+
 const fmt = (d: string) => new Intl.DateTimeFormat("en-IN", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }).format(new Date(`${d}T00:00:00Z`));
 
 /* ── Today's classes ── */
@@ -37,7 +47,7 @@ export async function cancelClassAction(_: ActionState, data: FormData): Promise
   return attempt(async () => {
     await addSessionOverride(actor, batchId, { date: str(data, "date"), kind: "cancelled", note: str(data, "note") || undefined });
     refresh(uni, batchId);
-    return "Class cancelled. Its students were told.";
+    classDone(uni, `${str(data, "label") || "The class"} is cancelled. Its students were told.`);
   });
 }
 
@@ -57,7 +67,7 @@ export async function moveClassAction(_: ActionState, data: FormData): Promise<A
       note: str(data, "note") || undefined,
     });
     refresh(uni, batchId);
-    return `Class moved to ${fmt(newDate)}. Its students were told.`;
+    classDone(uni, `${str(data, "label") || "The class"} moved to ${fmt(newDate)} at ${formatTime(str(data, "startTime"))}. Its students were told.`);
   });
 }
 
@@ -76,9 +86,10 @@ export async function extraClassAction(_: ActionState, data: FormData): Promise<
 
 /* ── People and money ── */
 
-export async function quickAddStudentAction(_: ActionState, data: FormData): Promise<ActionState> {
+export async function quickAddStudentAction(_: ClashState, data: FormData): Promise<ClashState> {
   const { uni, actor } = await ctx(data);
-  return attempt(async () => {
+  let clash: string | null = null;
+  const res = await attempt(async () => {
     const paid = data.get("paid") === "on";
     const amount = str(data, "amount");
     const r = await addStudentQuickly(actor, {
@@ -88,7 +99,12 @@ export async function quickAddStudentAction(_: ActionState, data: FormData): Pro
       batchId: str(data, "batchId") || null,
       departmentId: str(data, "departmentId") || null,
       fee: paid ? { amountPaise: amount ? rupeesToPaise(amount) : null, mode: str(data, "mode"), reference: str(data, "reference") } : null,
+      acknowledgeClash: str(data, "acknowledge") === "1",
     });
+    if (r.status === "clash") {
+      clash = r.warning;
+      return;
+    }
     refresh(uni, str(data, "batchId") || undefined);
     const name = str(data, "name");
     const placed = r.placement
@@ -96,8 +112,10 @@ export async function quickAddStudentAction(_: ActionState, data: FormData): Pro
         ? `${name} is in ${r.placement.courseTitle}, ${r.placement.batchName}.`
         : `${name} was already in ${r.placement.batchName}.`
       : `${name} is added and sees their department's courses.`;
-    return [placed, r.invoiceNumber ? `Fee recorded on invoice ${r.invoiceNumber}.` : "", "They get an email to set their password."].filter(Boolean).join(" ");
+    const clashNote = r.placement?.clashes.length ? "Their timetable marks the classes that clash." : "";
+    return [placed, clashNote, r.invoiceNumber ? `Fee recorded on invoice ${r.invoiceNumber}.` : "", r.invited ? "They get an email to set their password." : ""].filter(Boolean).join(" ");
   });
+  return clash ? { clash, at: Date.now() } : res;
 }
 
 export async function recordFeeAction(_: ActionState, data: FormData): Promise<ActionState> {
@@ -148,19 +166,26 @@ export async function decideJoinInlineAction(_: ActionState, data: FormData): Pr
     await decideJoinRequest(actor, str(data, "requestId"), { accept, departmentIds });
     refresh(uni);
     const who = str(data, "name") || "The student";
-    return accept ? `${who} is in. They've been told.` : `Declined. ${who} has been told by email.`;
+    // The request leaves "Needs you" with its form, so the answer comes back in the address.
+    redirect(`/${uni}/admin?done=${encodeURIComponent(accept ? `${who} is in. They've been told.` : `Declined. ${who} has been told by email.`)}`);
   });
 }
 
-export async function addToBatchAction(_: ActionState, data: FormData): Promise<ActionState> {
+export async function addToBatchAction(_: ClashState, data: FormData): Promise<ClashState> {
   const { uni, actor } = await ctx(data);
   const batchId = str(data, "batchId");
-  return attempt(async () => {
+  let clash: string | null = null;
+  const res = await attempt(async () => {
     if (!batchId) throw new ValidationError("Pick the batch to add them to.");
-    const r = await addStudentsToBatch(actor, batchId, data.getAll("userId").map(String));
+    const r = await addStudentsToBatch(actor, batchId, data.getAll("userId").map(String), { acknowledgeClash: str(data, "acknowledge") === "1" });
+    if (r.waitingOnClash) {
+      clash = placementSummary(r);
+      return;
+    }
     refresh(uni, batchId);
     revalidatePath(`/${uni}/admin/users/students`);
     return placementSummary(r);
   });
+  return clash ? { clash, at: Date.now() } : res;
 }
 

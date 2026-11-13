@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ActionForm, SubmitButton, type FormAction } from "./forms";
+import { useActionState, useEffect, useState } from "react";
+import { ActionForm, ClashPrompt, SubmitButton, type ClashFormAction, type ClashState, type FormAction } from "./forms";
 import { Card, CardTitle, Field, Input, Select, Textarea, cx } from "./ui";
 
 export type QuickBatch = {
@@ -28,7 +28,7 @@ export type QuickActionsProps = {
     students: { id: string; name: string; email: string }[];
     modes: { value: string; label: string }[];
   } | null;
-  actions: { addStudent: FormAction; recordFee: FormAction; announce: FormAction; extraClass: FormAction };
+  actions: { addStudent: ClashFormAction; recordFee: FormAction; announce: FormAction; extraClass: FormAction };
 };
 
 type Key = "student" | "fee" | "announce" | "extra";
@@ -80,12 +80,28 @@ function Hidden({ uni }: { uni: string }) {
   return <input type="hidden" name="uni" value={uni} />;
 }
 
-function PaymentFields({ modes, pricePaise, gstEnabled, amountLabel }: { modes: { value: string; label: string }[]; pricePaise: number | null; gstEnabled: boolean; amountLabel: string }) {
+type Controlled = { value: string; onChange: (e: { target: { value: string } }) => void };
+
+function PaymentFields({
+  modes,
+  pricePaise,
+  gstEnabled,
+  amountLabel,
+  amount,
+  reference,
+}: {
+  modes: { value: string; label: string }[];
+  pricePaise: number | null;
+  gstEnabled: boolean;
+  amountLabel: string;
+  amount?: Controlled;
+  reference?: Controlled;
+}) {
   const [mode, setMode] = useState("cash");
   return (
     <>
       <Field label={gstEnabled ? `${amountLabel} before GST (₹)` : `${amountLabel} (₹)`} hint={pricePaise ? `Leave empty for the course price, ₹${rupees(pricePaise)}.` : undefined}>
-        <Input name="amount" inputMode="decimal" placeholder={pricePaise ? rupees(pricePaise) : "3500"} />
+        <Input name="amount" inputMode="decimal" placeholder={pricePaise ? rupees(pricePaise) : "3500"} {...amount} />
       </Field>
       <Field label="Paid by">
         <Select name="mode" value={mode} onChange={(e) => setMode(e.target.value)}>
@@ -98,7 +114,7 @@ function PaymentFields({ modes, pricePaise, gstEnabled, amountLabel }: { modes: 
       </Field>
       {mode !== "cash" && (
         <Field label="Reference" hint="UPI transaction id, bank UTR or cheque number.">
-          <Input name="reference" maxLength={80} className="font-mono" />
+          <Input name="reference" maxLength={80} className="font-mono" {...reference} />
         </Field>
       )}
     </>
@@ -109,17 +125,31 @@ function AddStudentForm({ uni, place, departments, fee, actions }: QuickActionsP
   const [batchId, setBatchId] = useState(place[0]?.id ?? "");
   const [paid, setPaid] = useState(false);
   const batch = place.find((b) => b.id === batchId) ?? null;
+  const [state, formAction] = useActionState<ClashState, FormData>(actions.addStudent, null);
+  // A clash warning holds until the form changes or is answered.
+  const [clash, setClash] = useState<string | null>(null);
+  // Controlled, because React clears a form's uncontrolled fields after every submit: the
+  // person must not retype the student after a clash warning or an error.
+  const [who, setWho] = useState({ name: "", email: "", phone: "", amount: "", reference: "" });
+  const set = (k: keyof typeof who) => (e: { target: { value: string } }) => setWho((w) => ({ ...w, [k]: e.target.value }));
+  useEffect(() => {
+    setClash(state?.clash ?? null);
+    if (state?.ok) {
+      setWho({ name: "", email: "", phone: "", amount: "", reference: "" });
+      setPaid(false);
+    }
+  }, [state]);
   return (
-    <ActionForm action={actions.addStudent} className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+    <form action={formAction} onChange={() => clash && setClash(null)} className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
       <Hidden uni={uni} />
       <Field label="Full name">
-        <Input name="name" required autoComplete="off" />
+        <Input name="name" required autoComplete="off" value={who.name} onChange={set("name")} />
       </Field>
       <Field label="Email" hint="They sign in with it. We email them a link to set a password.">
-        <Input name="email" type="email" required autoComplete="off" />
+        <Input name="email" type="email" required autoComplete="off" value={who.email} onChange={set("email")} />
       </Field>
       <Field label="Phone (optional)">
-        <Input name="phone" inputMode="tel" maxLength={20} />
+        <Input name="phone" inputMode="tel" maxLength={20} value={who.phone} onChange={set("phone")} />
       </Field>
       <Field label="Batch" hint={batch ? `${batch.seatsLeft} seat${batch.seatsLeft === 1 ? "" : "s"} left` : "They see the department's courses and can join a batch later."}>
         <Select name="batchId" value={batchId} onChange={(e) => setBatchId(e.target.value)}>
@@ -149,11 +179,26 @@ function AddStudentForm({ uni, place, departments, fee, actions }: QuickActionsP
           Paid now: record the fee and give them a receipt
         </label>
       )}
-      {fee && batch && paid && <PaymentFields modes={fee.modes} pricePaise={batch.pricePaise || null} gstEnabled={fee.gstEnabled} amountLabel="Fee" />}
+      {fee && batch && paid && (
+        <PaymentFields
+          modes={fee.modes}
+          pricePaise={batch.pricePaise || null}
+          gstEnabled={fee.gstEnabled}
+          amountLabel="Fee"
+          amount={{ value: who.amount, onChange: set("amount") }}
+          reference={{ value: who.reference, onChange: set("reference") }}
+        />
+      )}
       <div className="md:col-span-2">
-        <SubmitButton pendingText="Adding…">{batch ? (paid ? "Add student and record fee" : "Add student to batch") : "Add student"}</SubmitButton>
+        {clash ? (
+          <ClashPrompt warning={clash} onCancel={() => setClash(null)} />
+        ) : (
+          <SubmitButton pendingText="Adding…">{batch ? (paid ? "Add student and record fee" : "Add student to batch") : "Add student"}</SubmitButton>
+        )}
+        {state?.error && <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger">{state.error}</p>}
+        {state?.ok && <p className="mt-3 rounded-xl bg-brand-soft px-3 py-2 text-sm text-brand-strong">{state.ok}</p>}
       </div>
-    </ActionForm>
+    </form>
   );
 }
 

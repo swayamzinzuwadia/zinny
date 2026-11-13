@@ -398,7 +398,7 @@ export async function importAction(_: ImportState, data: FormData): Promise<Impo
     if (!commit) return `All ${result.total} rows look good. Import them when ready.`;
     const p = result.placed;
     const batch = p
-      ? ` ${p.added} added to ${p.batchName}${p.already ? `, ${p.already} already in it` : ""}${p.elsewhere ? `, ${p.elsewhere} already in another batch of the course (move them with a batch switch)` : ""}.`
+      ? ` ${p.added} added to ${p.batchName}${p.already ? `, ${p.already} already in it` : ""}${p.elsewhere ? `, ${p.elsewhere} already in another batch of the course (move them with a batch switch)` : ""}.${p.clashes ? ` ${p.clashes} of them ${p.clashes === 1 ? "has" : "have"} a clash with another batch; their timetable marks it.` : ""}`
       : "";
     return `Imported ${result.saved} people.${batch}`;
   });
