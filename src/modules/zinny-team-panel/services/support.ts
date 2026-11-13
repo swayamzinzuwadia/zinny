@@ -177,6 +177,7 @@ export const ACTION_LABELS: Record<string, string> = {
   "plat.plan.update": "Changed a plan",
   "plat.plan.archive": "Archived a plan",
   "plat.plan.restore": "Restored a plan",
+  "plat.plan.delete": "Deleted a plan",
   "university.create": "Created the institute",
   "university.update": "Changed the institute's details",
   "platform.role_grant": "Gave a Zinny team role",
@@ -205,6 +206,9 @@ export const ACTION_LABELS: Record<string, string> = {
   "plat.invoice.unpaid": "Marked a Zinny invoice unpaid",
   "plat.invoice.revise": "Revised a Zinny invoice",
   "plat.log.export": "Exported the activity log",
+  "plat.data.insert": "Added a row in Data",
+  "plat.data.update": "Changed a row in Data",
+  "plat.data.delete": "Deleted a row in Data",
 };
 
 /** "course.add_lesson" → "Course add lesson" for actions without a label. */
@@ -275,6 +279,17 @@ export function describeDetails(data: Record<string, unknown> | null | undefined
   // A licence warning's title says it all ("Demo Institute is at 92% of its student cap").
   if (opts.action?.startsWith("plat.alert.")) return typeof data?.title === "string" ? data.title : "";
   // A revision is its changes: "Total: ₹53,100 → ₹47,200 · Due: 12 Nov 2026 → 30 Nov 2026".
+  // A data console change: the table, the row and, for an edit, the columns that changed.
+  if (opts.action?.startsWith("plat.data.")) {
+    const changed = Array.isArray(data?.changed) ? (data.changed as unknown[]).map(String) : [];
+    return [
+      typeof data?.table === "string" ? `Table: ${data.table}` : "",
+      typeof data?.row === "string" ? `Row: ${data.row}` : "",
+      changed.length ? `Changed: ${changed.slice(0, 6).join(", ")}${changed.length > 6 ? ` and ${changed.length - 6} more` : ""}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
   if (opts.action === "plat.invoice.revise") return [typeof data?.number === "string" ? `Invoice: ${data.number}` : "", ...describeChanges(data?.before, data?.after)].filter(Boolean).slice(0, 5).join(" · ");
   const parts: string[] = [];
   for (const [key, raw] of Object.entries(data ?? {})) {

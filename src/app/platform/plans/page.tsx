@@ -3,7 +3,7 @@ import { ActionForm, SubmitButton } from "@/components/forms";
 import { Badge, Card, CardTitle, Notice, PageHeader, Stat, Td, cx } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
-import { archivePlanAction, restorePlanAction } from "@/modules/zinny-team-panel/actions";
+import { archivePlanAction, deletePlanAction, restorePlanAction } from "@/modules/zinny-team-panel/actions";
 import { NoAccess, PanelTable, WIDE_ONLY } from "@/modules/zinny-team-panel/components/bits";
 import { PlanForm } from "@/modules/zinny-team-panel/components/plan-form";
 import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
@@ -15,10 +15,10 @@ export const metadata = { title: "Plans" };
 
 const period = (months: number) => (months === 12 ? "a year" : months === 1 ? "a month" : `${months} months`);
 
-export default async function PlansPage({ searchParams }: { searchParams: Promise<{ created?: string }> }) {
+export default async function PlansPage({ searchParams }: { searchParams: Promise<{ created?: string; deleted?: string }> }) {
   const actor = await platformContext();
   if (!canPlatform(actor, "platform.licences")) return <NoAccess section="Plans" />;
-  const { created } = await searchParams;
+  const { created, deleted } = await searchParams;
   const plans = await listPlans(actor);
   const canEdit = isSuperAdmin(actor);
   const live = plans.filter((p) => !p.archivedAt);
@@ -34,6 +34,12 @@ export default async function PlansPage({ searchParams }: { searchParams: Promis
       {created && (
         <div className="mb-6">
           <Notice>The plan is created. It can be chosen for licences now.</Notice>
+        </div>
+      )}
+
+      {deleted && (
+        <div className="mb-6">
+          <Notice>The plan is deleted.</Notice>
         </div>
       )}
 
@@ -99,6 +105,14 @@ export default async function PlansPage({ searchParams }: { searchParams: Promis
                       <input type="hidden" name="planId" value={p.id} />
                       <SubmitButton size="sm" variant="secondary">
                         Archive plan
+                      </SubmitButton>
+                    </ActionForm>
+                  )}
+                  {p.institutes === 0 && (
+                    <ActionForm action={deletePlanAction} confirm={`Delete ${p.name}? This can't be undone.`}>
+                      <input type="hidden" name="planId" value={p.id} />
+                      <SubmitButton size="sm" variant="danger" pendingText="Deleting…">
+                        Delete plan
                       </SubmitButton>
                     </ActionForm>
                   )}

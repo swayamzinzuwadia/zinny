@@ -158,7 +158,8 @@ describe("no platform action writes into university tables except through the co
       .map(([k]) => k);
     expect(coreTables).toContain("universities");
     const offences: string[] = [];
-    for (const { path, text } of moduleSources()) {
+    // data-console.ts is the one documented exception: the Super Admin data console writes any table on purpose (tests/data-console).
+    for (const { path, text } of moduleSources().filter((s) => !s.path.endsWith("/data-console.ts"))) {
       for (const t of coreTables) {
         if (new RegExp(`\\.(insert|update|delete)\\(\\s*${t}\\b`).test(text)) offences.push(`${path}: ${t}`);
       }

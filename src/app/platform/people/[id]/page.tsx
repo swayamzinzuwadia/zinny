@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Avatar, Badge, Card, CardTitle, Empty, Table, Td } from "@/components/ui";
+import { Avatar, Badge, Card, CardTitle, Empty, Table, Td, buttonClass, cx } from "@/components/ui";
 import { ROLE_LABELS } from "@/server/authz/roles";
 import { platformContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
@@ -11,6 +11,7 @@ import { SignInAsButton } from "@/modules/zinny-team-panel/components/sign-in-as
 import { PLATFORM_ROLE_LABELS, isPlatformRole } from "@/modules/zinny-team-panel/lib/constants";
 import { ViewAsButton } from "@/modules/zinny-team-panel/components/view-as-button";
 import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
+import { dataRowHref } from "@/modules/zinny-team-panel/lib/data-links";
 import { formatDate, formatDateTime, formatINR, timeAgo } from "@/modules/zinny-team-panel/lib/format";
 import { personDetail } from "@/modules/zinny-team-panel/services/people";
 import { actionLabel, activeSessions } from "@/modules/zinny-team-panel/services/support";
@@ -50,6 +51,9 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         <div className="flex flex-wrap items-start justify-end gap-2">
           {!self && <SignInAsButton userId={p.id} name={p.name} variant="primary" />}
           <SetPasswordForm userId={p.id} name={p.name} />
+          <Link href={dataRowHref("users", [p.id])} className={cx(buttonClass("secondary"), "whitespace-nowrap")}>
+            Open in Data
+          </Link>
         </div>
       </header>
       <p className="-mt-2 mb-6 max-w-3xl text-[13px] text-muted">

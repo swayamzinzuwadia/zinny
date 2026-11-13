@@ -306,3 +306,28 @@ async function setArchived(actor: Actor, planId: string, archived: boolean) {
     return row;
   });
 }
+
+/**
+ * Deletes a plan that no licence uses, such as one made by mistake. A plan with licences
+ * on it is archived instead, so their key keeps pointing at it. The last plan can't go:
+ * the defaults would come straight back.
+ */
+export async function deletePlan(actor: Actor, planId: string): Promise<Plan> {
+  assertManagePlans(actor);
+  if (!isUuid(planId)) throw new NotFoundError("Plan");
+  return db().transaction(async (tx) => {
+    const [before] = await tx.select().from(platPlans).where(eq(platPlans.id, planId)).for("update");
+    if (!before) throw new NotFoundError("Plan");
+    const [{ n }] = await tx.select({ n: count() }).from(platLicences).where(eq(platLicences.plan, before.key));
+    if (n > 0) {
+      throw new ConflictError(
+        `${before.name} can't be deleted: ${n === 1 ? "1 institute has a licence" : `${n.toLocaleString("en-IN")} institutes have licences`} on it. Archive it instead, so it can't be chosen for new licences.`,
+      );
+    }
+    const [{ total }] = await tx.select({ total: count() }).from(platPlans);
+    if (total <= 1) throw new ConflictError(`${before.name} is the only plan. Create another plan before deleting this one.`);
+    await tx.delete(platPlans).where(eq(platPlans.id, planId));
+    await logAction(tx, actor, {}, "plat.plan.delete", "plat_plan", before.id, { key: before.key, ...logged(before) });
+    return before;
+  });
+}

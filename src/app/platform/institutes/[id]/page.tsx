@@ -10,6 +10,7 @@ import { Fact, NoAccess, PlanBadge, RenewalText, StatusBadge, UsageMeter } from 
 import { OpenInstitute } from "@/modules/zinny-team-panel/components/open-institute";
 import { PersonActions } from "@/modules/zinny-team-panel/components/person-actions";
 import { canSeeContentFlags, isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
+import { dataRowHref } from "@/modules/zinny-team-panel/lib/data-links";
 import { COMMON_TIMEZONES, FLAG_LABEL, GST_STATES, MODULE_LABEL, STATE_NAME } from "@/modules/zinny-team-panel/lib/constants";
 import { formatCount, formatDate, formatINR, timeAgo } from "@/modules/zinny-team-panel/lib/format";
 import { invoicesForUniversity } from "@/modules/zinny-team-panel/services/billing";
@@ -60,6 +61,11 @@ export default async function UniversityPage({ params, searchParams }: { params:
             {superAdmin && (
               <Link href={`/platform/people?university=${u.id}`} className={cx(buttonClass("secondary"), "whitespace-nowrap")}>
                 People
+              </Link>
+            )}
+            {superAdmin && (
+              <Link href={dataRowHref("universities", [u.id])} className={cx(buttonClass("secondary"), "whitespace-nowrap")}>
+                Open in Data
               </Link>
             )}
             {can.support && (

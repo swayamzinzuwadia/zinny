@@ -89,6 +89,8 @@ const SECTIONS: Section[] = [
   },
   { key: "billing", label: "Zinny invoices", entries: [{ label: "Zinny invoices", href: "/billing", allowed: can("platform.finance") }] },
   { key: "analytics", label: "Analytics", entries: [{ label: "Analytics", href: "/analytics", allowed: can("platform.view_analytics") }] },
+  // Every table in the database, for Super Admins only (see data-console.ts).
+  { key: "data", label: "Data", entries: [{ label: "Data", href: "/data", allowed: isSuperAdmin }] },
   {
     key: "team",
     label: "Team",

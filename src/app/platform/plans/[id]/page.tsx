@@ -4,7 +4,7 @@ import { Badge, Card, CardTitle, PageHeader } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
-import { archivePlanAction, restorePlanAction } from "@/modules/zinny-team-panel/actions";
+import { archivePlanAction, deletePlanAction, restorePlanAction } from "@/modules/zinny-team-panel/actions";
 import { Fact, NoAccess } from "@/modules/zinny-team-panel/components/bits";
 import { PlanForm } from "@/modules/zinny-team-panel/components/plan-form";
 import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
@@ -71,6 +71,18 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
                   <SubmitButton variant="danger">Archive plan</SubmitButton>
                 </ActionForm>
               )}
+            </Card>
+          )}
+          {canEdit && p.institutes === 0 && (
+            <Card>
+              <CardTitle>Delete</CardTitle>
+              <ActionForm action={deletePlanAction} className="space-y-3" confirm={`Delete ${p.name}? This can't be undone.`}>
+                <input type="hidden" name="planId" value={p.id} />
+                <p className="text-[14px] text-muted">No institute has a licence on this plan, so it can be deleted for good. Plans with licences can only be archived.</p>
+                <SubmitButton variant="danger" pendingText="Deleting…">
+                  Delete plan
+                </SubmitButton>
+              </ActionForm>
             </Card>
           )}
         </div>

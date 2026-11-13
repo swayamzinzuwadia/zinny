@@ -96,7 +96,7 @@ describe("each section allows its roles and refuses everyone else", () => {
 describe("the sidebar shows only the sections a person's roles allow", () => {
   const keys = (a: Actor) => navFor(a).map((s) => s.key);
   it("per role", () => {
-    expect(keys(sa)).toEqual(["overview", "universities", "people", "support", "content", "billing", "analytics", "team"]);
+    expect(keys(sa)).toEqual(["overview", "universities", "people", "support", "content", "billing", "analytics", "data", "team"]);
     expect(keys(sup)).toEqual(["overview", "support", "analytics"]);
     expect(keys(qa)).toEqual(["overview", "content"]);
     expect(keys(fin)).toEqual(["overview", "universities", "billing"]);
