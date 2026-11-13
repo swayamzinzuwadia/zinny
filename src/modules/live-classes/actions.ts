@@ -6,7 +6,7 @@ import { attempt, str } from "@/server/action";
 import { spaceContext } from "@/server/context";
 import { ValidationError } from "@/server/errors";
 import { attendanceHref } from "./links";
-import { lockRegister, markAttendance, setAttendanceThreshold, unlockRegister, updateSessionLinks, type Mark } from "./staff";
+import { lockRegister, markAttendance, markRestPresent, setAttendanceThreshold, unlockRegister, updateSessionLinks, type Mark } from "./staff";
 import { ATTENDANCE_STATUSES, type AttendanceStatus } from "./time";
 
 async function ctx(data: FormData) {
@@ -46,6 +46,16 @@ export async function saveRegisterAction(_: ActionState, data: FormData): Promis
     const { changed } = await markAttendance(actor, ref, marks);
     refresh(uni, ref.batchId);
     return changed === 1 ? "Saved 1 change." : `Saved ${changed} changes.`;
+  });
+}
+
+/** The dashboard's one-click "Everyone was present". */
+export async function markRestPresentAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const { uni, actor, ref } = await ctx(data);
+  return attempt(async () => {
+    const { changed } = await markRestPresent(actor, ref);
+    refresh(uni, ref.batchId);
+    return changed === 0 ? "Everyone already has a status." : `${changed} student${changed === 1 ? "" : "s"} marked present.`;
   });
 }
 

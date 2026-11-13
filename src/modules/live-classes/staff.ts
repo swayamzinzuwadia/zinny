@@ -238,6 +238,20 @@ export async function markAttendance(actor: Actor, ref: SessionRef, marks: Mark[
 }
 
 /**
+ * "Everyone was present": marks every current student of the class who has no status yet
+ * present, in one save. Students already marked (or who joined) keep their status. The
+ * same rules as markAttendance apply: `attendance.mark`, not before the register opens,
+ * not on a locked register.
+ */
+export async function markRestPresent(actor: Actor, ref: SessionRef, now = new Date()) {
+  const r = await register(actor, ref, now);
+  if (!r.canMark) throw new ForbiddenError();
+  const marks: Mark[] = r.entries.filter((e) => e.current && !e.status && !e.lateEnrolment).map((e) => ({ userId: e.person.id, status: "present" }));
+  if (marks.length === 0) return { changed: 0 };
+  return markAttendance(actor, { ...ref, startTime: r.session.startTime }, marks, now);
+}
+
+/**
  * Writes "absent" for every student who was in the batch when the class started and has
  * no status, emitting `attendance.marked` for each. Used at lock and by the hourly job.
  */

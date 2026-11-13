@@ -392,10 +392,15 @@ export async function importAction(_: ImportState, data: FormData): Promise<Impo
   const commit = str(data, "mode") === "commit";
   let result: Awaited<ReturnType<typeof importPeople>> | undefined;
   const res = await attempt(async () => {
-    result = await importPeople(actor, csv, { commit });
-    revalidatePath(`/${uni}/admin/users`, "layout");
+    result = await importPeople(actor, csv, { commit, batchId: str(data, "batchId") || null });
+    revalidatePath(`/${uni}/admin`, "layout");
     if (result.errors > 0) throw new ValidationError(`${result.errors} row${result.errors === 1 ? "" : "s"} need fixing. Nothing was imported.`);
-    return commit ? `Imported ${result.saved} people.` : `All ${result.total} rows look good. Import them when ready.`;
+    if (!commit) return `All ${result.total} rows look good. Import them when ready.`;
+    const p = result.placed;
+    const batch = p
+      ? ` ${p.added} added to ${p.batchName}${p.already ? `, ${p.already} already in it` : ""}${p.elsewhere ? `, ${p.elsewhere} already in another batch of the course (move them with a batch switch)` : ""}.`
+      : "";
+    return `Imported ${result.saved} people.${batch}`;
   });
   return { ...res, result, csv };
 }

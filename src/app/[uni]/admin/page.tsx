@@ -18,6 +18,27 @@ import { setupChecklist, setupHiddenCookie } from "@/server/services/setup";
 import { decideEnrolmentAction, dismissSetupAction } from "./actions";
 import { formatINR } from "@/server/services/finance";
 import { firstName } from "@/server/lib/names";
+import { ActionForm, SubmitButton } from "@/components/forms";
+import { QuickActions } from "@/components/quick-actions";
+import { addDays } from "@/server/lib/dates";
+import { listDepartments } from "@/server/services/departments";
+import { quickChoices } from "@/server/services/daily";
+import { feeChoices, overdueFees } from "@/modules/payments/fees";
+import { inr } from "@/modules/payments/money";
+import { todaysClasses } from "@/modules/live-classes/overview";
+import { TodayPanel } from "@/modules/live-classes/components/today-panel";
+import { attentionCounts } from "@/modules/website-builder/overview";
+import { modules } from "@/server/registry";
+import {
+  announceAction,
+  cancelClassAction,
+  decideJoinInlineAction,
+  extraClassAction,
+  moveClassAction,
+  quickAddStudentAction,
+  recordFeeAction,
+  remindOverdueAction,
+} from "./daily-actions";
 
 export const metadata = { title: "Dashboard" };
 
@@ -46,11 +67,28 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
   // Students asking for a seat (faculty, HODs, admins) and asking to join (admins, HODs), and
   // the joining code for the people who accept new students.
   const admits = canAdmit(actor);
-  const [enrolRequests, joinRequests, joining] = await Promise.all([
+  const installed = new Set(modules().map((m) => m.id));
+  const canAttendance = installed.has("live-classes") && (() => {
+    const r = reach(actor, "attendance.view", university.id);
+    return r.all || r.departmentIds.size > 0 || r.batchIds.size > 0;
+  })();
+  const canFinanceView = installed.has("payments") && can(actor, "finance.view", { universityId: university.id });
+  const canFinanceManage = canFinanceView && can(actor, "finance.manage", { universityId: university.id });
+  const canWebsite = installed.has("website-builder") && can(actor, "website.manage", { universityId: university.id });
+  const [enrolRequests, joinRequests, joining, today, choices, fee, overdue, site, departments] = await Promise.all([
     listEnrolmentRequests(actor),
     admits ? listJoinRequests(actor) : Promise.resolve([]),
     admits ? getJoinSettings(actor) : Promise.resolve(null),
+    canAttendance ? todaysClasses(actor) : Promise.resolve(null),
+    quickChoices(actor),
+    installed.has("payments") ? feeChoices(actor) : Promise.resolve(null),
+    canFinanceView ? overdueFees(actor) : Promise.resolve(null),
+    canWebsite ? attentionCounts(actor) : Promise.resolve(null),
+    admits ? listDepartments(actor) : Promise.resolve([]),
   ]);
+  const admitReach = reach(actor, "user.admit", university.id);
+  const admitDepts = departments.filter((d) => admitReach.all || admitReach.departmentIds.has(d.id));
+  const deptName = new Map(departments.map((d) => [d.id, d.name]));
 
   const live = data.board.find((s) => s.state === "live");
   const summary = [
@@ -84,9 +122,11 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
       : refundReasons.has("paid_twice")
         ? `Paid twice for the same course: ${refunds === 1 ? "the student already has" : "each student already has"} a seat. Refund in full.`
         : "Paid after the seat hold ran out and the batch had filled. Refund in full.";
-  const needsCount = requests.length + enrolRequests.length + joinRequests.length + data.expiring.length + fillingFast.length + refunds;
+  const overdueCount = overdue?.count ?? 0;
+  const newEnquiries = site?.enquiries ?? 0;
+  const needsCount = requests.length + enrolRequests.length + joinRequests.length + data.expiring.length + fillingFast.length + refunds + (overdueCount ? 1 : 0) + (newEnquiries ? 1 : 0);
   // Kept while it shows a confirmation, e.g. for faculty who just answered their last request.
-  const showNeeds = data.canDecideSwitches || canRefund || enrolRequests.length > 0 || joinRequests.length > 0 || !!done;
+  const showNeeds = data.canDecideSwitches || canRefund || enrolRequests.length > 0 || joinRequests.length > 0 || overdueCount > 0 || newEnquiries > 0 || !!done;
   const avgOrder = data.money && data.money.monthOrders ? Math.round(data.money.monthPaise / data.money.monthOrders / 100) * 100 : 0;
   const seatsFilled = Math.round((data.seats.reduce((n, s) => n + s.taken, 0) / Math.max(1, data.seats.reduce((n, s) => n + s.limit, 0))) * 100);
 
@@ -94,11 +134,21 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
     <div className="space-y-6">
       {setup && <SetupChecklistCard uni={uni} checklist={setup} dismiss={dismissSetupAction} />}
       <TodayBoard data={data} firstName={firstName(actor.name)} base={base} summary={summary} />
-      {joining && (
-        <InviteStrip uni={uni} institute={university.name} code={joining.code} mode={joining.mode} canManage={can(actor, "settings.manage", { universityId: university.id })} />
-      )}
-
-      <div className={cx("grid gap-6", showNeeds && "xl:grid-cols-[1.55fr_1fr]")}>
+      <QuickActions
+        uni={uni}
+        today={data.today}
+        tomorrow={addDays(data.today, 1)}
+        place={choices.place}
+        departments={choices.departments}
+        announce={choices.announce}
+        schedule={choices.schedule}
+        fee={fee}
+        actions={{ addStudent: quickAddStudentAction, recordFee: recordFeeAction, announce: announceAction, extraClass: extraClassAction }}
+      />
+      <div className={cx("grid grid-cols-1 gap-6", today && showNeeds && "xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]")}>
+        {today && (
+          <TodayPanel uni={uni} actor={actor} classes={today.classes} today={today.today} tz={today.tz} cancelAction={cancelClassAction} moveAction={moveClassAction} />
+        )}
         {showNeeds && (
           <Card>
             <CardTitle hint={needsCount ? `${needsCount} item${needsCount === 1 ? "" : "s"}` : undefined}>Needs you</CardTitle>
@@ -107,18 +157,51 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
             )}
             <div className="space-y-3">
               {done && <p className="rounded-2xl bg-brand-soft px-4 py-3 text-[14px] text-brand-strong">{done}</p>}
-              {joinRequests.length > 0 && (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-gold-soft p-4">
-                  <div className="text-[14px]">
-                    <span className="font-medium">
-                      {joinRequests.length} student{joinRequests.length === 1 ? "" : "s"} asked to join
-                    </span>
-                    <span className="block text-muted">{joinRequests.slice(0, 3).map((q) => q.name).join(", ")}{joinRequests.length > 3 ? " and more" : ""}</span>
+              {joinRequests.slice(0, 5).map((q) => (
+                <div key={q.id} className="rounded-2xl bg-gold-soft p-4 text-[14px]">
+                  <div className="font-medium">{q.name} asked to join</div>
+                  <div className="text-muted">
+                    {q.email}
+                    {q.departmentId && deptName.get(q.departmentId) ? `, for ${deptName.get(q.departmentId)}` : ""}
                   </div>
-                  <Link href={`${base}/users/requests`} className="text-[14px] font-medium text-brand-strong hover:underline">
-                    Review requests
-                  </Link>
+                  {q.message && <div className="mt-1 text-muted">&ldquo;{q.message}&rdquo;</div>}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <ActionForm action={decideJoinInlineAction} resetOnSuccess={false} className="flex flex-wrap items-center gap-2">
+                      <input type="hidden" name="uni" value={uni} />
+                      <input type="hidden" name="requestId" value={q.id} />
+                      <input type="hidden" name="name" value={q.name} />
+                      <input type="hidden" name="choice" value="accept" />
+                      {q.departmentId && admitDepts.some((d) => d.id === q.departmentId) ? (
+                        <input type="hidden" name="departmentId" value={q.departmentId} />
+                      ) : (
+                        <select name="departmentId" aria-label={`Department for ${q.name}`} className="h-8 rounded-full border border-line bg-surface px-3 text-[13px]">
+                          {admitDepts.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <SubmitButton size="sm" pendingText="Accepting…">
+                        Accept
+                      </SubmitButton>
+                    </ActionForm>
+                    <ActionForm action={decideJoinInlineAction} resetOnSuccess={false}>
+                      <input type="hidden" name="uni" value={uni} />
+                      <input type="hidden" name="requestId" value={q.id} />
+                      <input type="hidden" name="name" value={q.name} />
+                      <input type="hidden" name="choice" value="decline" />
+                      <SubmitButton size="sm" variant="secondary" pendingText="Declining…">
+                        Decline
+                      </SubmitButton>
+                    </ActionForm>
+                  </div>
                 </div>
+              ))}
+              {joinRequests.length > 5 && (
+                <Link href={`${base}/users/requests`} className="block text-[14px] font-medium text-brand-strong hover:underline">
+                  See all {joinRequests.length} join requests
+                </Link>
               )}
               {enrolRequests.length > 0 && <EnrolmentRequests requests={enrolRequests} uni={uni} action={decideEnrolmentAction} back={base} />}
               {/* Kept on the page with an empty list, so its "moved to …" confirmation stays after the last request is answered. */}
@@ -154,6 +237,41 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
                   </Link>
                 </div>
               ))}
+              {overdueCount > 0 && overdue && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-gold-soft p-4 text-[14px]">
+                  <div>
+                    <div className="font-medium text-ink">
+                      {overdueCount} invoice{overdueCount === 1 ? " is" : "s are"} overdue, {inr(overdue.totalPaise)} in all
+                    </div>
+                    <div className="text-gold-strong">
+                      {overdue.reachable ? `${overdue.reachable} can be reminded in Zinny.` : "Billed to people without an account here: remind them yourself."}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {canFinanceManage && overdue.reachable > 0 && (
+                      <ActionForm action={remindOverdueAction} resetOnSuccess={false}>
+                        <input type="hidden" name="uni" value={uni} />
+                        <SubmitButton size="sm" pendingText="Sending…">
+                          Send reminders
+                        </SubmitButton>
+                      </ActionForm>
+                    )}
+                    <Link href={`${base}/finance/invoices?status=overdue`} className="text-[13px] font-medium text-brand hover:underline">
+                      See invoices
+                    </Link>
+                  </div>
+                </div>
+              )}
+              {newEnquiries > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-canvas p-4 text-[14px]">
+                  <div className="font-medium">
+                    {newEnquiries} new enquir{newEnquiries === 1 ? "y" : "ies"} from your website
+                  </div>
+                  <Link href={`${base}/website/sections/enquiries`} className="rounded-full bg-brand px-3.5 py-1.5 text-[13px] font-medium text-canvas">
+                    Answer enquiries
+                  </Link>
+                </div>
+              )}
               {refunds > 0 && (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-danger-soft p-4 text-[14px]">
                   <div>
@@ -170,8 +288,14 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
             </div>
           </Card>
         )}
+      </div>
 
-        <div className={cx("grid grid-cols-2 gap-4 self-start", !showNeeds && "xl:grid-cols-4")}>
+      {joining && (
+        <InviteStrip uni={uni} institute={university.name} code={joining.code} mode={joining.mode} canManage={can(actor, "settings.manage", { universityId: university.id })} />
+      )}
+
+      <div>
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
           {!data.canSeeBatches && data.money ? (
             <>
               <Stat label="Collected this month" value={formatINR(data.money.monthPaise)} hint="Including GST" />
@@ -277,7 +401,7 @@ export default async function Dashboard({ params, searchParams }: { params: Prom
       <SlotList
         slot="dashboardCards"
         className="grid gap-6 xl:grid-cols-2"
-        entries={slotsInReach("dashboardCards", actor, university.id)}
+        entries={slotsInReach("dashboardCards", actor, university.id).filter((e) => !(today && e.key === "attendance-today"))}
         props={{ uni, actor, university, today: data.today }}
       />
     </div>

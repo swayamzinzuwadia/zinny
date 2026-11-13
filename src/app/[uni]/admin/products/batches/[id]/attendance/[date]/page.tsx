@@ -168,7 +168,7 @@ export default async function RegisterPage({
           {rows.length === 0 ? (
             <Notice tone="neutral">No students in this batch.</Notice>
           ) : (
-            <RegisterForm uni={uni} batchId={id} date={s.date} start={s.startTime} rows={rows} editable={editable} />
+            <RegisterForm uni={uni} batchId={id} date={s.date} start={s.startTime} rows={rows} editable={editable} presetPresent={editable && rows.every((x) => !x.status)} />
           )}
         </section>
 
