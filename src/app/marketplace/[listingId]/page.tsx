@@ -15,7 +15,7 @@ import { ListingBook } from "@/modules/marketplace/components/listing-book";
 import { instituteFaces } from "@/modules/marketplace/components/browse";
 import { datesLine } from "@/modules/marketplace/components/live";
 import { FORMAT_LINE, KIND_LABEL, Price } from "@/modules/marketplace/components/price";
-import { browseMarketplace, listingDetail, marketplaceAccess, splitCatalog } from "@/modules/marketplace/service";
+import { browseMarketplace, listingDetail, liveClashes, marketplaceAccess, splitCatalog } from "@/modules/marketplace/service";
 import { LiveListing } from "./live-listing";
 import { inr } from "@/modules/payments/money";
 import { getSite } from "@/modules/website-builder/cached";
@@ -56,10 +56,12 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
   const userId = await currentUserId();
   const [item, { canShop }] = await Promise.all([listingDetail(listingId, userId), userId ? marketplaceAccess(userId) : { canShop: false }]);
   if (!item) notFound();
-  const [site, everything, carted] = await Promise.all([
+  const [site, everything, carted, clashes] = await Promise.all([
     getSite(item.instituteSlug),
     browseMarketplace({ institute: item.instituteSlug, format: "all" }),
     userId && canShop && !item.ownedEnrolmentId ? inCart(userId, item.id) : false,
+    // Before buying a seat: does this batch meet when the buyer already has a class, at any institute?
+    item.live && userId && canShop && !item.ownedEnrolmentId ? liveClashes(userId, [item.batchId]) : null,
   ]);
   const theirs = splitCatalog(everything);
   const siblings = theirs.recorded;
@@ -73,6 +75,7 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
         live={item.live}
         canShop={canShop}
         signedIn={!!userId}
+        clashes={clashes?.get(item.batchId)}
         carted={carted}
         face={face}
         hasSite={face.hasSite}

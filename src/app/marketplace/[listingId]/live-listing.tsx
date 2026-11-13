@@ -6,7 +6,9 @@ import { buyAction } from "@/modules/marketplace/actions";
 import { AddToCart } from "@/modules/marketplace/components/add-to-cart";
 import { BookGrid, SectionHead, shell } from "@/modules/marketplace/components/browse";
 import { BuyNow } from "@/modules/marketplace/components/buy-now";
+import { ClashNote } from "@/modules/marketplace/components/clash-note";
 import { CodeField } from "@/modules/marketplace/components/code-field";
+import type { Clash } from "@/server/core";
 import { DateLeaf, FactIcon, InstituteCard, LiveBadges, LiveGrid, classesLine, seatsLine, type InstituteFace } from "@/modules/marketplace/components/live";
 import { FORMAT_LINE, Price } from "@/modules/marketplace/components/price";
 import { fewSeatsLeft, type ListingDetail, type LiveCatalogItem, type LiveInfo, type RecordedCatalogItem } from "@/modules/marketplace/service";
@@ -48,6 +50,7 @@ export function LiveListing({
   hasSite,
   moreLive,
   moreRecorded,
+  clashes,
 }: {
   item: ListingDetail;
   live: LiveInfo;
@@ -58,6 +61,8 @@ export function LiveListing({
   hasSite: boolean;
   moreLive: LiveCatalogItem[];
   moreRecorded: RecordedCatalogItem[];
+  /** The buyer's own classes this batch meets at the same time as. */
+  clashes?: Clash[];
 }) {
   const institutePage = `/marketplace/institutes/${item.instituteSlug}`;
   const full = live.seatsLeft === 0;
@@ -145,6 +150,7 @@ export function LiveListing({
                   </div>
                 ) : canShop ? (
                   <ActionForm action={buyAction} resetOnSuccess={false} className="space-y-3">
+                    <ClashNote clashes={clashes} />
                     <input type="hidden" name="listingId" value={item.id} />
                     <BuyNow label="Buy a seat" />
                     <AddToCart listingId={item.id} inCart={carted} />

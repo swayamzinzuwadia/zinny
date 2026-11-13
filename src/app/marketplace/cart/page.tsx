@@ -8,7 +8,8 @@ import { removeFromCartAction } from "@/modules/marketplace/actions";
 import { Jacket, lessonsLine } from "@/modules/marketplace/components/jacket";
 import { datesLine, seatsLine } from "@/modules/marketplace/components/live";
 import { FORMAT_LINE, Price } from "@/modules/marketplace/components/price";
-import { fewSeatsLeft } from "@/modules/marketplace/service";
+import { ClashNote } from "@/modules/marketplace/components/clash-note";
+import { fewSeatsLeft, liveClashes } from "@/modules/marketplace/service";
 import { inr } from "@/modules/payments/money";
 import { checkoutCartAction } from "./actions";
 
@@ -22,6 +23,8 @@ export default async function Cart() {
   const userId = await currentUserId();
   if (!userId) redirect("/login?next=/marketplace/cart");
   const cart = await cartView(userId);
+  // Live seats that meet when the learner already has class, or at the same time as each other.
+  const clashes = await liveClashes(userId, cart.lines.flatMap((l) => (l.live ? [l.batchId] : [])), { together: true });
   const n = cart.lines.length;
   const institutes = new Set(cart.lines.map((l) => l.institute)).size;
 
@@ -77,6 +80,7 @@ export default async function Cart() {
                         {l.live.seatsLeft === 0 ? "Batch full: take it out to check out" : seatsLine(l.live.seatsLeft)}
                       </span>
                     )}
+                    {l.live && <ClashNote clashes={clashes.get(l.batchId)} className="mt-3 text-[13.5px]" after="You can still check out." />}
                     <div className="mt-auto flex flex-wrap items-end justify-between gap-3 pt-3">
                       <Price pricePaise={l.pricePaise} compareAtPaise={l.compareAtPaise} gst={l.totalPaise > l.pricePaise} />
                       <ActionForm action={removeFromCartAction} resetOnSuccess={false}>

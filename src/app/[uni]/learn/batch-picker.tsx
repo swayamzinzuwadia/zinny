@@ -97,7 +97,9 @@ export function BatchPicker({
                 <div className="mt-2 text-xs text-muted">Faculty accept each student</div>
               )}
               {o.clashes.length > 0 && !disabled && (
-                <div className="mt-2 rounded-lg bg-warn-soft px-2 py-1 text-xs text-warn">Overlaps {o.clashes[0].courseTitle}</div>
+                <div className="mt-2 rounded-lg bg-warn-soft px-2 py-1 text-xs text-warn">
+                  Clashes with {clashLines(o.clashes).join("; ")}
+                </div>
               )}
             </label>
           );

@@ -33,7 +33,10 @@ export function WeekView({ from, today, sessions, compact = false }: { from: str
               <div className="space-y-1.5">
                 {items.length === 0 && <div className="px-1 text-xs text-faint sm:h-8">—</div>}
                 {items.map((s, i) => (
-                  <div key={i} className={cx("rounded-[12px] border px-2.5 py-2 text-[12px] leading-snug", color(s.courseId))}>
+                  <div
+                    key={i}
+                    className={cx("rounded-[12px] border px-2.5 py-2 text-[12px] leading-snug", color(s.courseId), s.clashesWith && "border-gold ring-2 ring-gold")}
+                  >
                     <div className="tabular opacity-85">
                       {formatTime(s.startTime)}–{formatTime(s.endTime)}
                     </div>
@@ -46,6 +49,11 @@ export function WeekView({ from, today, sessions, compact = false }: { from: str
                     )}
                     {!compact && <div className="opacity-80">{s.batchName}</div>}
                     {s.kind !== "regular" && <div className="mt-0.5 text-[11px] opacity-80">{s.kind === "extra" ? "Extra class" : "Moved here"}</div>}
+                    {s.clashesWith && (
+                      <div className="mt-1.5 rounded-md bg-gold-soft px-1.5 py-1 text-[11px] font-medium text-gold-strong">
+                        Clashes with {[...new Set(s.clashesWith.map((c) => c.courseTitle))].join(" and ")}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
