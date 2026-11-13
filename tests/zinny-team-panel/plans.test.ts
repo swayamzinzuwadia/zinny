@@ -11,6 +11,7 @@ import {
   archivePlan,
   createPlan,
   DEFAULT_PLANS,
+  deletePlan,
   ensureDefaultPlans,
   getPlan,
   listPlans,
@@ -210,6 +211,27 @@ describe("archiving", () => {
 
     const actions = (await systemDb().select().from(auditLog).where(eq(auditLog.entityId, plan.id))).map((l) => l.action);
     expect(actions).toEqual(expect.arrayContaining(["plat.plan.create", "plat.plan.archive", "plat.plan.restore"]));
+  });
+});
+
+describe("deleting", () => {
+  it("a Super Admin deletes a plan no licence uses; one in use is refused with a way out", async () => {
+    const unused = await createPlan(sa, draft());
+    for (const who of [am, fin, sup]) await expect(deletePlan(who, unused.id)).rejects.toBeInstanceOf(ForbiddenError);
+    await deletePlan(sa, unused.id);
+    await expect(getPlan(sa, unused.id)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(deletePlan(sa, unused.id)).rejects.toBeInstanceOf(NotFoundError);
+    const [entry] = await systemDb()
+      .select()
+      .from(auditLog)
+      .where(and(eq(auditLog.entityId, unused.id), eq(auditLog.action, "plat.plan.delete")));
+    expect(entry.data).toMatchObject({ key: unused.key, name: unused.name });
+
+    const used = await createPlan(sa, draft());
+    const U = await makeUniversity("On A Kept Plan");
+    await saveLicence(am, U.id, licence({ plan: used.key, invoice: false }));
+    await expect(deletePlan(sa, used.id)).rejects.toThrow(/can't be deleted: 1 institute has a licence on it\. Archive it instead/);
+    expect((await getPlan(sa, used.id)).id).toBe(used.id);
   });
 });
 

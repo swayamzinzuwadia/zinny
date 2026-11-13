@@ -15,7 +15,7 @@ import { formatDate, formatINR, parseRupees } from "./lib/format";
 import { setPersonPassword, startImpersonation, stopImpersonation } from "./services/accounts";
 import { addRole, inviteMember, removeRole } from "./services/team";
 import { createInvoice, markInvoicePaid, markInvoiceUnpaid, reviseInvoice } from "./services/billing";
-import { archivePlan, createPlan, restorePlan, updatePlan, type PlanInput } from "./services/plans";
+import { archivePlan, createPlan, deletePlan, restorePlan, updatePlan, type PlanInput } from "./services/plans";
 import { flagCourse, markReviewed, resolveFlag } from "./services/content";
 import { acknowledgeAlert, saveLicence, syncAllAlerts, type LicenceInput } from "./services/licences";
 import { forceEndSupport, leaveSupport, startSupport } from "./services/support";
@@ -178,6 +178,20 @@ export async function archivePlanAction(_: ActionState, data: FormData): Promise
     revalidatePath("/platform", "layout");
     return `${p.name} is archived. Institutes already on it keep it.`;
   });
+}
+
+export async function deletePlanAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  let deleted = false;
+  const res = await attempt(async () => {
+    await deletePlan(actor, str(data, "planId"));
+    deleted = true;
+  });
+  if (deleted) {
+    revalidatePath("/platform", "layout");
+    redirect("/platform/plans?deleted=1");
+  }
+  return res;
 }
 
 export async function restorePlanAction(_: ActionState, data: FormData): Promise<ActionState> {
