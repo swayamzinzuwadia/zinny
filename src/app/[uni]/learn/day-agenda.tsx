@@ -146,6 +146,11 @@ export function DayAgenda({
                       {s.batchName}
                       {teachers(s).length > 0 && `, with ${teachers(s).join(" and ")}`}
                     </div>
+                    {s.clashesWith && (
+                      <div className="mt-1 inline-block rounded-md bg-gold-soft px-2 py-0.5 text-[12.5px] font-medium text-gold-strong">
+                        Clashes with {[...new Set(s.clashesWith.map((c) => c.courseTitle))].join(" and ")}
+                      </div>
+                    )}
                   </li>
                 );
               })}

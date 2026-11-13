@@ -4,19 +4,20 @@ import { ActionForm, SubmitButton } from "@/components/forms";
 import { Avatar, Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Table, Tabs, Td } from "@/components/ui";
 import { SlotList } from "@/components/slots";
 import { EnrolmentRequests, SeatLimitForm } from "@/components/enrolment-requests";
-import { WeekView } from "@/components/week-view";
 import { can } from "@/server/authz/engine";
 import { ROLE_LABELS } from "@/server/authz/roles";
 import { spaceContext } from "@/server/context";
 import { visibleSlots } from "@/server/registry";
-import { addDays, formatDate, formatTime, todayIn, weekStart } from "@/server/lib/dates";
+import { formatDate, formatTime, todayIn } from "@/server/lib/dates";
 import { getBatchPlan, inchargeChoices, plansToCopy } from "@/server/services/batch-plan";
 import { batchRoster, getBatchDetail } from "@/server/services/batches";
-import { listEnrolmentRequests } from "@/server/services/enrolment";
-import { annotateSessions, describeSlots, expandSessions } from "@/server/services/schedule";
+import { listEnrolmentRequests, studentsToAdd } from "@/server/services/enrolment";
+import { describeSlots } from "@/server/services/schedule";
 import { teachersForDepartment } from "@/server/services/users";
 import { RECORDED_BATCH_LABEL } from "@/server/lib/recorded-batch";
 import { addFacultyAction, decideEnrolmentAction, overrideAction, removeFacultyAction, seatLimitAction, updateBatchAction } from "../../../actions";
+import { AddStudentForm } from "./add-student-form";
+import { BatchCalendar, calendarView } from "./batch-calendar";
 import { setInchargeAction } from "./plan-actions";
 import { PlanTab } from "./plan-tab";
 import { TimetableTab } from "./timetable-tab";
@@ -29,18 +30,19 @@ const ROSTER_STATUS: Record<string, { label: string; tone: "brand" | "neutral" |
   approved: { label: "Accepted, not paid yet", tone: "warn" },
 };
 
-export default async function BatchPage({ params, searchParams }: { params: Promise<{ uni: string; id: string }>; searchParams: Promise<{ done?: string; tab?: string; section?: string; faculty?: string }> }) {
+export default async function BatchPage({ params, searchParams }: { params: Promise<{ uni: string; id: string }>; searchParams: Promise<{ done?: string; tab?: string; section?: string; faculty?: string; week?: string; month?: string }> }) {
   const { uni, id } = await params;
-  const { done, tab: requestedTab, section: sectionFilter, faculty: facultyFilter } = await searchParams;
+  const { done, tab: requestedTab, section: sectionFilter, faculty: facultyFilter, week, month } = await searchParams;
   const { actor, university } = await spaceContext(uni);
   const { batch, course, schedule, faculty, seatsTaken, target, incharge } = await getBatchDetail(actor, id);
   const canEdit = can(actor, "batch.update", target);
   const canStaff = can(actor, "batch.assign_faculty", target);
   const canRoster = can(actor, "enrolment.view", target);
-  const [roster, teachers, enrolRequests] = await Promise.all([
+  const [roster, teachers, enrolRequests, addable] = await Promise.all([
     canRoster ? batchRoster(actor, id) : Promise.resolve([]),
     canStaff ? teachersForDepartment(actor, batch.departmentId) : Promise.resolve([]),
     listEnrolmentRequests(actor, { batchId: id }),
+    canEdit && !batch.recorded ? studentsToAdd(actor, id) : Promise.resolve([]),
   ]);
   // Sections, the day-number plan and the dated timetable. A recorded batch has no classes to plan.
   const tab = !batch.recorded && (requestedTab === "plan" || requestedTab === "timetable") ? requestedTab : "overview";
@@ -55,9 +57,7 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
   const attention = plan && plan.sections.length > 0 ? plan.timetable.problems.length : 0;
 
   const today = todayIn(university.timezone);
-  const from = weekStart(today < batch.startDate ? batch.startDate : today);
-  const weekSessions = expandSessions([schedule], from, addDays(from, 6));
-  const sessions = plan ? annotateSessions(weekSessions, id, plan.timetable, actor.userId) : weekSessions;
+  const view = calendarView({ week, month }, batch, today);
   const uniform = schedule.slots.every((s) => s.startTime === schedule.slots[0]?.startTime && s.endTime === schedule.slots[0]?.endTime);
   const day = (d: Date) => formatDate(todayIn(university.timezone, d));
   const seatsLeft = batch.seatLimit - seatsTaken;
@@ -157,10 +157,19 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
       {tab === "overview" && (
       <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
-          <Card>
-            <CardTitle hint={`Week of ${formatDate(from)}`}>This week</CardTitle>
-            <WeekView from={from} today={today} sessions={sessions} compact />
-          </Card>
+          {plan && (
+            <Card id="calendar">
+              <BatchCalendar
+                base={base}
+                view={view}
+                timetable={plan.timetable}
+                sections={plan.sections}
+                today={today}
+                batch={batch}
+                fallbackFaculty={faculty.map((f) => f.name)}
+              />
+            </Card>
+          )}
 
           <SlotList
             slot="adminBatchSections"
@@ -275,6 +284,13 @@ export default async function BatchPage({ params, searchParams }: { params: Prom
               </ActionForm>
             )}
           </Card>
+
+          {canEdit && !batch.recorded && (
+            <Card>
+              <CardTitle hint={`${seatsTaken}/${batch.seatLimit} seats taken`}>Add a student</CardTitle>
+              <AddStudentForm uni={uni} batchId={id} students={addable.map((s) => ({ name: s.name, email: s.email }))} full={seatsLeft <= 0} />
+            </Card>
+          )}
 
           {canEdit && (
             <Card>

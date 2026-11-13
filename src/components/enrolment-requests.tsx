@@ -6,6 +6,8 @@ export type EnrolmentRequestItem = {
   student: { name: string; email: string };
   course: { title: string };
   batch: { name: string; seatsLeft: number };
+  /** "Their place clashes with …": accepting is still allowed. */
+  clashWarning?: string | null;
 };
 
 /**
@@ -39,6 +41,7 @@ export function EnrolmentRequests({
                 {showCourse ? `${r.course.title} · ` : ""}
                 {r.batch.name} · {r.batch.seatsLeft === 0 ? "batch is full" : `${r.batch.seatsLeft} seat${r.batch.seatsLeft === 1 ? "" : "s"} left`}
               </div>
+              {r.clashWarning && <div className="mt-1.5 rounded-lg bg-warn-soft px-2.5 py-1.5 text-[13px] text-warn">{r.clashWarning} You can still accept.</div>}
             </div>
           </div>
           <ActionForm action={action} className="mt-2.5 flex flex-wrap items-center gap-2 pl-12">

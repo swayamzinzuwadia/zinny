@@ -5,6 +5,8 @@ import type { ActionState } from "@/components/forms";
 import { attempt, str } from "@/server/action";
 import { spaceContext } from "@/server/context";
 import { ValidationError } from "@/server/errors";
+import { clashSentence } from "@/server/lib/clashes";
+import { addStudentToBatch } from "@/server/services/enrolment";
 import { copyPlan, createSection, deleteSection, moveSection, planDaysFromText, setIncharge, updateSection, type PlanDayInput } from "@/server/services/batch-plan";
 
 async function ctx(data: FormData) {
@@ -104,4 +106,23 @@ export async function copyPlanAction(_: ActionState, data: FormData): Promise<Ac
       : "";
     return `Copied ${r.sections} ${r.sections === 1 ? "section" : "sections"} from ${r.fromBatchName}.${missing}${told(r.studentsNotified)}`;
   });
+}
+
+export type AddStudentState = (NonNullable<ActionState> & { clash?: { email: string; warning: string } }) | null;
+
+/** Adds a student to the batch. A clash comes back as a warning first; pressing again adds them anyway. */
+export async function addStudentAction(_: AddStudentState, data: FormData): Promise<AddStudentState> {
+  const { uni, actor, batchId } = await ctx(data);
+  const email = str(data, "email").toLowerCase();
+  const found: { clash?: { email: string; warning: string } } = {};
+  const res = await attempt(async () => {
+    const r = await addStudentToBatch(actor, { batchId, email, acknowledgeClash: !!email && str(data, "acknowledge").toLowerCase() === email });
+    if (r.status === "clash") {
+      found.clash = { email, warning: clashSentence(r.clashes, `${r.student.name}'s place in this batch`) };
+      return;
+    }
+    revalidatePath(`/${uni}/admin/products/batches/${batchId}`);
+    return `${r.student.name} is in the batch and has been told. It's on their timetable now.${r.clashes.length > 0 ? " Their timetable marks the classes that clash." : ""}`;
+  });
+  return found.clash ? { clash: found.clash, at: Date.now() } : res;
 }

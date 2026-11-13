@@ -24,6 +24,7 @@ import {
 import { systemActorFor } from "../actor";
 import { assertCan, reach, type Actor } from "../authz/engine";
 import { AppError, ConflictError, ForbiddenError, NotFoundError, ValidationError, isUniqueViolation } from "../errors";
+import { clashSentence } from "../lib/clashes";
 import { earliestStart, formatDate, todayIn } from "../lib/dates";
 import { emit } from "../events";
 import { gateway } from "../payments/gateway";
@@ -820,6 +821,9 @@ export type EnrolmentRequest = {
   course: { id: string; title: string };
   batch: { id: string; name: string; seatsLeft: number; seatLimit: number };
   requestedAt: Date;
+  /** The asked-for batch overlaps the student's other batches: a warning for whoever accepts. */
+  clashes: Clash[];
+  clashWarning: string | null;
 };
 
 /**
@@ -847,12 +851,15 @@ export async function listEnrolmentRequests(actor: Actor, filter: { batchId?: st
     const out: EnrolmentRequest[] = [];
     for (const { e, b, c, u } of rows) {
       if (!(r.all || r.departmentIds.has(b.departmentId) || r.batchIds.has(b.id))) continue;
+      const clashes = await clashesFor(tx, u.id, b.id, { excludeCourseId: c.id });
       out.push({
         enrolmentId: e.id,
         student: u,
         course: { id: c.id, title: c.title },
         batch: { id: b.id, name: b.name, seatLimit: b.seatLimit, seatsLeft: Math.max(0, b.seatLimit - (await seatsTaken(tx, b.id))) },
         requestedAt: e.createdAt,
+        clashes,
+        clashWarning: clashes.length > 0 ? clashSentence(clashes, `${b.name}`) : null,
       });
     }
     return out;
@@ -919,6 +926,121 @@ export async function withdrawEnrolmentRequest(actor: Actor, enrolmentId: string
     await tx.update(enrolments).set({ status: "cancelled", decidedAt: null, decidedBy: null, decisionNote: null }).where(eq(enrolments.id, e.id));
     await settleNotifications(tx, { kind: "enrolment.requested", key: "enrolmentId", id: e.id }, "Withdrawn by the student.");
     await audit(tx, actor, "enrolment.request_cancel", "enrolment", e.id);
+  });
+}
+
+/* ─────────────────────────── Staff: add a student to a batch ─────────────────────────── */
+
+export type AddStudentResult =
+  | { status: "clash"; student: { id: string; name: string }; clashes: Clash[] }
+  | { status: "enrolled"; student: { id: string; name: string }; enrolmentId: string; clashes: Clash[] };
+
+/** The institute's students (by active student role) who could be added to this batch: not already studying its course. */
+export async function studentsToAdd(actor: Actor, batchId: string) {
+  return withTenant(actor, async (tx) => {
+    const { batch, target } = await loadBatch(tx, uni(actor), batchId);
+    assertCan(actor, "batch.update", target);
+    const now = new Date();
+    const rows = await tx
+      .selectDistinct({ id: users.id, name: users.name, email: users.email, endsAt: roleAssignments.endsAt })
+      .from(roleAssignments)
+      .innerJoin(users, eq(users.id, roleAssignments.userId))
+      .where(and(eq(roleAssignments.universityId, uni(actor)), eq(roleAssignments.role, "student"), isNull(roleAssignments.revokedAt)))
+      .orderBy(users.name);
+    const taken = new Set(
+      (
+        await tx
+          .select({ userId: enrolments.userId })
+          .from(enrolments)
+          .where(and(eq(enrolments.courseId, batch.courseId), inArray(enrolments.status, ["active", "completed"])))
+      ).map((r) => r.userId),
+    );
+    const seen = new Set<string>();
+    return rows
+      .filter((r) => (!r.endsAt || r.endsAt > now) && !taken.has(r.id) && !seen.has(r.id) && seen.add(r.id))
+      .map(({ id, name, email }) => ({ id, name, email }));
+  });
+}
+
+/**
+ * Staff put one of the institute's students straight into a batch, with no request and no
+ * payment: institute courses are free for its students. The seat limit holds. A clash with
+ * the student's other batches comes back first as a warning; with `acknowledgeClash` the
+ * student is added anyway. A request or accepted seat the student had in this course gives
+ * way to the new place, and an unpaid hold is released.
+ */
+export async function addStudentToBatch(actor: Actor, input: { batchId: string; email: string; acknowledgeClash?: boolean }): Promise<AddStudentResult> {
+  return withTenant(actor, async (tx): Promise<AddStudentResult> => {
+    const { batch, target } = await loadBatch(tx, uni(actor), input.batchId, { lock: true });
+    assertCan(actor, "batch.update", target);
+    if (batch.recorded) throw new ConflictError("Marketplace buyers join this batch by buying the recordings. Add students to a live batch instead.", "not_live");
+    const today = await universityToday(tx, uni(actor));
+    if (batch.endDate < today) throw new ConflictError(`${batch.name} has ended. Pick a batch that is still running.`, "batch_closed");
+
+    const email = input.email.trim().toLowerCase();
+    if (!email) throw new ValidationError("Pick a student to add.");
+    const now = new Date();
+    const [student] = (
+      await tx
+        .select({ id: users.id, name: users.name, endsAt: roleAssignments.endsAt })
+        .from(users)
+        .innerJoin(roleAssignments, eq(roleAssignments.userId, users.id))
+        .where(
+          and(
+            sql`lower(${users.email}) = ${email}`,
+            eq(roleAssignments.universityId, uni(actor)),
+            eq(roleAssignments.role, "student"),
+            isNull(roleAssignments.revokedAt),
+          ),
+        )
+    ).filter((r) => !r.endsAt || r.endsAt > now);
+    if (!student) throw new ValidationError(`No student with the email ${email} in this institute. Add them under Users, Students first.`);
+    const who = { id: student.id, name: student.name };
+    const [course] = await tx.select().from(courses).where(eq(courses.id, batch.courseId));
+
+    await expireStaleHolds(tx, { batchId: batch.id });
+    await expireStaleHolds(tx, { userId: student.id });
+    const [live] = await tx
+      .select()
+      .from(enrolments)
+      .where(and(eq(enrolments.userId, student.id), eq(enrolments.courseId, course.id), inArray(enrolments.status, ["held", "active", "completed", "requested", "approved"])));
+    if (live?.status === "active" || live?.status === "completed") {
+      if (live.batchId === batch.id) throw new ConflictError(`${student.name} is already in ${batch.name}.`, "already_enrolled");
+      const [other] = await tx.select({ name: batches.name }).from(batches).where(eq(batches.id, live.batchId));
+      throw new ConflictError(`${student.name} already studies ${course.title} in ${other?.name ?? "another batch"}. Move them with a batch switch instead.`, "already_enrolled");
+    }
+    // A request or accepted seat for this very batch already counts as taken.
+    const ownSeat = live && live.batchId === batch.id && (live.status === "approved" || live.status === "held");
+    if (!ownSeat && (await seatsTaken(tx, batch.id)) >= batch.seatLimit) {
+      throw new ConflictError(`${batch.name} is full. Add seats under Seats first.`, "batch_full");
+    }
+
+    const clashes = await clashesFor(tx, student.id, batch.id, { excludeCourseId: course.id });
+    if (clashes.length > 0 && !input.acknowledgeClash) return { status: "clash", student: who, clashes };
+
+    if (live) {
+      // Their request, accepted seat or unpaid hold in this course gives way to the place staff gave them.
+      await tx.update(enrolments).set({ status: "cancelled", decidedAt: null, decidedBy: null, decisionNote: null }).where(eq(enrolments.id, live.id));
+      if (live.status === "held") await tx.update(orders).set({ status: "expired" }).where(and(eq(orders.enrolmentId, live.id), eq(orders.status, "pending")));
+      if (live.status === "requested") await settleNotifications(tx, { kind: "enrolment.requested", key: "enrolmentId", id: live.id }, `${actor.name} added ${student.name} to ${batch.name}.`);
+      await audit(tx, actor, "enrolment.request_cancel", "enrolment", live.id, { movedTo: batch.id, byStaff: true });
+    }
+    const [e] = await tx
+      .insert(enrolments)
+      .values({ universityId: uni(actor), userId: student.id, courseId: course.id, batchId: batch.id, status: "active", enrolledAt: new Date(), decidedAt: new Date(), decidedBy: actor.userId || null })
+      .returning();
+    await notify(tx, uni(actor), [student.id], {
+      kind: "enrolment.confirmed",
+      title: `You're enrolled in ${course.title}`,
+      body: batch.startDate > today ? `${actor.name} added you to ${batch.name}. It starts on ${formatDate(batch.startDate)} and is on your timetable.` : `${actor.name} added you to ${batch.name}. It's on your timetable now.`,
+      data: { courseId: course.id, batchId: batch.id },
+    });
+    await audit(tx, actor, "enrolment.add_by_staff", "enrolment", e.id, { batchId: batch.id, userId: student.id, clashAcknowledged: clashes.length > 0 });
+    await emit(tx, actor, "enrolment.confirmed", { enrolmentId: e.id, userId: student.id, courseId: course.id, batchId: batch.id });
+    return { status: "enrolled", student: who, enrolmentId: e.id, clashes };
+  }).catch((err) => {
+    if (isUniqueViolation(err)) throw new ConflictError("That student already has a place in this course.", "already_enrolled");
+    throw err;
   });
 }
 
