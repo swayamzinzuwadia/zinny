@@ -13,13 +13,14 @@ import { learnerBoard, myXpSummary } from "../learner";
 import { topLearners } from "../leaderboards";
 import { BadgeIcon } from "./badge-icon";
 import { PeriodSwitch, ProgressBar, RankList } from "./board";
-import { ChallengeTile } from "./learner";
+import { formatDay } from "../util";
+import { ChallengeTile, daysLeft } from "./learner";
 
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
 
-function NextBadge({ badge }: { badge: NonNullable<Awaited<ReturnType<typeof myXpSummary>>["badges"]["next"]> }) {
+function NextBadge({ badge, plain = false }: { badge: NonNullable<Awaited<ReturnType<typeof myXpSummary>>["badges"]["next"]>; plain?: boolean }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-canvas p-3">
+    <div className={cx("flex items-center gap-3", !plain && "rounded-2xl bg-canvas p-3")}>
       <BadgeIcon icon={badge.icon} size={40} state="locked" />
       <div className="min-w-0 flex-1">
         <div className="text-[13px] text-muted">Next badge</div>
@@ -39,25 +40,26 @@ function NextBadge({ badge }: { badge: NonNullable<Awaited<ReturnType<typeof myX
   );
 }
 
-/** learnerHomeCards.xp */
+/** learnerHomeCards.xp: one compact card. The figure, this week, the best rank, then the running challenge as one bar. */
 export async function XpHomeCard({ uni, actor }: HomeCardProps) {
   const s = await myXpSummary(actor);
+  const c = s.challenge;
   return (
-    <Card>
+    <Card className="p-5">
       <CardTitle
         hint={
-          <Link href={`/${uni}/learn/leaderboard`} className="inline-block py-1.5 font-medium text-brand hover:underline">
+          <Link href={`/${uni}/learn/leaderboard`} className="inline-block py-1 font-medium text-brand hover:underline">
             Open leaderboard
           </Link>
         }
       >
         Your XP
       </CardTitle>
-      <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
-        <span className="tabular text-[40px] font-semibold leading-none">{s.total.toLocaleString("en-IN")}</span>
-        <span className="tabular pb-1 text-[14px] text-muted">+{s.week.toLocaleString("en-IN")} this week</span>
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="tabular text-[28px] font-medium leading-none">{s.total.toLocaleString("en-IN")}</span>
+        <span className="tabular text-[13px] text-muted">+{s.week.toLocaleString("en-IN")} this week</span>
       </div>
-      <p className="mt-2 text-[14px] text-muted">
+      <p className="mt-1 text-[13px] text-muted">
         {s.best ? (
           <>
             You&apos;re <span className="font-medium text-ink">{ordinal(s.best.rank!)}</span> of {s.best.of} in {s.best.title}, {s.best.subtitle}.
@@ -66,9 +68,33 @@ export async function XpHomeCard({ uni, actor }: HomeCardProps) {
           "Finish a lesson, pass a test or attend a class to get on the leaderboard."
         )}
       </p>
-      <div className="mt-4 space-y-3">
-        {s.challenge ? <ChallengeTile c={s.challenge} compact /> : s.badges.next ? <NextBadge badge={s.badges.next} /> : null}
-      </div>
+      {c ? (
+        <div className="mt-4 border-t border-line pt-4">
+          <div className="flex items-baseline justify-between gap-3 text-[14px]">
+            <span className="min-w-0 truncate font-medium">{c.title}</span>
+            {c.status === "active" && c.daysLeft !== null && <span className="shrink-0 text-[13px] text-muted">{daysLeft(c.daysLeft)}</span>}
+            {c.status === "upcoming" && <span className="shrink-0 text-[13px] text-muted">Starts {formatDay(c.startDate, { year: false })}</span>}
+            {c.status === "ended" && <span className="shrink-0 text-[13px] text-muted">Ended</span>}
+          </div>
+          {c.status !== "upcoming" && (
+            <>
+              <div className="mt-2">
+                <ProgressBar value={c.value} target={c.target} label={`${c.title}: ${Math.min(c.value, c.target)} of ${c.target}`} />
+              </div>
+              <div className="mt-1.5 flex flex-wrap justify-between gap-x-3 text-[13px] text-muted">
+                <span className="tabular">
+                  {Math.min(c.value, c.target).toLocaleString("en-IN")} of {c.target.toLocaleString("en-IN")} {c.unit}
+                </span>
+                {c.finished && c.position && <span className="font-medium text-brand-strong">Done, {ordinal(c.position)} to finish</span>}
+              </div>
+            </>
+          )}
+        </div>
+      ) : s.badges.next ? (
+        <div className="mt-4 border-t border-line pt-4">
+          <NextBadge badge={s.badges.next} plain />
+        </div>
+      ) : null}
     </Card>
   );
 }

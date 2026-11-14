@@ -2,43 +2,41 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { cx } from "@/components/ui";
+import { Card, cx } from "@/components/ui";
 import { addDays, formatDate, formatTime, isoWeekday, toMinutes, weekdayLabel } from "@/server/lib/dates";
 import type { Session } from "@/server/services/schedule";
 
 /** The section's own faculty when the day is planned, otherwise the batch's. */
 const teachers = (s: Session) => (s.sectionFaculty?.length ? s.sectionFaculty : s.faculty);
+const keyOf = (s: Session) => `${s.date} ${s.batchId} ${s.startTime}`;
 
 /**
- * The week strip on the learner home: one button per day. Tapping a day shows that day's
- * classes in the card below ("Today", "Tomorrow", or the date). `children` sits beside it.
+ * The week strip on the learner home: one button per day. Tapping a day lists that day's
+ * classes below it. For today the list leaves out `onBoard` (the class the board above
+ * already shows), and disappears when nothing else is left.
  */
 export function DayAgenda({
   days,
   today,
   nowMin,
   sessions,
+  onBoard,
   dotFor,
   timetableHref,
-  children,
 }: {
   days: string[];
   today: string;
   nowMin: number;
   sessions: Session[];
+  onBoard: string | null;
   dotFor: Record<string, string>;
   timetableHref: string;
-  children?: React.ReactNode;
 }) {
   const [picked, setPicked] = useState(today);
-  const items = sessions.filter((s) => s.date === picked);
-  const title = picked === today ? "Today" : picked === addDays(today, 1) ? "Tomorrow" : formatDate(picked, { weekday: true });
-  const empty =
-    picked === today
-      ? "No classes today. Use the time to catch up on lessons."
-      : picked < today
-        ? "No classes that day."
-        : "Nothing scheduled that day.";
+  const isToday = picked === today;
+  const items = sessions.filter((s) => s.date === picked && !(isToday && keyOf(s) === onBoard));
+  const title = isToday ? "Also today" : picked === addDays(today, 1) ? "Tomorrow" : formatDate(picked, { weekday: true });
+  const empty = picked < today ? "No classes that day." : "Nothing scheduled that day.";
 
   function onKey(e: React.KeyboardEvent) {
     const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
@@ -55,7 +53,7 @@ export function DayAgenda({
       <div role="tablist" aria-label="Days this week" onKeyDown={onKey} className="grid grid-cols-7 gap-1.5 sm:gap-3">
         {days.map((d) => {
           const count = sessions.filter((s) => s.date === d);
-          const isToday = d === today;
+          const dayIsToday = d === today;
           const selected = d === picked;
           return (
             <button
@@ -65,28 +63,23 @@ export function DayAgenda({
               role="tab"
               aria-selected={selected}
               aria-controls="day-panel"
-              aria-label={`${formatDate(d, { weekday: true })}${isToday ? ", today" : ""}, ${count.length} class${count.length === 1 ? "" : "es"}`}
+              aria-label={`${formatDate(d, { weekday: true })}${dayIsToday ? ", today" : ""}, ${count.length} class${count.length === 1 ? "" : "es"}`}
               tabIndex={selected ? 0 : -1}
               onClick={() => setPicked(d)}
               className={cx(
-                "rounded-[18px] border px-1 py-3 text-center [transition-property:background-color,border-color,box-shadow,transform] duration-150 active:scale-[0.96]",
+                "rounded-2xl border px-1 py-2 text-center [transition-property:background-color,border-color,transform] duration-150 active:scale-[0.96]",
                 selected
-                  ? "border-brand bg-brand text-canvas shadow-[0_6px_16px_-6px_rgb(11_94_76/0.55)]"
-                  : isToday
-                    ? "border-gold bg-surface ring-2 ring-gold-soft hover:border-gold-strong"
+                  ? "border-brand bg-brand text-canvas"
+                  : dayIsToday
+                    ? "border-gold bg-surface hover:border-gold-strong"
                     : "border-line bg-surface/70 hover:border-faint hover:bg-surface",
               )}
             >
-              <div
-                className={cx(
-                  "text-[12px]",
-                  selected ? "text-canvas/75" : isToday ? "font-medium text-gold-strong" : "text-muted",
-                )}
-              >
+              <div className={cx("text-[12px]", selected ? "text-canvas/75" : dayIsToday ? "font-medium text-gold-strong" : "text-muted")}>
                 {weekdayLabel(isoWeekday(d))}
               </div>
-              <div className="tabular text-[20px] font-semibold leading-tight">{Number(d.slice(8))}</div>
-              <div className="mt-1.5 flex h-2 justify-center gap-1">
+              <div className="tabular text-[18px] font-medium leading-tight">{Number(d.slice(8))}</div>
+              <div className="mt-1 flex h-1.5 justify-center gap-1">
                 {count.slice(0, 4).map((s, i) => (
                   <span key={i} className={cx("h-1.5 w-1.5 rounded-full", selected ? "bg-canvas" : dotFor[s.courseId] ?? "bg-brand")} />
                 ))}
@@ -96,72 +89,64 @@ export function DayAgenda({
         })}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <section id="day-panel" role="tabpanel" aria-label={title} className="rounded-[var(--radius-board)] border border-line bg-surface p-6">
-          <div className="mb-4 flex items-baseline justify-between gap-3">
-            <h2 className="text-[17px] font-medium">{title}</h2>
-            <div className="flex items-baseline gap-3 text-[13px]">
-              {items.length > 0 && (
-                <span className="text-muted">
-                  {items.length} class{items.length === 1 ? "" : "es"}
-                </span>
-              )}
-              {picked !== today && (
+      {isToday && items.length === 0 ? null : (
+        <Card id="day-panel" role="tabpanel" aria-label={title} className="p-5">
+          <div className="mb-1 flex items-baseline justify-between gap-3">
+            <h2 className="text-[16px] font-medium">{title}</h2>
+            <div className="flex items-baseline gap-4 text-[13px]">
+              {!isToday && (
                 <button type="button" onClick={() => setPicked(today)} className="py-1 text-brand hover:underline">
                   Back to today
                 </button>
               )}
+              <Link href={timetableHref} className="py-1 font-medium text-brand hover:underline">
+                Full timetable
+              </Link>
             </div>
           </div>
           {items.length === 0 ? (
-            <p className="text-[14px] text-muted">{empty}</p>
+            <p className="py-2 text-[14px] text-muted">{empty}</p>
           ) : (
-            <ol className="relative space-y-4 border-l border-line pl-5">
+            <ul className="-mb-3 divide-y divide-line">
               {items.map((s, i) => {
-                const isToday = picked === today;
                 const done = picked < today || (isToday && toMinutes(s.endTime) <= nowMin);
                 const now = isToday && !done && toMinutes(s.startTime) <= nowMin;
                 return (
-                  <li key={i} className={cx("relative", done && "opacity-55")}>
+                  <li key={i} className={cx("flex gap-3 py-3", done && "opacity-60")}>
                     <span
-                      className={cx(
-                        "absolute -left-[26px] top-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-surface",
-                        now ? "now-dot bg-gold" : dotFor[s.courseId] ?? "bg-brand",
-                      )}
+                      aria-hidden
+                      className={cx("mt-[7px] h-2 w-2 shrink-0 rounded-full", now ? "now-dot bg-gold" : dotFor[s.courseId] ?? "bg-brand")}
                     />
-                    <div className="tabular text-[13px] text-muted">
-                      {formatTime(s.startTime)}–{formatTime(s.endTime)}
-                      {now && <span className="ml-2 font-medium text-gold-strong">Now</span>}
-                      {s.kind === "extra" && <span className="ml-2">Extra class</span>}
-                      {s.kind === "rescheduled" && <span className="ml-2">Moved here</span>}
-                    </div>
-                    <div className="font-medium">{s.courseTitle}</div>
-                    {s.section && (
-                      <div className="text-[14px]">
-                        {s.section}
-                        {s.topic && <span className="text-muted">: {s.topic}</span>}
+                    <div className="min-w-0">
+                      <div className="text-[14px] font-medium">{s.courseTitle}</div>
+                      <div className="tabular text-[13px] text-muted">
+                        {formatTime(s.startTime)}–{formatTime(s.endTime)}
+                        {now && <span className="ml-2 font-medium text-gold-strong">Now</span>}
+                        {s.kind === "extra" && " · Extra class"}
+                        {s.kind === "rescheduled" && " · Moved here"}
+                        {" · "}
+                        {s.batchName}
+                        {teachers(s).length > 0 && `, with ${teachers(s).join(" and ")}`}
                       </div>
-                    )}
-                    <div className="text-[13px] text-muted">
-                      {s.batchName}
-                      {teachers(s).length > 0 && `, with ${teachers(s).join(" and ")}`}
+                      {s.section && (
+                        <div className="text-[13px]">
+                          {s.section}
+                          {s.topic && <span className="text-muted">: {s.topic}</span>}
+                        </div>
+                      )}
+                      {s.clashesWith && (
+                        <div className="mt-0.5 text-[13px] font-medium text-gold-strong">
+                          Clashes with {[...new Set(s.clashesWith.map((c) => c.courseTitle))].join(" and ")}
+                        </div>
+                      )}
                     </div>
-                    {s.clashesWith && (
-                      <div className="mt-1 inline-block rounded-md bg-gold-soft px-2 py-0.5 text-[12.5px] font-medium text-gold-strong">
-                        Clashes with {[...new Set(s.clashesWith.map((c) => c.courseTitle))].join(" and ")}
-                      </div>
-                    )}
                   </li>
                 );
               })}
-            </ol>
+            </ul>
           )}
-          <Link href={timetableHref} className="mt-4 inline-block py-1 text-[13px] text-brand hover:underline">
-            See the full timetable
-          </Link>
-        </section>
-        {children}
-      </div>
+        </Card>
+      )}
     </>
   );
 }

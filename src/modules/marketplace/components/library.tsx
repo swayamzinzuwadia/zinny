@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, ButtonLink, Card, CardTitle, buttonClass, cx } from "@/components/ui";
+import { Badge, ButtonLink, Card, CardTitle, buttonClass } from "@/components/ui";
 import type { HomeCardProps } from "@/contracts/module";
 import { daysBetween, formatDate, formatTime } from "@/server/lib/dates";
 import { joinPath } from "@/server/lib/links";
@@ -136,36 +136,51 @@ export function LibraryCard({ item }: { item: LibraryItem }) {
 export async function LibraryHomeCard({ actor }: HomeCardProps) {
   const [items, access] = await Promise.all([myLibrary(actor.userId), marketplaceAccess(actor.userId)]);
   if (items.length === 0 && !access.canShop) return null;
+  if (items.length === 0) {
+    // Nothing bought yet: one quiet way in, not a card of its own.
+    return (
+      <Link href="/marketplace" className="group flex items-center justify-between gap-3 rounded-2xl border border-line bg-surface px-5 py-4 [transition-property:border-color] duration-150 hover:border-brand/40">
+        <span className="min-w-0">
+          <span className="block text-[14px] font-medium group-hover:text-brand">Browse the marketplace</span>
+          <span className="block text-[13px] text-muted">Courses from other institutes on Zinny</span>
+        </span>
+        <svg aria-hidden viewBox="0 0 16 16" className="size-4 shrink-0 text-muted" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 3.5 10.5 8 6 12.5" />
+        </svg>
+      </Link>
+    );
+  }
   return (
-    <Card>
-      <CardTitle hint={items.length > 0 ? `${items.length} bought` : undefined}>Marketplace</CardTitle>
-      {items.length === 0 ? (
-        <p className="text-[14px] text-muted">Recorded lectures and seats in live batches from institutes across Zinny. What you buy goes to My library once your payment is confirmed.</p>
-      ) : (
-        <ul className="space-y-3.5">
-          {items.slice(0, 3).map((item) => (
-            <li key={item.orderId}>
-              <Link href={courseHref(item)} className={cx("block text-[14px] font-medium hover:text-brand")}>
-                {item.title}
-              </Link>
-              <div className="mb-1.5 text-[13px] text-muted">{item.institute}</div>
-              {item.live ? <div className="text-[13px] text-ink/80">{nextClassLine(item.live) ? `Next class: ${nextClassLine(item.live)}` : item.live.timings}</div> : <Progress percent={item.percent} />}
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {access.canShop && (
-          <ButtonLink href="/marketplace" size="sm">
-            Browse the marketplace
-          </ButtonLink>
-        )}
-        {items.length > 0 && (
-          <ButtonLink href="/marketplace/library" size="sm" variant="secondary">
+    <Card className="p-5">
+      <CardTitle
+        hint={
+          <Link href="/marketplace/library" className="inline-block py-1 font-medium text-brand hover:underline">
             What I bought
-          </ButtonLink>
-        )}
-      </div>
+          </Link>
+        }
+      >
+        Marketplace
+      </CardTitle>
+      <ul className="-my-3 divide-y divide-line">
+        {items.slice(0, 3).map((item) => (
+          <li key={item.orderId}>
+            <Link href={courseHref(item)} className="group flex items-baseline justify-between gap-3 py-3">
+              <span className="min-w-0">
+                <span className="block truncate text-[14px] font-medium group-hover:text-brand">{item.title}</span>
+                <span className="block truncate text-[13px] text-muted">
+                  {item.live ? (nextClassLine(item.live) ? `Next class: ${nextClassLine(item.live)}` : item.live.timings) : item.institute}
+                </span>
+              </span>
+              {!item.live && <span className="tabular shrink-0 text-[13px] text-muted">{item.percent}%</span>}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {access.canShop && (
+        <Link href="/marketplace" className="mt-4 inline-block py-1 text-[13px] font-medium text-brand hover:underline">
+          Browse the marketplace
+        </Link>
+      )}
     </Card>
   );
 }

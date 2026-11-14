@@ -61,6 +61,7 @@ export const LEARN_PARENTS: TrailParent[] = [
   { prefix: "/invoices", href: "/invoices", label: "Invoices" },
   { prefix: "/polls", href: "/polls", label: "Polls" },
   { prefix: "/settings", href: "", label: "Today" },
+  { prefix: "/updates", href: "", label: "Today" },
   { prefix: "/join", href: "/timetable", label: "Timetable" },
 ];
 

@@ -155,7 +155,7 @@ function ResultsList({ uni, rows, timezone }: { uni: string; rows: ResultRow[]; 
 /** The learner cards' way to every test, with a hit area big enough for a thumb. */
 function AllTestsLink({ uni }: { uni: string }) {
   return (
-    <Link href={`/${uni}/learn/tests`} className="inline-block py-1.5 font-medium text-brand hover:underline">
+    <Link href={`/${uni}/learn/tests`} className="inline-block py-1 font-medium text-brand hover:underline">
       All tests
     </Link>
   );
@@ -174,32 +174,38 @@ export async function TestResultsHub({ uni, actor }: HubSectionProps) {
 
 /* ───────────────────────────── learnerHomeCards.upcoming-tests ───────────────────────────── */
 
+/** Rows on the home card; "All tests" has the rest. */
+const TESTS_SHOWN = 3;
+
 export async function UpcomingTestsCard({ uni, actor }: HomeCardProps) {
   const { tests, series, timezone } = await myTests(actor);
   const all = [...tests, ...series.flatMap((s) => s.tests)];
   const now = all.filter((t) => t.bucket === "available").sort((a, b) => (a.closesAt?.getTime() ?? Infinity) - (b.closesAt?.getTime() ?? Infinity));
   const soon = all.filter((t) => t.bucket === "upcoming").sort((a, b) => (a.opensAt?.getTime() ?? 0) - (b.opensAt?.getTime() ?? 0));
-  const shown = [...now, ...soon].slice(0, 4);
+  const shown = [...now, ...soon].slice(0, TESTS_SHOWN);
   if (shown.length === 0) return null;
   return (
-    <Card>
+    <Card className="p-5">
       <CardTitle hint={<AllTestsLink uni={uni} />}>Tests</CardTitle>
-      <ul className="space-y-3">
+      <ul className="-my-3 divide-y divide-line">
         {shown.map((t) => (
           <li key={t.id}>
-            <Link href={t.inProgress ? `/${uni}/learn/tests/attempt/${t.inProgress.id}` : `/${uni}/learn/tests/${t.id}`} className="flex items-center justify-between gap-3">
+            <Link
+              href={t.inProgress ? `/${uni}/learn/tests/attempt/${t.inProgress.id}` : `/${uni}/learn/tests/${t.id}`}
+              className="group flex items-center justify-between gap-3 py-3"
+            >
               <div className="min-w-0">
-                <div className="truncate text-[15px] font-medium">{t.title}</div>
+                <div className="truncate text-[14px] font-medium group-hover:text-brand">{t.title}</div>
                 <div className="truncate text-[13px] text-muted">
                   {t.courseTitle} · {whenLine(t, timezone)}
                 </div>
               </div>
               {t.inProgress ? (
-                <Badge tone="gold">Resume</Badge>
+                <span className="shrink-0 text-[13px] font-medium text-brand">Resume</span>
               ) : t.bucket === "available" ? (
                 <span className="shrink-0 text-[13px] font-medium text-brand">Start</span>
               ) : (
-                <Badge>Soon</Badge>
+                <span className="shrink-0 text-[13px] text-muted">Soon</span>
               )}
             </Link>
           </li>

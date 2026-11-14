@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { MonthView, monthRange, monthTitle, shiftMonth } from "@/components/month-view";
-import { Notice, buttonClass, cx } from "@/components/ui";
+import { Notice, buttonClass } from "@/components/ui";
 import { WeekView } from "@/components/week-view";
 import { spaceContext } from "@/server/context";
 import { joinPath } from "@/server/lib/links";
@@ -73,43 +73,53 @@ export default async function Timetable({ params, searchParams }: { params: Prom
       </p>
 
       {clashes.length > 0 && (
-        <div className="mb-5 rounded-2xl border border-gold/60 bg-gold-soft px-4 py-3 text-[14px] text-brand-deep" role="status">
-          <div className="font-semibold">
+        <div className="mb-5 rounded-2xl border border-line bg-surface px-5 py-4 text-[14px]" role="status">
+          <div className="flex items-center gap-2 font-medium">
+            <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-gold" />
             {clashes.length === 1 ? "Two of your classes are at the same time" : `${clashes.length} times when two of your classes meet together`}
           </div>
-          <ul className="mt-1 list-disc pl-5">
+          <ul className="mt-1 space-y-0.5 pl-4 text-muted">
             {clashes.slice(0, 5).map((c) => (
               <li key={c}>{c}</li>
             ))}
           </ul>
-          {clashes.length > 5 && <p className="mt-1">And {clashes.length - 5} more, marked in gold below.</p>}
-          <p className="mt-1 text-[13px]">Ask to switch batch from the course page if you can&apos;t be at both.</p>
+          {clashes.length > 5 && <p className="mt-1 pl-4 text-muted">And {clashes.length - 5} more, marked in gold below.</p>}
+          <p className="mt-1 pl-4 text-[13px] text-muted">Ask to switch batch from the course page if you can&apos;t be at both.</p>
         </div>
       )}
 
       {grid ? <MonthView month={month!} today={t.today} sessions={t.sessions} weekHref={(w) => `${base}?week=${w}`} /> : <WeekView from={t.from} today={t.today} sessions={t.sessions} />}
       {upcoming.length > 0 && (
-        <div className="mt-6 space-y-2">
-          {upcoming.map((s, i) => (
-            <div key={i} className={cx("flex items-center justify-between gap-3 rounded-2xl border bg-surface px-4 py-3 text-sm", s.clashesWith ? "border-gold" : "border-line")}>
-              <span className="min-w-0">
-                <b>{s.courseTitle}</b> · {s.date === t.today ? "Today" : formatDate(s.date, { weekday: true })}, {formatTime(s.startTime)}
-                {(s.section || s.sectionFaculty?.length || s.faculty.length > 0) && (
-                  <span className="block truncate text-[13px] text-muted">
-                    {[s.section, (s.sectionFaculty?.length ? s.sectionFaculty : s.faculty).join(" and ") && `with ${(s.sectionFaculty?.length ? s.sectionFaculty : s.faculty).join(" and ")}`, s.topic].filter(Boolean).join(" · ")}
+        <section className="mt-6 rounded-2xl border border-line bg-surface px-5 py-2">
+          <h2 className="pt-3 text-[16px] font-medium">Coming up</h2>
+          <ul className="divide-y divide-line">
+            {upcoming.map((s, i) => (
+              <li key={i} className="flex items-center justify-between gap-3 py-3 text-[14px]">
+                <span className="min-w-0">
+                  <span className="block font-medium">{s.courseTitle}</span>
+                  <span className="tabular block text-[13px] text-muted">
+                    {s.date === t.today ? "Today" : formatDate(s.date, { weekday: true })}, {formatTime(s.startTime)}
                   </span>
-                )}
-                {s.clashesWith && (
-                  <span className="block text-[13px] font-medium text-gold-strong">Clashes with {[...new Set(s.clashesWith.map((c) => c.courseTitle))].join(" and ")}</span>
-                )}
-              </span>
-              {/* A plain link, never prefetched: the join route records attendance, then redirects to the meeting. */}
-              <a href={joinPath(uni, s.batchId, s.date, s.startTime)} target="_blank" rel="noreferrer" className={buttonClass("primary", "sm")}>
-                Join
-              </a>
-            </div>
-          ))}
-        </div>
+                  {(s.section || s.sectionFaculty?.length || s.faculty.length > 0) && (
+                    <span className="block truncate text-[13px] text-muted">
+                      {[s.section, (s.sectionFaculty?.length ? s.sectionFaculty : s.faculty).join(" and ") && `with ${(s.sectionFaculty?.length ? s.sectionFaculty : s.faculty).join(" and ")}`, s.topic].filter(Boolean).join(" · ")}
+                    </span>
+                  )}
+                  {s.clashesWith && (
+                    <span className="mt-0.5 flex items-center gap-1.5 text-[13px] font-medium text-gold-strong">
+                      <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-gold" />
+                      Clashes with {[...new Set(s.clashesWith.map((c) => c.courseTitle))].join(" and ")}
+                    </span>
+                  )}
+                </span>
+                {/* A plain link, never prefetched: the join route records attendance, then redirects to the meeting. */}
+                <a href={joinPath(uni, s.batchId, s.date, s.startTime)} target="_blank" rel="noreferrer" className={buttonClass("primary", "sm")}>
+                  Join
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </>
   );
