@@ -8,7 +8,7 @@ import { SignInAsButton } from "./sign-in-as-button";
  */
 export function PersonActions({ userId, name, universityId, self }: { userId: string; name: string; universityId?: string | null; self?: boolean }) {
   return (
-    <div className="flex flex-wrap items-start justify-end gap-2">
+    <div className="flex items-start justify-end gap-4">
       {!self && <SignInAsButton userId={userId} name={name} universityId={universityId} />}
       <SetPasswordForm userId={userId} name={name} compact />
     </div>

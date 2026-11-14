@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Avatar, Badge, Empty, PageHeader, Select, Td, cx } from "@/components/ui";
+import { Avatar, Empty, PageHeader, Select, Td, cx } from "@/components/ui";
 import { ROLE_LABELS } from "@/server/authz/roles";
 import { platformContext } from "@/server/context";
 import { NoAccess, PanelTable, WIDE_ONLY } from "@/modules/zinny-team-panel/components/bits";
@@ -114,14 +114,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                 )}
               </Td>
               <Td>
-                <span className="flex flex-wrap gap-1">
-                  {roleNames(p).map((label) => (
-                    <Badge key={label} tone={label === ROLE_LABELS.student ? "brand" : "neutral"}>
-                      {label}
-                    </Badge>
-                  ))}
-                  {p.roles.length === 0 && <Badge>Marketplace account</Badge>}
-                </span>
+                <span className="text-[13px]">{p.roles.length === 0 ? <span className="text-muted">Marketplace account</span> : roleNames(p).join(", ")}</span>
               </Td>
               <Td className={cx(WIDE_ONLY, "whitespace-nowrap tabular")}>{p.phone ?? <span className="text-faint">Not set</span>}</Td>
               <Td className="whitespace-nowrap">{p.canSignIn ? "Active" : <span className="text-gold-strong">Invited</span>}</Td>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Card, CardTitle, Empty, Field, Input, Notice, PageHeader, Select, Stat, Table, Td, buttonClass, cx } from "@/components/ui";
+import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Stat, Table, Td, buttonClass, cx } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { can } from "@/server/core";
 import { InvoiceStatusBadge } from "@/modules/payments/components/status-badge";
@@ -120,31 +120,34 @@ export default async function InvoicesPage({ params, searchParams }: { params: P
         </div>
       </form>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Billed" value={inr(t.billedPaise)} hint={`${t.count - t.cancelled} ${t.count - t.cancelled === 1 ? "invoice" : "invoices"}${t.cancelled ? `, ${t.cancelled} cancelled left out` : ""}`} />
         <Stat label="Collected" value={inr(t.collectedPaise)} hint="Invoices marked paid" />
         <Stat label="Outstanding" value={inr(t.outstandingPaise)} hint={t.unpaid === 0 ? "Nothing waiting" : `${t.unpaid} unpaid ${t.unpaid === 1 ? "invoice" : "invoices"}`} />
-        <div className={cx("rounded-[22px] border px-5 py-4", t.overdue > 0 ? "border-gold/60 bg-gold-soft" : "border-line bg-surface")}>
-          <div className={cx("text-[13px]", t.overdue > 0 ? "text-gold-strong" : "text-muted")}>Overdue</div>
-          <div className="tabular mt-1 text-[30px] font-semibold leading-none">{inr(t.overduePaise)}</div>
-          <div className={cx("mt-1.5 text-[12px]", t.overdue > 0 ? "text-gold-strong" : "text-muted")}>
-            {t.overdue === 0 ? "Nothing past its due date" : `${t.overdue} past ${t.overdue === 1 ? "its" : "their"} due date`}
-          </div>
-        </div>
+        <Stat
+          label="Overdue"
+          value={<span className={t.overdue > 0 ? "text-danger" : undefined}>{inr(t.overduePaise)}</span>}
+          hint={
+            t.overdue === 0 ? (
+              "Nothing past its due date"
+            ) : (
+              <>
+                {t.overdue} past {t.overdue === 1 ? "its" : "their"} due date
+                {f.status !== "overdue" && (
+                  <>
+                    {" · "}
+                    <Link href={`${base}${query({ ...f, status: "overdue", page: undefined })}`} className="font-medium text-brand hover:underline">
+                      Show {t.overdue === 1 ? "it" : "them"}
+                    </Link>
+                  </>
+                )}
+              </>
+            )
+          }
+        />
       </div>
 
-      {t.overdue > 0 && f.status !== "overdue" && (
-        <div className="mb-6">
-          <Notice tone="gold">
-            {t.overdue === 1 ? "One invoice is" : `${t.overdue} invoices are`} unpaid past the due date, {inr(t.overduePaise)} in all.{" "}
-            <Link href={`${base}${query({ ...f, status: "overdue", page: undefined })}`} className="font-medium underline underline-offset-2">
-              Show {t.overdue === 1 ? "it" : "them"}
-            </Link>
-          </Notice>
-        </div>
-      )}
-
-      <Card className="mb-6 p-5">
+      <Card className="mb-6">
           <CardTitle hint={filtered ? "For these filters" : undefined}>By category</CardTitle>
           {data.byCategory.length === 0 ? (
             <p className="text-[14px] text-muted">Nothing to add up yet.</p>
@@ -221,7 +224,7 @@ export default async function InvoicesPage({ params, searchParams }: { params: P
                       </Td>
                       <Td className="whitespace-nowrap">
                         <div>{invoiceDate(r.issueDate)}</div>
-                        {r.dueDate && r.status === "unpaid" && <div className={cx("text-[12.5px]", r.overdue ? "font-medium text-gold-strong" : "text-muted")}>Due {invoiceDate(r.dueDate)}</div>}
+                        {r.dueDate && r.status === "unpaid" && <div className={cx("text-[12.5px]", r.overdue ? "text-ink" : "text-muted")}>Due {invoiceDate(r.dueDate)}</div>}
                         {r.status === "paid" && r.paidOn && r.source === "manual" && <div className="text-[12.5px] text-muted">Paid {invoiceDate(r.paidOn)}</div>}
                       </Td>
                       <Td className="whitespace-nowrap text-right">

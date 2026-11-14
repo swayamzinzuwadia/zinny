@@ -13,13 +13,14 @@ export function SetPasswordForm({ userId, name, compact }: { userId: string; nam
       <summary
         className={
           compact
-            ? "inline-flex h-8 cursor-pointer list-none items-center rounded-full border border-line bg-surface px-3.5 text-[13px] font-medium hover:border-brand/40"
+            ? // In a list row it is the second action, so a quiet link next to the row's one button.
+              "inline-flex h-8 cursor-pointer list-none items-center whitespace-nowrap text-[13px] text-brand hover:underline"
             : "inline-flex h-10 cursor-pointer list-none items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40"
         }
       >
         Set password
       </summary>
-      <ActionForm action={setPasswordAction} className="mt-3 space-y-3 rounded-2xl border border-line bg-surface p-4 text-left" confirm={`Set a new password for ${name}?`}>
+      <ActionForm action={setPasswordAction} className="mt-3 w-72 max-w-full space-y-3 rounded-2xl border border-line bg-surface p-4 text-left" confirm={`Set a new password for ${name}?`}>
         <input type="hidden" name="userId" value={userId} />
         <Field label={`New password for ${name}`} hint={`At least ${PASSWORD_MIN} characters. Common passwords are refused.`}>
           <Input name="password" type="password" autoComplete="new-password" required minLength={PASSWORD_MIN} />

@@ -14,7 +14,7 @@ export function SignInAsButton({ userId, name, universityId, variant = "secondar
   return (
     <form
       action={formAction}
-      className="inline-block"
+      className="inline-block whitespace-nowrap"
       onSubmit={(e) => {
         if (!window.confirm(`Sign in as ${name}? You can do anything they can. Everything is recorded as them, with your name alongside.`)) e.preventDefault();
       }}
@@ -24,7 +24,7 @@ export function SignInAsButton({ userId, name, universityId, variant = "secondar
       <SubmitButton size="sm" variant={variant} pendingText="Signing in…">
         Sign in as
       </SubmitButton>
-      {state?.error && <p className="mt-1 max-w-[260px] text-[12.5px] text-danger">{state.error}</p>}
+      {state?.error && <p className="mt-1 max-w-[260px] whitespace-normal text-[12.5px] text-danger">{state.error}</p>}
     </form>
   );
 }
