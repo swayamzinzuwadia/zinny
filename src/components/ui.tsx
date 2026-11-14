@@ -36,7 +36,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   return (
     <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="text-[30px] font-semibold leading-tight">{title}</h1>
+        <h1 className="text-[28px] font-semibold leading-tight">{title}</h1>
         {subtitle && <div className="mt-1.5 max-w-2xl text-[15px] text-muted">{subtitle}</div>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -46,7 +46,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 
 export function Card({ className, children, ...rest }: ComponentProps<"div">) {
   return (
-    <div className={cx("rounded-[22px] border border-line bg-surface p-6", className)} {...rest}>
+    <div className={cx("rounded-2xl border border-line bg-surface p-5", className)} {...rest}>
       {children}
     </div>
   );
@@ -55,7 +55,7 @@ export function Card({ className, children, ...rest }: ComponentProps<"div">) {
 export function CardTitle({ children, hint }: { children: ReactNode; hint?: ReactNode }) {
   return (
     <div className="mb-4 flex items-baseline justify-between gap-3">
-      <h2 className="text-[17px] font-medium">{children}</h2>
+      <h2 className="text-[16px] font-medium">{children}</h2>
       {hint && <span className="text-[13px] text-muted">{hint}</span>}
     </div>
   );
@@ -75,7 +75,7 @@ export function Badge({ tone = "neutral", children }: { tone?: Tone; children: R
 }
 
 export function Notice({ tone = "brand", children }: { tone?: Tone; children: ReactNode }) {
-  return <div className={cx("rounded-2xl px-4 py-3 text-[14px]", TONES[tone])}>{children}</div>;
+  return <div className={cx("rounded-xl px-4 py-3 text-[14px]", TONES[tone])}>{children}</div>;
 }
 
 /* ─────────────── Controls ─────────────── */
@@ -87,12 +87,15 @@ const BTN = {
   ghost: "text-brand hover:bg-brand-soft",
   danger: "border border-line bg-surface text-danger hover:bg-danger-soft",
   onDark: "border border-canvas/25 text-canvas hover:bg-canvas/10",
+  /** A row's second action: a text link with no pill around it. */
+  quiet: "text-brand hover:underline",
 };
 export type ButtonVariant = keyof typeof BTN;
 export const buttonClass = (v: ButtonVariant = "primary", size: "md" | "sm" = "md") =>
   cx(
     "inline-flex items-center justify-center gap-1.5 rounded-full font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-    size === "md" ? "h-10 px-5 text-[14px]" : "h-8 px-3.5 text-[13px]",
+    size === "md" ? "h-10 text-[14px]" : "h-8 text-[13px]",
+    v !== "quiet" && (size === "md" ? "px-5" : "px-3.5"),
     BTN[v],
   );
 
@@ -105,7 +108,7 @@ export function ButtonLink({ href, variant = "primary", size = "md", children }:
 }
 
 export const inputClass =
-  "h-10 w-full rounded-xl border border-line bg-surface px-3 text-[14px] outline-none transition placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-gold-soft";
+  "h-10 w-full rounded-xl border border-line bg-surface px-3 text-[14px] outline-none transition-[border-color,box-shadow] placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-gold-soft";
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
@@ -132,7 +135,7 @@ export function Textarea(props: ComponentProps<"textarea">) {
 
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="rounded-[22px] border border-dashed border-line px-6 py-10 text-center">
+    <div className="rounded-2xl border border-dashed border-line px-6 py-10 text-center">
       <p className="font-medium">{title}</p>
       {children && <div className="mt-1 text-[14px] text-muted">{children}</div>}
     </div>
@@ -141,12 +144,12 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
 
 export function Table({ head, children }: { head: ReactNode[]; children: ReactNode }) {
   return (
-    <div className="relative overflow-x-auto rounded-[22px] border border-line bg-surface">
+    <div className="relative overflow-x-auto rounded-2xl border border-line bg-surface">
       <table className="w-full min-w-[640px] text-left text-[14px]">
         <thead className="border-b border-line text-[13px] text-muted">
           <tr>
             {head.map((h, i) => (
-              <th key={i} className="px-5 py-3 font-normal">
+              <th key={i} className="px-4 py-3 font-normal">
                 {h}
               </th>
             ))}
@@ -159,13 +162,13 @@ export function Table({ head, children }: { head: ReactNode[]; children: ReactNo
 }
 
 export function Td({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={cx("px-5 py-3.5 align-top", className)}>{children}</td>;
+  return <td className={cx("px-4 py-4 align-top", className)}>{children}</td>;
 }
 
 export function Tabs({ tabs, active }: { tabs: { key: string; label: string; href: string; count?: number }[]; active: string }) {
   // Tabs wrap onto a second row rather than hide off the edge: every section stays visible.
   return (
-    <nav className="mb-7 flex flex-wrap gap-1 rounded-[22px] border border-line bg-surface p-1">
+    <nav className="mb-7 flex flex-wrap gap-1 rounded-2xl border border-line bg-surface p-1">
       {tabs.map((t) => (
         <Link
           key={t.key}
@@ -185,10 +188,10 @@ export function Tabs({ tabs, active }: { tabs: { key: string; label: string; hre
 
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
   return (
-    <div className="rounded-[22px] border border-line bg-surface px-5 py-4">
+    <div className="rounded-2xl border border-line bg-surface px-5 py-4">
       <div className="text-[13px] text-muted">{label}</div>
-      <div className="tabular mt-1 text-[30px] font-semibold leading-none">{value}</div>
-      {hint && <div className="mt-1.5 text-[12px] text-muted">{hint}</div>}
+      <div className="tabular mt-1.5 text-[28px] font-medium leading-none">{value}</div>
+      {hint && <div className="mt-2 text-[13px] text-muted">{hint}</div>}
     </div>
   );
 }

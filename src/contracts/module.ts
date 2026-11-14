@@ -90,7 +90,49 @@ export type HomeCard = SlotBase<HomeCardProps>;
  * the card itself must narrow what it shows with `reach`.
  */
 export type DashboardCardProps = SlotContext & { today: string };
-export type DashboardCard = SlotBase<DashboardCardProps>;
+
+/**
+ * One row of the dashboard's "Needs you" list: what is waiting, and one link to deal with it.
+ * Return one row per kind of thing ("11 assignments to grade"), not one per record.
+ */
+export type DashboardRow = {
+  /** Unique within the module. */
+  key: string;
+  /** What is waiting, starting with the count: "3 new enquiries". */
+  text: string;
+  /** Optional second line, muted. */
+  detail?: string;
+  href: string;
+  /** The one action: "Answer enquiries", "Grade". */
+  link: string;
+  /** A warning (a small gold dot) or money gone wrong (`danger`). Leave out for plain work. */
+  tone?: "warn" | "danger";
+  /** Notification kinds this row already says, so the dashboard's Updates list leaves them out. */
+  covers?: string[];
+};
+
+/** One label and figure in the dashboard's "This month" card, with a link to the detail. */
+export type DashboardLine = {
+  key: string;
+  label: string;
+  /** Already formatted, e.g. "₹3,798" (whole rupees) or "4". */
+  value: string;
+  /** Optional muted note under the label: "0 last month". */
+  hint?: string;
+  href: string;
+  link: string;
+};
+
+/**
+ * A dashboard entry renders its `component` as a small card at the end of the page, unless it
+ * offers a compact form: then the dashboard shows its `needsYou` rows in "Needs you" and its
+ * `thisMonth` lines in "This month" instead, and `component` is not shown there.
+ * Both functions get the same props as the component and must narrow what they return with `reach`.
+ */
+export type DashboardCard = SlotBase<DashboardCardProps> & {
+  needsYou?: (props: DashboardCardProps) => Promise<DashboardRow[]>;
+  thisMonth?: (props: DashboardCardProps) => Promise<DashboardLine[]>;
+};
 
 export type SlotMap = {
   adminCourseTabs: CourseTab;

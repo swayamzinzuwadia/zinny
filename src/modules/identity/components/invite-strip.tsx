@@ -13,6 +13,7 @@ export function InviteStrip({
   code,
   mode,
   canManage,
+  bare = false,
 }: {
   uni: string;
   institute: string;
@@ -20,20 +21,21 @@ export function InviteStrip({
   mode: "approval" | "instant";
   /** Institute Admins can also change how students join, and make a new code. */
   canManage: boolean;
+  /** Without its own card and title: the dashboard opens it from the "Invite students" quick action. */
+  bare?: boolean;
 }) {
   const link = joinLink(code);
   const message = joinMessage(institute, link, code);
-  return (
-    <Card className="flex flex-wrap items-center gap-x-8 gap-y-4 py-5">
-      <div className="min-w-[220px] flex-1">
-        <h2 className="text-[16px] font-medium">Invite students</h2>
-        <p className="mt-0.5 text-[13px] text-muted">
-          Share your joining code or link. {mode === "approval" ? "Students who use it wait for an Admin or HOD to accept them." : "Students who use it join straight away."}
-        </p>
-      </div>
+  const intro = (
+    <p className="mt-0.5 text-[13px] text-muted">
+      Share your joining code or link. {mode === "approval" ? "Students who use it wait for an Admin or HOD to accept them." : "Students who use it join straight away."}
+    </p>
+  );
+  const body = (
+    <>
       <div className="min-w-0">
         <div className="text-[12px] text-muted">Joining code</div>
-        <div className="tabular text-[26px] leading-tight font-semibold tracking-[0.2em] text-brand-strong">{code}</div>
+        <div className="tabular text-[26px] leading-tight font-medium tracking-[0.2em] text-brand-strong">{code}</div>
       </div>
       <div className="flex flex-col gap-2">
         <ShareJoinCode code={code} link={link} message={message} whatsApp={whatsAppShareHref(message)} />
@@ -46,6 +48,22 @@ export function InviteStrip({
           </Link>
         </div>
       </div>
+    </>
+  );
+  if (bare)
+    return (
+      <div>
+        {intro}
+        <div className="mt-4 flex flex-wrap items-center gap-x-8 gap-y-4">{body}</div>
+      </div>
+    );
+  return (
+    <Card className="flex flex-wrap items-center gap-x-8 gap-y-4">
+      <div className="min-w-[220px] flex-1">
+        <h2 className="text-[16px] font-medium">Invite students</h2>
+        {intro}
+      </div>
+      {body}
     </Card>
   );
 }

@@ -1,6 +1,6 @@
 import type { ZinnyModule } from "@/contracts/module";
 import { closeExpiredAttempts } from "./attempts";
-import { BatchTestsSection, CourseTestsTab, LearnerCourseTestsTab, TestResultsHub, ToGradeCard, UpcomingTestsCard } from "./components/slots";
+import { BatchTestsSection, CourseTestsTab, LearnerCourseTestsTab, TestResultsHub, ToGradeCard, UpcomingTestsCard, toGradeTestRows } from "./components/slots";
 import { reports } from "./reports";
 import { seed } from "./seed";
 
@@ -12,7 +12,7 @@ const assessments: ZinnyModule = {
   learnerCourseTabs: [{ key: "tests", label: "Tests", order: 400, action: "self.take_test", component: LearnerCourseTestsTab }],
   learnerHubSections: [{ key: "test-results", order: 400, action: "self.take_test", component: TestResultsHub }],
   learnerHomeCards: [{ key: "upcoming-tests", order: 400, action: "self.take_test", component: UpcomingTestsCard }],
-  dashboardCards: [{ key: "to-grade-tests", order: 400, action: "assess.grade", component: ToGradeCard }],
+  dashboardCards: [{ key: "to-grade-tests", order: 400, action: "assess.grade", component: ToGradeCard, needsYou: toGradeTestRows }],
   reports,
   jobs: [
     {

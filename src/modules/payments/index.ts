@@ -1,6 +1,6 @@
 import type { ZinnyModule } from "@/contracts/module";
 import type { PaymentGateway } from "@/contracts/payments";
-import { RefundsDueCard } from "./components/finance-card";
+import { RefundsDueCard, failedRefundRows } from "./components/finance-card";
 import { InvoicesHubSection } from "./components/invoices-hub-section";
 import { razorpayFromEnv } from "./config";
 import { handlers } from "./events";
@@ -25,7 +25,7 @@ const payments: ZinnyModule = {
   jobs,
   seed,
   learnerHubSections: [{ key: "invoices", order: 700, action: "self.view_invoices", component: InvoicesHubSection }],
-  dashboardCards: [{ key: "refunds-due", order: 700, action: "finance.refund", component: RefundsDueCard }],
+  dashboardCards: [{ key: "refunds-due", order: 700, action: "finance.refund", component: RefundsDueCard, needsYou: failedRefundRows }],
 };
 
 export default payments;

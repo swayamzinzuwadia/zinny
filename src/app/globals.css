@@ -32,7 +32,7 @@
   --color-danger: #a8402c;
   --color-danger-soft: #f8e4dc;
 
-  --radius-board: 1.75rem;
+  --radius-board: 1.25rem;
 }
 
 html {
@@ -43,14 +43,14 @@ html {
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
 }
 
-h1,
-h2,
-h3 {
+/* Tight tracking only on big headings (24 px and up); smaller headings keep normal spacing. */
+h1 {
   letter-spacing: -0.02em;
 }
+
 
 :focus-visible {
   outline: 2px solid var(--color-gold);

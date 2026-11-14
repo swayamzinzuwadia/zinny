@@ -102,7 +102,7 @@ describe("gamification slots", () => {
   it("dashboard card: top learners in the viewer's reach, full names", async () => {
     const Card = gamification.dashboardCards![0].component;
     const out = await html(await Card({ uni: "u", actor: w.hod, university, today }));
-    expect(out).toContain("Top learners this month");
+    expect(out).toContain("Top learners<");
     expect(out).toContain("Riya Sharma");
     const mkt = await html(await Card({ uni: "u", actor: w.hodMkt, university, today }));
     expect(mkt).toContain("No XP earned this month yet.");

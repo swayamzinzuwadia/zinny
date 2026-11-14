@@ -25,6 +25,7 @@ export function TodayPanel({
   cancelAction,
   moveAction,
   notice,
+  bare = false,
 }: {
   uni: string;
   actor: Actor;
@@ -35,13 +36,14 @@ export function TodayPanel({
   moveAction: FormAction;
   /** What just happened to a class that left the list (cancelled or moved). */
   notice?: string;
+  /** Without its own card: the dashboard puts it under a heading in "Today and needs you". */
+  bare?: boolean;
 }) {
-  return (
-    <Card>
-      <CardTitle hint={classes.length ? `${classes.length} class${classes.length === 1 ? "" : "es"}` : undefined}>Today&apos;s classes</CardTitle>
-      {notice && <p className="mb-3 rounded-2xl bg-brand-soft px-4 py-3 text-[14px] text-brand-strong">{notice}</p>}
+  const body = (
+    <>
+      {notice && <p className="mb-3 rounded-xl bg-brand-soft px-4 py-3 text-[14px] text-brand-strong">{notice}</p>}
       {classes.length === 0 ? (
-        <p className="rounded-2xl bg-canvas px-4 py-5 text-[14px] text-muted">No classes today in your batches.</p>
+        <p className="py-2 text-[14px] text-muted">No classes today in your batches.</p>
       ) : (
         <ul className="divide-y divide-line">
           {classes.map((s) => {
@@ -50,6 +52,8 @@ export function TodayPanel({
             const locked = !!s.live?.lockedAt;
             const markable = s.canMark && s.state !== "upcoming" && !locked;
             const fresh = markable && s.entries.every((e) => !e.status);
+            // One primary per row: Start class while the class can be started, else the register.
+            const startFirst = s.canStart && !!s.link && s.state !== "ended";
             const hidden = (
               <>
                 <input type="hidden" name="uni" value={uni} />
@@ -60,7 +64,7 @@ export function TodayPanel({
               </>
             );
             return (
-              <li key={s.key} className="py-4">
+              <li key={s.key} className="py-3 first:pt-0 last:pb-0">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -72,7 +76,7 @@ export function TodayPanel({
                       {s.kind === "rescheduled" && <Badge>Moved here</Badge>}
                       {locked && <Badge>Locked</Badge>}
                     </div>
-                    <Link href={`/${uni}/admin/products/batches/${s.batchId}`} className="text-[15px] font-medium hover:text-brand">
+                    <Link href={`/${uni}/admin/products/batches/${s.batchId}`} className="text-[14px] font-medium hover:text-brand">
                       {s.courseTitle}, {s.batchName}
                     </Link>
                   </div>
@@ -83,7 +87,7 @@ export function TodayPanel({
                       </span>
                     ) : (
                       <>
-                        <span className="font-semibold">{s.present + s.late}</span>
+                        <span className="font-medium">{s.present + s.late}</span>
                         <span className="text-muted">
                           {" "}
                           of {s.total} {s.state === "ended" ? "attended" : "joined"}
@@ -93,10 +97,15 @@ export function TodayPanel({
                   </div>
                 </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {s.canStart && s.link && <StartClassButton action={startHref(uni, s.batchId, s.date)} startTime={s.startTime} />}
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-1">
+                  {s.canStart && s.link && (
+                    <StartClassButton action={startHref(uni, s.batchId, s.date)} startTime={s.startTime} variant={startFirst ? "primary" : "quiet"} />
+                  )}
                   {s.canMark && s.state !== "upcoming" && (
-                    <Link href={registerHref(uni, s.batchId, s.date, s.startTime)} className={buttonClass(fresh ? "primary" : "secondary", "sm")}>
+                    <Link
+                      href={registerHref(uni, s.batchId, s.date, s.startTime)}
+                      className={buttonClass(startFirst ? "quiet" : fresh ? "primary" : "secondary", "sm")}
+                    >
                       {registerButton(s)}
                     </Link>
                   )}
@@ -105,7 +114,7 @@ export function TodayPanel({
                     <ActionForm action={markRestPresentAction} resetOnSuccess={false} className={fresh ? undefined : "contents"}>
                       {hidden}
                       {fresh && (
-                        <SubmitButton size="sm" variant="secondary" pendingText="Saving…">
+                        <SubmitButton size="sm" variant="quiet" pendingText="Saving…">
                           Mark everyone present
                         </SubmitButton>
                       )}
@@ -115,15 +124,15 @@ export function TodayPanel({
                   {canEdit && (
                     <ActionForm action={cancelAction} resetOnSuccess={false} confirm={`Cancel ${s.courseTitle}, ${s.batchName} at ${formatTime(s.startTime)} today? Its students are told straight away.`}>
                       {hidden}
-                      <SubmitButton size="sm" variant="ghost" pendingText="Cancelling…">
+                      <SubmitButton size="sm" variant="quiet" pendingText="Cancelling…">
                         Cancel class
                       </SubmitButton>
                     </ActionForm>
                   )}
                   {canEdit && (
                     <details className="group w-full sm:w-auto">
-                      <summary className={cx(buttonClass("ghost", "sm"), "cursor-pointer list-none")}>Move class</summary>
-                      <ActionForm action={moveAction} resetOnSuccess={false} className="mt-3 grid grid-cols-1 gap-3 rounded-2xl bg-canvas p-4 sm:grid-cols-3">
+                      <summary className={cx(buttonClass("quiet", "sm"), "cursor-pointer list-none")}>Move class</summary>
+                      <ActionForm action={moveAction} resetOnSuccess={false} className="mt-3 grid grid-cols-1 gap-3 rounded-xl bg-canvas p-4 sm:grid-cols-3">
                         {hidden}
                         <Field label="New day">
                           <Input type="date" name="newDate" defaultValue={addDays(today, 1)} min={today} required />
@@ -153,6 +162,13 @@ export function TodayPanel({
           })}
         </ul>
       )}
+    </>
+  );
+  if (bare) return body;
+  return (
+    <Card>
+      <CardTitle hint={classes.length ? `${classes.length} class${classes.length === 1 ? "" : "es"}` : undefined}>Today&apos;s classes</CardTitle>
+      {body}
     </Card>
   );
 }

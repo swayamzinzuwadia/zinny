@@ -1,6 +1,6 @@
 import type { ZinnyModule } from "@/contracts/module";
 import { CertificatesCourseTab } from "./components/course-tab";
-import { CertificatesDashboardCard } from "./components/dashboard-card";
+import { CertificatesDashboardCard, certificatesMonthLines, certificatesRows } from "./components/dashboard-card";
 import { CertificatesHubSection } from "./components/hub-section";
 import { LearnerCertificateTab } from "./components/learner-course-tab";
 import { handlers } from "./events";
@@ -16,7 +16,7 @@ const certificates: ZinnyModule = {
   adminCourseTabs: [{ key: "certificates", label: "Certificates", order: 500, action: "cert.view", component: CertificatesCourseTab }],
   learnerCourseTabs: [{ key: "certificate", label: "Certificate", order: 500, action: "self.view_certificates", component: LearnerCertificateTab }],
   learnerHubSections: [{ key: "certificates", order: 500, action: "self.view_certificates", component: CertificatesHubSection }],
-  dashboardCards: [{ key: "certificates-issued", order: 500, action: "cert.view", component: CertificatesDashboardCard }],
+  dashboardCards: [{ key: "certificates-issued", order: 500, action: "cert.view", component: CertificatesDashboardCard, thisMonth: certificatesMonthLines, needsYou: certificatesRows }],
 };
 
 export default certificates;

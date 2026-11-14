@@ -3,7 +3,7 @@
  */
 import Link from "next/link";
 import { Badge, Card, CardTitle, Empty, buttonClass } from "@/components/ui";
-import type { BatchSectionProps, CourseTabProps, DashboardCardProps, HomeCardProps, HubSectionProps, LearnerCourseTabProps } from "@/contracts/module";
+import type { BatchSectionProps, CourseTabProps, DashboardCardProps, DashboardRow, HomeCardProps, HubSectionProps, LearnerCourseTabProps } from "@/contracts/module";
 import { gradingQueue } from "../attempts";
 import { myResults, myTests } from "../learner";
 import { KIND_LABEL, fmtPercent, plural } from "../lib/labels";
@@ -210,6 +210,24 @@ export async function UpcomingTestsCard({ uni, actor }: HomeCardProps) {
 }
 
 /* ───────────────────────────── dashboardCards.to-grade-tests ───────────────────────────── */
+
+/** Compact: one "Needs you" row; "Grade" opens the first attempt waiting, as the card's button did. */
+export async function toGradeTestRows({ uni, actor }: DashboardCardProps): Promise<DashboardRow[]> {
+  const [summary, queue] = await Promise.all([toGradeSummary(actor), gradingQueue(actor)]);
+  if (summary.total === 0) return [];
+  const tests = summary.tests.length;
+  const firstTest = summary.tests[0];
+  const first = queue.find((q) => q.testId === firstTest?.testId) ?? queue[0];
+  return [
+    {
+      key: "to-grade-tests",
+      text: `${plural(tests, "test")} to grade`,
+      detail: tests === 1 ? `${firstTest.title}, ${plural(firstTest.answers, "answer")} waiting` : `${plural(summary.total, "attempt")} waiting`,
+      href: first ? `${admin(uni)}/attempts/${first.attemptId}` : `${admin(uni)}/grading`,
+      link: "Grade",
+    },
+  ];
+}
 
 export async function ToGradeCard({ uni, actor }: DashboardCardProps) {
   const [summary, queue] = await Promise.all([toGradeSummary(actor), gradingQueue(actor)]);

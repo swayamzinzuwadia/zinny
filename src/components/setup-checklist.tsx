@@ -31,7 +31,7 @@ export function SetupChecklistCard({ uni, checklist, dismiss }: { uni: string; c
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-[17px] font-medium">Get set up</h2>
+          <h2 className="text-[16px] font-medium">Get set up</h2>
           <p className="mt-0.5 text-[13px] text-muted">
             {checklist.done} of {checklist.total} done. Each step ticks itself off as you go.
           </p>
@@ -50,7 +50,7 @@ export function SetupChecklistCard({ uni, checklist, dismiss }: { uni: string; c
         {checklist.items.map((item) => {
           const next = item.key === checklist.next;
           return (
-            <li key={item.key} className={cx("flex items-start gap-3 rounded-2xl px-3.5 py-3", next ? "bg-gold-soft" : "bg-canvas/60")}>
+            <li key={item.key} className={cx("flex items-start gap-3 rounded-xl px-3.5 py-3", next ? "bg-gold-soft" : "bg-canvas/60")}>
               <Tick done={item.done} />
               <div className="min-w-0 flex-1">
                 <div className={cx("text-[14px] font-medium", item.done && "text-muted line-through decoration-line")}>{item.label}</div>

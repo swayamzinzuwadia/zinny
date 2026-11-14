@@ -34,17 +34,17 @@ export function EnrolmentRequests({
       {requests.map((r) => (
         <li key={r.enrolmentId} className="py-3 first:pt-0 last:pb-0">
           <div className="flex items-start gap-3">
-            <Avatar name={r.student.name} />
+            <Avatar name={r.student.name} size={32} />
             <div className="min-w-0 flex-1 text-[14px]">
               <div className="font-medium">{r.student.name} wants a seat</div>
               <div className="text-muted">
                 {showCourse ? `${r.course.title} · ` : ""}
                 {r.batch.name} · {r.batch.seatsLeft === 0 ? "batch is full" : `${r.batch.seatsLeft} seat${r.batch.seatsLeft === 1 ? "" : "s"} left`}
               </div>
-              {r.clashWarning && <div className="mt-1.5 rounded-lg bg-warn-soft px-2.5 py-1.5 text-[13px] text-warn">{r.clashWarning} You can still accept.</div>}
+              {r.clashWarning && <div className="mt-1 text-[13px] text-warn">{r.clashWarning} You can still accept.</div>}
             </div>
           </div>
-          <ActionForm action={action} className="mt-2.5 flex flex-wrap items-center gap-2 pl-12">
+          <ActionForm action={action} className="mt-2.5 flex flex-wrap items-center gap-2 pl-11">
             <input type="hidden" name="uni" value={uni} />
             <input type="hidden" name="enrolmentId" value={r.enrolmentId} />
             <input type="hidden" name="name" value={r.student.name} />

@@ -10,13 +10,13 @@ export function PageSkeleton() {
       <div className={cx(bar, "mt-3 mb-8 h-4 w-96 max-w-full")} />
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="rounded-[22px] border border-line bg-surface px-5 py-4">
+          <div key={i} className="rounded-2xl border border-line bg-surface px-5 py-4">
             <div className={cx(bar, "h-3 w-24")} />
             <div className={cx(bar, "mt-3 h-7 w-20")} />
           </div>
         ))}
       </div>
-      <div className="rounded-[22px] border border-line bg-surface">
+      <div className="rounded-2xl border border-line bg-surface">
         {[0, 1, 2, 3, 4, 5].map((i) => (
           <div key={i} className="flex items-center gap-6 border-b border-line px-5 py-4 last:border-b-0">
             <div className={cx(bar, "h-3.5 w-1/3")} />
@@ -37,7 +37,7 @@ export function LearnSkeleton() {
       <div className={cx(bar, "mt-3 mb-6 h-4 w-72 max-w-full")} />
       <div className="space-y-3">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="rounded-[22px] border border-line bg-surface p-5">
+          <div key={i} className="rounded-2xl border border-line bg-surface p-5">
             <div className={cx(bar, "h-4 w-1/2")} />
             <div className={cx(bar, "mt-3 h-3.5 w-3/4")} />
           </div>

@@ -1,7 +1,7 @@
 /** Admin slot components: course Assignments tab, batch section and dashboard card. */
 import Link from "next/link";
 import { Badge, ButtonLink, Card, CardTitle, Empty, Table, Td } from "@/components/ui";
-import type { BatchSectionProps, CourseTabProps, DashboardCardProps } from "@/contracts/module";
+import type { BatchSectionProps, CourseTabProps, DashboardCardProps, DashboardRow } from "@/contracts/module";
 import { dueLabel, relative } from "../lib/time";
 import { staffAssignment, staffBase } from "../links";
 import { assignmentFormOptions, listBatchAssignments, listCourseAssignments, toGradeSummary, type StaffAssignmentSummary } from "../service/assignments";
@@ -101,6 +101,23 @@ export async function BatchAssignmentsSection({ uni, actor, batch, course, unive
       )}
     </Card>
   );
+}
+
+/** dashboardCards.to-grade-assignments, compact: one "Needs you" row that opens the oldest waiting work. */
+export async function toGradeRows({ uni, actor }: DashboardCardProps): Promise<DashboardRow[]> {
+  const items = await toGradeSummary(actor);
+  const total = items.reduce((n, i) => n + i.count, 0);
+  if (total === 0) return [];
+  const first = items[0];
+  return [
+    {
+      key: "to-grade",
+      text: `${total} assignment${total === 1 ? "" : "s"} to grade`,
+      detail: `Oldest: ${first.title}, handed in ${relative(first.oldest)}`,
+      href: staffAssignment(uni, first.assignmentId, { batch: first.batchId }),
+      link: "Grade",
+    },
+  ];
 }
 
 /** dashboardCards.to-grade-assignments: waiting work in the batches the viewer grades. */

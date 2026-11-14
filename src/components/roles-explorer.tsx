@@ -98,7 +98,7 @@ export function RolesExplorer({ roles, options, kinds, peopleHref, actions, hidd
       </div>
 
       <div className="grid items-start gap-6 grid-cols-1 xl:grid-cols-[248px_minmax(0,1fr)]">
-        <nav aria-label="Roles" className="sticky top-6 hidden rounded-[22px] border border-line bg-surface p-2 xl:block">
+        <nav aria-label="Roles" className="sticky top-6 hidden rounded-2xl border border-line bg-surface p-2 xl:block">
           {groups.map((g) => (
             <div key={g}>
               <p className="px-3 pt-3 pb-1.5 text-[12px] text-muted">{g}</p>
@@ -156,7 +156,7 @@ export function RolesExplorer({ roles, options, kinds, peopleHref, actions, hidd
           Compare roles
         </h2>
         <p className="mt-1 text-[14px] text-muted">Dark green is full access, light green is limited to their own area, and an outline means they can only look.</p>
-        <div className="relative mt-4 overflow-x-auto rounded-[22px] border border-line bg-surface">
+        <div className="relative mt-4 overflow-x-auto rounded-2xl border border-line bg-surface">
           <table className="w-full min-w-[660px] border-collapse text-left text-[14px]">
             <thead>
               <tr className="border-b border-line">
@@ -224,7 +224,7 @@ function RoleDetail({ role, peopleHref, actions, hidden, onEdit }: Pick<Props, "
     { term: "People", value: String(role.holders) },
   ];
   return (
-    <section aria-label={role.label} className="pop-in @container rounded-[22px] border border-line bg-surface">
+    <section aria-label={role.label} className="pop-in @container rounded-2xl border border-line bg-surface">
       <header className="border-b border-line p-6">
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
           <div className="min-w-0 flex-1 basis-64">
@@ -357,7 +357,7 @@ export function RoleEditor({
   }
 
   return (
-    <form action={formAction} className="pop-in @container rounded-[22px] border border-line bg-surface">
+    <form action={formAction} className="pop-in @container rounded-2xl border border-line bg-surface">
       <Hidden fields={hidden} />
       {role && !role.custom && <input type="hidden" name="role" value={role.kind} />}
       {role?.custom && <input type="hidden" name="id" value={role.key} />}

@@ -190,7 +190,7 @@ export async function dashboard(actor: Actor) {
       .from(notifications)
       .where(eq(notifications.userId, actor.userId))
       .orderBy(desc(notifications.createdAt))
-      .limit(6);
+      .limit(30);
 
     return {
       universityName: u?.name ?? "",

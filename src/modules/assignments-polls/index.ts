@@ -1,5 +1,5 @@
 import type { ZinnyModule } from "@/contracts/module";
-import { BatchAssignmentsSection, CourseAssignmentsTab, ToGradeCard } from "./components/admin-slots";
+import { BatchAssignmentsSection, CourseAssignmentsTab, ToGradeCard, toGradeRows } from "./components/admin-slots";
 import { AssignmentGradesSection, DueSoonCard, LearnerAssignmentsTab } from "./components/learner-slots";
 import { CoursePollsTab } from "./components/polls-tab";
 import { handlers } from "./events";
@@ -17,7 +17,7 @@ const assignmentsPolls: ZinnyModule = {
   learnerCourseTabs: [{ key: "assignments", label: "Assignments", order: 300, action: "self.submit_assignment", component: LearnerAssignmentsTab }],
   learnerHubSections: [{ key: "assignment-grades", order: 300, action: "self.submit_assignment", component: AssignmentGradesSection }],
   learnerHomeCards: [{ key: "due-soon", order: 300, action: "self.submit_assignment", component: DueSoonCard }],
-  dashboardCards: [{ key: "to-grade-assignments", order: 300, action: "assignment.grade", component: ToGradeCard }],
+  dashboardCards: [{ key: "to-grade-assignments", order: 300, action: "assignment.grade", component: ToGradeCard, needsYou: toGradeRows }],
   eventHandlers: handlers,
   jobs,
   seed,
