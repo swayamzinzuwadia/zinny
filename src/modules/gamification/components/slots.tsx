@@ -212,7 +212,8 @@ export async function CourseLeaderboardTab({ uni, actor, enrolment, searchParams
 
 /** dashboardCards.top-learners */
 export async function TopLearnersCard({ uni, actor }: DashboardCardProps) {
-  const data = await topLearners(actor, { period: "month", limit: 5 });
+  // The dashboard shows the top three as plain rows; the leaderboard has the rest.
+  const data = await topLearners(actor, { period: "month", limit: 3 });
   return (
     <Card>
       <CardTitle
@@ -222,9 +223,21 @@ export async function TopLearnersCard({ uni, actor }: DashboardCardProps) {
           </Link>
         }
       >
-        Top learners this month
+        Top learners
       </CardTitle>
-      <RankList rows={data.rows} emptyText="No XP earned this month yet." />
+      {data.rows.length === 0 ? (
+        <p className="text-[14px] text-muted">No XP earned this month yet.</p>
+      ) : (
+        <ol className="divide-y divide-line">
+          {data.rows.slice(0, 3).map((r) => (
+            <li key={r.userId} className="flex items-center gap-3 py-2.5 text-[14px] first:pt-0">
+              <span className="tabular w-4 shrink-0 text-[13px] text-muted">{r.rank}</span>
+              <span className="min-w-0 flex-1 truncate">{r.name}</span>
+              <span className="tabular shrink-0 text-muted">{r.points.toLocaleString("en-IN")} XP</span>
+            </li>
+          ))}
+        </ol>
+      )}
       {data.earners > 0 && (
         <p className="mt-3 text-[13px] text-muted">
           {data.total.toLocaleString("en-IN")} XP earned by {data.earners} {data.earners === 1 ? "student" : "students"} this month.

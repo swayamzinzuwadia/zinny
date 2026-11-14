@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { createContext, useActionState, useContext, useEffect, useState, type ReactNode } from "react";
 import { ActionForm, ClashPrompt, SubmitButton, type ClashFormAction, type ClashState, type FormAction } from "./forms";
-import { Card, CardTitle, Field, Input, Select, Textarea, cx } from "./ui";
+import { Card, Field, Input, Select, Textarea, cx } from "./ui";
 
 export type QuickBatch = {
   id: string;
@@ -31,47 +31,76 @@ export type QuickActionsProps = {
   actions: { addStudent: ClashFormAction; recordFee: FormAction; announce: FormAction; extraClass: FormAction };
 };
 
-type Key = "student" | "fee" | "announce" | "extra";
+type Key = "student" | "fee" | "announce" | "extra" | "invite";
 
 const rupees = (paise: number) => (paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+
+type Ctx = { p: QuickActionsProps; invite: ReactNode; offered: { key: Key; label: string }[]; open: Key | null; setOpen: (k: Key | null) => void };
+const QuickCtx = createContext<Ctx | null>(null);
 
 /**
  * The dashboard's quick actions: the forms an institute fills in every day, opened in
  * place with sensible defaults (the batch's price, its usual class time, cash, today).
- * Only the actions this person may take are offered.
+ * Only the actions this person may take are offered. The buttons (`QuickActionButtons`) sit
+ * in the Today board's corner; the opened form (`QuickActionPanel`) shows under the board.
+ * `invite` is the joining code and its sharing options, for the people who accept students.
  */
-export function QuickActions(p: QuickActionsProps) {
+export function QuickActions({ invite, children, ...p }: QuickActionsProps & { invite?: ReactNode; children: ReactNode }) {
   const offered: { key: Key; label: string }[] = [
     ...(p.place.length || p.departments.length ? [{ key: "student" as const, label: "Add a student" }] : []),
     ...(p.fee && p.fee.students.length ? [{ key: "fee" as const, label: "Record a fee payment" }] : []),
     ...(p.announce.length ? [{ key: "announce" as const, label: "Send an announcement" }] : []),
     ...(p.schedule.length ? [{ key: "extra" as const, label: "Add an extra class" }] : []),
+    ...(invite ? [{ key: "invite" as const, label: "Invite students" }] : []),
   ];
   const [open, setOpen] = useState<Key | null>(null);
-  if (offered.length === 0) return null;
+  return <QuickCtx.Provider value={{ p, invite, offered, open, setOpen }}>{children}</QuickCtx.Provider>;
+}
+
+/** The quick action buttons, as pills on the green board. */
+export function QuickActionButtons() {
+  const c = useContext(QuickCtx);
+  if (!c || c.offered.length === 0) return null;
   return (
-    <Card>
-      <CardTitle>Quick actions</CardTitle>
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Quick actions">
-        {offered.map((o) => (
-          <button
-            key={o.key}
-            type="button"
-            aria-expanded={open === o.key}
-            onClick={() => setOpen(open === o.key ? null : o.key)}
-            className={cx(
-              "rounded-full border px-4 py-2 text-[14px] font-medium transition-colors",
-              open === o.key ? "border-brand bg-brand text-canvas" : "border-line bg-surface hover:border-brand/40",
-            )}
-          >
-            {o.label}
-          </button>
-        ))}
+    <div className="flex flex-wrap gap-2" role="group" aria-label="Quick actions">
+      {c.offered.map((o) => (
+        <button
+          key={o.key}
+          type="button"
+          aria-expanded={c.open === o.key}
+          aria-controls="quick-action-panel"
+          onClick={() => c.setOpen(c.open === o.key ? null : o.key)}
+          className={cx(
+            "h-9 rounded-full border px-4 text-[14px] font-medium transition-colors",
+            c.open === o.key ? "border-canvas bg-canvas text-brand-deep" : "border-canvas/25 text-canvas hover:bg-canvas/10",
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The opened quick action's form, in a card under the board. */
+export function QuickActionPanel() {
+  const c = useContext(QuickCtx);
+  if (!c || !c.open) return null;
+  const { p, open } = c;
+  const label = c.offered.find((o) => o.key === open)?.label ?? "";
+  return (
+    <Card id="quick-action-panel">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-[16px] font-medium">{label}</h2>
+        <button type="button" onClick={() => c.setOpen(null)} className="text-[13px] font-medium text-brand hover:underline">
+          Close
+        </button>
       </div>
       {open === "student" && <AddStudentForm {...p} />}
       {open === "fee" && p.fee && <FeeForm {...p} fee={p.fee} />}
       {open === "announce" && <AnnounceForm {...p} />}
       {open === "extra" && <ExtraClassForm {...p} />}
+      {open === "invite" && <div className="mt-4">{c.invite}</div>}
     </Card>
   );
 }

@@ -16,8 +16,8 @@ export type ClashFormAction = (prev: ClashState, data: FormData) => Promise<Clas
  */
 export function ClashPrompt({ warning, onCancel, pending }: { warning: string; onCancel: () => void; pending?: boolean }) {
   return (
-    <div className="rounded-2xl bg-warn-soft p-3 text-sm text-warn" role="alert">
-      <div className="font-semibold">Timetable clash</div>
+    <div className="rounded-xl bg-warn-soft p-3 text-sm text-warn" role="alert">
+      <div className="font-medium">Timetable clash</div>
       <p className="mt-1">{warning}</p>
       <input type="hidden" name="acknowledge" value="1" />
       <div className="mt-3 flex flex-wrap gap-2">

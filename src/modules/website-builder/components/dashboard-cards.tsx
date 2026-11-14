@@ -1,10 +1,24 @@
 import Link from "next/link";
-import type { DashboardCardProps } from "@/contracts/module";
+import type { DashboardCardProps, DashboardRow } from "@/contracts/module";
 import { ButtonLink, Card, CardTitle, cx } from "@/components/ui";
 import { canManageSite, isTeachingStaff } from "../access";
 import { getMyProfile, PROFILE_STATUS_LABEL } from "../faculty";
 import { plural } from "../format";
 import { siteOverview } from "../overview";
+
+/** Compact: one "Needs you" row per thing waiting on the website, each with one link. */
+export async function websiteRows({ uni, actor }: DashboardCardProps): Promise<DashboardRow[]> {
+  if (!canManageSite(actor)) return [];
+  const o = await siteOverview(actor);
+  const base = `/${uni}/admin/website`;
+  const rows: (DashboardRow & { n: number })[] = [
+    { n: o.enquiries.new, key: "enquiries", text: `${plural(o.enquiries.new, "new enquiry", "new enquiries")} from your website`, href: `${base}/sections/enquiries`, link: "Answer enquiries", covers: ["website.enquiry"] },
+    { n: o.reviews.pending, key: "reviews", text: `${plural(o.reviews.pending, "review")} to approve or hide`, href: `${base}/sections/reviews`, link: "Review", covers: ["website.review"] },
+    { n: o.profilesPending, key: "profiles", text: `${plural(o.profilesPending, "faculty profile")} to approve`, href: `${base}/profile/faculty`, link: "Review", covers: ["website.profile_submitted"] },
+    { n: o.page.hasChanges ? 1 : 0, key: "page", text: o.page.live ? "Home page changes not published yet" : "Website not published yet", href: `${base}/profile/builder`, link: "Open builder" },
+  ];
+  return rows.filter((r) => r.n > 0).map((r) => ({ key: r.key, text: r.text, href: r.href, link: r.link, covers: r.covers }));
+}
 
 /** Admin dashboard: what on the website needs attention (enquiries, reviews, profiles, an unpublished draft). */
 export async function WebsiteCard({ uni, actor }: DashboardCardProps) {

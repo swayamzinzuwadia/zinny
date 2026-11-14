@@ -104,7 +104,7 @@ Core pages render whatever the registry provides, ordered by `order`, and only f
 | `learnerCourseTabs` | `enrolment: StudentEnrolment, course, batch, target, searchParams` | the batch, with `ownerUserId` = the learner (so `self.*` actions work). Tab URL: `?tab=<key>` |
 | `learnerHubSections` | `enrolments: StudentEnrolment[]` (active and completed) | `{ universityId, ownerUserId }` |
 | `learnerHomeCards` | `today` | `{ universityId, ownerUserId }` |
-| `dashboardCards` | `today` | shown when the viewer holds `action` in any scope (`reach`); narrow what you show with `reach` |
+| `dashboardCards` | `today` | shown when the viewer holds `action` in any scope (`reach`); narrow what you show with `reach`. Optional compact forms: `needsYou(props) → DashboardRow[]` (rows in "Needs you") and `thisMonth(props) → DashboardLine[]` (lines in "This month"); an entry with either is not shown as its own card |
 
 | Slot | Shows up on | Keys and order reserved per module |
 |---|---|---|
