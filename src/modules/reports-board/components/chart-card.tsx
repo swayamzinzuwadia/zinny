@@ -1,5 +1,7 @@
-import type { ReactNode } from "react";
-import { Card, CardTitle, cx } from "@/components/ui";
+"use client";
+
+import { useId, useState, type ReactNode } from "react";
+import { Card, cx } from "@/components/ui";
 
 export type FallbackTable = {
   /** Read by screen readers as the table's name. */
@@ -13,8 +15,9 @@ export type FallbackTable = {
 };
 
 /**
- * One Insights chart: title, the chart on a cream panel, a one-line takeaway under it, and
- * the same numbers as a table behind "Show as a table" for screen readers and keyboards.
+ * One Insights card: title, a quiet "Show as a table" link in the header, the chart straight on
+ * the card (no tinted panel) and a one-line takeaway under it. The table carries the same
+ * numbers for screen readers and keyboards.
  */
 export function ChartCard({
   title,
@@ -26,29 +29,42 @@ export function ChartCard({
 }: {
   title: string;
   hint?: string;
-  takeaway: string;
+  takeaway: ReactNode;
   chart: ReactNode;
-  table: FallbackTable;
+  table: FallbackTable | FallbackTable[];
   className?: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const tables = Array.isArray(table) ? table : [table];
   return (
-    <Card className={cx("flex flex-col", className)}>
-      <CardTitle hint={hint}>{title}</CardTitle>
-      <div className="rounded-2xl bg-canvas px-2 pb-2 pt-3">{chart}</div>
-      <p className="mt-3 text-[14px] leading-relaxed text-ink">{takeaway}</p>
-      <details className="group mt-3 text-[13px]">
-        <summary className="w-fit cursor-pointer select-none rounded-full text-brand hover:underline">
-          <span className="group-open:hidden">Show as a table</span>
-          <span className="hidden group-open:inline">Hide the table</span>
-        </summary>
-        <DataTable {...table} />
-      </details>
+    <Card className={cx("flex min-w-0 flex-col", className)}>
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="text-[16px] font-medium">{title}</h2>
+        <div className="flex flex-wrap items-baseline gap-x-3 text-[13px] text-muted">
+          {hint && <span>{hint}</span>}
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-controls={id}
+            onClick={() => setOpen((o) => !o)}
+            className="text-brand hover:underline"
+          >
+            {open ? "Hide the table" : "Show as a table"}
+          </button>
+        </div>
+      </div>
+      <div className="min-w-0">{chart}</div>
+      <div className="mt-4 text-[14px] leading-relaxed text-ink">{takeaway}</div>
+      <div id={id} hidden={!open}>
+        {open && tables.map((t) => <DataTable key={t.caption} {...t} />)}
+      </div>
     </Card>
   );
 }
 
 export function DataTable({ caption, head, rows, numeric = [], current = [] }: FallbackTable) {
-  if (rows.length === 0) return <p className="mt-3 text-muted">No data to show.</p>;
+  if (rows.length === 0) return <p className="mt-3 text-[13px] text-muted">No data to show.</p>;
   return (
     <div className="mt-3 max-h-80 overflow-auto rounded-xl border border-line">
       <table className="w-full text-left text-[13px]">
@@ -85,7 +101,7 @@ export function DataTable({ caption, head, rows, numeric = [], current = [] }: F
 }
 
 /** Shown in place of a chart when there is nothing to draw yet. */
-export function ChartEmpty({ children, height = 160 }: { children: ReactNode; height?: number }) {
+export function ChartEmpty({ children, height = 120 }: { children: ReactNode; height?: number }) {
   return (
     <div className="flex items-center justify-center px-6 text-center text-[14px] text-muted" style={{ height }}>
       {children}

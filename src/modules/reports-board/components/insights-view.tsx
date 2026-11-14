@@ -1,7 +1,7 @@
 import { ButtonLink, PageHeader, Stat } from "@/components/ui";
 import type { Insights } from "../insights";
 import { formatDay, formatDayShort, formatMonth, formatWeek } from "../lib/dates";
-import { fitBatchLabel, formatHours, formatMoney, formatNumber, formatPercent, labelChars } from "../lib/format";
+import { formatHours, formatMoney, formatNumber, formatPercent } from "../lib/format";
 import {
   batchFillTakeaway,
   completionTakeaway,
@@ -11,14 +11,16 @@ import {
   revenueMonthTakeaway,
 } from "../lib/takeaways";
 import { ChartCard, ChartEmpty } from "./chart-card";
-import { BarList, ColumnChart, type Datum } from "./charts";
+import { ColumnChart, type Datum } from "./charts";
+import { RankedList, type RankedRow } from "./ranked-list";
 
-/** Long lists draw their top entries; the table under the chart lists everyone. */
-const CHART_LIMIT = 12;
+/** Ranked lists show their top entries; "Show as a table" lists everyone. */
+const LIST_LIMIT = 8;
 
-const FILL_LABEL_WIDTH = 260;
+const limitHint = (base: string, total: number) => (total > LIST_LIMIT ? `${base} · top ${LIST_LIMIT} of ${total}` : base);
 
-const limitHint = (base: string, total: number) => (total > CHART_LIMIT ? `${base} · top ${CHART_LIMIT} of ${total}` : base);
+/** Dashboards show money in whole rupees; paise stay on invoices and in the tables. */
+const rupees = (paise: number) => formatMoney(Math.round(paise / 100) * 100);
 
 export function InsightsView({ data, reportsHref }: { data: Insights; reportsHref: string | null }) {
   const { stats, revenue } = data;
@@ -30,22 +32,24 @@ export function InsightsView({ data, reportsHref }: { data: Insights; reportsHre
     note: w.current ? "This week" : `Week of ${formatWeek(w.start)}`,
   }));
 
-  const completion: Datum[] = data.completion.slice(0, CHART_LIMIT).map((c) => ({
+  const completion: RankedRow[] = data.completion.slice(0, LIST_LIMIT).map((c) => ({
     label: c.title,
-    value: c.rate,
+    value: formatPercent(c.rate),
+    amount: c.rate,
     note: `${formatNumber(c.completed)} of ${formatNumber(c.enrolled)} completed`,
   }));
 
-  const fill: Datum[] = data.batchFill.slice(0, CHART_LIMIT).map((b) => ({
-    label: fitBatchLabel(b.course, b.batch, labelChars(FILL_LABEL_WIDTH)),
-    value: b.fill,
+  const fill: RankedRow[] = data.batchFill.slice(0, LIST_LIMIT).map((b) => ({
+    label: `${b.course} · ${b.batch}`,
+    value: `${formatNumber(b.taken)}/${formatNumber(b.limit)}`,
+    amount: b.fill,
     note: `${b.taken} of ${b.limit} seats taken${b.held ? `, ${b.held} being paid for` : ""}${b.startsOn ? `. Starts ${formatDay(b.startsOn)}` : ""}`,
   }));
 
-  const load = data.facultyLoad.slice(0, CHART_LIMIT);
-  const faculty: Datum[] = load.map((f) => ({
+  const faculty: RankedRow[] = data.facultyLoad.slice(0, LIST_LIMIT).map((f) => ({
     label: f.name,
-    value: f.thisWeek,
+    value: formatHours(f.thisWeek),
+    amount: f.thisWeek,
     note: `${f.batches === 1 ? "1 batch" : `${f.batches} batches`} this week · next week ${formatHours(f.nextWeek)}`,
   }));
 
@@ -66,33 +70,32 @@ export function InsightsView({ data, reportsHref }: { data: Insights; reportsHre
           hint="Completed out of everyone enrolled"
         />
         {stats.revenueThisMonthPaise !== null ? (
-          <Stat label="Revenue this month" value={formatMoney(stats.revenueThisMonthPaise)} hint="Before GST, refunds left out" />
+          <Stat label="Revenue this month" value={rupees(stats.revenueThisMonthPaise)} hint="Before GST, refunds left out" />
         ) : (
           <Stat label="Open batches" value={formatNumber(stats.openBatches)} hint="Taking enrolments now" />
         )}
       </div>
 
-      {/* One chart per row on tablets, so axis labels have room; two side by side on wide screens. */}
-      <div className="grid gap-6 xl:grid-cols-2">
-        <ChartCard
-          className="xl:col-span-2"
-          title="Enrolments per week"
-          hint="Last 12 weeks · gold is this week"
-          chart={weeks.some((w) => w.value !== 0) ? <ColumnChart data={weeks} format="count" /> : <ChartEmpty>Each week&apos;s enrolments appear here.</ChartEmpty>}
-          takeaway={enrolmentsTakeaway(data.enrolmentsByWeek)}
-          table={{
-            caption: "Enrolments per week, last 12 weeks",
-            head: ["Week", "Enrolments"],
-            rows: data.enrolmentsByWeek.map((w) => [`${formatWeek(w.start)}${w.current ? " (this week)" : ""}`, formatNumber(w.count)]),
-            numeric: [1],
-            current: data.enrolmentsByWeek.flatMap((w, i) => (w.current ? [i] : [])),
-          }}
-        />
+      {/* The one main chart. */}
+      <ChartCard
+        title="Enrolments per week"
+        hint="Last 12 weeks · gold is this week"
+        chart={weeks.some((w) => w.value !== 0) ? <ColumnChart data={weeks} format="count" height={260} /> : <ChartEmpty>Each week&apos;s enrolments appear here.</ChartEmpty>}
+        takeaway={enrolmentsTakeaway(data.enrolmentsByWeek)}
+        table={{
+          caption: "Enrolments per week, last 12 weeks",
+          head: ["Week", "Enrolments"],
+          rows: data.enrolmentsByWeek.map((w) => [`${formatWeek(w.start)}${w.current ? " (this week)" : ""}`, formatNumber(w.count)]),
+          numeric: [1],
+          current: data.enrolmentsByWeek.flatMap((w, i) => (w.current ? [i] : [])),
+        }}
+      />
 
+      <div className="mt-6 grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <ChartCard
-          title="Completion rate by course"
+          title="Completion by course"
           hint={limitHint("Completed out of enrolled", data.completion.length)}
-          chart={completion.length ? <BarList data={completion} format="percent" max={100} /> : <ChartEmpty>No enrolments yet.</ChartEmpty>}
+          chart={completion.length ? <RankedList rows={completion} max={100} /> : <ChartEmpty>No enrolments yet.</ChartEmpty>}
           takeaway={completionTakeaway(data.completion)}
           table={{
             caption: "Completion rate by course",
@@ -111,8 +114,8 @@ export function InsightsView({ data, reportsHref }: { data: Insights; reportsHre
 
         <ChartCard
           title="Batch fill"
-          hint={limitHint("Seats taken out of the limit", data.batchFill.length)}
-          chart={fill.length ? <BarList data={fill} format="percent" max={100} labelWidth={FILL_LABEL_WIDTH} /> : <ChartEmpty>No batches running or open.</ChartEmpty>}
+          hint={limitHint("Seats taken", data.batchFill.length)}
+          chart={fill.length ? <RankedList rows={fill} max={100} /> : <ChartEmpty>No batches running or open.</ChartEmpty>}
           takeaway={batchFillTakeaway(data.batchFill)}
           table={{
             caption: "Batch fill: seats taken against the seat limit",
@@ -128,70 +131,16 @@ export function InsightsView({ data, reportsHref }: { data: Insights; reportsHre
           }}
         />
 
-        {revenue && (
-          <>
-            <ChartCard
-              title="Revenue per month"
-              hint="Last 12 months, before GST · gold is this month"
-              chart={
-                revenue.byMonth.some((m) => m.paise !== 0) ? (
-                  <ColumnChart
-                    format="money"
-                    data={revenue.byMonth.map((m) => ({
-                      label: m.label,
-                      value: m.paise,
-                      highlight: m.current,
-                      note: m.current ? "This month so far" : formatMonth(m.start, true),
-                    }))}
-                  />
-                ) : (
-                  <ChartEmpty>Each month&apos;s revenue appears here.</ChartEmpty>
-                )
-              }
-              takeaway={revenueMonthTakeaway(revenue.byMonth)}
-              table={{
-                caption: "Revenue per month before GST, last 12 months",
-                head: ["Month", "Revenue before GST"],
-                rows: revenue.byMonth.map((m) => [`${formatMonth(m.start, true)}${m.current ? " (so far)" : ""}`, formatMoney(m.paise)]),
-                numeric: [1],
-                current: revenue.byMonth.flatMap((m, i) => (m.current ? [i] : [])),
-              }}
-            />
-            <ChartCard
-              title="Revenue by course"
-              hint={limitHint("Last 12 months, before GST", revenue.byCourse.length)}
-              chart={
-                revenue.byCourse.length ? (
-                  <BarList format="money" data={revenue.byCourse.slice(0, CHART_LIMIT).map((c) => ({ label: c.title, value: c.paise }))} />
-                ) : (
-                  <ChartEmpty>No revenue in the last 12 months.</ChartEmpty>
-                )
-              }
-              takeaway={revenueCourseTakeaway(revenue.byCourse)}
-              table={{
-                caption: "Revenue by course before GST, last 12 months",
-                head: ["Course", "Revenue before GST", "Share"],
-                rows: (() => {
-                  const total = revenue.byCourse.reduce((n, c) => n + c.paise, 0);
-                  return revenue.byCourse.map((c) => [c.title, formatMoney(c.paise), total ? formatPercent((c.paise / total) * 100) : "—"]);
-                })(),
-                numeric: [1, 2],
-              }}
-            />
-          </>
-        )}
-
         <ChartCard
-          className="xl:col-span-2"
           title="Faculty load"
-          hint={limitHint(`Scheduled teaching hours, week of ${formatDayShort(data.weekOf)}`, data.facultyLoad.length)}
+          hint={limitHint(`Teaching hours, week of ${formatDayShort(data.weekOf)}`, data.facultyLoad.length)}
           chart={
             !faculty.length ? (
               <ChartEmpty>No faculty assigned to running batches.</ChartEmpty>
-            ) : faculty.every((f) => f.value === 0) ? (
+            ) : faculty.every((f) => f.amount === 0) ? (
               <ChartEmpty>Teaching hours appear here once classes are scheduled.</ChartEmpty>
             ) : (
-              <BarList data={faculty} format="hours" labelWidth={200} />
+              <RankedList rows={faculty} />
             )
           }
           takeaway={facultyTakeaway(data.facultyLoad)}
@@ -209,6 +158,62 @@ export function InsightsView({ data, reportsHref }: { data: Insights; reportsHre
           }}
         />
       </div>
+
+      {revenue && (
+        <ChartCard
+          className="mt-6"
+          title="Revenue"
+          hint={limitHint("Last 12 months, before GST · gold is this month", revenue.byCourse.length)}
+          chart={
+            <div className="grid items-start gap-x-10 gap-y-6 md:grid-cols-[3fr_2fr]">
+              <div className="min-w-0">
+                <h3 className="mb-2 text-[13px] text-muted">Per month</h3>
+                {revenue.byMonth.some((m) => m.paise !== 0) ? (
+                  <ColumnChart
+                    format="money"
+                    height={160}
+                    data={revenue.byMonth.map((m) => ({
+                      label: m.label,
+                      value: m.paise,
+                      highlight: m.current,
+                      note: m.current ? "This month so far" : formatMonth(m.start, true),
+                    }))}
+                  />
+                ) : (
+                  <ChartEmpty height={160}>Each month&apos;s revenue appears here.</ChartEmpty>
+                )}
+              </div>
+              <div className="min-w-0">
+                <h3 className="mb-3 text-[13px] text-muted">By course</h3>
+                {revenue.byCourse.length ? (
+                  <RankedList rows={revenue.byCourse.slice(0, LIST_LIMIT).map((c) => ({ label: c.title, value: rupees(c.paise), amount: c.paise }))} />
+                ) : (
+                  <ChartEmpty>No revenue in the last 12 months.</ChartEmpty>
+                )}
+              </div>
+            </div>
+          }
+          takeaway={`${revenueMonthTakeaway(revenue.byMonth)} ${revenue.byCourse.length ? revenueCourseTakeaway(revenue.byCourse) : ""}`.trim()}
+          table={[
+            {
+              caption: "Revenue per month before GST, last 12 months",
+              head: ["Month", "Revenue before GST"],
+              rows: revenue.byMonth.map((m) => [`${formatMonth(m.start, true)}${m.current ? " (so far)" : ""}`, formatMoney(m.paise)]),
+              numeric: [1],
+              current: revenue.byMonth.flatMap((m, i) => (m.current ? [i] : [])),
+            },
+            {
+              caption: "Revenue by course before GST, last 12 months",
+              head: ["Course", "Revenue before GST", "Share"],
+              rows: (() => {
+                const total = revenue.byCourse.reduce((n, c) => n + c.paise, 0);
+                return revenue.byCourse.map((c) => [c.title, formatMoney(c.paise), total ? formatPercent((c.paise / total) * 100) : "—"]);
+              })(),
+              numeric: [1, 2],
+            },
+          ]}
+        />
+      )}
     </>
   );
 }

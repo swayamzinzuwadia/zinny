@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import Link from "next/link";
-import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Table, Td, buttonClass } from "@/components/ui";
+import { Card, CardTitle, Empty, Field, Input, PageHeader, Select, buttonClass } from "@/components/ui";
+import { ManageRow } from "@/components/manage-row";
 import { can, reach } from "@/server/authz/engine";
 import { ROLE_LABELS, USER_GROUPS } from "@/server/authz/roles";
 import { spaceContext } from "@/server/context";
@@ -58,8 +59,8 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
   return (
     <>
       <PageHeader title={TITLES[g][0]} subtitle={TITLES[g][1]} />
-      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div>
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0">
           {everyone.length > 0 && (
             <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
               <Input type="search" name="q" defaultValue={q} placeholder="Search by name or email" aria-label="Search by name or email" className="max-w-xs" />
@@ -106,120 +107,139 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
             </Empty>
           ) : (
             <>
-            {bulk && <BulkPlaceBar uni={uni} batches={placeBatches.map((b) => ({ id: b.id, label: b.label, seatsLeft: b.seatsLeft }))} action={addToBatchAction} />}
-            <Table head={bulk ? ["", "Name", "Roles", ""] : ["Name", "Roles", ""]}>
-              {people.map((p) => (
-                <tr key={p.id}>
-                  {bulk && (
-                    <Td className="w-8">
-                      {p.roles.some((r) => r.role === "student") && <BulkTick userId={p.id} name={p.name} />}
-                    </Td>
-                  )}
-                  <Td>
-                    <div className="font-medium">{p.name}</div>
-                    <div className="text-sm text-muted">{p.email}</div>
-                  </Td>
-                  <Td>
-                    <div className="flex flex-col gap-1.5">
-                      {p.roles.map((r) => {
-                        const ended = r.endsAt && r.endsAt <= new Date();
-                        return (
-                          <div key={r.assignmentId} className="flex flex-wrap items-center gap-2 text-sm">
-                            <Badge tone={ended ? "danger" : r.role === "alumni" ? "neutral" : "brand"}>{r.label}</Badge>
-                            <span className="text-muted">{r.scope}</span>
-                            {r.endsAt && (
-                              <span className="text-[13px] text-muted">
-                                {ended ? "Access ended" : `Until ${formatDate(todayIn(university.timezone, r.endsAt))}`}
-                              </span>
-                            )}
-                            {/* Your own Institute Admin role can't be removed (the server refuses), so there's no button for it. */}
-                            {(isAdmin || ["permanent_faculty", "visiting_faculty"].includes(r.role)) &&
-                              canAdd &&
-                              !(r.role === "institute_admin" && p.id === actor.userId) && (
-                                <ActionForm action={revokeRoleAction} confirm={`Remove ${r.label} from ${p.name}?`}>
+              {bulk && <BulkPlaceBar uni={uni} batches={placeBatches.map((b) => ({ id: b.id, label: b.label, seatsLeft: b.seatsLeft }))} action={addToBatchAction} />}
+              <Card className="p-0!">
+                <ul className="divide-y divide-line">
+                  {people.map((p) => {
+                    const isStudentLike = g === "students" && p.roles.some((r) => r.role === "student" || r.role === "alumni");
+                    const myDeptList = studentDepts.get(p.id) ?? [];
+                    // Your own Institute Admin role can't be removed (the server refuses), so there's no button for it.
+                    const removable = p.roles.filter(
+                      (r) =>
+                        (isAdmin || ["permanent_faculty", "visiting_faculty"].includes(r.role)) && canAdd && !(r.role === "institute_admin" && p.id === actor.userId),
+                    );
+                    const canDepts = isStudentLike && admitDepts.length > 0;
+                    const canManageStudent = g === "students" && canGraduate && p.roles.some((r) => r.role === "student");
+                    const hasPanel = removable.length > 0 || canDepts || canManageStudent;
+                    return (
+                      <ManageRow
+                        key={p.id}
+                        label={p.name}
+                        lead={bulk ? p.roles.some((r) => r.role === "student") ? <BulkTick userId={p.id} name={p.name} /> : null : undefined}
+                        panel={
+                          hasPanel ? (
+                            <div className="grid gap-5 text-[14px] sm:grid-cols-2 xl:grid-cols-3">
+                              {removable.length > 0 && (
+                                <div>
+                                  <h3 className="mb-2 text-[13px] text-muted">Roles</h3>
+                                  <ul className="space-y-2">
+                                    {removable.map((r) => (
+                                      <li key={r.assignmentId} className="flex flex-wrap items-center justify-between gap-2">
+                                        <span>
+                                          {r.label} <span className="text-muted">· {r.scope}</span>
+                                        </span>
+                                        <ActionForm action={revokeRoleAction} confirm={`Remove ${r.label} from ${p.name}?`}>
+                                          <input type="hidden" name="uni" value={uni} />
+                                          <input type="hidden" name="assignmentId" value={r.assignmentId} />
+                                          <button aria-label={`Remove ${r.label} from ${p.name}`} className="text-[13px] text-muted underline underline-offset-2 hover:text-danger">
+                                            Remove role
+                                          </button>
+                                        </ActionForm>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              {canDepts && (
+                                <ActionForm action={studentDepartmentsAction} className="space-y-2">
                                   <input type="hidden" name="uni" value={uni} />
-                                  <input type="hidden" name="assignmentId" value={r.assignmentId} />
-                                  <button aria-label={`Remove ${r.label} from ${p.name}`} className="text-[13px] text-muted underline underline-offset-2 hover:text-danger">
-                                    Remove
-                                  </button>
+                                  <input type="hidden" name="userId" value={p.id} />
+                                  <h3 className="text-[13px] text-muted">Departments</h3>
+                                  {admitDepts.map((d) => (
+                                    <label key={d.id} className="flex items-center gap-2">
+                                      <input
+                                        type="checkbox"
+                                        name="studentDepartmentId"
+                                        value={d.id}
+                                        defaultChecked={myDeptList.some((x) => x.id === d.id)}
+                                        className="h-4 w-4 accent-brand"
+                                      />
+                                      {d.name}
+                                    </label>
+                                  ))}
+                                  {/* Departments this viewer can't change stay as they are. */}
+                                  {myDeptList
+                                    .filter((x) => !admitDepts.some((d) => d.id === x.id))
+                                    .map((x) => (
+                                      <input key={x.id} type="hidden" name="studentDepartmentId" value={x.id} />
+                                    ))}
+                                  <SubmitButton size="sm" variant="secondary">
+                                    Save departments
+                                  </SubmitButton>
                                 </ActionForm>
                               )}
-                          </div>
-                        );
-                      })}
-                      {g === "students" && p.roles.some((r) => r.role === "student" || r.role === "alumni") && (
-                        <div className="flex flex-wrap items-center gap-1.5 text-sm">
-                          {(studentDepts.get(p.id) ?? []).length === 0 ? (
-                            <Badge tone="gold">No department yet: sees no courses</Badge>
-                          ) : (
-                            (studentDepts.get(p.id) ?? []).map((d) => (
-                              <span key={d.id} className="rounded-full border border-line px-2.5 py-0.5 text-[13px] text-muted">
-                                {d.name}
+                              {canManageStudent && (
+                                <div className="space-y-4">
+                                  <ActionForm action={linkParentAction} className="space-y-2">
+                                    <input type="hidden" name="uni" value={uni} />
+                                    <input type="hidden" name="userId" value={p.id} />
+                                    <h3 className="text-[13px] text-muted">Parent</h3>
+                                    <Input name="parentName" placeholder="Parent's name" aria-label="Parent's name" required />
+                                    <Input name="parentEmail" type="email" placeholder="Parent's email" aria-label="Parent's email" required />
+                                    <SubmitButton size="sm" variant="secondary">
+                                      Link parent
+                                    </SubmitButton>
+                                  </ActionForm>
+                                  <ActionForm action={graduateAction} confirm={`Move ${p.name} to alumni? Program courses will be removed; certificates stay.`}>
+                                    <input type="hidden" name="uni" value={uni} />
+                                    <input type="hidden" name="userId" value={p.id} />
+                                    <SubmitButton size="sm" variant="secondary">
+                                      Graduate to alumni
+                                    </SubmitButton>
+                                  </ActionForm>
+                                </div>
+                              )}
+                            </div>
+                          ) : undefined
+                        }
+                      >
+                        <div className="flex flex-wrap items-baseline gap-x-2 text-[14px]">
+                          <span className="font-medium">{p.name}</span>
+                          <span className="min-w-0 truncate text-[13px] text-muted">{p.email}</span>
+                        </div>
+                        <div className="mt-0.5 text-[13px] text-muted">
+                          {p.roles.map((r, i) => {
+                            const ended = r.endsAt && r.endsAt <= new Date();
+                            return (
+                              <span key={r.assignmentId}>
+                                {i > 0 && " · "}
+                                {r.label}
+                                {` · ${r.scope}`}
+                                {r.endsAt &&
+                                  (ended ? (
+                                    <span className="text-danger"> · Access ended</span>
+                                  ) : (
+                                    ` · until ${formatDate(todayIn(university.timezone, r.endsAt))}`
+                                  ))}
                               </span>
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </Td>
-                  <Td className="text-right">
-                    {g === "students" && admitDepts.length > 0 && p.roles.some((r) => r.role === "student" || r.role === "alumni") && (
-                      <details className="mb-2 text-left">
-                        <summary className="cursor-pointer text-sm text-brand">Departments</summary>
-                        <ActionForm action={studentDepartmentsAction} className="mt-3 w-64 space-y-2">
-                          <input type="hidden" name="uni" value={uni} />
-                          <input type="hidden" name="userId" value={p.id} />
-                          {admitDepts.map((d) => (
-                            <label key={d.id} className="flex items-center gap-2 text-sm">
-                              <input
-                                type="checkbox"
-                                name="studentDepartmentId"
-                                value={d.id}
-                                defaultChecked={(studentDepts.get(p.id) ?? []).some((x) => x.id === d.id)}
-                                className="accent-brand"
-                              />
-                              {d.name}
-                            </label>
-                          ))}
-                          {/* Departments this viewer can't change stay as they are. */}
-                          {(studentDepts.get(p.id) ?? [])
-                            .filter((x) => !admitDepts.some((d) => d.id === x.id))
-                            .map((x) => (
-                              <input key={x.id} type="hidden" name="studentDepartmentId" value={x.id} />
+                            );
+                          })}
+                          {isStudentLike &&
+                            (myDeptList.length === 0 ? (
+                              <span className="inline-flex items-center gap-1.5">
+                                {" · "}
+                                <span aria-hidden className="h-2 w-2 rounded-full bg-gold" />
+                                <span className="text-ink">No department yet: sees no courses</span>
+                              </span>
+                            ) : (
+                              ` · ${myDeptList.map((d) => d.name).join(", ")}`
                             ))}
-                          <SubmitButton size="sm" variant="secondary">
-                            Save departments
-                          </SubmitButton>
-                        </ActionForm>
-                      </details>
-                    )}
-                    {g === "students" && canGraduate && p.roles.some((r) => r.role === "student") && (
-                      <details className="text-left">
-                        <summary className="cursor-pointer text-sm text-brand">Manage</summary>
-                        <div className="mt-3 w-64 space-y-4">
-                          <ActionForm action={graduateAction} confirm={`Move ${p.name} to alumni? Program courses will be removed; certificates stay.`}>
-                            <input type="hidden" name="uni" value={uni} />
-                            <input type="hidden" name="userId" value={p.id} />
-                            <SubmitButton size="sm" variant="secondary">
-                              Graduate to alumni
-                            </SubmitButton>
-                          </ActionForm>
-                          <ActionForm action={linkParentAction} className="space-y-2">
-                            <input type="hidden" name="uni" value={uni} />
-                            <input type="hidden" name="userId" value={p.id} />
-                            <Input name="parentName" placeholder="Parent's name" required />
-                            <Input name="parentEmail" type="email" placeholder="Parent's email" required />
-                            <SubmitButton size="sm" variant="secondary">
-                              Link parent
-                            </SubmitButton>
-                          </ActionForm>
                         </div>
-                      </details>
-                    )}
-                  </Td>
-                </tr>
-              ))}
-            </Table>
+                      </ManageRow>
+                    );
+                  })}
+                </ul>
+              </Card>
             </>
           )}
         </div>

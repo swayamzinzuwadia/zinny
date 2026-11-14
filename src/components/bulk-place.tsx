@@ -14,7 +14,7 @@ export function BulkTick({ userId, name }: { userId: string; name: string }) {
 function Submit({ count, pending }: { count: number; pending: boolean }) {
   return (
     <button type="submit" disabled={pending || count === 0} className={buttonClass("primary", "sm")}>
-      {pending ? "Adding…" : count === 0 ? "Tick students to add" : `Add ${count} student${count === 1 ? "" : "s"} to batch`}
+      {pending ? "Adding…" : `Add ${count} student${count === 1 ? "" : "s"} to batch`}
     </button>
   );
 }
@@ -56,9 +56,10 @@ export function BulkPlaceBar({ uni, batches, action }: { uni: string; batches: {
         const data = new FormData(e.currentTarget);
         startTransition(() => formAction(data));
       }}
-      className="mb-4 rounded-[22px] border border-line bg-surface p-4">
+      // The bar only appears once someone is ticked; until then it is one quiet line.
+      className={cx("mb-4", count > 0 && "rounded-2xl border border-line bg-surface p-3")}>
       <input type="hidden" name="uni" value={uni} />
-      <div className="flex flex-wrap items-center gap-3">
+      <div className={cx("flex flex-wrap items-center gap-3", count === 0 && "px-1")}>
         <label className="flex items-center gap-2 text-[14px]">
           <input
             type="checkbox"
@@ -71,8 +72,13 @@ export function BulkPlaceBar({ uni, batches, action }: { uni: string; batches: {
           />
           Select all
         </label>
-        <span className={cx("text-[13px]", count ? "text-ink" : "text-muted")}>{count} selected</span>
-        <div className="min-w-0 flex-1 basis-56">
+        {count === 0 ? (
+          <span className="text-[13px] text-muted">Tick students to add them to a batch</span>
+        ) : (
+          <span className="tabular text-[13px] text-ink">{count} selected</span>
+        )}
+        {/* Kept mounted while hidden, so the chosen batch survives unticking. */}
+        <div className={cx("min-w-0 flex-1 basis-56", count === 0 && "hidden")}>
           <Select name="batchId" aria-label="Batch to add them to" defaultValue={batches[0]?.id} onChange={() => setClash(null)}>
             {batches.map((b) => (
               <option key={b.id} value={b.id} disabled={b.seatsLeft <= 0}>
@@ -81,7 +87,7 @@ export function BulkPlaceBar({ uni, batches, action }: { uni: string; batches: {
             ))}
           </Select>
         </div>
-        {!clash && <Submit count={count} pending={pending} />}
+        {!clash && count > 0 && <Submit count={count} pending={pending} />}
       </div>
       {clash && (
         <div className="mt-3">
