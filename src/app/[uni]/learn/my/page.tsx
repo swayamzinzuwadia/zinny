@@ -33,7 +33,7 @@ export default async function MyLearning({ params }: { params: Promise<{ uni: st
           <Card key={l.enrolmentId}>
             <div className="flex flex-wrap items-start justify-between gap-2">
               <Link href={`/${uni}/learn/my/${l.enrolmentId}`} className="group min-w-0">
-                <div className="text-[17px] font-semibold group-hover:text-brand">{l.course.title}</div>
+                <div className="text-[16px] font-medium group-hover:text-brand">{l.course.title}</div>
                 <div className="text-sm text-muted">
                   {l.batch.name} · {l.batch.timings}
                 </div>
@@ -64,7 +64,7 @@ export default async function MyLearning({ params }: { params: Promise<{ uni: st
             <Card className="hover:border-brand/40">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <div className="text-[17px] font-semibold">{l.course.title}</div>
+                  <div className="text-[16px] font-medium">{l.course.title}</div>
                   <div className="text-sm text-muted">{l.batch.name}</div>
                 </div>
                 <Badge tone="brand">Completed</Badge>

@@ -102,7 +102,7 @@ export function BadgeShelf({ badges, timeZone }: { badges: MyBadge[]; timeZone: 
   );
 }
 
-function daysLeft(n: number) {
+export function daysLeft(n: number) {
   return n === 0 ? "Ends today" : n === 1 ? "Ends tomorrow" : `${n} days left`;
 }
 

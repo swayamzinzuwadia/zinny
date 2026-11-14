@@ -110,7 +110,7 @@ function CourseCard({ course: c }: { course: CatalogCourse }) {
   return (
     <Link
       href={c.href}
-      className="group flex h-full flex-col overflow-hidden rounded-[26px] border border-line bg-surface [transition-property:transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-[0_18px_40px_-20px_rgb(6_58_47/0.35)]"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface [transition-property:transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-[0_18px_40px_-20px_rgb(6_58_47/0.35)]"
     >
       <div className={cx("relative flex h-28 flex-col justify-between overflow-hidden border-b border-line px-5 py-4", cover.bg)}>
         <div
@@ -126,7 +126,7 @@ function CourseCard({ course: c }: { course: CatalogCourse }) {
         </span>
       </div>
       <div className="flex flex-1 flex-col p-5">
-        <h2 className="text-[18px] leading-snug font-semibold tracking-tight group-hover:text-brand">{c.title}</h2>
+        <h2 className="text-[18px] leading-snug font-medium group-hover:text-brand">{c.title}</h2>
         {c.description && <p className="mt-1.5 line-clamp-2 text-[14px] leading-relaxed text-muted">{c.description}</p>}
         <div className="mt-auto flex items-center justify-between gap-3 pt-5 text-[13px]">
           <span className="text-muted">
