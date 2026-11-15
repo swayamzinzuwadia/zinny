@@ -212,7 +212,7 @@ describe("the role switches", () => {
   it("lists every role and opens the first, with a save button only where it can change", () => {
     const roles = roleSummaries();
     const out = page(roles, abilityOptions(false));
-    for (const r of roles) expect(out).toContain(r.label);
+    for (const r of roles) expect(out).toContain(r.label.replaceAll("&", "&amp;"));
     // Institute Admin comes first; it is shown as fixed unless a Super Admin is looking.
     expect(out).toContain("Only a Super Admin can change Institute Admin.");
     const asSuper = html(<RoleSwitches roles={roles.map((r) => (r.kind === "institute_admin" ? { ...r, editable: true } : r))} options={abilityOptions(false)} kinds={[]} actions={actions} where="Demo" />);
