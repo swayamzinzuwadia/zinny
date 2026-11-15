@@ -12,7 +12,7 @@ import { normalizePhone } from "@/server/auth/phone";
 import { ROLE_LABELS } from "@/server/authz/roles";
 import { NotFoundError, ConflictError, ValidationError } from "@/server/errors";
 import { assertSuperAdmin } from "../lib/access";
-import { AUTOMATED_ACTIONS, PLATFORM_ROLES, STAFF_ROLES } from "../lib/constants";
+import { AUTOMATED_ACTIONS, PLATFORM_ROLES, PLATFORM_ROLE_LABELS, STAFF_ROLES } from "../lib/constants";
 import { EMAIL_RE, db, isUniqueViolation, isUuid, logAction } from "./shared";
 
 // "Learners", not "Students": the licence and the other pages count only the student role,
@@ -93,6 +93,48 @@ export type PeopleFilters = {
  * Zinny team's roles are a row of their own; an account with no role anywhere (someone
  * who signed up for the marketplace) shows once, with no institute.
  */
+const SEARCH_FILLER = new Set(["all", "every", "the", "of", "at", "in"]);
+
+/**
+ * Roles whose label the search words describe, so "admin", "institute admins" or "all
+ * institute's admins" find Institute Admins. Every remaining word (plural or possessive
+ * dropped) must appear in the label.
+ */
+export function rolesMatching(term: string): RoleName[] {
+  const words = term
+    .toLowerCase()
+    .replace(/['’]s\b/g, "")
+    .split(/[^a-z0-9/&]+/)
+    .filter((w) => w && !SEARCH_FILLER.has(w))
+    .map((w) => (w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w));
+  if (words.length === 0) return [];
+  const labels: Record<string, string> = { ...ROLE_LABELS, ...PLATFORM_ROLE_LABELS };
+  return (Object.keys(labels) as RoleName[]).filter((r) => !r.startsWith("custom_") && words.every((w) => labels[r].toLowerCase().includes(w)));
+}
+
+/**
+ * The search box: name, email or phone, the institute's name, a role by its label, or a
+ * custom role by its name. Role matches look at the person's roles in this row's institute
+ * (or on the Zinny team), so the row still lists all of that person's roles there.
+ */
+function searchMatch(term: string, like: string) {
+  const roleKeys = rolesMatching(term);
+  const sameRow = sql`ra.user_id = ${users.id} and ra.revoked_at is null and ra.university_id is not distinct from ${universities.id}`;
+  return or(
+    ilike(users.name, like),
+    ilike(users.email, like),
+    ilike(users.phone, like),
+    ilike(universities.name, like),
+    roleKeys.length
+      ? sql`exists (select 1 from ${roleAssignments} ra where ${sameRow} and ra.role::text in (${sql.join(
+          roleKeys.map((r) => sql`${r}`),
+          sql`, `,
+        )}))`
+      : undefined,
+    sql`exists (select 1 from ${roleAssignments} ra join ${customRoles} cr on cr.id = ra.custom_role_id where ${sameRow} and cr.name ilike ${like})`,
+  );
+}
+
 export async function listPeople(actor: Actor, filters: PeopleFilters): Promise<{ rows: PersonRow[]; hasMore: boolean; page: number }> {
   assertSuperAdmin(actor);
   const page = Math.max(1, filters.page ?? 1);
@@ -136,7 +178,7 @@ export async function listPeople(actor: Actor, filters: PeopleFilters): Promise<
         universityId ? eq(roleAssignments.universityId, universityId) : undefined,
         roles ? inArray(roleAssignments.role, [...roles]) : undefined,
         filters.role ? eq(roleAssignments.role, filters.role) : undefined,
-        term ? or(ilike(users.name, like), ilike(users.email, like), ilike(users.phone, like)) : undefined,
+        term ? searchMatch(term, like) : undefined,
         filters.account === "active" ? isNotNull(users.passwordHash) : filters.account === "invited" ? isNull(users.passwordHash) : undefined,
         filters.phone === "yes" ? isNotNull(users.phone) : filters.phone === "no" ? isNull(users.phone) : undefined,
         from ? gte(users.createdAt, sql`${from}::date`) : undefined,

@@ -123,7 +123,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
         {group !== "all" && <input type="hidden" name="group" value={group} />}
         <label className="block text-[13px] text-muted xl:col-span-2">
           Search
-          <input name="q" defaultValue={q} placeholder="Name, email or phone" className={FIELD} />
+          <input name="q" defaultValue={q} placeholder="Name, email, phone, role or institute" className={FIELD} />
         </label>
         <label className="block text-[13px] text-muted">
           Institute
