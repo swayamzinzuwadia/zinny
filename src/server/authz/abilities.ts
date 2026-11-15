@@ -147,8 +147,13 @@ export function gridPlace(a: Pick<Ability, "label" | "readOnly" | "row" | "alsoR
   return { rows: [...new Set([row, ...(a.alsoRows ?? [])])], cols: cols.length > 0 ? cols : [a.readOnly ? "view" : "edit"] };
 }
 
-/** How far each role that can be edited reaches. Institute Admin and Super Admin aren't here. */
+/**
+ * How far each role that can be edited reaches. Super Admin isn't here, so it can never change.
+ * Institute Admin is, but only a Super Admin may change it (services/roles.ts), and what keeps
+ * an institute running (role.manage, user.manage_roles) is never switchable.
+ */
 const ROLE_REACH: Partial<Record<RoleName, Reach>> = {
+  institute_admin: "institute",
   board_owner: "institute",
   accounts_fees: "institute",
   custom_institute: "institute",

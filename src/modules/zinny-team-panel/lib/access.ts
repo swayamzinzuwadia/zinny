@@ -96,7 +96,7 @@ const SECTIONS: Section[] = [
     label: "Team",
     entries: [
       { label: "Team and roles", href: "/team", allowed: isSuperAdmin },
-      { label: "Roles & permissions", href: "/team/roles", allowed: isSuperAdmin },
+      { label: "Roles & permissions", href: "/roles", allowed: isSuperAdmin },
     ],
   },
 ];
