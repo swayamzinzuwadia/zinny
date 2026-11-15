@@ -148,7 +148,7 @@ export default async function UniversitiesPage({ searchParams }: { searchParams:
                 <div className="flex flex-col items-end gap-1.5 whitespace-nowrap">
                   {canPeople && (
                     <Link href={`/platform/people?university=${u.id}`} className="text-[13px] font-medium text-brand hover:underline">
-                      People
+                      Users
                     </Link>
                   )}
                   {canLicence && (
