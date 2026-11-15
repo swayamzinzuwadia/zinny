@@ -60,7 +60,7 @@ export default async function UniversityPage({ params, searchParams }: { params:
             {can.support && <OpenInstitute universityId={u.id} slug={u.slug} inside={inside} />}
             {superAdmin && (
               <Link href={`/platform/people?university=${u.id}`} className={cx(buttonClass("secondary"), "whitespace-nowrap")}>
-                People
+                Users
               </Link>
             )}
             {superAdmin && (
@@ -177,11 +177,11 @@ export default async function UniversityPage({ params, searchParams }: { params:
               <CardTitle
                 hint={
                   <Link href={`/platform/people?university=${u.id}`} className="hover:text-brand">
-                    All {formatCount(people.total)} people
+                    All {formatCount(people.total)} users
                   </Link>
                 }
               >
-                People
+                Users
               </CardTitle>
               {people.rows.length === 0 ? (
                 <p className="text-[14px] text-muted">Nobody has a role here yet.</p>
@@ -198,7 +198,7 @@ export default async function UniversityPage({ params, searchParams }: { params:
                           {!p.canSignIn && " · no password yet"}
                         </div>
                       </div>
-                      <PersonActions userId={p.userId} name={p.name} universityId={u.id} self={p.userId === actor.userId} />
+                      <PersonActions userId={p.userId} name={p.name} email={p.email} phone={p.phone} universityId={u.id} self={p.userId === actor.userId} />
                     </li>
                   ))}
                 </ul>
@@ -231,7 +231,7 @@ export default async function UniversityPage({ params, searchParams }: { params:
 
         <div className="min-w-0 space-y-6">
           <Card>
-            <CardTitle>People and usage</CardTitle>
+            <CardTitle>Users and usage</CardTitle>
             <div className="space-y-4">
               <UsageMeter label="Students" used={usage.students} cap={licence?.studentCap ?? null} />
               <UsageMeter label="Staff" used={usage.staff} cap={licence?.staffCap ?? null} />

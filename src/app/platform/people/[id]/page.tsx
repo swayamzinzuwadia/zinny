@@ -5,6 +5,7 @@ import { ROLE_LABELS } from "@/server/authz/roles";
 import { platformContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { Fact, NoAccess } from "@/modules/zinny-team-panel/components/bits";
+import { EditPersonForm } from "@/modules/zinny-team-panel/components/edit-person-form";
 import { OpenInstitute } from "@/modules/zinny-team-panel/components/open-institute";
 import { SetPasswordForm } from "@/modules/zinny-team-panel/components/set-password-form";
 import { SignInAsButton } from "@/modules/zinny-team-panel/components/sign-in-as-button";
@@ -18,13 +19,13 @@ import { actionLabel, activeSessions } from "@/modules/zinny-team-panel/services
 import { LEARNER_ROLES } from "@/modules/zinny-team-panel/services/view-as";
 import type { RoleName } from "@/db/schema";
 
-export const metadata = { title: "Person" };
+export const metadata = { title: "User" };
 
 const LEARNER = new Set<RoleName>(LEARNER_ROLES);
 
 export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await platformContext();
-  if (!isSuperAdmin(actor)) return <NoAccess section="People" who="Only Super Admins" />;
+  if (!isSuperAdmin(actor)) return <NoAccess section="Users" who="Only Super Admins" />;
   const { id } = await params;
   const data = await personDetail(actor, id).catch((e) => {
     if (e instanceof NotFoundError) notFound();
@@ -50,6 +51,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         </div>
         <div className="flex flex-wrap items-start justify-end gap-2">
           {!self && <SignInAsButton userId={p.id} name={p.name} variant="primary" />}
+          <EditPersonForm userId={p.id} name={p.name} email={p.email} phone={p.phone} />
           <SetPasswordForm userId={p.id} name={p.name} />
           <Link href={dataRowHref("users", [p.id])} className={cx(buttonClass("secondary"), "whitespace-nowrap")}>
             Open in Data

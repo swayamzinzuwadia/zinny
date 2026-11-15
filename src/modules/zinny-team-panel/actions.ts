@@ -14,6 +14,7 @@ import { currentSession } from "@/server/auth/session";
 import { formatDate, formatINR, parseRupees } from "./lib/format";
 import { setPersonPassword, startImpersonation, stopImpersonation } from "./services/accounts";
 import { addRole, inviteMember, removeRole } from "./services/team";
+import { updatePerson } from "./services/people";
 import { createInvoice, markInvoicePaid, markInvoiceUnpaid, reviseInvoice } from "./services/billing";
 import { archivePlan, createPlan, deletePlan, restorePlan, updatePlan, type PlanInput } from "./services/plans";
 import { flagCourse, markReviewed, resolveFlag } from "./services/content";
@@ -219,6 +220,15 @@ export async function setPasswordAction(_: ActionState, data: FormData): Promise
     revalidatePath("/platform", "layout");
     const ended = r.signedOutEverywhere ? ` They are signed out everywhere (${r.sessionsEnded} session${r.sessionsEnded === 1 ? "" : "s"} ended).` : " Their open sessions stay signed in.";
     return `Password set for ${r.name}.${ended} Pass it on safely: it isn't shown again.`;
+  });
+}
+
+export async function updatePersonAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  return attempt(async () => {
+    const r = await updatePerson(actor, str(data, "userId"), { name: str(data, "name"), email: str(data, "email"), phone: str(data, "phone") });
+    revalidatePath("/platform", "layout");
+    return r.changed.length ? `Saved ${r.name}'s details.` : "Nothing changed.";
   });
 }
 

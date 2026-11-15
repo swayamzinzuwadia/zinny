@@ -194,12 +194,12 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
                         </Link>
                         <div className="truncate text-[12.5px] text-muted">{p.roles.map((r) => ROLE_LABELS[r]).join(", ")}</div>
                       </div>
-                      <PersonActions userId={p.userId} name={p.name} universityId={picked} self={p.userId === actor.userId} />
+                      <PersonActions userId={p.userId} name={p.name} email={p.email} phone={p.phone} universityId={picked} self={p.userId === actor.userId} />
                     </li>
                   ))}
                 </ul>
                 <Link href={`/platform/people?university=${picked}`} className="mt-4 inline-block text-[13px] font-medium text-brand hover:underline">
-                  All {formatCount(pickedPeople.total)} people at {pickedName}
+                  All {formatCount(pickedPeople.total)} users at {pickedName}
                 </Link>
               </>
             ) : (
