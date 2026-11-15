@@ -23,7 +23,7 @@ export default async function TeamPage() {
         title="Team and roles"
         subtitle="The Zinny team and what each person can open. Role changes apply straight away."
         actions={
-          <ButtonLink href="/platform/team/roles" variant="secondary">
+          <ButtonLink href="/platform/roles" variant="secondary">
             <span className="whitespace-nowrap">Roles & permissions</span>
           </ButtonLink>
         }

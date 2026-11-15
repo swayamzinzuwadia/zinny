@@ -1,19 +1,23 @@
 /**
- * Making and changing roles. Institute Admins do this for their own institute, and Super
- * Admins for the Zinny team (universityId null).
+ * Making and changing roles, in one of three places (a "role scope"):
+ *  - an institute (its id): its Institute Admins, or any Super Admin from the Zinny panel;
+ *  - the Zinny team (null): Super Admins only;
+ *  - Zinny-wide defaults (ZINNY_DEFAULTS): Super Admins only. A change here applies to a
+ *    built-in role at every institute that hasn't changed that role itself.
  *
  * The rules that keep this safe:
- *  - Only Institute Admins hold role.manage, and it can't be given to any other role.
- *  - Institute Admin and Super Admin can't be changed, so nobody can lock everyone out.
+ *  - role.manage and user.manage_roles are never switchable, so whoever holds Institute Admin
+ *    can always put the rest right. Only a Super Admin may change the Institute Admin role.
+ *  - Super Admin can't be changed, so Zinny always has someone who can fix anything else.
  *  - A role can only be given what abilitiesFor() offers it. Locked actions are never saved,
  *    and effectiveGrants() checks again every time a role is read.
  *  - A role with people in it can't be deleted.
  */
-import { and, eq, gt, isNull, isNotNull, or, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, isNotNull, ne, or, sql } from "drizzle-orm";
 import { systemDb, type Tx } from "@/db/client";
 import { customRoles, roleAssignments, type RoleName } from "@/db/schema";
 import { CUSTOM_ROLES, actionsForAbilities, effectiveGrants, isEditableRole, isPlatformKind } from "../authz/abilities";
-import { platformRoleSummaries, roleSummaries, type RoleRow, type RoleSummary } from "../authz/capabilities";
+import { INSTITUTE_BUILT_IN, platformRoleSummaries, roleSummaries, type RoleRow, type RoleSummary } from "../authz/capabilities";
 import { assertCan, can, isActive, type Actor } from "../authz/engine";
 import { ROLE_GRANTS, ROLE_LABELS } from "../authz/roles";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors";
@@ -23,40 +27,94 @@ import { audit, withTenant } from "../tenant";
 const MAX_CUSTOM_ROLES = 30;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const isSuperAdmin = (actor: Actor, now = new Date()) => actor.assignments.some((a) => a.scopeType === "platform" && a.role === "super_admin" && isActive(a, now));
+/** The role scope for the built-in institute roles' Zinny-wide defaults. */
+export const ZINNY_DEFAULTS = "zinny-defaults";
+/** An institute's id, null for the Zinny team, or ZINNY_DEFAULTS. */
+export type RoleScope = string | null;
 
-function assertManage(actor: Actor, universityId: string | null) {
-  if (universityId) assertCan(actor, "role.manage", { universityId });
-  else if (!isSuperAdmin(actor)) throw new ForbiddenError("Only a Super Admin can change Zinny team roles.");
+const isDefaults = (scope: RoleScope) => scope === ZINNY_DEFAULTS;
+/** The institute a scope is about, or null for the Zinny team and the defaults. */
+const instituteOf = (scope: RoleScope) => (scope && scope !== ZINNY_DEFAULTS ? scope : null);
+
+export const isSuperAdmin = (actor: Actor, now = new Date()) => actor.assignments.some((a) => a.scopeType === "platform" && a.role === "super_admin" && isActive(a, now));
+
+function assertManage(actor: Actor, scope: RoleScope) {
+  const uni = instituteOf(scope);
+  if (uni) {
+    if (!UUID.test(uni)) throw new NotFoundError("Institute");
+    if (!isSuperAdmin(actor)) assertCan(actor, "role.manage", { universityId: uni });
+  } else if (!isSuperAdmin(actor)) {
+    throw new ForbiddenError(isDefaults(scope) ? "Only a Super Admin can change Zinny-wide role defaults." : "Only a Super Admin can change Zinny team roles.");
+  }
 }
 
-function inScope<T>(actor: Actor, universityId: string | null, fn: (tx: Tx) => Promise<T>): Promise<T> {
-  return universityId ? withTenant(actor, fn) : systemDb().transaction(fn);
+/**
+ * Runs `fn` where this scope's roles live. An Institute Admin in their own institute works
+ * under row-level security; a Super Admin from the panel uses the system connection (checked
+ * in assertManage). `who` is the actor to log with: its institute is the scope's, so a change
+ * lands in that institute's own log.
+ */
+function inScope<T>(actor: Actor, scope: RoleScope, fn: (tx: Tx, who: Actor) => Promise<T>): Promise<T> {
+  const uni = instituteOf(scope);
+  const who: Actor = { ...actor, universityId: uni };
+  if (uni && actor.universityId === uni && can(actor, "role.manage", { universityId: uni })) return withTenant(who, (tx) => fn(tx, who));
+  return systemDb().transaction((tx) => fn(tx, who));
 }
 
-const ownedBy = (universityId: string | null) => (universityId ? eq(customRoles.universityId, universityId) : isNull(customRoles.universityId));
+/** Rows a scope owns. The team and the defaults both have no institute; they differ by kind. */
+function ownedBy(scope: RoleScope) {
+  const uni = instituteOf(scope);
+  return uni ? eq(customRoles.universityId, uni) : isNull(customRoles.universityId);
+}
 
 /** Everyone holding a role right now. Revoked and ended assignments don't count. */
 const heldNow = (now: Date) => and(isNull(roleAssignments.revokedAt), or(isNull(roleAssignments.endsAt), gt(roleAssignments.endsAt, now)));
 
-export async function listRoles(actor: Actor, universityId: string | null): Promise<RoleSummary[]> {
-  assertManage(actor, universityId);
-  return inScope(actor, universityId, async (tx) => {
-    const rows = await tx.select().from(customRoles).where(and(ownedBy(universityId), isNull(customRoles.archivedAt)));
+const asRow = (r: typeof customRoles.$inferSelect): RoleRow => ({ id: r.id, kind: r.kind, name: r.name, description: r.description, actions: r.actions });
+
+/**
+ * Zinny-wide changes to the built-in institute roles. Always read on the system connection:
+ * they have no institute, so row-level security would hide them from an Institute Admin.
+ */
+async function defaultEdits(): Promise<RoleRow[]> {
+  const rows = await systemDb()
+    .select()
+    .from(customRoles)
+    .where(and(isNull(customRoles.universityId), isNull(customRoles.name), inArray(customRoles.kind, [...INSTITUTE_BUILT_IN])));
+  return rows.map(asRow);
+}
+
+export async function listRoles(actor: Actor, scope: RoleScope): Promise<RoleSummary[]> {
+  assertManage(actor, scope);
+  const uni = instituteOf(scope);
+  const defaults = isDefaults(scope) || uni ? await defaultEdits() : [];
+  const roles = await inScope(actor, scope, async (tx) => {
+    const now = new Date();
+    if (isDefaults(scope)) {
+      const held = await tx
+        .select({ role: roleAssignments.role, people: sql<number>`count(distinct ${roleAssignments.userId})`.mapWith(Number) })
+        .from(roleAssignments)
+        .where(and(ne(roleAssignments.scopeType, "platform"), isNull(roleAssignments.customRoleId), heldNow(now)))
+        .groupBy(roleAssignments.role);
+      return roleSummaries(defaults, new Map(held.map((h) => [h.role as string, h.people])));
+    }
+    const rows = await tx.select().from(customRoles).where(and(ownedBy(scope), isNull(customRoles.archivedAt)));
     const held = await tx
       .select({ role: roleAssignments.role, customRoleId: roleAssignments.customRoleId, people: sql<number>`count(distinct ${roleAssignments.userId})`.mapWith(Number) })
       .from(roleAssignments)
-      .where(and(universityId ? eq(roleAssignments.universityId, universityId) : eq(roleAssignments.scopeType, "platform"), heldNow(new Date())))
+      .where(and(uni ? eq(roleAssignments.universityId, uni) : eq(roleAssignments.scopeType, "platform"), heldNow(now)))
       .groupBy(roleAssignments.role, roleAssignments.customRoleId);
     const holders = new Map(held.map((h) => [h.customRoleId ?? h.role, h.people]));
-    const saved: RoleRow[] = rows.map((r) => ({ id: r.id, kind: r.kind, name: r.name, description: r.description, actions: r.actions }));
-    return universityId ? roleSummaries(saved, holders) : platformRoleSummaries(saved, holders);
+    return uni ? roleSummaries(rows.map(asRow), holders, defaults) : platformRoleSummaries(rows.map(asRow), holders);
   });
+  // Only a Super Admin may change Institute Admin, wherever it shows.
+  const superAdmin = isSuperAdmin(actor);
+  return roles.map((r) => (r.kind === "institute_admin" ? { ...r, editable: superAdmin } : r));
 }
 
 /** Custom roles that can be given to someone. Empty for anyone who can't give them. */
 export async function customRoleChoices(actor: Actor, universityId: string | null) {
-  const allowed = universityId ? can(actor, "user.manage_roles", { universityId }) : isSuperAdmin(actor);
+  const allowed = universityId ? can(actor, "user.manage_roles", { universityId }) || isSuperAdmin(actor) : isSuperAdmin(actor);
   if (!allowed) return [];
   return inScope(actor, universityId, (tx) =>
     tx
@@ -108,26 +166,29 @@ function changes(before: readonly string[], after: readonly string[]) {
 
 function chosenActions(role: RoleName, abilities: readonly string[]) {
   const actions = actionsForAbilities(role, abilities);
-  if (actions.length === 0) throw new ValidationError("Tick at least one thing this role can do.");
+  if (actions.length === 0) throw new ValidationError("Switch on at least one thing this role can do.");
   return actions;
 }
 
-async function saveBuiltIn(tx: Tx, actor: Actor, universityId: string | null, role: RoleName, abilities: readonly string[]) {
+async function saveBuiltIn(tx: Tx, who: Actor, scope: RoleScope, role: RoleName, abilities: readonly string[]) {
   const actions = chosenActions(role, abilities);
   const [row] = await tx
     .select()
     .from(customRoles)
-    .where(and(ownedBy(universityId), eq(customRoles.kind, role), isNull(customRoles.name)))
+    .where(and(ownedBy(scope), eq(customRoles.kind, role), isNull(customRoles.name)))
     .for("update");
   const before = effectiveGrants(role, row?.actions) ?? ROLE_GRANTS[role];
   const saved = row
     ? (await tx.update(customRoles).set({ actions, updatedAt: new Date() }).where(eq(customRoles.id, row.id)).returning())[0]
-    : (await tx.insert(customRoles).values({ universityId, kind: role, actions, createdBy: actor.userId || null }).returning())[0];
-  await audit(tx, actor, "role.update", "role", saved.id, { role, ...changes(before, effectiveGrants(role, actions) ?? []) });
-  return `${ROLE_LABELS[role]} updated. It applies on each person's next page.`;
+    : (await tx.insert(customRoles).values({ universityId: instituteOf(scope), kind: role, actions, createdBy: who.userId || null }).returning())[0];
+  await audit(tx, who, "role.update", "role", saved.id, { role, ...(isDefaults(scope) ? { zinnyDefault: true } : {}), ...changes(before, effectiveGrants(role, actions) ?? []) });
+  return isDefaults(scope)
+    ? `${ROLE_LABELS[role]} updated at every institute that hasn't changed it itself. It applies on each person's next page.`
+    : `${ROLE_LABELS[role]} updated. It applies on each person's next page.`;
 }
 
-async function saveCustom(tx: Tx, actor: Actor, universityId: string | null, draft: RoleDraft) {
+/** A new or changed custom role. `universityId` is the institute, or null for the Zinny team. */
+async function saveCustom(tx: Tx, who: Actor, universityId: string | null, draft: RoleDraft) {
   const name = (draft.name ?? "").trim();
   const description = (draft.description ?? "").trim().slice(0, 200);
   if (name.length < 2 || name.length > 40) throw new ValidationError("Give the role a name of 2 to 40 characters.");
@@ -151,7 +212,7 @@ async function saveCustom(tx: Tx, actor: Actor, universityId: string | null, dra
     // A role keeps its kind: moving it would change the reach of everyone already holding it.
     const actions = chosenActions(row.kind, draft.abilities);
     await tx.update(customRoles).set({ name, description, actions, updatedAt: new Date() }).where(eq(customRoles.id, row.id));
-    await audit(tx, actor, "role.update", "role", row.id, { name, ...changes(effectiveGrants(row.kind, row.actions) ?? [], effectiveGrants(row.kind, actions) ?? []) });
+    await audit(tx, who, "role.update", "role", row.id, { name, ...changes(effectiveGrants(row.kind, row.actions) ?? [], effectiveGrants(row.kind, actions) ?? []) });
     return `${name} updated. It applies on each person's next page.`;
   }
 
@@ -164,45 +225,58 @@ async function saveCustom(tx: Tx, actor: Actor, universityId: string | null, dra
     .from(customRoles)
     .where(and(ownedBy(universityId), isNotNull(customRoles.name), isNull(customRoles.archivedAt)));
   if (total >= MAX_CUSTOM_ROLES) throw new ValidationError(`You can have up to ${MAX_CUSTOM_ROLES} custom roles. Delete one you no longer use.`);
-  const [row] = await tx.insert(customRoles).values({ universityId, kind, name, description, actions, createdBy: actor.userId || null }).returning();
-  await audit(tx, actor, "role.create", "role", row.id, { name, kind, actions });
+  const [row] = await tx.insert(customRoles).values({ universityId, kind, name, description, actions, createdBy: who.userId || null }).returning();
+  await audit(tx, who, "role.create", "role", row.id, { name, kind, actions });
   return `${name} created. Give it to people from Users.`;
 }
 
-export async function saveRole(actor: Actor, universityId: string | null, draft: RoleDraft): Promise<string> {
-  assertManage(actor, universityId);
-  if (draft.role) {
-    const role = draft.role as RoleName;
-    if (!isEditableRole(role) || CUSTOM_ROLES.has(role) || isPlatformKind(role) !== !universityId) throw new ValidationError("That role can't be changed.");
-    return inScope(actor, universityId, (tx) => saveBuiltIn(tx, actor, universityId, role, draft.abilities));
-  }
-  return inScope(actor, universityId, (tx) => saveCustom(tx, actor, universityId, draft));
+/** A built-in role that this person may change in this scope. */
+function assertChangeable(actor: Actor, scope: RoleScope, role: RoleName) {
+  const team = scope === null;
+  if (!isEditableRole(role) || CUSTOM_ROLES.has(role) || isPlatformKind(role) !== team) throw new ValidationError("That role can't be changed.");
+  if (role === "institute_admin" && !isSuperAdmin(actor)) throw new ForbiddenError("Only a Super Admin can change the Institute Admin role.");
 }
 
-/** Puts a built-in role back to Zinny's default. */
-export async function resetRole(actor: Actor, universityId: string | null, role: string): Promise<string> {
-  assertManage(actor, universityId);
+export async function saveRole(actor: Actor, scope: RoleScope, draft: RoleDraft): Promise<string> {
+  assertManage(actor, scope);
+  if (draft.role) {
+    const role = draft.role as RoleName;
+    assertChangeable(actor, scope, role);
+    return inScope(actor, scope, (tx, who) => saveBuiltIn(tx, who, scope, role, draft.abilities));
+  }
+  if (isDefaults(scope)) throw new ValidationError("Zinny-wide defaults cover the built-in roles. Make custom roles inside an institute.");
+  return inScope(actor, scope, (tx, who) => saveCustom(tx, who, instituteOf(scope), draft));
+}
+
+/**
+ * Puts a built-in role back. At an institute it goes back to the Zinny default (the Zinny-wide
+ * one, when a Super Admin has changed that); in the defaults it goes back to Zinny's original.
+ */
+export async function resetRole(actor: Actor, scope: RoleScope, role: string): Promise<string> {
+  assertManage(actor, scope);
   const name = role as RoleName;
-  if (!isEditableRole(name) || CUSTOM_ROLES.has(name)) throw new ValidationError("That role can't be changed.");
-  return inScope(actor, universityId, async (tx) => {
+  assertChangeable(actor, scope, name);
+  return inScope(actor, scope, async (tx, who) => {
     const gone = await tx
       .delete(customRoles)
-      .where(and(ownedBy(universityId), eq(customRoles.kind, name), isNull(customRoles.name)))
+      .where(and(ownedBy(scope), eq(customRoles.kind, name), isNull(customRoles.name)))
       .returning();
-    if (gone[0]) await audit(tx, actor, "role.reset", "role", gone[0].id, { role: name });
-    return `${ROLE_LABELS[name]} is back to the Zinny default.`;
+    if (gone[0]) await audit(tx, who, "role.reset", "role", gone[0].id, { role: name, ...(isDefaults(scope) ? { zinnyDefault: true } : {}) });
+    return isDefaults(scope)
+      ? `${ROLE_LABELS[name]} is back to Zinny's original permissions at every institute that hasn't changed it.`
+      : `${ROLE_LABELS[name]} is back to the Zinny default.`;
   });
 }
 
 /** Deletes a custom role that nobody holds. Past assignments keep pointing at it, so it is only marked as gone. */
-export async function deleteRole(actor: Actor, universityId: string | null, id: string): Promise<string> {
-  assertManage(actor, universityId);
-  if (!UUID.test(id)) throw new NotFoundError("Role");
-  return inScope(actor, universityId, async (tx) => {
+export async function deleteRole(actor: Actor, scope: RoleScope, id: string): Promise<string> {
+  assertManage(actor, scope);
+  if (!UUID.test(id) || isDefaults(scope)) throw new NotFoundError("Role");
+  return inScope(actor, scope, async (tx, who) => {
     const [row] = await tx
       .select()
       .from(customRoles)
-      .where(and(eq(customRoles.id, id), ownedBy(universityId), isNotNull(customRoles.name), isNull(customRoles.archivedAt)))
+      .where(and(eq(customRoles.id, id), ownedBy(scope), isNotNull(customRoles.name), isNull(customRoles.archivedAt)))
       .for("update");
     if (!row) throw new NotFoundError("Role");
     const [{ people }] = await tx
@@ -211,7 +285,7 @@ export async function deleteRole(actor: Actor, universityId: string | null, id: 
       .where(and(eq(roleAssignments.customRoleId, id), heldNow(new Date())));
     if (people > 0) throw new ConflictError(`${people === 1 ? "1 person has" : `${people} people have`} this role. Move them to another role first.`);
     await tx.update(customRoles).set({ archivedAt: new Date() }).where(eq(customRoles.id, id));
-    await audit(tx, actor, "role.delete", "role", id, { name: row.name });
+    await audit(tx, who, "role.delete", "role", id, { name: row.name });
     return `${row.name} deleted.`;
   });
 }

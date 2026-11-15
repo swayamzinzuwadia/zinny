@@ -106,7 +106,7 @@ export default async function DataRowPage({ params, searchParams }: { params: Pr
                   <dt className="text-[12.5px] text-muted">Person</dt>
                   <dd>
                     <Link href={`/platform/people/${row.values.id}`} className="font-medium text-brand hover:underline">
-                      Open on People
+                      Open on Users
                     </Link>
                   </dd>
                 </div>

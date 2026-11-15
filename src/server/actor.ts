@@ -44,19 +44,18 @@ export async function loadActor(userId: string, universityId: string | null, opt
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) throw new NotFoundError("User");
 
-  // Each assignment comes with this institute's custom role, or its edit of a built-in role.
-  // The university check means a row can never pick up another institute's role.
-  const rows = await db
-    .select({ assignment: roleAssignments, roleName: customRoles.name, stored: customRoles.actions, archivedAt: customRoles.archivedAt })
+  // Each assignment comes with this institute's custom role, or its edit of a built-in role, or
+  // (when the institute hasn't changed that role) the Zinny-wide edit a Super Admin made, which
+  // has no institute. The university check means a row can never pick up another institute's role.
+  const sameInstitute = sql`${customRoles.universityId} is not distinct from ${roleAssignments.universityId}`;
+  const joined = await db
+    .select({ assignment: roleAssignments, roleName: customRoles.name, stored: customRoles.actions, archivedAt: customRoles.archivedAt, ownedBy: customRoles.universityId })
     .from(roleAssignments)
     .leftJoin(
       customRoles,
-      and(
-        sql`${customRoles.universityId} is not distinct from ${roleAssignments.universityId}`,
-        or(
-          eq(customRoles.id, roleAssignments.customRoleId),
-          and(isNull(roleAssignments.customRoleId), isNull(customRoles.name), eq(customRoles.kind, roleAssignments.role)),
-        ),
+      or(
+        and(sameInstitute, eq(customRoles.id, roleAssignments.customRoleId)),
+        and(isNull(roleAssignments.customRoleId), isNull(customRoles.name), eq(customRoles.kind, roleAssignments.role), or(sameInstitute, isNull(customRoles.universityId))),
       ),
     )
     .where(
@@ -68,6 +67,14 @@ export async function loadActor(userId: string, universityId: string | null, opt
           : eq(roleAssignments.scopeType, "platform"),
       ),
     );
+
+  // An assignment can match both its institute's edit and the Zinny-wide one: the institute's wins.
+  const best = new Map<string, (typeof joined)[number]>();
+  for (const row of joined) {
+    const had = best.get(row.assignment.id);
+    if (!had || (had.ownedBy === null && row.ownedBy !== null)) best.set(row.assignment.id, row);
+  }
+  const rows = [...best.values()];
 
   const assignments: Assignment[] = rows.map(({ assignment: r, roleName, stored, archivedAt }) => {
     const grants = effectiveGrants(r.role, archivedAt ? [] : stored);

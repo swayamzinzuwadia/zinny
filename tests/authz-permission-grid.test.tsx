@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { GridLegend, PermissionGrid, layoutGrid, togetherHint, type GridItem } from "@/components/permission-grid";
-import { RoleEditor, RolesExplorer } from "@/components/roles-explorer";
+import { RoleSwitches } from "@/components/role-switches";
 import type { FormAction } from "@/components/forms";
 import { GRID_COLUMNS, INSTITUTE_ABILITIES, PLATFORM_ABILITIES, abilitiesFor, gridPlace, type Ability } from "@/server/authz/abilities";
 import { abilityOptions, platformRoleSummaries, roleSummaries, type AbilityOption } from "@/server/authz/capabilities";
@@ -170,67 +170,53 @@ describe("the grid's markup", () => {
   });
 });
 
-describe("the role editor", () => {
-  const editor = (role: Parameters<typeof RoleEditor>[0]["role"], options: AbilityOption[], kinds: Parameters<typeof RoleEditor>[0]["kinds"] = []) =>
-    html(<RoleEditor role={role} options={options} kinds={kinds} titles={{}} save={noop} onCancel={() => {}} onDone={() => {}} />);
+describe("the role switches", () => {
+  const actions = { save: noop, reset: noop, remove: noop };
+  const page = (roles: ReturnType<typeof roleSummaries>, options: AbilityOption[]) => html(<RoleSwitches roles={roles} options={options} kinds={[]} actions={actions} where="Demo" />);
+  /** The labels of every on/off switch on the page, and which are on. */
+  const switches = (out: string) =>
+    [...out.matchAll(/<button[^>]*role="switch"[^>]*>/g)].map((m) => ({ label: /aria-label="([^"]+)"/.exec(m[0])![1], on: m[0].includes('aria-checked="true"'), locked: m[0].includes("disabled") }));
 
   it("offers a department role only what works in a department", () => {
     const hod = roleSummaries().find((r) => r.key === "hod")!;
-    const keys = new Set(posted(editor(hod, abilityOptions(false))));
-    expect(keys).toEqual(new Set(abilitiesFor("hod").map((a) => a.key)));
-    for (const k of ["finance.view", "website.manage", "people.import", "settings.manage"]) expect(keys.has(k), k).toBe(false);
+    const labels = switches(page([hod], abilityOptions(false))).filter((s) => !s.locked).map((s) => s.label);
+    expect(labels).toHaveLength(abilitiesFor("hod").length);
+    for (const l of ["View sales and reports", "Edit the public website", "Import people in bulk", "Change institute settings"]) expect(labels, l).not.toContain(l);
   });
 
-  it("shows a Head of Department's locked right with a lock, never as a box to tick", () => {
+  it("shows a Head of Department's locked right as always on, never as a switch to flip", () => {
     const hod = roleSummaries().find((r) => r.key === "hod")!;
-    const out = editor(hod, abilityOptions(false));
+    const out = page([hod], abilityOptions(false));
     expect(posted(out)).not.toContain("people.roles");
-    expect(out).toContain("Add teachers in their department. Always part of this role.");
-    expect(out).toContain("Always part of this role: add teachers in their department.");
+    expect(switches(out).find((s) => s.label === "Add teachers in their department")).toMatchObject({ on: true, locked: true });
+    expect(out).toContain("Always on for this role");
   });
 
-  it("ticks what the role already has", () => {
+  it("switches on, and posts, exactly what the role already has", () => {
     const faculty = roleSummaries().find((r) => r.key === "visiting_faculty")!;
-    const out = editor(faculty, abilityOptions(false));
-    expect(new Set(ticked(out))).toEqual(new Set(faculty.on));
-    expect(posted(out)).not.toContain("courses.edit");
-  });
-
-  it("names a new role and asks how far it reaches", () => {
-    const out = editor(null, abilityOptions(false), [
-      { kind: "custom_institute", label: "Whole institute", hint: "Works across every department.", reach: "institute" },
-      { kind: "custom_department", label: "One department", hint: "Works only in the department you give it for.", reach: "department" },
-    ]);
-    expect(out).toContain('name="name"');
-    expect(out).toContain("How far it reaches");
-    expect(out).toContain("Create role");
-    expect(new Set(posted(out))).toEqual(new Set(abilitiesFor("custom_institute").map((a) => a.key)));
+    const out = page([faculty], abilityOptions(false));
+    expect(new Set(posted(out))).toEqual(new Set(faculty.on));
+    expect(switches(out).filter((s) => s.on && !s.locked)).toHaveLength(faculty.on.length);
   });
 
   it("lays out the Zinny team's abilities too, without the ones that aren't offered", () => {
     const finance = platformRoleSummaries().find((r) => r.key === "finance_admin")!;
-    const out = editor(finance, abilityOptions(true));
-    expect(new Set(posted(out))).toEqual(new Set(PLATFORM_ABILITIES.filter((a) => !a.hidden).map((a) => a.key)));
-    expect(out).toContain("Manage licences");
+    const out = page([finance], abilityOptions(true));
+    const labels = switches(out).map((s) => s.label);
+    expect(labels).toHaveLength(PLATFORM_ABILITIES.filter((a) => !a.hidden).length);
+    expect(labels).toContain("Manage licences");
     // Partners left the team panel.
     expect(out).not.toContain("Manage sponsors and partners");
   });
-});
 
-describe("the roles page", () => {
-  it("shows the first role as a read-only grid, and the comparison", () => {
-    const out = html(
-      <RolesExplorer
-        roles={roleSummaries()}
-        options={abilityOptions(false)}
-        kinds={[]}
-        peopleHref={{ administration: "/a", teaching: "/t", team: "/" }}
-        actions={{ save: noop, reset: noop, remove: noop }}
-      />,
-    );
-    expect(posted(out)).toEqual([]);
-    expect(out).toContain("Institute Admin");
-    expect(out).toContain(">Courses</span>");
-    expect(out).toContain("Compare roles");
+  it("lists every role and opens the first, with a save button only where it can change", () => {
+    const roles = roleSummaries();
+    const out = page(roles, abilityOptions(false));
+    for (const r of roles) expect(out).toContain(r.label.replaceAll("&", "&amp;"));
+    // Institute Admin comes first; it is shown as fixed unless a Super Admin is looking.
+    expect(out).toContain("Only a Super Admin can change Institute Admin.");
+    const asSuper = html(<RoleSwitches roles={roles.map((r) => (r.kind === "institute_admin" ? { ...r, editable: true } : r))} options={abilityOptions(false)} kinds={[]} actions={actions} where="Demo" />);
+    expect(asSuper).toContain("Save changes");
+    expect(asSuper).toContain("so an institute can never lock itself out");
   });
 });

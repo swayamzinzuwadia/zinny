@@ -1,4 +1,4 @@
-import { RolesExplorer, type NewRoleKind } from "@/components/roles-explorer";
+import { RoleSwitches, type NewRoleKind } from "@/components/role-switches";
 import { Empty, PageHeader } from "@/components/ui";
 import { abilityOptions } from "@/server/authz/capabilities";
 import { can } from "@/server/authz/engine";
@@ -10,7 +10,7 @@ export const metadata = { title: "Roles & permissions" };
 
 const NOTES = [
   { title: "Holding several roles", body: "One person can head one department and teach in another. They get the strongest access any of their roles gives." },
-  { title: "Who can change roles", body: "Only Institute Admins. That role is fixed, so your institute always has someone who can put things right." },
+  { title: "Who can change roles", body: "Institute Admins, and Zinny's Super Admins. Only a Super Admin can change Institute Admin itself, so your institute always has someone who can put things right." },
   { title: "Students and parents", body: "Students, alumni and parents use the learner app, so they never see the admin panel." },
 ];
 
@@ -22,7 +22,7 @@ const KINDS: NewRoleKind[] = [
 export default async function RolesPage({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
   const { actor, university } = await spaceContext(uni);
-  const subtitle = "What each role can do, and how far it reaches. Zinny checks these rules on the server for every action.";
+  const subtitle = "Pick a role, then switch things on or off and save. Zinny checks these rules on the server for every action.";
   if (!can(actor, "role.manage", { universityId: university.id })) {
     return (
       <>
@@ -32,17 +32,17 @@ export default async function RolesPage({ params }: { params: Promise<{ uni: str
     );
   }
   const roles = await listRoles(actor, university.id);
-  const base = `/${uni}/admin/users`;
   return (
     <>
       <PageHeader title="Roles & permissions" subtitle={subtitle} />
-      <RolesExplorer
+      <RoleSwitches
         roles={roles}
         options={abilityOptions(false)}
         kinds={KINDS}
-        peopleHref={{ administration: `${base}/administration`, teaching: `${base}/teaching`, team: base }}
         actions={{ save: saveRoleAction, reset: resetRoleAction, remove: deleteRoleAction }}
         hidden={{ uni }}
+        where={university.name}
+        peopleHref={`/${uni}/admin/users`}
       />
       <div className="mt-8 grid gap-6 md:grid-cols-3">
         {NOTES.map((n) => (

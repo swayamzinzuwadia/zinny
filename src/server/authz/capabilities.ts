@@ -76,6 +76,8 @@ export type RoleSummary = {
   editable: boolean;
   /** A built-in role this institute has changed from Zinny's default. */
   edited: boolean;
+  /** A built-in role following a Zinny-wide change a Super Admin made, not one of the institute's own. */
+  zinnyDefault: boolean;
   holders: number;
   /** The abilities switched on, for the editor. */
   on: string[];
@@ -90,7 +92,7 @@ const placed = (a: Ability, label = a.label): GridAbility => ({ key: a.key, labe
 
 function summarise(
   kind: RoleName,
-  base: Pick<RoleSummary, "key" | "label" | "group" | "people" | "purpose"> & { reach?: string; edited?: boolean; holders?: number },
+  base: Pick<RoleSummary, "key" | "label" | "group" | "people" | "purpose"> & { reach?: string; edited?: boolean; zinnyDefault?: boolean; holders?: number },
   stored: readonly string[] | null,
 ): RoleSummary {
   const platform = base.people === "team";
@@ -100,7 +102,7 @@ function summarise(
   const has = new Set<Action>(grants);
   // Abilities for parts of the panel that aren't built yet stay out of the grid.
   const list = (platform ? PLATFORM_ABILITIES : INSTITUTE_ABILITIES).filter((a) => !a.hidden);
-  const derived = custom || base.edited ? sectionAccess(grants, SCOPE[reachKey]) : null;
+  const derived = custom || base.edited || base.zinnyDefault ? sectionAccess(grants, SCOPE[reachKey]) : null;
   // Marketplace has no abilities of its own: it opens with "Create and edit courses" (menuFor), so it isn't listed here.
   const titles: { key: string; label: string }[] = platform ? [...PLATFORM_SECTIONS] : MENU.filter((m) => m.key !== "dashboard" && m.key !== "marketplace");
 
@@ -128,8 +130,10 @@ function summarise(
     reachKey,
     readOnly: !writes,
     custom,
-    editable: isEditableRole(kind),
+    // Institute Admin only opens for a Super Admin, which listRoles() decides.
+    editable: isEditableRole(kind) && kind !== "institute_admin",
     edited: !!base.edited,
+    zinnyDefault: !!base.zinnyDefault,
     holders: base.holders ?? 0,
     on: abilitiesFor(kind)
       .filter((a) => hasAll(has, a))
@@ -143,16 +147,30 @@ function build(
   holders: ReadonlyMap<string, number>,
   builtIn: { group: string; people: RoleSummary["people"]; roles: readonly RoleName[]; reach?: string }[],
   customRole: (r: RoleRow) => Pick<RoleSummary, "people"> & { reach?: string },
+  defaults: readonly RoleRow[] = [],
 ): RoleSummary[] {
   const edits = new Map(rows.filter((r) => r.name === null).map((r) => [r.kind, r]));
+  // Zinny-wide changes: a built-in role uses one unless the institute changed the role itself.
+  const zinny = new Map(defaults.filter((r) => r.name === null).map((r) => [r.kind, r]));
   const fixed = builtIn.flatMap((g) =>
     g.roles.map((role) => {
       const edit = edits.get(role);
+      const fallback = edit ? undefined : zinny.get(role);
       const key = role as string;
       return summarise(
         role,
-        { key, label: ROLE_LABELS[role], group: g.group, people: g.people, purpose: ABOUT[role]?.purpose ?? "", reach: g.reach, edited: !!edit, holders: holders.get(key) },
-        edit?.actions ?? null,
+        {
+          key,
+          label: ROLE_LABELS[role],
+          group: g.group,
+          people: g.people,
+          purpose: ABOUT[role]?.purpose ?? "",
+          reach: g.reach,
+          edited: !!edit,
+          zinnyDefault: !!fallback,
+          holders: holders.get(key),
+        },
+        edit?.actions ?? fallback?.actions ?? null,
       );
     }),
   );
@@ -162,16 +180,26 @@ function build(
   return [...fixed, ...made];
 }
 
-/** The institute's roles, as saved. Every role that opens the admin panel, built-in roles first. */
-export function roleSummaries(rows: readonly RoleRow[] = [], holders: ReadonlyMap<string, number> = new Map()): RoleSummary[] {
+const ADMINISTRATION: readonly RoleName[] = ["institute_admin", "board_owner", "accounts_fees"];
+const TEACHING: readonly RoleName[] = ["hod", "permanent_faculty", "visiting_faculty"];
+
+/** The built-in roles that open an institute's admin panel. Zinny-wide defaults exist for these. */
+export const INSTITUTE_BUILT_IN: readonly RoleName[] = [...ADMINISTRATION, ...TEACHING];
+
+/**
+ * The institute's roles, as saved. Every role that opens the admin panel, built-in roles first.
+ * `defaults` are Zinny-wide changes, used for any built-in role the institute hasn't changed.
+ */
+export function roleSummaries(rows: readonly RoleRow[] = [], holders: ReadonlyMap<string, number> = new Map(), defaults: readonly RoleRow[] = []): RoleSummary[] {
   return build(
     rows,
     holders,
     [
-      { group: "Administration", people: "administration", roles: ["institute_admin", "board_owner", "accounts_fees"] },
-      { group: "Teaching", people: "teaching", roles: ["hod", "permanent_faculty", "visiting_faculty"] },
+      { group: "Administration", people: "administration", roles: ADMINISTRATION },
+      { group: "Teaching", people: "teaching", roles: TEACHING },
     ],
     (r) => ({ people: r.kind === "custom_department" ? "teaching" : "administration" }),
+    defaults,
   );
 }
 

@@ -22,3 +22,12 @@ export async function storePasswordFor(userId: string, password: string, opts: {
   await systemDb().update(users).set({ passwordHash }).where(eq(users.id, userId));
   return opts.signOutEverywhere ? revokeAllSessions(userId, { except: opts.keepSessionId ?? null }) : 0;
 }
+
+/**
+ * Stores a person's name, email and mobile. Same exception as above: `users` is a core
+ * table, so the team panel's `updatePerson` (which checks Super Admin and logs) calls
+ * this instead of writing it. Throws the database's unique violation if the email is taken.
+ */
+export async function storeProfileFor(userId: string, profile: { name: string; email: string; phone: string | null }): Promise<void> {
+  await systemDb().update(users).set({ name: profile.name, email: profile.email, phone: profile.phone }).where(eq(users.id, userId));
+}

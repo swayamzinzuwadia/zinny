@@ -131,8 +131,8 @@ describe("editing built-in roles", () => {
     await resetRole(admin, uniId, "hod");
   });
 
-  it("refuses to change Institute Admin, learners or the Zinny team's roles", async () => {
-    await expect(saveRole(admin, uniId, { role: "institute_admin", abilities: ["finance.view"] })).rejects.toThrow(ValidationError);
+  it("refuses to let an Institute Admin change Institute Admin, learners or the Zinny team's roles", async () => {
+    await expect(saveRole(admin, uniId, { role: "institute_admin", abilities: ["finance.view"] })).rejects.toThrow(ForbiddenError);
     await expect(saveRole(admin, uniId, { role: "student", abilities: ["finance.view"] })).rejects.toThrow(ValidationError);
     await expect(saveRole(admin, uniId, { role: "support_agent", abilities: ["platform.finance"] })).rejects.toThrow(ValidationError);
   });

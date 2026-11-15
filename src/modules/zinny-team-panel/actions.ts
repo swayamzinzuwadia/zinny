@@ -9,11 +9,12 @@ import { redirect } from "next/navigation";
 import type { ActionState } from "@/components/forms";
 import { attempt, str } from "@/server/action";
 import { platformContext } from "@/server/context";
-import { deleteRole, resetRole, roleDraft, saveRole } from "@/server/core";
+import { deleteRole, resetRole, roleDraft, saveRole, type RoleScope } from "@/server/core";
 import { currentSession } from "@/server/auth/session";
 import { formatDate, formatINR, parseRupees } from "./lib/format";
 import { setPersonPassword, startImpersonation, stopImpersonation } from "./services/accounts";
 import { addRole, inviteMember, removeRole } from "./services/team";
+import { updatePerson } from "./services/people";
 import { createInvoice, markInvoicePaid, markInvoiceUnpaid, reviseInvoice } from "./services/billing";
 import { archivePlan, createPlan, deletePlan, restorePlan, updatePlan, type PlanInput } from "./services/plans";
 import { flagCourse, markReviewed, resolveFlag } from "./services/content";
@@ -284,6 +285,15 @@ export async function setPasswordAction(_: ActionState, data: FormData): Promise
   });
 }
 
+export async function updatePersonAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  return attempt(async () => {
+    const r = await updatePerson(actor, str(data, "userId"), { name: str(data, "name"), email: str(data, "email"), phone: str(data, "phone") });
+    revalidatePath("/platform", "layout");
+    return r.changed.length ? `Saved ${r.name}'s details.` : "Nothing changed.";
+  });
+}
+
 /**
  * Signs the Super Admin in as someone and goes to where that person lands. The redirect
  * comes from the server, so the next page is rendered with the new session straight away.
@@ -497,10 +507,19 @@ export async function addRoleAction(_: ActionState, data: FormData): Promise<Act
   });
 }
 
+/**
+ * Whose roles a Roles & permissions form is about: the Zinny team (no scope, or "team"), the
+ * Zinny-wide defaults, or one institute (its id). The service checks the person may change it.
+ */
+function roleScope(data: FormData): RoleScope {
+  const scope = str(data, "scope");
+  return !scope || scope === "team" ? null : scope;
+}
+
 export async function saveTeamRoleAction(_: ActionState, data: FormData): Promise<ActionState> {
   const actor = await platformContext();
   return attempt(async () => {
-    const saved = await saveRole(actor, null, roleDraft(data));
+    const saved = await saveRole(actor, roleScope(data), roleDraft(data));
     revalidatePath("/platform", "layout");
     return saved;
   });
@@ -509,7 +528,7 @@ export async function saveTeamRoleAction(_: ActionState, data: FormData): Promis
 export async function resetTeamRoleAction(_: ActionState, data: FormData): Promise<ActionState> {
   const actor = await platformContext();
   return attempt(async () => {
-    const done = await resetRole(actor, null, str(data, "role"));
+    const done = await resetRole(actor, roleScope(data), str(data, "role"));
     revalidatePath("/platform", "layout");
     return done;
   });
@@ -518,7 +537,7 @@ export async function resetTeamRoleAction(_: ActionState, data: FormData): Promi
 export async function deleteTeamRoleAction(_: ActionState, data: FormData): Promise<ActionState> {
   const actor = await platformContext();
   return attempt(async () => {
-    const done = await deleteRole(actor, null, str(data, "id"));
+    const done = await deleteRole(actor, roleScope(data), str(data, "id"));
     revalidatePath("/platform", "layout");
     return done;
   });
