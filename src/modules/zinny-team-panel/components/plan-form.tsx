@@ -3,6 +3,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui";
 import { savePlanAction } from "../actions";
 import { GST_RATES_BP, LICENSABLE_MODULES } from "../lib/constants";
 import type { Plan } from "../services/plans";
+import { PlanPriceField } from "./plan-price-field";
 
 const rupeeText = (paise: number) => (paise % 100 === 0 ? String(paise / 100) : (paise / 100).toFixed(2));
 
@@ -28,11 +29,9 @@ export function PlanForm({ plan }: { plan?: Plan }) {
       <Field label="Description" hint="One line on who the plan is for">
         <Textarea name="description" defaultValue={plan?.description} maxLength={300} className="min-h-16" />
       </Field>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Field label="Price before GST (₹)" hint="For one billing period">
-          <Input name="price" inputMode="decimal" defaultValue={plan ? rupeeText(plan.pricePaise) : ""} placeholder="720000" required />
-        </Field>
-        <Field label="Billing period (months)">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <PlanPriceField initial={plan ? rupeeText(plan.pricePaise) : ""} existing={!!plan} />
+        <Field label="Billing period (months)" hint="One term of a licence">
           <Input name="billingMonths" inputMode="numeric" defaultValue={plan?.billingMonths ?? 12} required />
         </Field>
         <Field label="GST">
@@ -44,14 +43,16 @@ export function PlanForm({ plan }: { plan?: Plan }) {
             ))}
           </Select>
         </Field>
-        <Field label="Position in the list" hint="Lower comes first">
-          <Input name="sortOrder" inputMode="numeric" defaultValue={plan?.sortOrder ?? 100} />
-        </Field>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Student cap">
           <Input name="studentCap" inputMode="numeric" defaultValue={plan?.studentCap ?? 500} required />
         </Field>
         <Field label="Staff cap">
           <Input name="staffCap" inputMode="numeric" defaultValue={plan?.staffCap ?? 40} required />
+        </Field>
+        <Field label="Position in the list" hint="Lower comes first">
+          <Input name="sortOrder" inputMode="numeric" defaultValue={plan?.sortOrder ?? 100} />
         </Field>
       </div>
       <div>

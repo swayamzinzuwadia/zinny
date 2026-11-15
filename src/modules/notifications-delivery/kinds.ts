@@ -255,6 +255,12 @@ export const MODULE_KINDS: KindDefinition[] = [
   moduleKind("payments.fee_reminder", "Fee reminder", "An invoice the institute raised is unpaid past its due date. Sent when staff press Send reminders.", "learners", LEARNERS, "Open my invoices", "/learn/invoices"),
   moduleKind("batch.announcement", "Batch announcement", "Faculty, a HOD or an admin sent a message to everyone in a batch.", "learners", ["student"], "Open Zinny", "/learn"),
   moduleKind("finance.refund_failed", "Refund failed", "Razorpay couldn't process a refund. Goes to Accounts and the Institute Admin.", "staff", ["accounts_fees", "institute_admin"], "Open Sales", "/admin/finance/sales"),
+  // Zinny's own payment reminders for the institute's licence. Zinny emails them directly
+  // (sendEmail) when it sends them, so the in-app notification isn't emailed a second time.
+  {
+    ...moduleKind("zinny.invoice_reminder", "Zinny invoice reminder", "Zinny's invoice for the institute's licence is due soon, due today or overdue. Goes to the Institute Admin.", "staff", ["institute_admin"], "Open Zinny", "/admin"),
+    defaults: { email: "off", sms: "off", whatsapp: "off" },
+  },
 ];
 
 const BY_KIND = new Map([...CORE_KINDS, ...SECURITY_KINDS_CATALOGUE, ...MODULE_KINDS].map((k) => [k.kind, k]));

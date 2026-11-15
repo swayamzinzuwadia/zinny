@@ -103,8 +103,9 @@ export default async function LicencesPage() {
                     <div className="tabular text-[13px]">
                       {formatDate(r.licence.startDate, { year: false })} to {formatDate(r.licence.endDate)}
                     </div>
-                    <div className="text-[12.5px]">
+                    <div className="text-[13px]">
                       <RenewalText daysLeft={r.daysLeft} />
+                      <span className="text-muted"> · {r.licence.autoRenew ? "renews automatically" : "auto-renew off"}</span>
                     </div>
                   </>
                 ) : (

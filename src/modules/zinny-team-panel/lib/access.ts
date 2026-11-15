@@ -61,13 +61,16 @@ const can = (action: PlatformAction) => (actor: Actor) => canPlatform(actor, act
 
 const SECTIONS: Section[] = [
   { key: "overview", label: "Overview", entries: [{ label: "Home", href: "", allowed: isZinnyTeam }] },
+  { key: "universities", label: "Institutes", entries: [{ label: "Institutes", href: "/institutes", allowed: can("platform.manage_universities") }] },
+  // What Zinny sells, to whom, and how it gets paid: one place for plans, licences and invoices.
   {
-    key: "universities",
-    label: "Institutes",
+    key: "billing",
+    label: "Plans and billing",
     entries: [
-      { label: "Institutes", href: "/institutes", allowed: can("platform.manage_universities") },
+      { label: "Plans and prices", href: "/plans", allowed: can("platform.licences") },
       { label: "Licences", href: "/licences", allowed: can("platform.licences") },
-      { label: "Plans", href: "/plans", allowed: can("platform.licences") },
+      { label: "Invoices", href: "/billing", allowed: can("platform.finance") },
+      { label: "Billing settings", href: "/billing/settings", allowed: (a) => isSuperAdmin(a) || canPlatform(a, "platform.finance") },
     ],
   },
   { key: "people", label: "People", entries: [{ label: "People", href: "/people", allowed: isSuperAdmin }] },
@@ -87,7 +90,6 @@ const SECTIONS: Section[] = [
     entries: [{ label: "Content review", href: "/content", allowed: canSeeContentFlags }],
     access: (actor) => (canPlatform(actor, "platform.content_review") ? undefined : "View"),
   },
-  { key: "billing", label: "Zinny invoices", entries: [{ label: "Zinny invoices", href: "/billing", allowed: can("platform.finance") }] },
   { key: "analytics", label: "Analytics", entries: [{ label: "Analytics", href: "/analytics", allowed: can("platform.view_analytics") }] },
   // Every table in the database, for Super Admins only (see data-console.ts).
   { key: "data", label: "Data", entries: [{ label: "Data", href: "/data", allowed: isSuperAdmin }] },

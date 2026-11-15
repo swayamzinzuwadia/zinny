@@ -17,7 +17,9 @@ import { addRole, inviteMember, removeRole } from "./services/team";
 import { createInvoice, markInvoicePaid, markInvoiceUnpaid, reviseInvoice } from "./services/billing";
 import { archivePlan, createPlan, deletePlan, restorePlan, updatePlan, type PlanInput } from "./services/plans";
 import { flagCourse, markReviewed, resolveFlag } from "./services/content";
-import { acknowledgeAlert, saveLicence, syncAllAlerts, type LicenceInput } from "./services/licences";
+import { acknowledgeAlert, renewLicenceNow, saveLicence, setAutoRenew, syncAllAlerts, type LicenceInput } from "./services/licences";
+import { saveBillingSettings } from "./services/billing-settings";
+import { describeRun, runBillingNow } from "./services/automation";
 import { forceEndSupport, leaveSupport, startSupport } from "./services/support";
 import { startViewAs, stopViewAs } from "./services/view-as";
 import { clearViewAs, readViewAs, writeViewAs } from "@/server/auth/view-as";
@@ -53,6 +55,8 @@ function licenceFrom(data: FormData): LicenceInput {
     startDate: str(data, "startDate"),
     endDate: str(data, "endDate"),
     notes: str(data, "notes"),
+    // The checkbox only says something when the form showed it.
+    ...(data.has("autoRenewShown") && { autoRenew: data.get("autoRenew") === "on" }),
   };
   // A form without the charge fields (an older page still open) leaves the price to the service.
   if (!data.has("price")) return base;
@@ -149,6 +153,64 @@ export async function saveLicenceAction(_: ActionState, data: FormData): Promise
   });
 }
 
+/** "Renew now" on the Invoices page: the next term at the plan's price today, invoiced straight away. */
+export async function renewNowAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  return attempt(async () => {
+    const saved = await renewLicenceNow(actor, str(data, "universityId"));
+    revalidatePath("/platform", "layout");
+    return saved.invoice
+      ? `Renewed to ${formatDate(saved.endDate)}. Invoice ${saved.invoice.number} for ${formatINR(saved.invoice.totalPaise)} is due on ${formatDate(saved.invoice.dueDate)}.`
+      : `Renewed to ${formatDate(saved.endDate)}. Nothing to charge, so no invoice was created.`;
+  });
+}
+
+export async function setAutoRenewAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  const on = str(data, "autoRenew") === "on";
+  return attempt(async () => {
+    await setAutoRenew(actor, str(data, "universityId"), on);
+    revalidatePath("/platform", "layout");
+    return on ? "This licence renews automatically again." : "Auto-renew is off. Renew this licence by hand once it is agreed.";
+  });
+}
+
+/* ── Billing settings ── */
+
+/** A whole number of days from a form field; empty is 0. */
+function days(data: FormData, key: string) {
+  return str(data, key) === "" ? 0 : whole(data, key);
+}
+
+export async function saveBillingSettingsAction(_: ActionState, data: FormData): Promise<ActionState> {
+  const actor = await platformContext();
+  return attempt(async () => {
+    await saveBillingSettings(actor, {
+      paymentDays: days(data, "paymentDays"),
+      renewalLeadDays: days(data, "renewalLeadDays"),
+      autoRenewDefault: data.get("autoRenewDefault") === "on",
+      keepDiscountOnRenewal: data.get("keepDiscountOnRenewal") === "on",
+      remindersOn: data.get("remindersOn") === "on",
+      remindDaysBefore: days(data, "remindDaysBefore"),
+      remindOnDueDate: data.get("remindOnDueDate") === "on",
+      remindEveryDaysAfter: days(data, "remindEveryDaysAfter"),
+      maxOverdueReminders: days(data, "maxOverdueReminders"),
+    });
+    revalidatePath("/platform", "layout");
+    return "Billing settings saved. The next billing run uses them.";
+  });
+}
+
+/** "Run billing now": renewals and reminders for every institute, as the daily job does them. */
+export async function runBillingNowAction(): Promise<ActionState> {
+  const actor = await platformContext();
+  return attempt(async () => {
+    const r = await runBillingNow(actor);
+    revalidatePath("/platform", "layout");
+    return describeRun(r);
+  });
+}
+
 /* ── Plans ── */
 
 /** Creates a plan, or changes the one named by `planId`. */
@@ -160,7 +222,7 @@ export async function savePlanAction(_: ActionState, data: FormData): Promise<Ac
     if (id) {
       const p = await updatePlan(actor, id, planFrom(data));
       revalidatePath("/platform", "layout");
-      return `${p.name} saved. Licences and invoices made from now on use it; existing ones keep their price.`;
+      return `${p.name} saved. Existing licences keep their price until they renew; renewals use the new price.`;
     }
     created = (await createPlan(actor, planFrom(data))).id;
   });

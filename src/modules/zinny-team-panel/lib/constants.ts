@@ -63,7 +63,7 @@ export const PLATFORM_ROLE_HINTS: Record<PlatformRole, string> = {
   account_manager: "Institutes, licences and analytics; reads content flags",
   support_agent: "Support mode, the activity log and analytics",
   content_qa: "The content review queue and flags",
-  finance_admin: "Zinny invoices and licences",
+  finance_admin: "Invoices, billing settings and licences",
   partnerships: "Sponsors and corporate partners",
   custom_platform: "What this role allows is set under Roles & permissions",
 };

@@ -6,7 +6,8 @@ import { createUniversityAction } from "@/modules/zinny-team-panel/actions";
 import { NoAccess } from "@/modules/zinny-team-panel/components/bits";
 import { OptionalLicence } from "@/modules/zinny-team-panel/components/optional-licence";
 import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
-import { DEFAULT_PAYMENT_DAYS, zinnySeller } from "@/modules/zinny-team-panel/lib/constants";
+import { zinnySeller } from "@/modules/zinny-team-panel/lib/constants";
+import { licenceFormSettings } from "@/modules/zinny-team-panel/services/billing-settings";
 import { todayIST } from "@/modules/zinny-team-panel/lib/format";
 import { licenceDefaults } from "@/modules/zinny-team-panel/lib/licence";
 import { planOptions } from "@/modules/zinny-team-panel/services/plans";
@@ -19,7 +20,7 @@ export default async function NewUniversityPage() {
   if (!canPlatform(actor, "platform.manage_universities")) return <NoAccess section="Institutes" />;
   const canLicence = canPlatform(actor, "platform.licences");
   const today = todayIST();
-  const plans = canLicence ? await planOptions(actor) : [];
+  const [plans, settings] = canLicence ? await Promise.all([planOptions(actor), licenceFormSettings(actor)]) : [[], null];
   // A new institute usually starts on the Pilot; without one, on the first plan on offer.
   const first = plans.find((p) => p.key === "pilot") ?? plans[0];
   const superAdmin = isSuperAdmin(actor);
@@ -72,7 +73,7 @@ export default async function NewUniversityPage() {
                 plans={plans}
                 initial={licenceDefaults(first, today)}
                 // A new institute starts in Zinny's default state until its GST details are filled in.
-                charge={{ invoiceDate: today, paymentDays: DEFAULT_PAYMENT_DAYS, intraState: zinnySeller().stateCode === "27" }}
+                charge={{ invoiceDate: today, ...settings!, intraState: zinnySeller().stateCode === "27" }}
               />
             ) : canLicence ? (
               <p className="text-[14px] text-muted">Every plan is archived. Restore one on the Plans page, then set up the licence from Licences.</p>

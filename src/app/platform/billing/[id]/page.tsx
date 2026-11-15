@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Field, Input, PageHeader } from "@/components/ui";
+import { Badge, Card, CardTitle, Field, Input, PageHeader, buttonClass } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
@@ -20,10 +20,19 @@ const EVENT_LABEL: Record<string, string> = {
   "plat.invoice.revise": "Revised",
   "plat.invoice.paid": "Marked paid",
   "plat.invoice.unpaid": "Marked unpaid",
+  "plat.invoice.reminder": "Reminder sent",
 };
+
+const REMINDER_STEP: Record<string, string> = { before: "Due soon", due: "Due today", overdue: "Overdue" };
 
 /** What one history entry changed, in words. */
 function eventLines(e: InvoiceEvent): string[] {
+  if (e.action === "plat.invoice.reminder") {
+    const n = typeof e.data.recipients === "number" ? e.data.recipients : 0;
+    const step = REMINDER_STEP[String(e.data.step)] ?? "Reminder";
+    const which = typeof e.data.overdueReminder === "number" ? ` reminder ${e.data.overdueReminder}` : "";
+    return [`${step}${which}, to ${n === 1 ? "1 admin" : `${n} admins`} of the institute, in Zinny and by email`];
+  }
   if (e.action === "plat.invoice.revise") return describeChanges(e.data.before, e.data.after);
   if (e.action === "plat.invoice.create" && typeof e.data.totalPaise === "number") return [`Total ${formatINR(e.data.totalPaise)}`];
   if (e.action === "plat.invoice.paid") return [`Paid on ${formatDate(String(e.data.paidOn ?? ""))}, reference ${String(e.data.reference ?? "")}`];
@@ -33,7 +42,7 @@ function eventLines(e: InvoiceEvent): string[] {
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.finance")) return <NoAccess section="Zinny invoices" />;
+  if (!canPlatform(actor, "platform.finance")) return <NoAccess section="Invoices" />;
   const { id } = await params;
   const i = await getInvoice(actor, id).catch((e) => {
     if (e instanceof NotFoundError) notFound();
@@ -50,7 +59,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         title={`Invoice ${i.number}`}
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
-            {i.status === "paid" ? <Badge tone="brand">Paid on {formatDate(i.paidOn)}</Badge> : i.overdue ? <Badge tone="danger">Overdue</Badge> : <Badge tone="gold">Unpaid</Badge>}
+            {i.status === "paid" ? <Badge tone="brand">Paid on {formatDate(i.paidOn)}</Badge> : i.overdue ? <span className="font-medium text-danger">Overdue</span> : <Badge>Unpaid</Badge>}
             {revisions > 0 && <Badge>Revised {revisions === 1 ? "once" : `${revisions} times`}</Badge>}
             <span>
               {i.universityName} · due {formatDate(i.dueDate)}
@@ -58,11 +67,16 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </span>
         }
         actions={
-          i.licenceId && canPlatform(actor, "platform.licences") ? (
-            <Link href={`/platform/licences/${i.universityId}`} className="inline-flex h-10 items-center whitespace-nowrap rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
-              Its licence
-            </Link>
-          ) : undefined
+          <>
+            <a href={`/platform/billing/${i.id}/pdf`} target="_blank" rel="noopener" className={buttonClass("secondary")}>
+              Open PDF
+            </a>
+            {i.licenceId && canPlatform(actor, "platform.licences") && (
+              <Link href={`/platform/licences/${i.universityId}`} className={buttonClass("secondary")}>
+                Its licence
+              </Link>
+            )}
+          </>
         }
       />
       <div className="grid gap-6 grid-cols-1 xl:grid-cols-[1.5fr_1fr]">
@@ -131,13 +145,13 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                     </>
                   )
                 )}
-                <tr className="font-semibold">
+                <tr className="font-medium">
                   <td className="py-2">Total</td>
                   <td className="tabular py-2 text-right">{formatINR(i.totalPaise)}</td>
                 </tr>
               </tbody>
             </table>
-            {i.createdByName && <p className="mt-4 text-[12.5px] text-muted">Issued by {i.createdByName}.</p>}
+            <p className="mt-4 text-[13px] text-muted">Issued {i.createdByName ? `by ${i.createdByName}` : "by Zinny, automatically"}.</p>
           </Card>
 
           <Card>
@@ -148,13 +162,13 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               <ol className="space-y-3 text-[14px]">
                 {history.map((e) => (
                   <li key={e.id} className="flex gap-3">
-                    <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${e.action === "plat.invoice.revise" ? "bg-gold" : "bg-brand"}`} aria-hidden />
+                    <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${e.action === "plat.invoice.reminder" ? "bg-line" : "bg-brand"}`} aria-hidden />
                     <div className="min-w-0">
                       <div>
                         <span className="font-medium">{EVENT_LABEL[e.action] ?? e.action}</span>
                         <span className="text-muted">
                           {" "}
-                          by {e.byName ?? "Zinny system"} · {formatDateTime(e.at)}
+                          {e.byName ? `by ${e.byName}` : "by Zinny, automatically"} · {formatDateTime(e.at)}
                         </span>
                       </div>
                       {eventLines(e).map((line) => (
@@ -204,7 +218,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </Card>
 
           <Card className="h-fit">
-            <CardTitle hint={i.status === "unpaid" ? "The number stays the same" : undefined}>Revise this invoice</CardTitle>
+            <CardTitle hint={i.status === "unpaid" ? "The number stays the same" : undefined}>Edit dates and amounts</CardTitle>
             {i.status === "unpaid" ? (
               <ReviseInvoiceForm
                 invoice={{
