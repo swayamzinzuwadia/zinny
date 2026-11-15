@@ -62,8 +62,10 @@ export const ACCOUNT_STATES = { active: "Active", invited: "Invited" } as const;
 export type AccountState = keyof typeof ACCOUNT_STATES;
 export const isAccountState = (v: string): v is AccountState => v in ACCOUNT_STATES;
 
-/** Roles a user can be filtered by: every built-in role. */
-export const FILTER_ROLES = Object.keys(ROLE_LABELS) as RoleName[];
+/** Roles a user can be filtered by: the built-in roles. */
+// The three custom roles all read "Custom role" and mean different things per institute, so they
+// aren't offered; filter by the built-in roles instead.
+export const FILTER_ROLES = (Object.keys(ROLE_LABELS) as RoleName[]).filter((r) => !r.startsWith("custom_"));
 export const isFilterRole = (v: string): v is RoleName => (FILTER_ROLES as string[]).includes(v);
 
 const isDay = (v: string | undefined): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
