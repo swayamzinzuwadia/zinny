@@ -4,7 +4,7 @@ import { closeDb, systemDb } from "@/db/client";
 import { auditLog } from "@/db/schema";
 import { users } from "@/db/schema";
 import { ConflictError, ForbiddenError, ValidationError } from "@/server/errors";
-import { listPeople, peopleCounts, personDetail, updatePerson } from "@/modules/zinny-team-panel/services/people";
+import { listPeople, peopleCounts, personDetail, rolesMatching, updatePerson } from "@/modules/zinny-team-panel/services/people";
 import { setupCourse } from "../fixtures";
 import { team } from "./helpers";
 
@@ -124,5 +124,29 @@ describe("editing a user", () => {
     await expect(updatePerson(boss, admin.userId, { name: "Asha", email: "ok@example.com", phone: "12" })).rejects.toBeInstanceOf(ValidationError);
     await expect(updatePerson(boss, admin.userId, { name: "A", email: "ok@example.com", phone: "" })).rejects.toBeInstanceOf(ValidationError);
     await expect(updatePerson(boss, admin.userId, { name: "Asha", email: o.email.toUpperCase(), phone: "" })).rejects.toBeInstanceOf(ConflictError);
+  });
+});
+
+describe("searching users by role or institute", () => {
+  it("reads a role from plain words, plurals and possessives included", () => {
+    expect(rolesMatching("admin")).toEqual(expect.arrayContaining(["institute_admin", "super_admin", "finance_admin"]));
+    expect(rolesMatching("institute admins")).toEqual(["institute_admin"]);
+    expect(rolesMatching("all institute's admins")).toEqual(["institute_admin"]);
+    expect(rolesMatching("visiting faculty")).toEqual(["visiting_faculty"]);
+    expect(rolesMatching("nobody-like-this")).toEqual([]);
+  });
+
+  it("finds every institute's admins by typing the role, and an institute by its name", async () => {
+    const boss = await team("Zara Super", "super_admin");
+    const a = await setupCourse({ name: "Search Alpha Institute" });
+    const b = await setupCourse({ name: "Search Beta Institute" });
+    const found = (await listPeople(boss, { q: "institute admins" })).rows;
+    const ids = found.map((r) => `${r.userId}:${r.universityId}`);
+    expect(ids).toEqual(expect.arrayContaining([`${a.admin.userId}:${a.uni.id}`, `${b.admin.userId}:${b.uni.id}`]));
+    expect(found.every((r) => r.roles.includes("institute_admin"))).toBe(true);
+
+    const byInstitute = (await listPeople(boss, { q: "Search Beta" })).rows;
+    expect(byInstitute.length).toBeGreaterThan(0);
+    expect(byInstitute.every((r) => r.universityId === b.uni.id)).toBe(true);
   });
 });
