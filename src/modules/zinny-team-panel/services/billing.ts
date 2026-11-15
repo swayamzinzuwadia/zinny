@@ -10,7 +10,8 @@ import { assertPlatform, type Actor } from "@/server/core";
 import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
 import { platInvoiceCounters, platInvoices, platLicences } from "../schema";
 import { chargeFor, gstFor, splitGst, type Charge } from "../lib/charge";
-import { DEFAULT_GST_BP, DEFAULT_PAYMENT_DAYS, GST_RATES_BP, zinnySeller } from "../lib/constants";
+import { DEFAULT_GST_BP, GST_RATES_BP, zinnySeller } from "../lib/constants";
+import { readBillingSettings } from "./billing-settings";
 import { addDays, financialYear, financialYearStart, formatDate, isDate, todayIST } from "../lib/format";
 import { planNameFallback, planNames } from "./plans";
 import { db, isUuid, logAction, universityOrThrow } from "./shared";
@@ -87,6 +88,8 @@ export type NewInvoiceInput = {
   issueDate: string;
   dueDate: string;
   licenceId?: string | null;
+  /** Raised by the daily billing job rather than a person: the log says so. */
+  automatic?: boolean;
 };
 
 const MAX_AMOUNT = 100_00_00_000_00;
@@ -186,6 +189,7 @@ export async function issueInvoice(tx: Tx, actor: Actor, input: NewInvoiceInput)
     totalPaise: inv.totalPaise,
     dueDate: inv.dueDate,
     ...(inv.licenceId && { forLicence: true }),
+    ...(input.automatic && { automatic: true }),
   });
   return inv;
 }
@@ -249,7 +253,16 @@ export async function reviseInvoice(actor: Actor, invoiceId: string, input: Invo
     if (Object.keys(after).length === 0) throw new ValidationError("Nothing is different. Change a value, then save the revision.");
     const [row] = await tx
       .update(platInvoices)
-      .set({ ...next, cgstPaise: charge.cgstPaise, sgstPaise: charge.sgstPaise, igstPaise: charge.igstPaise, revisedAt: new Date(), revisedBy: actor.userId || null })
+      .set({
+        ...next,
+        cgstPaise: charge.cgstPaise,
+        sgstPaise: charge.sgstPaise,
+        igstPaise: charge.igstPaise,
+        revisedAt: new Date(),
+        revisedBy: actor.userId || null,
+        // A new due date starts the reminder schedule again.
+        ...(next.dueDate !== inv.dueDate && { reminderStage: 0 }),
+      })
       .where(eq(platInvoices.id, invoiceId))
       .returning();
     await logAction(tx, actor, { universityId: inv.universityId, inUniversityLog: true }, "plat.invoice.revise", "plat_invoice", inv.id, {
@@ -275,7 +288,7 @@ export async function invoiceHistory(actor: Actor, invoiceId: string): Promise<I
       and(
         eq(auditLog.entity, "plat_invoice"),
         eq(auditLog.entityId, invoiceId),
-        inArray(auditLog.action, ["plat.invoice.create", "plat.invoice.revise", "plat.invoice.paid", "plat.invoice.unpaid"]),
+        inArray(auditLog.action, ["plat.invoice.create", "plat.invoice.revise", "plat.invoice.paid", "plat.invoice.unpaid", "plat.invoice.reminder"]),
       ),
     )
     .orderBy(desc(auditLog.at), desc(auditLog.id))
@@ -355,7 +368,7 @@ export async function markInvoiceUnpaid(actor: Actor, invoiceId: string, reason:
   });
 }
 
-/** Sensible values for a new invoice: the university's licence term, plan and price, due in 15 days. */
+/** Sensible values for a new invoice: the university's licence term, plan and price, due after the payment terms. */
 export async function invoiceDraft(actor: Actor, universityId: string | undefined, today = todayIST()) {
   assertPlatform(actor, "platform.finance");
   const base = {
@@ -368,7 +381,7 @@ export async function invoiceDraft(actor: Actor, universityId: string | undefine
     discountNote: "",
     gstRateBp: DEFAULT_GST_BP,
     issueDate: today,
-    dueDate: addDays(today, DEFAULT_PAYMENT_DAYS),
+    dueDate: addDays(today, (await readBillingSettings()).paymentDays),
   };
   if (!universityId || !isUuid(universityId)) return base;
   const [u] = await db().select({ id: universities.id, name: universities.name }).from(universities).where(eq(universities.id, universityId));

@@ -16,6 +16,8 @@ export type LicenceValues = {
   pricePaise: number;
   discountPaise: number;
   discountNote: string;
+  /** "Renew automatically". Left out on a new licence: the billing settings' default. */
+  autoRenew?: boolean;
 };
 
 export type ChargeDefaults = {
@@ -25,6 +27,12 @@ export type ChargeDefaults = {
   paymentDays: number;
   /** In Zinny's own state (CGST + SGST) or another (IGST). */
   intraState: boolean;
+  /** Whether "Renew automatically" starts ticked on a new licence (billing settings). */
+  autoRenewDefault?: boolean;
+  /** Days before the end date a renewal is invoiced (billing settings), for the hint. */
+  renewalLeadDays?: number;
+  /** "Renew for another year" keeps the licence's discount (billing settings). */
+  keepDiscountOnRenewal?: boolean;
 };
 
 /** The last day of a term of `months` starting on `start`: 1 Apr + 12 months → 31 Mar. */

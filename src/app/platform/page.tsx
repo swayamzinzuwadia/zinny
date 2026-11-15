@@ -6,7 +6,8 @@ import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { acknowledgeAlertAction, startSupportAction } from "@/modules/zinny-team-panel/actions";
 import { canSeeContentFlags } from "@/modules/zinny-team-panel/lib/access";
-import { formatCount, formatDate, formatINR, formatINRShort, timeAgo, timeUntil } from "@/modules/zinny-team-panel/lib/format";
+import { formatCount, formatDate, formatINR, formatINRShort, formatRupees, plural, timeAgo, timeUntil } from "@/modules/zinny-team-panel/lib/format";
+import { billingOverview } from "@/modules/zinny-team-panel/services/automation";
 import { analytics } from "@/modules/zinny-team-panel/services/analytics";
 import { overdueInvoices } from "@/modules/zinny-team-panel/services/billing";
 import { reviewCounts } from "@/modules/zinny-team-panel/services/content";
@@ -26,7 +27,7 @@ export default async function PlatformHome() {
     analytics: canPlatform(actor, "platform.view_analytics"),
   };
 
-  const [alerts, licences, sessions, log, picker, review, overdue, stats] = await Promise.all([
+  const [alerts, licences, sessions, log, picker, review, overdue, stats, billing] = await Promise.all([
     can.licences ? listAlerts(actor, { handled: false }) : [],
     can.licences ? listLicences(actor) : [],
     can.support ? activeSessions(actor) : [],
@@ -35,6 +36,7 @@ export default async function PlatformHome() {
     can.flags ? reviewCounts(actor) : null,
     can.finance ? overdueInvoices(actor) : [],
     can.analytics ? analytics(actor, { weeks: 4, months: 3 }) : null,
+    can.licences || can.finance ? billingOverview(actor) : null,
   ]);
   const unlicensed = licences.filter((l) => !l.licence && l.status === "active");
   const showNeeds = can.licences || can.flags || can.finance;
@@ -73,70 +75,88 @@ export default async function PlatformHome() {
 
       <div className={cx("grid grid-cols-1 items-start gap-4", showNeeds && showSide && "xl:grid-cols-[1.55fr_1fr]")}>
         {showNeeds && (
-          <Card className="min-w-0">
-            <CardTitle hint={needsCount ? `${needsCount} item${needsCount === 1 ? "" : "s"}` : undefined}>Needs attention</CardTitle>
-            {needsCount === 0 ? (
-              <p className="text-[14px] text-muted">Nothing needs attention right now.</p>
-            ) : (
-              <ul className="divide-y divide-line">
-                {alerts.map((a) => (
-                  <NeedsRow
-                    key={a.id}
-                    dot={a.level === "critical" ? "danger" : "gold"}
-                    title={a.title}
-                    detail={a.body}
-                    action={
-                      <>
-                        <Link href={`/platform/licences/${a.universityId}`} className="text-[13px] text-brand hover:underline">
-                          Open licence
-                        </Link>
-                        <ActionForm action={acknowledgeAlertAction} className="contents">
-                          <input type="hidden" name="alertId" value={a.id} />
-                          <SubmitButton size="sm" variant="secondary" pendingText="Saving…">
-                            Mark as handled
-                          </SubmitButton>
-                        </ActionForm>
-                      </>
-                    }
-                  />
-                ))}
-                {unlicensed.map((u) => (
-                  <NeedsRow
-                    key={u.universityId}
-                    title={`${u.universityName} has no licence`}
-                    detail="Set its plan, caps and term so usage and renewals are tracked."
-                    action={<RowLink href={`/platform/licences/${u.universityId}`}>Set up licence</RowLink>}
-                  />
-                ))}
-                {overdue.map((i) => (
-                  <NeedsRow
-                    key={i.id}
-                    title={
-                      <>
-                        {i.universityName} owes <span className="tabular text-danger">{formatINR(i.totalPaise)}</span>
-                      </>
-                    }
-                    detail={`Invoice ${i.number} was due on ${formatDate(i.dueDate)}.`}
-                    action={<RowLink href={`/platform/billing/${i.id}`}>Open invoice</RowLink>}
-                  />
-                ))}
-                {showFlags && review && (
-                  <NeedsRow
-                    title={`${review.openFlags} open content flag${review.openFlags === 1 ? "" : "s"} on ${review.flaggedCourses} course${review.flaggedCourses === 1 ? "" : "s"}`}
-                    detail="The institute needs to fix these. Account Managers follow up."
-                    action={<RowLink href="/platform/content?tab=flagged">Open flags</RowLink>}
-                  />
+          <div className="min-w-0 space-y-4">
+            <Card className="min-w-0">
+              <CardTitle hint={needsCount ? `${needsCount} item${needsCount === 1 ? "" : "s"}` : undefined}>Needs attention</CardTitle>
+              {needsCount === 0 ? (
+                <p className="text-[14px] text-muted">Nothing needs attention right now.</p>
+              ) : (
+                <ul className="divide-y divide-line">
+                  {alerts.map((a) => (
+                    <NeedsRow
+                      key={a.id}
+                      dot={a.level === "critical" ? "danger" : "gold"}
+                      title={a.title}
+                      detail={a.body}
+                      action={
+                        <>
+                          <Link href={`/platform/licences/${a.universityId}`} className="text-[13px] text-brand hover:underline">
+                            Open licence
+                          </Link>
+                          <ActionForm action={acknowledgeAlertAction} className="contents">
+                            <input type="hidden" name="alertId" value={a.id} />
+                            <SubmitButton size="sm" variant="secondary" pendingText="Saving…">
+                              Mark as handled
+                            </SubmitButton>
+                          </ActionForm>
+                        </>
+                      }
+                    />
+                  ))}
+                  {unlicensed.map((u) => (
+                    <NeedsRow
+                      key={u.universityId}
+                      title={`${u.universityName} has no licence`}
+                      detail="Set its plan, caps and term so usage and renewals are tracked."
+                      action={<RowLink href={`/platform/licences/${u.universityId}`}>Set up licence</RowLink>}
+                    />
+                  ))}
+                  {overdue.map((i) => (
+                    <NeedsRow
+                      key={i.id}
+                      title={
+                        <>
+                          {i.universityName} owes <span className="tabular text-danger">{formatINR(i.totalPaise)}</span>
+                        </>
+                      }
+                      detail={`Invoice ${i.number} was due on ${formatDate(i.dueDate)}.`}
+                      action={<RowLink href={`/platform/billing/${i.id}`}>Open invoice</RowLink>}
+                    />
+                  ))}
+                  {showFlags && review && (
+                    <NeedsRow
+                      title={`${review.openFlags} open content flag${review.openFlags === 1 ? "" : "s"} on ${review.flaggedCourses} course${review.flaggedCourses === 1 ? "" : "s"}`}
+                      detail="The institute needs to fix these. Account Managers follow up."
+                      action={<RowLink href="/platform/content?tab=flagged">Open flags</RowLink>}
+                    />
+                  )}
+                  {showToReview && review && (
+                    <NeedsRow
+                      title={`${review.toReview} published course${review.toReview === 1 ? "" : "s"} waiting for review`}
+                      detail="Newest first, across every institute."
+                      action={<RowLink href="/platform/content">Open review queue</RowLink>}
+                    />
+                  )}
+                </ul>
+              )}
+            </Card>
+            {billing && (
+              <Link
+                href={can.finance ? "/platform/billing" : "/platform/plans"}
+                className="group flex flex-wrap items-center gap-x-5 gap-y-1 rounded-2xl border border-line bg-surface px-5 py-3.5 text-[14px] [transition-property:border-color] duration-150 hover:border-brand/40"
+              >
+                <span className="font-medium text-ink">Plans and billing</span>
+                {billing.plans !== null && <span className="tabular text-muted">{plural(billing.plans, "plan")}</span>}
+                {billing.renewing !== null && (
+                  <span className="tabular text-muted">{billing.renewing === 0 ? "No renewals" : plural(billing.renewing, "renewal")} due in 30 days</span>
                 )}
-                {showToReview && review && (
-                  <NeedsRow
-                    title={`${review.toReview} published course${review.toReview === 1 ? "" : "s"} waiting for review`}
-                    detail="Newest first, across every institute."
-                    action={<RowLink href="/platform/content">Open review queue</RowLink>}
-                  />
+                {billing.unpaidPaise !== null && (
+                  <span className="tabular text-muted">{billing.unpaidPaise === 0 ? "Nothing unpaid" : `${formatRupees(billing.unpaidPaise)} unpaid`}</span>
                 )}
-              </ul>
+                <span className="ml-auto text-[13px] font-medium text-brand group-hover:underline">Open</span>
+              </Link>
             )}
-          </Card>
+          </div>
         )}
 
         {showSide && (

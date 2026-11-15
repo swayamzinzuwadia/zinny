@@ -82,6 +82,8 @@ export const platLicences = pgTable(
     startDate: date("start_date").notNull(),
     endDate: date("end_date").notNull(),
     notes: text("notes"),
+    /** Renewed by the daily billing job before it ends: the next term at the plan's price then, invoiced. */
+    autoRenew: boolean("auto_renew").notNull().default(true),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
@@ -270,6 +272,13 @@ export const platInvoices = pgTable(
     createdAt: createdAt(),
     revisedAt: timestamp("revised_at", { withTimezone: true }),
     revisedBy: uuid("revised_by").references(() => users.id, { onDelete: "set null" }),
+    /**
+     * The last payment reminder sent for the current due date, as a step on the schedule:
+     * 0 none, 1 before the due date, 2 on it, 3 and up the first, second… overdue reminder.
+     * Each step is sent once; changing the due date starts the schedule again.
+     */
+    reminderStage: integer("reminder_stage").notNull().default(0),
+    lastReminderOn: date("last_reminder_on"),
   },
   (t) => [
     uniqueIndex("plat_invoices_number_uq").on(t.number),
@@ -282,6 +291,43 @@ export const platInvoices = pgTable(
     check("plat_invoice_period", sql`${t.periodEnd} >= ${t.periodStart}`),
     check("plat_invoice_due", sql`${t.dueDate} >= ${t.issueDate}`),
     check("plat_invoice_paid", sql`(${t.status} = 'paid') = (${t.paidOn} is not null)`),
+  ],
+);
+
+/**
+ * How Zinny bills: one row (id "zinny"). Zinny's own settings, so no university_id. Read by
+ * the licence form, saveLicence and the daily billing job; changed at /platform/billing/settings.
+ */
+export const platBillingSettings = pgTable(
+  "plat_billing_settings",
+  {
+    id: text("id").primaryKey().default("zinny"),
+    /** Days from the invoice date to the due date. */
+    paymentDays: integer("payment_days").notNull().default(15),
+    /** A renewal is invoiced this many days before the licence ends. */
+    renewalLeadDays: integer("renewal_lead_days").notNull().default(15),
+    /** "Renew automatically" starts ticked on a new licence. */
+    autoRenewDefault: boolean("auto_renew_default").notNull().default(true),
+    /** A licence's discount (and its note) carries over to its renewal. */
+    keepDiscountOnRenewal: boolean("keep_discount_on_renewal").notNull().default(true),
+    remindersOn: boolean("reminders_on").notNull().default(true),
+    /** A reminder this many days before the due date; 0 for none. */
+    remindDaysBefore: integer("remind_days_before").notNull().default(3),
+    remindOnDueDate: boolean("remind_on_due_date").notNull().default(true),
+    /** After the due date, a reminder every this many days… */
+    remindEveryDaysAfter: integer("remind_every_days_after").notNull().default(7),
+    /** …up to this many. */
+    maxOverdueReminders: integer("max_overdue_reminders").notNull().default(3),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
+  },
+  (t) => [
+    check("plat_billing_settings_one_row", sql`${t.id} = 'zinny'`),
+    check("plat_billing_settings_days", sql`${t.paymentDays} between 0 and 180 and ${t.renewalLeadDays} between 1 and 90`),
+    check(
+      "plat_billing_settings_reminders",
+      sql`${t.remindDaysBefore} between 0 and 30 and ${t.remindEveryDaysAfter} between 1 and 60 and ${t.maxOverdueReminders} between 0 and 10`,
+    ),
   ],
 );
 

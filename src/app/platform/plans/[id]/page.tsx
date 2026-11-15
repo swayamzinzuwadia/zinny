@@ -38,7 +38,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
       />
       <div className="grid gap-6 grid-cols-1 xl:grid-cols-[1.6fr_1fr]">
         <Card>
-          <CardTitle hint="Existing licences and invoices keep their price">Edit plan</CardTitle>
+          <CardTitle hint="Existing licences keep their price until they renew">Edit plan</CardTitle>
           {canEdit ? <PlanForm plan={p} /> : <p className="text-[14px] text-muted">Only a Super Admin can change plans.</p>}
         </Card>
         <div className="min-w-0 space-y-6">
@@ -66,7 +66,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
                 <ActionForm action={archivePlanAction} className="space-y-3" confirm={`Archive ${p.name}?`}>
                   <input type="hidden" name="planId" value={p.id} />
                   <p className="text-[14px] text-muted">
-                    An archived plan can&apos;t be chosen for a new licence. Institutes already on it keep it, and their invoices don&apos;t change. You can restore it at any time.
+                    An archived plan can&apos;t be chosen for a new licence. Institutes already on it keep it and their invoices don&apos;t change, but their licences don&apos;t renew automatically: each one gets a warning to pick a plan. You can restore it at any time.
                   </p>
                   <SubmitButton variant="danger">Archive plan</SubmitButton>
                 </ActionForm>

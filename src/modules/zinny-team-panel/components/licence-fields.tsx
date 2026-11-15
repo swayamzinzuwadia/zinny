@@ -49,6 +49,7 @@ export function LicenceFields({
   const [invoiceDate, setInvoiceDate] = useState(charge.invoiceDate);
   const [dueDate, setDueDate] = useState(addDays(charge.invoiceDate, charge.paymentDays));
   const [noInvoice, setNoInvoice] = useState(existing);
+  const [autoRenew, setAutoRenew] = useState(initial.autoRenew ?? charge.autoRenewDefault ?? true);
   const [touched, setTouched] = useState({ caps: false, end: false, modules: false, price: false, due: false, noInvoice: false });
   const touch = (k: keyof typeof touched) => setTouched((t) => (t[k] ? t : { ...t, [k]: true }));
 
@@ -57,6 +58,14 @@ export function LicenceFields({
   /** Something that gets billed changed: stop skipping the invoice, unless they chose to. */
   const billable = () => {
     if (!touched.noInvoice) setNoInvoice(false);
+  };
+  /**
+   * The term moved, so this is a renewal: it is charged at the plan's price today, as the
+   * service and the automatic renewal do, unless the price was typed in by hand.
+   */
+  const newTerm = () => {
+    if (existing && !touched.price && current) setPrice(rupeeText(current.pricePaise));
+    billable();
   };
 
   function pickPlan(key: string) {
@@ -73,14 +82,18 @@ export function LicenceFields({
     billable();
   }
 
-  /** The next term straight after this one, at the plan's price today. */
+  /**
+   * The next term straight after this one, at the plan's price today. The discount stays
+   * when the billing settings carry discounts over (as the automatic renewal does).
+   */
   function renew() {
     const start = isDate(initial.endDate) ? addDays(initial.endDate, 1) : charge.invoiceDate;
     setStartDate(start);
     setEndDate(endFor(start, months));
     if (current) setPrice(rupeeText(current.pricePaise));
-    setDiscount("");
-    setDiscountNote("");
+    const keep = !!charge.keepDiscountOnRenewal && initial.discountPaise > 0 && (!current || initial.discountPaise < current.pricePaise);
+    setDiscount(keep ? rupeeText(initial.discountPaise) : "");
+    setDiscountNote(keep ? initial.discountNote : "");
     setNoInvoice(false);
   }
 
@@ -93,14 +106,14 @@ export function LicenceFields({
   const rate = (current?.gstRateBp ?? 1800) / 100;
 
   return (
-    <fieldset disabled={disabled} className="space-y-5">
+    <fieldset disabled={disabled} className="min-w-0 space-y-5">
       <div className="space-y-4">
-        <Field label="Plan" hint={current ? `${current.description ? `${current.description} ` : ""}${formatINR(current.pricePaise)} before GST for ${current.billingMonths} month${current.billingMonths === 1 ? "" : "s"}.` : undefined}>
+        <Field label="Plan" hint={current ? `${current.description ? `${current.description} ` : ""}Plan prices are before GST.` : undefined}>
           <Select name="plan" value={plan} onChange={(e) => pickPlan(e.target.value)} required>
             {!current && <option value={plan}>{plan || "Pick a plan"}</option>}
             {plans.map((p) => (
               <option key={p.key} value={p.key}>
-                {p.name}
+                {p.name} · {p.pricePaise === 0 ? "free" : `${formatINR(p.pricePaise)} for ${p.billingMonths} month${p.billingMonths === 1 ? "" : "s"}`}
                 {p.archived ? " (archived)" : ""}
               </option>
             ))}
@@ -141,7 +154,7 @@ export function LicenceFields({
               onChange={(e) => {
                 setStartDate(e.target.value);
                 if (!touched.end && e.target.value) setEndDate(endFor(e.target.value, months));
-                billable();
+                newTerm();
               }}
               required
             />
@@ -155,7 +168,7 @@ export function LicenceFields({
               onChange={(e) => {
                 setEndDate(e.target.value);
                 touch("end");
-                billable();
+                newTerm();
               }}
               required
             />
@@ -166,6 +179,16 @@ export function LicenceFields({
             Renew for another {months === 12 ? "year" : `${months} month${months === 1 ? "" : "s"}`}
           </button>
         )}
+        <label className="flex items-start gap-2.5 text-[14px]">
+          <input type="hidden" name="autoRenewShown" value="1" />
+          <input type="checkbox" name="autoRenew" checked={autoRenew} onChange={(e) => setAutoRenew(e.target.checked)} className="mt-1 h-4 w-4 accent-[#0b5e4c]" />
+          <span>
+            <span className="font-medium">Renew automatically</span>
+            <span className="block text-[13px] text-muted">
+              {charge.renewalLeadDays ?? 15} days before it ends, Zinny renews it for another {months === 12 ? "year" : `${months} month${months === 1 ? "" : "s"}`} at the plan&apos;s price then and invoices the institute.
+            </span>
+          </span>
+        </label>
         <div>
           <span className="mb-1.5 block text-[13px] font-medium">Modules switched on</span>
           <div className="grid gap-1.5 sm:grid-cols-2">
@@ -189,9 +212,9 @@ export function LicenceFields({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-line bg-canvas/60 p-4">
+      <div className="border-t border-line pt-5">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <span className="text-[15px] font-medium">Charge</span>
+          <span className="text-[16px] font-medium">Charge</span>
           <span className="text-[12.5px] text-muted">The plan sets the price. Change it only for what was agreed.</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -277,12 +300,12 @@ export function LicenceFields({
             <span className="block text-[13px] text-muted">For free pilots, corrections, and changes that aren&apos;t billed. The price is still saved on the licence.</span>
           </span>
         </label>
-        <p className="mt-3 text-[13px] text-muted">
+        <p className={cx("mt-4 border-t border-line pt-3 text-[14px]", willInvoice ? "font-medium text-ink" : "text-muted")} aria-live="polite">
           {willInvoice
-            ? `Saving raises an invoice for ${formatINR(sum!.totalPaise)}${isDate(dueDate) ? `, due ${formatDate(dueDate)}` : ""}.`
+            ? `An invoice for ${formatINR(sum!.totalPaise)} will be issued${isDate(invoiceDate) ? ` on ${formatDate(invoiceDate)}` : ""}${isDate(dueDate) ? `, due ${formatDate(dueDate)}` : ""}.`
             : free && !noInvoice
-              ? "Nothing to charge, so no invoice is created."
-              : "Saving doesn't create an invoice."}
+              ? "Nothing to charge, so no invoice will be issued."
+              : "No invoice will be issued."}
         </p>
       </div>
 
@@ -295,7 +318,7 @@ export function LicenceFields({
 
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className={cx("flex items-baseline justify-between gap-4", strong && "border-t border-line pt-2 font-semibold")}>
+    <div className={cx("flex items-baseline justify-between gap-4", strong && "border-t border-line pt-2 font-medium")}>
       <dt className={strong ? undefined : "text-muted"}>{label}</dt>
       <dd className="tabular">{value}</dd>
     </div>

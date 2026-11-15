@@ -6,6 +6,10 @@
  * A licence charges the institute: making one, renewing it or moving it to another plan
  * raises a Zinny invoice in the same transaction for the plan's price less any discount,
  * plus GST, unless the caller says not to.
+ *
+ * The price is copied onto the licence, so a later change to the plan's price leaves the
+ * licence (and its invoices) alone until it renews: a renewal, by hand or by the daily
+ * billing job, is priced at the plan's price on that day.
  */
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { Conn, Tx } from "@/db/client";
@@ -13,13 +17,15 @@ import { universities, users } from "@/db/schema";
 import { assertPlatform, type Actor } from "@/server/core";
 import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
 import { platAlerts, platLicences } from "../schema";
-import { CAP_WARNING_RATIO, DEFAULT_PAYMENT_DAYS, END_WARNING_DAYS, LICENSABLE_MODULES } from "../lib/constants";
+import { CAP_WARNING_RATIO, END_WARNING_DAYS, LICENSABLE_MODULES } from "../lib/constants";
 import { addDays, daysBetween, formatDate, isDate, todayIST } from "../lib/format";
+import { termEnd } from "../lib/licence";
 import { invoicesForLicence, issueInvoice, licenceInvoiceLine, type Invoice } from "./billing";
+import { readBillingSettings, type BillingSettings } from "./billing-settings";
 import { planByKey, planNameFallback, planNames, planOptions, type Plan } from "./plans";
 import { db, emptyUsage, isUuid, logAction, universityOrThrow, usageFor, type Usage } from "./shared";
 
-/** How a licence's invoice is dated. Anything left out takes the default: today, due in 15 days, the plan's GST rate. */
+/** How a licence's invoice is dated. Anything left out takes the default: today, due after the payment terms in the billing settings, the plan's GST rate. */
 export type LicenceInvoiceInput = { issueDate?: string; dueDate?: string; gstRateBp?: number };
 
 export type LicenceInput = {
@@ -44,6 +50,8 @@ export type LicenceInput = {
    * A net amount of 0 never creates an invoice.
    */
   invoice?: LicenceInvoiceInput | false | null;
+  /** Renew by itself before it ends. Left out: what the licence has, or the billing settings' default for a new one. */
+  autoRenew?: boolean;
 };
 
 export type Licence = typeof platLicences.$inferSelect;
@@ -121,71 +129,171 @@ export type SavedLicence = Licence & { invoice: Invoice | null };
  */
 export async function saveLicence(actor: Actor, universityId: string, input: LicenceInput, today = todayIST()): Promise<SavedLicence> {
   assertPlatform(actor, "platform.licences");
+  validateLicence(input);
+  const settings = await readBillingSettings();
+  return db().transaction((tx) => saveLicenceTx(tx, actor, universityId, input, settings, today));
+}
+
+/**
+ * The work of `saveLicence` inside the caller's transaction, for the services that have
+ * already checked permission (saveLicence, renewals by hand and by the daily billing job).
+ * `automatic` marks the log entries as made by Zinny on its own; `renewal` as a renewal.
+ */
+export async function saveLicenceTx(
+  tx: Tx,
+  actor: Actor,
+  universityId: string,
+  input: LicenceInput,
+  settings: Pick<BillingSettings, "paymentDays" | "autoRenewDefault">,
+  today = todayIST(),
+  opts: { automatic?: boolean; renewal?: boolean } = {},
+): Promise<SavedLicence> {
   const clean = validateLicence(input);
-  return db().transaction(async (tx) => {
-    await universityOrThrow(tx, universityId);
-    const [before] = await tx.select().from(platLicences).where(eq(platLicences.universityId, universityId)).for("update");
-    const plan = await planForLicence(tx, clean.plan, before?.plan);
+  await universityOrThrow(tx, universityId);
+  const [before] = await tx.select().from(platLicences).where(eq(platLicences.universityId, universityId)).for("update");
+  const plan = await planForLicence(tx, clean.plan, before?.plan);
 
-    // New, renewed (the term moved) or on another plan: that is what gets charged.
-    const billable = !before || before.plan !== plan.key || before.startDate !== clean.startDate || before.endDate !== clean.endDate;
-    const pricePaise = input.pricePaise ?? (billable ? plan.pricePaise : before.pricePaise);
-    const discountPaise = input.discountPaise ?? (billable ? 0 : before.discountPaise);
-    const discountNote = discountPaise > 0 ? (input.discountNote !== undefined ? input.discountNote?.trim() || null : billable ? null : before.discountNote) : null;
-    if (discountPaise > pricePaise) throw new ValidationError("The discount can't be more than the price.");
-    if (discountPaise > 0 && !discountNote) throw new ValidationError("Write why the discount was given, so finance can see it later.");
+  // New, renewed (the term moved) or on another plan: that is what gets charged.
+  const billable = !before || before.plan !== plan.key || before.startDate !== clean.startDate || before.endDate !== clean.endDate;
+  const pricePaise = input.pricePaise ?? (billable ? plan.pricePaise : before.pricePaise);
+  const discountPaise = input.discountPaise ?? (billable ? 0 : before.discountPaise);
+  const discountNote = discountPaise > 0 ? (input.discountNote !== undefined ? input.discountNote?.trim() || null : billable ? null : before.discountNote) : null;
+  if (discountPaise > pricePaise) throw new ValidationError("The discount can't be more than the price.");
+  if (discountPaise > 0 && !discountNote) throw new ValidationError("Write why the discount was given, so finance can see it later.");
+  const autoRenew = input.autoRenew ?? before?.autoRenew ?? settings.autoRenewDefault;
 
-    const values = { ...clean, plan: plan.key, pricePaise, discountPaise, discountNote, updatedAt: new Date(), updatedBy: actor.userId || null };
-    const [row] = before
-      ? await tx.update(platLicences).set(values).where(eq(platLicences.id, before.id)).returning()
-      : await tx.insert(platLicences).values({ universityId, ...values }).returning();
+  const values = { ...clean, plan: plan.key, pricePaise, discountPaise, discountNote, autoRenew, updatedAt: new Date(), updatedBy: actor.userId || null };
+  const [row] = before
+    ? await tx.update(platLicences).set(values).where(eq(platLicences.id, before.id)).returning()
+    : await tx.insert(platLicences).values({ universityId, ...values }).returning();
 
-    const wanted = input.invoice === false || input.invoice === null ? false : input.invoice ? true : billable;
-    let invoice: Invoice | null = null;
-    if (wanted && pricePaise - discountPaise > 0) {
-      const terms = input.invoice || {};
-      const issueDate = terms.issueDate ?? today;
-      invoice = await issueInvoice(tx, actor, {
-        universityId,
-        licenceId: row.id,
-        periodStart: row.startDate,
-        periodEnd: row.endDate,
-        description: licenceInvoiceLine(plan.name, row.startDate, row.endDate),
-        listPricePaise: pricePaise,
-        discountPaise,
-        discountNote,
-        gstRateBp: terms.gstRateBp ?? plan.gstRateBp,
-        issueDate,
-        dueDate: terms.dueDate ?? addDays(issueDate, DEFAULT_PAYMENT_DAYS),
-      });
-    }
-
-    await logAction(tx, actor, { universityId, inUniversityLog: true }, before ? "plat.licence.update" : "plat.licence.create", "plat_licence", row.id, {
-      plan: row.plan,
-      studentCap: row.studentCap,
-      staffCap: row.staffCap,
-      modules: row.modules,
-      startDate: row.startDate,
-      endDate: row.endDate,
-      pricePaise: row.pricePaise,
-      discountPaise: row.discountPaise,
-      ...(row.discountNote && { discountNote: row.discountNote }),
-      ...(invoice ? { number: invoice.number, totalPaise: invoice.totalPaise } : { invoiced: false }),
-      ...(before && {
-        before: {
-          plan: before.plan,
-          studentCap: before.studentCap,
-          staffCap: before.staffCap,
-          modules: before.modules,
-          startDate: before.startDate,
-          endDate: before.endDate,
-          pricePaise: before.pricePaise,
-          discountPaise: before.discountPaise,
-        },
-      }),
+  const wanted = input.invoice === false || input.invoice === null ? false : input.invoice ? true : billable;
+  let invoice: Invoice | null = null;
+  if (wanted && pricePaise - discountPaise > 0) {
+    const terms = input.invoice || {};
+    const issueDate = terms.issueDate ?? today;
+    invoice = await issueInvoice(tx, actor, {
+      universityId,
+      licenceId: row.id,
+      periodStart: row.startDate,
+      periodEnd: row.endDate,
+      description: licenceInvoiceLine(plan.name, row.startDate, row.endDate),
+      listPricePaise: pricePaise,
+      discountPaise,
+      discountNote,
+      gstRateBp: terms.gstRateBp ?? plan.gstRateBp,
+      issueDate,
+      dueDate: terms.dueDate ?? addDays(issueDate, settings.paymentDays),
+      automatic: opts.automatic,
     });
-    await syncAlertsFor(tx, actor, universityId, today, { [plan.key]: plan.name });
-    return { ...row, invoice };
+  }
+
+  const action = opts.renewal ? "plat.licence.renew" : before ? "plat.licence.update" : "plat.licence.create";
+  await logAction(tx, actor, { universityId, inUniversityLog: true }, action, "plat_licence", row.id, {
+    plan: row.plan,
+    studentCap: row.studentCap,
+    staffCap: row.staffCap,
+    modules: row.modules,
+    startDate: row.startDate,
+    endDate: row.endDate,
+    pricePaise: row.pricePaise,
+    discountPaise: row.discountPaise,
+    autoRenew: row.autoRenew,
+    ...(row.discountNote && { discountNote: row.discountNote }),
+    ...(invoice ? { number: invoice.number, totalPaise: invoice.totalPaise } : { invoiced: false }),
+    ...(opts.automatic && { automatic: true }),
+    ...(before && {
+      before: {
+        plan: before.plan,
+        studentCap: before.studentCap,
+        staffCap: before.staffCap,
+        modules: before.modules,
+        startDate: before.startDate,
+        endDate: before.endDate,
+        pricePaise: before.pricePaise,
+        discountPaise: before.discountPaise,
+        autoRenew: before.autoRenew,
+      },
+    }),
+  });
+  await syncAlertsFor(tx, actor, universityId, today, { [plan.key]: plan.name });
+  return { ...row, invoice };
+}
+
+/** The term after `licence`: from the day after it ends, for the plan's billing period. */
+export function nextTerm(licence: Pick<Licence, "endDate">, billingMonths: number) {
+  const startDate = addDays(licence.endDate, 1);
+  return { startDate, endDate: termEnd(startDate, billingMonths) };
+}
+
+/**
+ * What a renewal of `licence` on `plan` charges: the plan's price today (not the price the
+ * licence was sold at), less the licence's discount when the settings carry it over and
+ * it is still smaller than the price.
+ */
+export function renewalCharge(licence: Pick<Licence, "discountPaise" | "discountNote">, plan: Pick<Plan, "pricePaise">, keepDiscount: boolean) {
+  const keep = keepDiscount && licence.discountPaise > 0 && licence.discountPaise < plan.pricePaise && !!licence.discountNote;
+  return { pricePaise: plan.pricePaise, discountPaise: keep ? licence.discountPaise : 0, discountNote: keep ? licence.discountNote : null };
+}
+
+/**
+ * Renews a licence for its next term inside the caller's transaction: same caps, modules
+ * and notes, the plan's current price, the discount per the settings, and an invoice dated
+ * `today` due after the payment terms. No permission check (callers check theirs).
+ */
+export async function renewLicenceTx(tx: Tx, actor: Actor, licence: Licence, plan: Plan, settings: BillingSettings, today: string, opts: { automatic?: boolean } = {}) {
+  if (plan.archivedAt) throw new ValidationError(`Plan ${plan.name} is archived; pick a plan to renew on the licence page.`);
+  const term = nextTerm(licence, plan.billingMonths);
+  return saveLicenceTx(
+    tx,
+    actor,
+    licence.universityId,
+    {
+      plan: plan.key,
+      studentCap: licence.studentCap,
+      staffCap: licence.staffCap,
+      modules: licence.modules,
+      ...term,
+      notes: licence.notes,
+      ...renewalCharge(licence, plan, settings.keepDiscountOnRenewal),
+      autoRenew: licence.autoRenew,
+      invoice: {},
+    },
+    settings,
+    today,
+    { automatic: opts.automatic, renewal: true },
+  );
+}
+
+/** "Renew now": renews one institute's licence for its next term straight away, invoiced at the plan's price today. */
+export async function renewLicenceNow(actor: Actor, universityId: string, today = todayIST()): Promise<SavedLicence> {
+  assertPlatform(actor, "platform.licences");
+  if (!isUuid(universityId)) throw new NotFoundError("Licence");
+  const settings = await readBillingSettings();
+  return db().transaction(async (tx) => {
+    const [licence] = await tx.select().from(platLicences).where(eq(platLicences.universityId, universityId)).for("update");
+    if (!licence) throw new NotFoundError("Licence");
+    const plan = await planByKey(tx, licence.plan);
+    if (!plan) throw new ValidationError("This licence's plan no longer exists. Pick a plan on the licence page to renew it.");
+    return renewLicenceTx(tx, actor, licence, plan, settings, today);
+  });
+}
+
+/** Turns "Renew automatically" on or off for one institute's licence. */
+export async function setAutoRenew(actor: Actor, universityId: string, on: boolean): Promise<Licence> {
+  assertPlatform(actor, "platform.licences");
+  if (!isUuid(universityId)) throw new NotFoundError("Licence");
+  return db().transaction(async (tx) => {
+    const [licence] = await tx.select().from(platLicences).where(eq(platLicences.universityId, universityId)).for("update");
+    if (!licence) throw new NotFoundError("Licence");
+    if (licence.autoRenew === on) return licence;
+    const [row] = await tx
+      .update(platLicences)
+      .set({ autoRenew: on, updatedAt: new Date(), updatedBy: actor.userId || null })
+      .where(eq(platLicences.id, licence.id))
+      .returning();
+    await logAction(tx, actor, { universityId, inUniversityLog: true }, "plat.licence.auto_renew", "plat_licence", row.id, { autoRenew: on, before: { autoRenew: licence.autoRenew } });
+    return row;
   });
 }
 
@@ -272,6 +380,7 @@ export async function licenceFor(actor: Actor, universityId: string, today = tod
 /* ─────────────────────────── Warnings ─────────────────────────── */
 
 export type AlertKind = "student_cap" | "staff_cap" | "licence_end";
+const LICENCE_ALERT_KINDS: readonly AlertKind[] = ["student_cap", "staff_cap", "licence_end"];
 export type Condition = { kind: AlertKind; level: "warning" | "critical"; title: string; body: string; data: Record<string, unknown> };
 
 /**
@@ -352,10 +461,11 @@ export async function syncAlertsFor(conn: Tx, actor: Actor, universityId: string
   // Only the Zinny team's own connection (no university on the actor) can read the plans.
   const planName = licence ? (names?.[licence.plan] ?? (actor.universityId ? undefined : (await planNames(conn))[licence.plan])) : undefined;
   const wanted = licence && uni.status === "active" ? licenceConditions(licence, usage, today, uni.name, planName ?? planNameFallback(licence.plan)) : [];
+  // Only the kinds worked out here; the billing job raises and clears its own ("renewal_blocked").
   const open = await conn
     .select()
     .from(platAlerts)
-    .where(and(eq(platAlerts.universityId, universityId), isNull(platAlerts.resolvedAt)))
+    .where(and(eq(platAlerts.universityId, universityId), isNull(platAlerts.resolvedAt), inArray(platAlerts.kind, [...LICENCE_ALERT_KINDS])))
     .for("update");
   const openByKind = new Map(open.map((a) => [a.kind, a]));
   // The job runs as the university's system actor (its log); licence changes run as a Zinny team member.

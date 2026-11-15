@@ -1,30 +1,65 @@
 import Link from "next/link";
-import { Badge, ButtonLink, Empty, PageHeader, Stat, Tabs, Td, cx } from "@/components/ui";
+import { ActionForm, SubmitButton } from "@/components/forms";
+import { Badge, ButtonLink, Card, CardTitle, Empty, PageHeader, Stat, Tabs, Td, cx } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
+import { renewNowAction, setAutoRenewAction } from "@/modules/zinny-team-panel/actions";
 import { NoAccess, PanelTable, WIDE_ONLY } from "@/modules/zinny-team-panel/components/bits";
-import { formatCount, formatDate, formatINR, formatINRShort } from "@/modules/zinny-team-panel/lib/format";
+import { formatCount, formatDate, formatINR, formatINRShort, todayIST } from "@/modules/zinny-team-panel/lib/format";
+import { upcomingRenewals, type UpcomingRenewal } from "@/modules/zinny-team-panel/services/automation";
 import { listInvoices } from "@/modules/zinny-team-panel/services/billing";
 
-export const metadata = { title: "Zinny invoices" };
+export const metadata = { title: "Invoices" };
 
-export default async function BillingPage({ searchParams }: { searchParams: Promise<{ status?: string; university?: string }> }) {
+const COMING_UP_DAYS = 60;
+const COMING_UP_CAP = 8;
+
+export default async function BillingPage({ searchParams }: { searchParams: Promise<{ status?: string; university?: string; all?: string }> }) {
   const actor = await platformContext();
-  if (!canPlatform(actor, "platform.finance")) return <NoAccess section="Zinny invoices" />;
+  if (!canPlatform(actor, "platform.finance")) return <NoAccess section="Invoices" />;
   const f = await searchParams;
-  const { filter, invoices, summary } = await listInvoices(actor, { status: f.status, universityId: f.university });
+  const [{ filter, invoices, summary }, upcoming] = await Promise.all([
+    listInvoices(actor, { status: f.status, universityId: f.university }),
+    upcomingRenewals(actor, COMING_UP_DAYS),
+  ]);
+  const canRenew = canPlatform(actor, "platform.licences");
   const href = (s: string) => `/platform/billing?status=${s}${f.university ? `&university=${f.university}` : ""}`;
+  const shown = f.all ? upcoming : upcoming.slice(0, COMING_UP_CAP);
+  const today = todayIST();
 
   return (
     <>
       <PageHeader
-        title="Zinny invoices"
-        subtitle="Zinny's GST invoices to institutes for their licences. A licence raises its own invoice; an unpaid one can be revised. These are separate from the invoices institutes issue to their students."
+        title="Invoices"
+        subtitle="Zinny's GST invoices to institutes. Licences invoice themselves when they are set up and when they renew; an unpaid invoice can be revised."
         actions={<ButtonLink href={`/platform/billing/new${f.university ? `?university=${f.university}` : ""}`}>New invoice</ButtonLink>}
       />
+
+      <Card className="mb-6">
+        <CardTitle hint={`Next ${COMING_UP_DAYS} days`}>Coming up</CardTitle>
+        {upcoming.length === 0 ? (
+          <p className="text-[14px] text-muted">No licence ends in the next {COMING_UP_DAYS} days.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {shown.map((r) => (
+              <ComingUpRow key={r.universityId} r={r} canRenew={canRenew} today={today} />
+            ))}
+          </ul>
+        )}
+        {upcoming.length > shown.length && (
+          <Link href="/platform/billing?all=1" className="mt-3 inline-block text-[13px] text-brand hover:underline">
+            See all {upcoming.length}
+          </Link>
+        )}
+      </Card>
+
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
         <Stat label="Outstanding" value={formatINRShort(summary.outstanding)} hint={`${formatCount(summary.unpaidCount)} unpaid invoice${summary.unpaidCount === 1 ? "" : "s"}`} />
-        <Stat label="Overdue" value={formatINRShort(summary.overdue)} hint={`${formatCount(summary.overdueCount)} past the due date`} />
+        <Stat
+          label="Overdue"
+          value={<span className={summary.overdue > 0 ? "text-danger" : undefined}>{formatINRShort(summary.overdue)}</span>}
+          hint={`${formatCount(summary.overdueCount)} past the due date`}
+        />
         <Stat label={`Collected in FY ${summary.financialYear}`} value={formatINRShort(summary.collectedFy)} hint="Marked paid since 1 April" />
       </div>
       <Tabs
@@ -64,16 +99,75 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
               </Td>
               <Td className={cx(WIDE_ONLY, "tabular whitespace-nowrap")}>
                 {formatINR(i.basePaise)}
-                {i.discountPaise > 0 && <div className="text-[12.5px] text-muted">after {formatINR(i.discountPaise)} off</div>}
+                {i.discountPaise > 0 && <div className="text-[13px] text-muted">after {formatINR(i.discountPaise)} off</div>}
               </Td>
               <Td className={cx(WIDE_ONLY, "tabular whitespace-nowrap text-muted")}>{formatINR(i.cgstPaise + i.sgstPaise + i.igstPaise)}</Td>
-              <Td className="tabular whitespace-nowrap font-medium">{formatINR(i.totalPaise)}</Td>
-              <Td className="whitespace-nowrap">{formatDate(i.dueDate)}</Td>
-              <Td>{i.status === "paid" ? <Badge tone="brand">Paid</Badge> : i.overdue ? <Badge tone="danger">Overdue</Badge> : <Badge tone="gold">Unpaid</Badge>}</Td>
+              <Td className={cx("tabular whitespace-nowrap font-medium", i.overdue && "text-danger")}>{formatINR(i.totalPaise)}</Td>
+              <Td className="whitespace-nowrap">
+                {formatDate(i.dueDate)}
+                {i.status === "unpaid" && i.lastReminderOn && <div className="text-[13px] text-muted">Reminded {formatDate(i.lastReminderOn, { year: false })}</div>}
+              </Td>
+              <Td className="whitespace-nowrap">
+                {i.status === "paid" ? <Badge tone="brand">Paid</Badge> : i.overdue ? <span className="text-[13px] font-medium text-danger">Overdue</span> : <Badge>Unpaid</Badge>}
+              </Td>
             </tr>
           ))}
         </PanelTable>
       )}
     </>
+  );
+}
+
+/** One licence coming up for renewal: when, on what, for how much, and what happens. */
+function ComingUpRow({ r, canRenew, today }: { r: UpcomingRenewal; canRenew: boolean; today: string }) {
+  const ended = r.daysLeft < 0;
+  const when = ended ? `Ended ${formatDate(r.endDate, { year: false })}` : r.daysLeft === 0 ? "Ends today" : `Ends ${formatDate(r.endDate, { year: false })}`;
+  const how = r.planArchived
+    ? "Plan archived: pick a plan to renew"
+    : !r.autoRenew
+      ? "Auto-renew off"
+      : ended
+        ? "Renew it by hand"
+        : r.invoiceOn <= today
+          ? "Invoiced at the next daily billing run"
+          : `Invoiced automatically on ${formatDate(r.invoiceOn, { year: false })}`;
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-3 first:pt-0 last:pb-0">
+      <div className="min-w-0 flex-1 basis-[260px] text-[14px]">
+        <Link href={`/platform/licences/${r.universityId}`} className="font-medium text-ink hover:text-brand">
+          {r.universityName}
+        </Link>
+        <div className="text-[13px] text-muted">
+          <span className={cx(ended && "text-danger")}>{when}</span> · {r.planName} · {how}
+        </div>
+      </div>
+      <div className="tabular w-[120px] shrink-0 text-right text-[14px]">
+        {r.totalPaise > 0 ? formatINR(r.totalPaise) : "Nothing to charge"}
+        <div className="text-[13px] text-muted">{r.discountPaise > 0 ? "after discount, with GST" : "with GST"}</div>
+      </div>
+      {canRenew && (
+        <div className="flex w-full shrink-0 items-center justify-end gap-4 sm:w-[260px]">
+          {r.planArchived ? (
+            <Link href={`/platform/licences/${r.universityId}`} className="text-[13px] font-medium text-brand hover:underline">
+              Pick a plan
+            </Link>
+          ) : (
+            <ActionForm action={renewNowAction} confirm={`Renew ${r.universityName}'s licence now? It is invoiced for ${formatINR(r.totalPaise)} today.`}>
+              <input type="hidden" name="universityId" value={r.universityId} />
+              <SubmitButton size="sm" variant="secondary" pendingText="Renewing…">
+                Renew now
+              </SubmitButton>
+            </ActionForm>
+          )}
+          <ActionForm action={setAutoRenewAction}>
+            <input type="hidden" name="universityId" value={r.universityId} />
+            <input type="hidden" name="autoRenew" value={r.autoRenew ? "off" : "on"} />
+            <SubmitButton size="sm" variant="quiet" pendingText="Saving…">
+              {r.autoRenew ? "Turn off auto-renew" : "Turn on auto-renew"}
+            </SubmitButton>
+          </ActionForm>
+        </div>
+      )}
+    </li>
   );
 }

@@ -8,7 +8,8 @@ import { NotFoundError } from "@/server/errors";
 import { acknowledgeAlertAction, saveLicenceAction } from "@/modules/zinny-team-panel/actions";
 import { Fact, NoAccess, RenewalText, StatusBadge, UsageMeter } from "@/modules/zinny-team-panel/components/bits";
 import { LicenceFields } from "@/modules/zinny-team-panel/components/licence-fields";
-import { CAP_WARNING_RATIO, DEFAULT_PAYMENT_DAYS, END_WARNING_DAYS, zinnySeller } from "@/modules/zinny-team-panel/lib/constants";
+import { CAP_WARNING_RATIO, END_WARNING_DAYS, zinnySeller } from "@/modules/zinny-team-panel/lib/constants";
+import { licenceFormSettings } from "@/modules/zinny-team-panel/services/billing-settings";
 import { formatDate, formatDateTime, formatINR, todayIST } from "@/modules/zinny-team-panel/lib/format";
 import { licenceDefaults } from "@/modules/zinny-team-panel/lib/licence";
 import { licenceFor } from "@/modules/zinny-team-panel/services/licences";
@@ -24,6 +25,7 @@ export default async function LicencePage({ params }: { params: Promise<{ id: st
     throw e;
   });
   const { university: u, licence: l, usage, alerts, plans, invoices } = data;
+  const settings = await licenceFormSettings(actor);
   const today = todayIST();
   const canFinance = canPlatform(actor, "platform.finance");
   // A new licence starts on Standard when there is one, otherwise on the first plan on offer.
@@ -40,6 +42,7 @@ export default async function LicencePage({ params }: { params: Promise<{ id: st
         pricePaise: l.pricePaise,
         discountPaise: l.discountPaise,
         discountNote: l.discountNote ?? "",
+        autoRenew: l.autoRenew,
       }
     : first
       ? licenceDefaults(first, today)
@@ -83,7 +86,7 @@ export default async function LicencePage({ params }: { params: Promise<{ id: st
                 plans={plans}
                 initial={initial}
                 existing={!!l}
-                charge={{ invoiceDate: today, paymentDays: DEFAULT_PAYMENT_DAYS, intraState: u.stateCode === zinnySeller().stateCode }}
+                charge={{ invoiceDate: today, ...settings, intraState: u.stateCode === zinnySeller().stateCode }}
               />
               <SubmitButton pendingText="Saving…">{l ? "Save licence" : "Create licence"}</SubmitButton>
             </ActionForm>
@@ -118,8 +121,9 @@ export default async function LicencePage({ params }: { params: Promise<{ id: st
                   )}
                 </Fact>
                 <Fact label="Net before GST">{formatINR(l.pricePaise - l.discountPaise)}</Fact>
+                <Fact label="Renews">{l.autoRenew ? `Automatically, ${settings.renewalLeadDays} days before it ends` : "By hand"}</Fact>
               </dl>
-              <p className="mt-4 text-[12.5px] text-muted">The price was copied from the plan when this licence was priced. Changing the plan later doesn&apos;t change it.</p>
+              <p className="mt-4 text-[12.5px] text-muted">The price was copied from the plan when this licence was priced. A change to the plan&apos;s price applies from its next renewal.</p>
             </Card>
           )}
 
@@ -154,9 +158,9 @@ export default async function LicencePage({ params }: { params: Promise<{ id: st
                       {i.status === "paid" ? (
                         <Badge tone="brand">Paid {formatDate(i.paidOn, { year: false })}</Badge>
                       ) : i.overdue ? (
-                        <Badge tone="danger">Overdue since {formatDate(i.dueDate, { year: false })}</Badge>
+                        <span className="text-[13px] font-medium text-danger">Overdue since {formatDate(i.dueDate, { year: false })}</span>
                       ) : (
-                        <Badge tone="gold">Due {formatDate(i.dueDate, { year: false })}</Badge>
+                        <Badge>Due {formatDate(i.dueDate, { year: false })}</Badge>
                       )}
                     </div>
                     <div className="mt-1 text-[12.5px] text-muted">
@@ -177,13 +181,16 @@ export default async function LicencePage({ params }: { params: Promise<{ id: st
                 No warnings. One appears at {Math.round(CAP_WARNING_RATIO * 100)}% of a cap and {END_WARNING_DAYS} days before the licence ends.
               </p>
             ) : (
-              <ul className="space-y-3">
+              <ul className="divide-y divide-line">
                 {alerts.map((a) => (
-                  <li key={a.id} className={a.level === "critical" ? "rounded-2xl bg-danger-soft p-4" : "rounded-2xl bg-gold-soft p-4"}>
+                  <li key={a.id} className="py-3 first:pt-0 last:pb-0">
                     <div className="flex flex-wrap items-start justify-between gap-2 text-[14px]">
-                      <div>
-                        <div className="font-medium text-ink">{a.title}</div>
-                        <div className={a.level === "critical" ? "text-danger" : "text-gold-strong"}>{a.body}</div>
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span aria-hidden className={`mt-[7px] h-2 w-2 shrink-0 rounded-full ${a.level === "critical" ? "bg-danger" : "bg-gold"}`} />
+                        <div>
+                          <div className="font-medium text-ink">{a.title}</div>
+                          <div className="text-[13px] text-muted">{a.body}</div>
+                        </div>
                       </div>
                       {a.acknowledgedAt ? (
                         <Badge>Handled</Badge>

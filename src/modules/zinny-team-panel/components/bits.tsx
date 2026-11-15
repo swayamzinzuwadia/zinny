@@ -95,7 +95,7 @@ export type Column = string | { label: ReactNode; className?: string };
  */
 export function PanelTable({ head, children }: { head: Column[]; children: ReactNode }) {
   return (
-    <div className="relative overflow-x-auto rounded-[22px] border border-line bg-surface">
+    <div className="relative overflow-x-auto rounded-2xl border border-line bg-surface">
       <table className="w-full min-w-[560px] text-left text-[14px]">
         <thead className="border-b border-line text-[13px] text-muted">
           <tr>
