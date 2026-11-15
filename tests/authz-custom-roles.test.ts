@@ -46,10 +46,22 @@ describe("what can never be given", () => {
     expect(effectiveGrants("custom_institute", EVERYTHING)!.filter((a) => a.startsWith("platform."))).toEqual([]);
   });
 
-  it("leaves Institute Admin and Super Admin untouched, whatever a row says", () => {
-    for (const role of ["institute_admin", "super_admin", "student", "parent"] as RoleName[]) {
+  it("leaves Super Admin, students and parents untouched, whatever a row says", () => {
+    for (const role of ["super_admin", "student", "parent"] as RoleName[]) {
       expect(isEditableRole(role)).toBe(false);
       expect(effectiveGrants(role, [])).toBeUndefined();
+    }
+  });
+
+  it("lets Institute Admin be changed, but never takes away running roles and people", () => {
+    // Super Admins only may change it (services/roles.ts); nothing saved means Zinny's default.
+    expect(isEditableRole("institute_admin")).toBe(true);
+    expect(effectiveGrants("institute_admin", null)).toBeUndefined();
+    for (const stored of [[], ["course.view"]]) {
+      const grants = effectiveGrants("institute_admin", stored)!;
+      expect(grants).toContain("role.manage");
+      expect(grants).toContain("user.manage_roles");
+      expect(grants.filter((a) => a.startsWith("platform."))).toEqual([]);
     }
     expect(ROLE_GRANTS.institute_admin).toContain("role.manage");
   });

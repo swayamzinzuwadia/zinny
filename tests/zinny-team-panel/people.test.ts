@@ -140,7 +140,13 @@ describe("searching users by role or institute", () => {
     const boss = await team("Zara Super", "super_admin");
     const a = await setupCourse({ name: "Search Alpha Institute" });
     const b = await setupCourse({ name: "Search Beta Institute" });
-    const found = (await listPeople(boss, { q: "institute admins" })).rows;
+    // The whole test database has many institutes, so read every page.
+    const found = [];
+    for (let page = 1; ; page++) {
+      const r = await listPeople(boss, { q: "institute admins", page });
+      found.push(...r.rows);
+      if (!r.hasMore) break;
+    }
     const ids = found.map((r) => `${r.userId}:${r.universityId}`);
     expect(ids).toEqual(expect.arrayContaining([`${a.admin.userId}:${a.uni.id}`, `${b.admin.userId}:${b.uni.id}`]));
     expect(found.every((r) => r.roles.includes("institute_admin"))).toBe(true);
