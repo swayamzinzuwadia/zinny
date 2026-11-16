@@ -62,6 +62,11 @@ graphify path "buyAction()" "issueInvoice()"
 - Use the components in `@/components/ui` and `@/components/forms` (Card, Badge, Button classes, Field, Input, Table, Tabs, Stat, Avatar, SeatMap, ActionForm, SubmitButton). Need a new component? Put it in `src/modules/<module>/components/`.
 - Colours only from tokens: brand green, gold accent, cream canvas. Gold marks "now" and "needs attention"; don't use it as decoration.
 - Copy: plain sentence case, active voice, buttons say exactly what happens ("Publish test", not "Submit"). No all-caps labels, no "→" on buttons, no exclamation marks. Errors say what went wrong and how to fix it.
+- **Motion, not hard cuts.** Nothing on screen just appears; everything animates from where it came from, so people never lose their place.
+  - A card or row that opens a page grows smoothly into that page, and shrinks back into its exact origin on the way back (React `<ViewTransition name>` with the same name on both sides; see `src/modules/zinny-team-panel/components/data-motion.tsx`).
+  - Menus, popovers and panels open outward from the button that triggered them, and fold back into it.
+  - Lists that filter or reorder move their items to their new places; items leaving or arriving scale and fade.
+  - Respect `prefers-reduced-motion`.
 - Admin panel works on desktop and tablet. Learner screens are mobile first; check them at 390 px wide.
 
 ## Definition of done

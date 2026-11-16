@@ -1,0 +1,138 @@
+/*
+ * Motion for the data console (/platform/data).
+ *
+ * Nothing on these pages appears from nowhere: a table card grows into its table page and
+ * shrinks back into the same card, "Open" and "Add a row" grow into the page they open, and
+ * cards that a filter hides or shows scale out and in while the others glide to their places.
+ */
+
+/* Clicks pass through to the live page while a transition runs. */
+::view-transition {
+  pointer-events: none;
+}
+
+/* A card growing into a page (and back). The snapshot is clipped by the growing frame
+   instead of being stretched, so text never distorts. */
+::view-transition-group(.data-morph) {
+  animation-duration: 460ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  border-radius: 22px;
+  overflow: clip;
+}
+::view-transition-old(.data-morph),
+::view-transition-new(.data-morph) {
+  height: 100%;
+  width: 100%;
+  object-fit: none;
+  object-position: left top;
+}
+::view-transition-old(.data-morph) {
+  animation: 150ms ease-out both data-fade-out;
+}
+::view-transition-new(.data-morph) {
+  animation: 260ms ease-out 140ms both data-fade-in;
+}
+
+/* Cards gliding to new places when the filter changes. */
+::view-transition-group(.data-move) {
+  animation-duration: 360ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Cards a filter shows or hides. */
+::view-transition-new(.data-pop):only-child {
+  animation: 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both data-pop-in;
+}
+::view-transition-old(.data-pop):only-child {
+  animation: 180ms ease-in both data-pop-out;
+}
+
+/* The page around the card: steps back while the card grows, returns as it shrinks. */
+::view-transition-old(.data-page-out) {
+  animation: 140ms ease-in both data-recede;
+}
+::view-transition-new(.data-page-in) {
+  animation: 320ms ease-out 120ms both data-arrive;
+}
+
+/* Rows changing in place (search, sort, next page): a short crossfade. */
+::view-transition-old(.data-swap) {
+  animation: 120ms ease-in both data-fade-out;
+}
+::view-transition-new(.data-swap) {
+  animation: 220ms ease-out 60ms both data-fade-in;
+}
+
+/* While a filter changes, show the live page under the moving cards (no crossfade of the
+   whole page), so the highlight under the group chips can slide in place. */
+html:active-view-transition-type(data-filter)::view-transition-old(root) {
+  display: none;
+}
+html:active-view-transition-type(data-filter)::view-transition-new(root) {
+  animation: none;
+}
+
+@keyframes data-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes data-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes data-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+@keyframes data-pop-out {
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+@keyframes data-recede {
+  to {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+@keyframes data-arrive {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+/* Panels inside a page that open on demand grow from where they are anchored. */
+.data-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 320ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 200ms ease-out;
+}
+.data-reveal[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.data-reveal > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+  .data-reveal {
+    transition: none;
+  }
+}
