@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { cx } from "@/components/ui";
+import { cx, ActionLink } from "@/components/ui";
 import { BrowseTop, EmptyShelf, Pill, SearchBar, SortLinks, query, shell } from "@/modules/marketplace/components/browse";
 import { LiveGrid } from "@/modules/marketplace/components/live";
 import { browseLive, type LivePhase } from "@/modules/marketplace/service";
@@ -71,9 +71,9 @@ export default async function Live({ searchParams }: { searchParams: Promise<Sea
                 {q && <span className="text-muted"> for &ldquo;{q}&rdquo;</span>}
               </h2>
               {filtering && (
-                <Link href="/marketplace/live" className="mt-1 inline-block text-[14px] text-brand hover:underline">
+                <ActionLink href="/marketplace/live" className="mt-1">
                   Clear filters
-                </Link>
+                </ActionLink>
               )}
             </div>
             <SortLinks options={SORTS} current={sort} href={(key) => href({ sort: key })} />

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import Link from "next/link";
-import { Card, CardTitle, Empty, Field, Input, PageHeader, Select, buttonClass } from "@/components/ui";
+import { Card, CardTitle, Empty, Field, Input, PageHeader, Select, buttonClass, actionClass, ButtonLabel } from "@/components/ui";
 import { ManageRow } from "@/components/manage-row";
 import { can, reach } from "@/server/authz/engine";
 import { ROLE_LABELS, USER_GROUPS } from "@/server/authz/roles";
@@ -141,8 +141,8 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
                                         <ActionForm action={revokeRoleAction} confirm={`Remove ${r.label} from ${p.name}?`}>
                                           <input type="hidden" name="uni" value={uni} />
                                           <input type="hidden" name="assignmentId" value={r.assignmentId} />
-                                          <button aria-label={`Remove ${r.label} from ${p.name}`} className="text-[13px] text-muted underline underline-offset-2 hover:text-danger">
-                                            Remove role
+                                          <button aria-label={`Remove ${r.label} from ${p.name}`} className={actionClass("Remove")}>
+                                            <ButtonLabel>Remove role</ButtonLabel>
                                           </button>
                                         </ActionForm>
                                       </li>

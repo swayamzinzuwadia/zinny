@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { SubmitButton } from "@/components/forms";
-import { Card, Field, Input, Notice, Select, buttonClass, cx } from "@/components/ui";
+import { Card, Field, Input, Notice, Select, buttonClass, cx, actionClass, ButtonLabel } from "@/components/ui";
 import type { QuickCourseOptions, QuickSection } from "@/server/services/quick-course";
 import { quickCourseAction, type QuickCourseState } from "../../../actions";
 
@@ -349,8 +349,8 @@ export function NewCourseForm({
                 </div>
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                   <span className="text-[12px] text-muted">They get an email invitation to set a password.</span>
-                  <button type="button" className="text-[13px] font-medium text-danger hover:underline" onClick={() => setNewTeachers(newTeachers.filter((_, j) => j !== i))}>
-                    Remove
+                  <button type="button" className={actionClass("Remove")} onClick={() => setNewTeachers(newTeachers.filter((_, j) => j !== i))}>
+                    <ButtonLabel>Remove</ButtonLabel>
                   </button>
                 </div>
               </div>

@@ -7,7 +7,7 @@
  */
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { ActionForm, SubmitButton, type ActionState, type FormAction } from "@/components/forms";
-import { Field, Input, Select, buttonClass, cx } from "@/components/ui";
+import { Field, Input, Select, buttonClass, cx, ActionAnchor } from "@/components/ui";
 import type { Reach } from "@/server/authz/abilities";
 import type { AbilityOption, RoleSummary } from "@/server/authz/capabilities";
 
@@ -266,9 +266,9 @@ function RoleForm({
             {role && peopleHref && (
               <>
                 {" · "}
-                <a href={peopleHref} className="text-brand hover:underline">
+                <ActionAnchor href={peopleHref} icon="view">
                   See them
-                </a>
+                </ActionAnchor>
               </>
             )}
           </p>

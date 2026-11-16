@@ -1,13 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  Card,
-  CardTitle,
-  Field,
-  Input,
-  Notice,
-  PageHeader,
-} from "@/components/ui";
+import { Card, CardTitle, Field, Input, Notice, PageHeader, ActionLink } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { platformContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
@@ -119,12 +112,9 @@ export default async function DataRowPage({
                         mode="update"
                       />
                       {t.name === "users" && c.name === "password_hash" && (
-                        <Link
-                          href={`/platform/people/${row.values.id}`}
-                          className="mt-1.5 inline-block text-[12.5px] font-medium text-brand hover:underline"
-                        >
+                        <ActionLink href={`/platform/people/${row.values.id}`} className="mt-1.5">
                           Set this person&apos;s password
-                        </Link>
+                        </ActionLink>
                       )}
                     </div>
                   ))}
@@ -175,12 +165,9 @@ export default async function DataRowPage({
                     <div>
                       <dt className="text-[12.5px] text-muted">Person</dt>
                       <dd>
-                        <Link
-                          href={`/platform/people/${row.values.id}`}
-                          className="font-medium text-brand hover:underline"
-                        >
+                        <ActionLink href={`/platform/people/${row.values.id}`}>
                           Open on Users
-                        </Link>
+                        </ActionLink>
                       </dd>
                     </div>
                   )}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Stat, Table, Td, buttonClass, cx } from "@/components/ui";
+import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Stat, Table, Td, buttonClass, cx, ActionAnchor, ActionLink } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { can } from "@/server/core";
 import { InvoiceStatusBadge } from "@/modules/payments/components/status-badge";
@@ -136,9 +136,9 @@ export default async function InvoicesPage({ params, searchParams }: { params: P
                 {f.status !== "overdue" && (
                   <>
                     {" · "}
-                    <Link href={`${base}${query({ ...f, status: "overdue", page: undefined })}`} className="font-medium text-brand hover:underline">
+                    <ActionLink href={`${base}${query({ ...f, status: "overdue", page: undefined })}`} icon="view">
                       Show {t.overdue === 1 ? "it" : "them"}
-                    </Link>
+                    </ActionLink>
                   </>
                 )}
               </>
@@ -236,9 +236,9 @@ export default async function InvoicesPage({ params, searchParams }: { params: P
                         <InvoiceStatusBadge status={r.status} overdue={r.overdue} />
                         <div className="mt-1">
                           {/* Plain link: it opens a file. */}
-                          <a href={`${base}/${r.id}/pdf`} target="_blank" rel="noreferrer" className="text-[12.5px] font-medium text-brand hover:underline">
+                          <ActionAnchor href={`${base}/${r.id}/pdf`} target="_blank" rel="noreferrer" icon="download">
                             PDF
-                          </a>
+                          </ActionAnchor>
                         </div>
                       </Td>
                     </tr>

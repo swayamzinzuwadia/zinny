@@ -1,5 +1,5 @@
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Card, CardTitle, Empty, Field, Input, PageHeader, Textarea, cx } from "@/components/ui";
+import { Card, CardTitle, Empty, Field, Input, PageHeader, Textarea, cx, actionClass, ButtonLabel } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { canManageSite } from "@/modules/website-builder/access";
 import { saveTestimonialAction } from "@/modules/website-builder/actions";
@@ -80,7 +80,11 @@ export default async function TestimonialsPage({ params }: { params: Promise<{ u
                     <ItemControls uni={uni} collection="testimonials" id={t.id} visible={t.visible} name={`the testimonial from ${t.name}`} first={i === 0} last={i === rows.length - 1} />
                   </div>
                   <details className="border-t border-line">
-                    <summary className="cursor-pointer px-5 py-2.5 text-[13px] text-brand">Edit</summary>
+                    <summary className="cursor-pointer list-none px-3 py-2">
+                      <span className={actionClass("Edit")}>
+                        <ButtonLabel>Edit</ButtonLabel>
+                      </span>
+                    </summary>
                     <ActionForm action={saveTestimonialAction} resetOnSuccess={false} className="space-y-4 px-5 pb-5">
                       <TestimonialFields uni={uni} row={t} />
                       <SubmitButton size="sm">Save testimonial</SubmitButton>

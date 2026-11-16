@@ -1,6 +1,6 @@
 /** Admin slot components: course Assignments tab, batch section and dashboard card. */
 import Link from "next/link";
-import { Badge, ButtonLink, Card, CardTitle, Empty, Table, Td } from "@/components/ui";
+import { Badge, ButtonLink, Card, CardTitle, Empty, Table, Td, ActionLink } from "@/components/ui";
 import type { BatchSectionProps, CourseTabProps, DashboardCardProps, DashboardRow } from "@/contracts/module";
 import { dueLabel, relative } from "../lib/time";
 import { staffAssignment, staffBase } from "../links";
@@ -149,9 +149,9 @@ export async function ToGradeCard({ uni, actor }: DashboardCardProps) {
           ))}
           {items.length > 6 && (
             <li>
-              <Link href={staffBase(uni)} className="text-[13px] font-medium text-brand hover:underline">
+              <ActionLink href={staffBase(uni)} icon="view">
                 See all {items.length} assignments waiting
-              </Link>
+              </ActionLink>
             </li>
           )}
         </ul>

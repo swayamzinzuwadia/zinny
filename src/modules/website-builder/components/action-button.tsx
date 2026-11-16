@@ -2,7 +2,7 @@
 
 import { useActionState, type ReactNode } from "react";
 import type { ActionState, FormAction } from "@/components/forms";
-import { buttonClass, cx, type ButtonVariant } from "@/components/ui";
+import { ButtonLabel, buttonClass, cx, type ButtonVariant } from "@/components/ui";
 
 /**
  * A one-button form for small row actions (move, show/hide, approve). It shows only
@@ -41,7 +41,7 @@ export function ActionButton({
         <input key={k} type="hidden" name={k} value={v} />
       ))}
       <button type="submit" disabled={pending} aria-label={label} title={label} className={buttonClass(variant, size)}>
-        {children}
+        <ButtonLabel>{children}</ButtonLabel>
       </button>
       {state?.error && (
         <span role="alert" className="mt-1 max-w-56 text-[12px] leading-snug text-danger">

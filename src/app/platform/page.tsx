@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Card, CardTitle, Field, Input, PageHeader, Select, Stat, cx } from "@/components/ui";
+import { Card, CardTitle, Field, Input, PageHeader, Select, Stat, cx, ActionLink } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { acknowledgeAlertAction, startSupportAction } from "@/modules/zinny-team-panel/actions";
@@ -90,9 +90,9 @@ export default async function PlatformHome() {
                       detail={a.body}
                       action={
                         <>
-                          <Link href={`/platform/licences/${a.universityId}`} className="text-[13px] text-brand hover:underline">
+                          <ActionLink href={`/platform/licences/${a.universityId}`}>
                             Open licence
-                          </Link>
+                          </ActionLink>
                           <ActionForm action={acknowledgeAlertAction} className="contents">
                             <input type="hidden" name="alertId" value={a.id} />
                             <SubmitButton size="sm" variant="secondary" pendingText="Saving…">
@@ -222,9 +222,9 @@ export default async function PlatformHome() {
                         {s.staffUserId === actor.userId ? (
                           <span className="text-[13px] text-muted">You</span>
                         ) : (
-                          <Link href={`/platform/support#session-${s.id}`} className="text-[13px] text-brand hover:underline">
+                          <ActionLink href={`/platform/support#session-${s.id}`} icon="close">
                             Force-end
-                          </Link>
+                          </ActionLink>
                         )}
                       </li>
                     ))}
@@ -286,8 +286,6 @@ function NeedsRow({ title, detail, action, dot = "gold" }: { title: ReactNode; d
 
 function RowLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="text-[13px] font-medium text-brand hover:underline">
-      {children}
-    </Link>
+    <ActionLink href={href}>{children}</ActionLink>
   );
 }

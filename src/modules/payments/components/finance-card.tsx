@@ -1,6 +1,5 @@
-import Link from "next/link";
 import type { DashboardCardProps, DashboardRow } from "@/contracts/module";
-import { Card, CardTitle } from "@/components/ui";
+import { Card, CardTitle, ActionLink } from "@/components/ui";
 import { financeAttention } from "../sales";
 
 /** Compact: failed refunds as one "Needs you" row. */
@@ -30,9 +29,9 @@ export async function RefundsDueCard({ uni, actor }: DashboardCardProps) {
     <Card className="border-gold/60">
       <CardTitle
         hint={
-          <Link href={`/${uni}/admin/finance/sales`} className="text-brand hover:underline">
+          <ActionLink href={`/${uni}/admin/finance/sales`}>
             Open sales
-          </Link>
+          </ActionLink>
         }
       >
         Refunds that failed

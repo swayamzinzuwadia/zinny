@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Stat, Table, Td, cx } from "@/components/ui";
+import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Stat, Table, Td, cx, ActionLink } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { ForbiddenError, NotFoundError } from "@/server/errors";
 import { setThresholdAction } from "@/modules/live-classes/actions";
@@ -186,9 +186,9 @@ export default async function AttendancePage({ params }: { params: Promise<{ uni
                   ) : s.counts ? (
                     <Badge>Not locked</Badge>
                   ) : (
-                    <Link href={registerHref(uni, id, s.date, s.startTime)} className="text-[13px] text-brand hover:underline">
+                    <ActionLink href={registerHref(uni, id, s.date, s.startTime)} icon="check">
                       {data.canMark ? "Take attendance" : "View"}
-                    </Link>
+                    </ActionLink>
                   )}
                 </Td>
               </tr>

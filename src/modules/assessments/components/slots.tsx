@@ -2,7 +2,7 @@
  * What assessments puts into core pages (contracts.md section 3). Server components.
  */
 import Link from "next/link";
-import { Badge, Card, CardTitle, Empty, buttonClass } from "@/components/ui";
+import { Badge, Card, CardTitle, Empty, buttonClass, ActionLink } from "@/components/ui";
 import type { BatchSectionProps, CourseTabProps, DashboardCardProps, DashboardRow, HomeCardProps, HubSectionProps, LearnerCourseTabProps } from "@/contracts/module";
 import { gradingQueue } from "../attempts";
 import { myResults, myTests } from "../learner";
@@ -155,9 +155,9 @@ function ResultsList({ uni, rows, timezone }: { uni: string; rows: ResultRow[]; 
 /** The learner cards' way to every test, with a hit area big enough for a thumb. */
 function AllTestsLink({ uni }: { uni: string }) {
   return (
-    <Link href={`/${uni}/learn/tests`} className="inline-block py-1 font-medium text-brand hover:underline">
+    <ActionLink href={`/${uni}/learn/tests`} icon="forward">
       All tests
-    </Link>
+    </ActionLink>
   );
 }
 

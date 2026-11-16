@@ -2,7 +2,7 @@
 
 import { createContext, useActionState, useContext, useEffect, useState, type ReactNode } from "react";
 import { ActionForm, ClashPrompt, SubmitButton, type ClashFormAction, type ClashState, type FormAction } from "./forms";
-import { Card, Field, Input, Select, Textarea, cx } from "./ui";
+import { ButtonLabel, Card, Field, Input, Select, Textarea, actionClass, cx } from "./ui";
 
 export type QuickBatch = {
   id: string;
@@ -92,8 +92,8 @@ export function QuickActionPanel() {
     <Card id="quick-action-panel">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-[16px] font-medium">{label}</h2>
-        <button type="button" onClick={() => c.setOpen(null)} className="text-[13px] font-medium text-brand hover:underline">
-          Close
+        <button type="button" onClick={() => c.setOpen(null)} className={actionClass()}>
+          <ButtonLabel icon="close">Close</ButtonLabel>
         </button>
       </div>
       {open === "student" && <AddStudentForm {...p} />}

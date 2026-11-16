@@ -2,7 +2,8 @@
 
 import { useActionState, useEffect, useRef, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
-import { buttonClass, cx, type ButtonVariant } from "./ui";
+import { isDestructive, type ActionIconName } from "./action-icons";
+import { ButtonLabel, buttonClass, cx, type ButtonVariant } from "./ui";
 
 export type ActionState = { ok?: string; error?: string; at?: number } | null;
 export type FormAction = (prev: ActionState, data: FormData) => Promise<ActionState>;
@@ -39,11 +40,33 @@ export function ClashPrompt({ warning, onCancel, pending }: { warning: string; o
   );
 }
 
-export function SubmitButton({ children, variant = "primary", size = "md", pendingText }: { children: ReactNode; variant?: ButtonVariant; size?: "md" | "sm"; pendingText?: string }) {
+export function SubmitButton({
+  children,
+  variant = "primary",
+  size = "md",
+  pendingText,
+  icon,
+}: {
+  children: ReactNode;
+  variant?: ButtonVariant;
+  size?: "md" | "sm";
+  pendingText?: string;
+  /** Picked from the label ("Archive plan" gets the archive box); `false` for none. */
+  icon?: ActionIconName | false;
+}) {
   const { pending } = useFormStatus();
+  // A quiet Delete or Remove is shown in red.
+  const v = variant === "quiet" && isDestructive(children) ? "quietDanger" : variant;
   return (
-    <button type="submit" disabled={pending} className={buttonClass(variant, size)}>
-      {pending ? (pendingText ?? "Saving…") : children}
+    <button type="submit" disabled={pending} className={buttonClass(v, size)}>
+      {pending ? (
+        <>
+          <span aria-hidden className="size-3.5 shrink-0 animate-spin rounded-full border-[1.5px] border-current border-t-transparent" />
+          {pendingText ?? "Saving…"}
+        </>
+      ) : (
+        <ButtonLabel icon={icon}>{children}</ButtonLabel>
+      )}
     </button>
   );
 }

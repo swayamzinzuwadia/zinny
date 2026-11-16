@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Empty, PageHeader, Stat, Td, cx } from "@/components/ui";
+import { Badge, Empty, PageHeader, Stat, Td, cx, ActionLink } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { checkLicencesAction } from "@/modules/zinny-team-panel/actions";
@@ -119,9 +119,9 @@ export default async function LicencesPage() {
                       {r.openAlerts} warning{r.openAlerts === 1 ? "" : "s"}
                     </Badge>
                   )}
-                  <Link href={`/platform/licences/${r.universityId}`} className="text-[13px] font-medium text-brand hover:underline">
+                  <ActionLink href={`/platform/licences/${r.universityId}`} icon="edit">
                     {r.licence ? "Edit" : "Set up"}
-                  </Link>
+                  </ActionLink>
                 </div>
               </Td>
             </tr>

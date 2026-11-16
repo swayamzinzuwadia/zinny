@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, ButtonLink, Card, CardTitle, Empty, PageHeader, Stat, Tabs, Td, cx } from "@/components/ui";
+import { Badge, ButtonLink, Card, CardTitle, Empty, PageHeader, Stat, Tabs, Td, cx, ActionLink } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { renewNowAction, setAutoRenewAction } from "@/modules/zinny-team-panel/actions";
@@ -47,9 +47,9 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           </ul>
         )}
         {upcoming.length > shown.length && (
-          <Link href="/platform/billing?all=1" className="mt-3 inline-block text-[13px] text-brand hover:underline">
+          <ActionLink href="/platform/billing?all=1" className="mt-3" icon="view">
             See all {upcoming.length}
-          </Link>
+          </ActionLink>
         )}
       </Card>
 
@@ -148,9 +148,9 @@ function ComingUpRow({ r, canRenew, today }: { r: UpcomingRenewal; canRenew: boo
       {canRenew && (
         <div className="flex w-full shrink-0 items-center justify-end gap-4 sm:w-[260px]">
           {r.planArchived ? (
-            <Link href={`/platform/licences/${r.universityId}`} className="text-[13px] font-medium text-brand hover:underline">
+            <ActionLink href={`/platform/licences/${r.universityId}`} icon="forward">
               Pick a plan
-            </Link>
+            </ActionLink>
           ) : (
             <ActionForm action={renewNowAction} confirm={`Renew ${r.universityName}'s licence now? It is invoiced for ${formatINR(r.totalPaise)} today.`}>
               <input type="hidden" name="universityId" value={r.universityId} />

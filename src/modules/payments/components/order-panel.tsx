@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Card, Field, Input, Notice, Textarea } from "@/components/ui";
+import { Card, Field, Input, Notice, Textarea, ActionAnchor } from "@/components/ui";
 import { refundAction } from "../actions";
 import { dayIn } from "../internal";
 import { decimal, inr } from "../money";
@@ -94,9 +94,9 @@ export function OrderPanel({ uni, d, closeHref }: { uni: string; d: Detail; clos
               <span className="font-mono text-[13px]">{d.invoice.number}</span>
               <span className="text-muted"> · {invoiceDate(dayIn(d.timezone, d.invoice.issuedAt))}</span>
             </span>
-            <a href={`/${uni}/admin/finance/sales/invoices/${d.invoice.id}`} className="font-medium text-brand hover:underline">
+            <ActionAnchor href={`/${uni}/admin/finance/sales/invoices/${d.invoice.id}`}>
               Download PDF
-            </a>
+            </ActionAnchor>
           </div>
         ) : (
           <p className="text-[14px] text-muted">{o.status === "refund_due" ? "No invoice: the student wasn't enrolled." : "Issued when the order is paid."}</p>

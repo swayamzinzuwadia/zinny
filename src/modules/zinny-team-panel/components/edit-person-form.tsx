@@ -1,5 +1,5 @@
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Field, Input } from "@/components/ui";
+import { Field, Input, actionClass, cx, ButtonLabel } from "@/components/ui";
 import { updatePersonAction } from "../actions";
 
 /**
@@ -12,11 +12,11 @@ export function EditPersonForm({ userId, name, email, phone, compact }: { userId
       <summary
         className={
           compact
-            ? "inline-flex h-8 cursor-pointer list-none items-center whitespace-nowrap text-[13px] text-brand hover:underline"
+            ? cx(actionClass("Edit"), "cursor-pointer list-none whitespace-nowrap")
             : "inline-flex h-10 cursor-pointer list-none items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40"
         }
       >
-        Edit
+        <ButtonLabel icon="edit">Edit</ButtonLabel>
       </summary>
       <ActionForm action={updatePersonAction} className="mt-3 w-80 max-w-full space-y-3 rounded-2xl border border-line bg-surface p-4 text-left">
         <input type="hidden" name="userId" value={userId} />

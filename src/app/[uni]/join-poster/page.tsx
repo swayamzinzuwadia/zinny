@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Logo } from "@/components/ui";
+import { Logo, ActionLink } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { canAdmit, getJoinSettings } from "@/modules/identity/joining";
 import { joinLink, joinQrSvg } from "@/modules/identity/share";
@@ -25,9 +24,9 @@ export default async function JoinPoster({ params }: { params: Promise<{ uni: st
     <main className={`display-headings min-h-dvh bg-canvas px-4 py-8 print:bg-white print:p-0 ${display.variable}`}>
       <style>{`@page { size: A4; margin: 14mm; } @media print { .no-print { display: none !important; } }`}</style>
       <div className="no-print mx-auto mb-6 flex max-w-[720px] flex-wrap items-center justify-between gap-3">
-        <Link href={`/${uni}/admin`} className="text-[14px] font-medium text-brand hover:underline">
+        <ActionLink href={`/${uni}/admin`} icon="back">
           Back to the dashboard
-        </Link>
+        </ActionLink>
         <PrintButton />
       </div>
 

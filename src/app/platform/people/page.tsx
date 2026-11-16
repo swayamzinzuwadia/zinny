@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Avatar, Empty, PageHeader, Select, Td, cx } from "@/components/ui";
+import { Avatar, Empty, PageHeader, Select, Td, cx, ActionLink } from "@/components/ui";
 import { ROLE_LABELS } from "@/server/authz/roles";
 import { platformContext } from "@/server/context";
 import { NoAccess, PanelTable, WIDE_ONLY } from "@/modules/zinny-team-panel/components/bits";
@@ -194,9 +194,9 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
         <div className="flex items-end gap-4 sm:col-span-2">
           <button className="h-10 rounded-full bg-brand px-5 text-[14px] font-medium text-canvas hover:bg-brand-strong">Apply filters</button>
           {(filtered || sort !== "name" || dir !== "asc") && (
-            <Link href={href(reset)} className="text-[14px] font-medium text-brand hover:underline">
+            <ActionLink href={href(reset)}>
               Clear filters
-            </Link>
+            </ActionLink>
           )}
         </div>
       </form>
@@ -254,17 +254,17 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
       {(page > 1 || hasMore) && (
         <div className="mt-5 flex items-center justify-between text-[14px]">
           {page > 1 ? (
-            <Link href={href({ page: String(page - 1) })} className="font-medium text-brand hover:underline">
+            <ActionLink href={href({ page: String(page - 1) })} icon="back">
               Previous page
-            </Link>
+            </ActionLink>
           ) : (
             <span />
           )}
           <span className="text-muted">Page {page}</span>
           {hasMore ? (
-            <Link href={href({ page: String(page + 1) })} className="font-medium text-brand hover:underline">
+            <ActionLink href={href({ page: String(page + 1) })} icon="forward">
               Next page
-            </Link>
+            </ActionLink>
           ) : (
             <span />
           )}

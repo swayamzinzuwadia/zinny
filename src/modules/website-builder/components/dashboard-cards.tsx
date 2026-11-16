@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { DashboardCardProps, DashboardRow } from "@/contracts/module";
-import { ButtonLink, Card, CardTitle, cx } from "@/components/ui";
+import { ButtonLink, Card, CardTitle, cx, ActionAnchor } from "@/components/ui";
 import { canManageSite, isTeachingStaff } from "../access";
 import { getMyProfile, PROFILE_STATUS_LABEL } from "../faculty";
 import { plural } from "../format";
@@ -36,9 +36,9 @@ export async function WebsiteCard({ uni, actor }: DashboardCardProps) {
     <Card>
       <CardTitle
         hint={
-          <a href={`/site/${uni}`} target="_blank" rel="noreferrer" className="text-brand hover:underline">
+          <ActionAnchor href={`/site/${uni}`} target="_blank" rel="noreferrer">
             View website
-          </a>
+          </ActionAnchor>
         }
       >
         Website

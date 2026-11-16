@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, cx, Table, Td } from "@/components/ui";
+import { Badge, cx, Table, Td, ActionLink } from "@/components/ui";
 import { CHANNEL_LABEL, CHANNELS, STATE_LABEL } from "../kinds";
 import type { ChannelState } from "../schema";
 import type { KindSummary } from "../service";
@@ -51,9 +51,9 @@ export function KindsTable({ kinds, hrefFor }: { kinds: KindSummary[]; hrefFor: 
                 <Td className="text-right">
                   <span className="inline-flex items-center gap-2">
                     {k.customized && <Badge tone="brand">Custom text</Badge>}
-                    <Link href={hrefFor(k.kind)} className="text-[13px] font-medium text-brand hover:underline">
+                    <ActionLink href={hrefFor(k.kind)}>
                       Edit
-                    </Link>
+                    </ActionLink>
                   </span>
                 </Td>
               </tr>

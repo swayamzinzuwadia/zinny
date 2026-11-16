@@ -4,7 +4,7 @@ import { SlotList } from "@/components/slots";
 import { SwitchRequests } from "@/components/switch-requests";
 import { EnrolmentRequests } from "@/components/enrolment-requests";
 import { TodayBoard } from "@/components/today-board";
-import { Card, CardTitle, Stat, cx } from "@/components/ui";
+import { Card, CardTitle, Stat, cx, ActionLink } from "@/components/ui";
 import type { DashboardCard, DashboardCardProps, DashboardLine, DashboardRow } from "@/contracts/module";
 import { can, reach } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
@@ -501,9 +501,9 @@ export default async function Dashboard({
                   <p className="text-[14px] text-muted">
                     No open batches yet.{" "}
                     {canNewCourse && (
-                      <Link href={`${base}/products/courses/new`} className="font-medium text-brand hover:underline">
+                      <ActionLink href={`${base}/products/courses/new`} icon="add">
                         Create a course with its first batch
-                      </Link>
+                      </ActionLink>
                     )}
                   </p>
                 ) : (
@@ -538,9 +538,9 @@ export default async function Dashboard({
                   </ul>
                 )}
                 {data.seats.length > 0 && (
-                  <Link href={`${base}/products/courses`} className="mt-4 inline-block text-[13px] font-medium text-brand hover:underline">
+                  <ActionLink href={`${base}/products/courses`} className="mt-4" icon="view">
                     See all courses and batches
-                  </Link>
+                  </ActionLink>
                 )}
               </Card>
             )}

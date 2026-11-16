@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ButtonLink, cx } from "@/components/ui";
+import { ButtonLink, cx, ActionLink } from "@/components/ui";
 import { currentUserId } from "@/server/auth/session";
 import { ShopShelf } from "@/modules/marketplace/components/jacket";
 import { LibraryCard, LiveLibraryCard } from "@/modules/marketplace/components/library";
@@ -68,9 +67,9 @@ export default async function Library({ searchParams }: { searchParams: Promise<
                 </div>
               </>
             ) : (
-              <Link href="/" className="mt-4 inline-block font-medium text-brand hover:underline">
+              <ActionLink href="/" className="mt-4" icon="back">
                 Back to your space
-              </Link>
+              </ActionLink>
             )}
           </div>
         ) : (

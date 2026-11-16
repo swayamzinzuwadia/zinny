@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Field, Input, Notice, PageHeader, Select } from "@/components/ui";
+import { Badge, Card, CardTitle, Field, Input, Notice, PageHeader, Select, ActionAnchor } from "@/components/ui";
 import { DeleteLessonButton } from "@/modules/content-progress/components/lesson-editor-controls";
 import { DripFields } from "@/modules/content-progress/components/drip-fields";
 import { FileUpload } from "@/modules/content-progress/components/file-upload";
@@ -149,9 +149,9 @@ export default async function LessonEditorPage({ params }: { params: Promise<{ u
                     <div className="truncate font-medium">{parsed.pdf.fileName}</div>
                     <div className="text-[13px] text-muted">{formatBytes(parsed.pdf.size)}</div>
                   </div>
-                  <a href={staffFilePath(uni, lesson.id)} target="_blank" rel="noreferrer" className="text-[14px] text-brand hover:underline">
+                  <ActionAnchor href={staffFilePath(uni, lesson.id)} target="_blank" rel="noreferrer">
                     Open PDF
-                  </a>
+                  </ActionAnchor>
                 </div>
               )}
               {canEdit && <FileUpload uploadsUrl={uploadsPath(uni)} lessonId={lesson.id} kind="pdf" hasFile={!!parsed.pdf} />}

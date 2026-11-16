@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Card, CardTitle, Notice, PageHeader, Stat } from "@/components/ui";
+import { Card, CardTitle, Notice, PageHeader, Stat, ActionLink } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { removeListingAction, setListingStatusAction, updateListingAction } from "@/modules/marketplace/actions";
@@ -84,9 +84,9 @@ export default async function EditListing({ params }: { params: Promise<{ uni: s
 
       {offered && (
         <p className="mt-4 max-w-xl text-[13px]">
-          <Link href={`/marketplace/${listing.id}`} className="text-brand hover:underline">
+          <ActionLink href={`/marketplace/${listing.id}`} icon="forward">
             See this listing on the marketplace
-          </Link>
+          </ActionLink>
         </p>
       )}
     </>

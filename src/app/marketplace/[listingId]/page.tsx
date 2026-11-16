@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { CSSProperties } from "react";
 import { ActionForm } from "@/components/forms";
-import { ButtonLink, cx } from "@/components/ui";
+import { ButtonLink, cx, ActionLink } from "@/components/ui";
 import { currentUserId } from "@/server/auth/session";
 import { buyAction } from "@/modules/marketplace/actions";
 import { inCart } from "@/modules/marketplace/cart";
@@ -237,9 +237,9 @@ export default async function Listing({ params }: { params: Promise<{ listingId:
             <h2 id="more" className="text-[clamp(1.7rem,3.2vw,2.3rem)] leading-tight font-semibold">
               More from {item.institute}
             </h2>
-            <Link href={shelf} className="shrink-0 pb-1 text-[14px] font-medium text-brand hover:underline">
+            <ActionLink href={shelf} className="shrink-0 pb-1" icon="forward">
               Their page
-            </Link>
+            </ActionLink>
           </div>
           <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-x-7 lg:grid-cols-4">
             {more.map((m) => (

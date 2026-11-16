@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Field, Input, Notice, Select, Stat, Table, Td, Textarea } from "@/components/ui";
+import { Badge, Card, CardTitle, Empty, Field, Input, Notice, Select, Stat, Table, Td, Textarea, ActionAnchor, ActionLink } from "@/components/ui";
 import type { CourseTabProps } from "@/contracts/module";
 import { can } from "@/server/core";
 import { issueCertificateAction, saveRuleAction } from "../actions";
@@ -87,9 +87,9 @@ export async function CertificatesCourseTab({ uni, actor, course, target }: Cour
                     </div>
                   </Td>
                   <Td className="whitespace-nowrap text-right">
-                    <a href={`${base}/issued/${c.id}/download`} className="text-[13px] font-medium text-brand hover:underline">
+                    <ActionAnchor href={`${base}/issued/${c.id}/download`}>
                       Download
-                    </a>
+                    </ActionAnchor>
                   </Td>
                 </tr>
               ))}
@@ -137,9 +137,9 @@ export async function CertificatesCourseTab({ uni, actor, course, target }: Cour
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <SubmitButton>Save rules</SubmitButton>
-                  <Link href={`${base}/templates/${rule.template.id}`} className="text-[13px] text-brand hover:underline">
+                  <ActionLink href={`${base}/templates/${rule.template.id}`}>
                     Open the template
-                  </Link>
+                  </ActionLink>
                 </div>
               </ActionForm>
             ) : (

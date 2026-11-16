@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Field, Input, Select } from "@/components/ui";
+import { Badge, Field, Input, Select, ActionLink } from "@/components/ui";
 import { currentUserId } from "@/server/auth/session";
 import { findInstituteByCode, myJoinRequests } from "@/modules/identity/joining";
 import { AuthShell } from "@/modules/identity/components/auth-shell";
@@ -37,9 +37,9 @@ export default async function JoinPage({ searchParams }: { searchParams: Promise
             <span className="font-medium">{r.institute}</span>
             <Badge tone={STATUS[r.status]?.tone ?? "neutral"}>{STATUS[r.status]?.label ?? r.status}</Badge>
             {r.status === "approved" && (
-              <Link href={`/${r.slug}/learn`} className="ml-auto text-brand hover:underline">
+              <ActionLink href={`/${r.slug}/learn`} className="ml-auto">
                 Open
-              </Link>
+              </ActionLink>
             )}
             {r.status === "pending" && (
               <ActionForm action={cancelJoinAction} className="ml-auto">
@@ -57,9 +57,9 @@ export default async function JoinPage({ searchParams }: { searchParams: Promise
   );
   const back = (
     <p className="mt-6 text-[14px] text-muted">
-      <Link href="/marketplace" className="text-brand hover:underline">
+      <ActionLink href="/marketplace" icon="back">
         Back to the marketplace
-      </Link>
+      </ActionLink>
     </p>
   );
 

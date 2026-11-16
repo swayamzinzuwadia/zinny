@@ -1,5 +1,5 @@
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Card, CardTitle, Empty, Field, Input, PageHeader, Textarea, cx } from "@/components/ui";
+import { Card, CardTitle, Empty, Field, Input, PageHeader, Textarea, cx, actionClass, ButtonLabel } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { canManageSite } from "@/modules/website-builder/access";
 import { saveVideoAction } from "@/modules/website-builder/actions";
@@ -71,7 +71,11 @@ export default async function VideosPage({ params }: { params: Promise<{ uni: st
                     <ItemControls uni={uni} collection="videos" id={v.id} visible={v.visible} name={`the video “${v.title}”`} first={i === 0} last={i === rows.length - 1} />
                   </div>
                   <details className="border-t border-line">
-                    <summary className="cursor-pointer px-5 py-2.5 text-[13px] text-brand">Edit</summary>
+                    <summary className="cursor-pointer list-none px-3 py-2">
+                      <span className={actionClass("Edit")}>
+                        <ButtonLabel>Edit</ButtonLabel>
+                      </span>
+                    </summary>
                     <ActionForm action={saveVideoAction} resetOnSuccess={false} className="space-y-4 px-5 pb-5">
                       <VideoFields uni={uni} row={v} />
                       <SubmitButton size="sm">Save video</SubmitButton>

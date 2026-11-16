@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Field, Input, Notice, PageHeader, Stat, cx } from "@/components/ui";
+import { Badge, Card, CardTitle, Field, Input, Notice, PageHeader, Stat, cx, ActionLink } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { AppError, ForbiddenError, NotFoundError } from "@/server/errors";
 import { lockRegisterAction, saveLinksAction, unlockRegisterAction } from "@/modules/live-classes/actions";
@@ -62,13 +62,13 @@ export default async function RegisterPage({
         <Notice tone="warn">{result.message}</Notice>
         <div className="mt-4 flex gap-4 text-[14px]">
           {to && (
-            <Link className="font-medium text-brand hover:underline" href={registerHref(uni, id, to.date, to.startTime)}>
+            <ActionLink href={registerHref(uni, id, to.date, to.startTime)} icon="forward">
               Open the register for {formatDay(to.date)}
-            </Link>
+            </ActionLink>
           )}
-          <Link className="text-brand hover:underline" href={attendanceHref(uni, id)}>
+          <ActionLink href={attendanceHref(uni, id)} icon="back">
             Back to attendance
-          </Link>
+          </ActionLink>
         </div>
       </>
     );

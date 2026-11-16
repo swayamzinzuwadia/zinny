@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Badge, Card, Empty } from "@/components/ui";
+import { Badge, Card, Empty, ActionLink } from "@/components/ui";
 import { SlotList } from "@/components/slots";
 import { hasRole } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
@@ -44,9 +44,9 @@ export default async function MyLearning({ params }: { params: Promise<{ uni: st
               </Link>
               <div className="flex items-center gap-3">
                 {l.switchRequest && <Badge tone="warn">Switch requested</Badge>}
-                <Link href={`/${uni}/learn/my/${l.enrolmentId}`} className="inline-block py-1 text-sm font-medium text-brand hover:underline">
+                <ActionLink href={`/${uni}/learn/my/${l.enrolmentId}`}>
                   Open course
-                </Link>
+                </ActionLink>
               </div>
             </div>
             <SwitchBatch

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { buttonClass, cx } from "@/components/ui";
+import { buttonClass, cx, actionClass, ButtonLabel } from "@/components/ui";
 
 export type ExistingFile = { id: string; fileName: string; sizeBytes: number; href?: string };
 
@@ -172,8 +172,8 @@ export function FileUploader({
               <span className="min-w-0 truncate">
                 {i.name} <span className="text-faint">{formatBytes(i.size)}</span>
               </span>
-              <button type="button" className="shrink-0 text-[13px] text-danger hover:underline" onClick={() => setItems((l) => l.filter((x) => x.key !== i.key))}>
-                Remove
+              <button type="button" className={`${actionClass("Remove")} shrink-0`} onClick={() => setItems((l) => l.filter((x) => x.key !== i.key))}>
+                <ButtonLabel>Remove</ButtonLabel>
               </button>
             </div>
             {i.error ? (

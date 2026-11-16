@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, ButtonLink, Empty, PageHeader, Td } from "@/components/ui";
+import { Badge, ButtonLink, Empty, PageHeader, Td, ActionLink } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { NoAccess, PanelTable, PlanBadge, RenewalText, StatusBadge, UsageMeter, WIDE_ONLY } from "@/modules/zinny-team-panel/components/bits";
@@ -147,14 +147,14 @@ export default async function UniversitiesPage({ searchParams }: { searchParams:
               <Td>
                 <div className="flex flex-col items-end gap-1.5 whitespace-nowrap">
                   {canPeople && (
-                    <Link href={`/platform/people?university=${u.id}`} className="text-[13px] font-medium text-brand hover:underline">
+                    <ActionLink href={`/platform/people?university=${u.id}`} icon="view">
                       Users
-                    </Link>
+                    </ActionLink>
                   )}
                   {canLicence && (
-                    <Link href={`/platform/licences/${u.id}`} className="text-[13px] font-medium text-brand hover:underline">
+                    <ActionLink href={`/platform/licences/${u.id}`} icon="view">
                       Licence
-                    </Link>
+                    </ActionLink>
                   )}
                   {canSupport && <OpenInstitute universityId={u.id} slug={u.slug} inside={inside.has(u.id)} asLink />}
                 </div>

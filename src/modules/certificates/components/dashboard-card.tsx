@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, CardTitle } from "@/components/ui";
+import { Card, CardTitle, ActionLink } from "@/components/ui";
 import type { DashboardCardProps, DashboardLine, DashboardRow } from "@/contracts/module";
 import { canManageTemplates, dashboardSummary, EXPIRING_SOON_DAYS } from "../service";
 
@@ -57,9 +57,9 @@ export async function CertificatesDashboardCard({ uni, actor, today }: Dashboard
         </div>
       )}
       <div className="mt-4 flex gap-4 text-[14px]">
-        <Link href={`${base}#issued`} className="font-medium text-brand hover:underline">
+        <ActionLink href={`${base}#issued`} icon="view">
           See issued certificates
-        </Link>
+        </ActionLink>
         {canManageTemplates(actor) && (
           <Link href={base} className="text-muted hover:text-ink">
             Templates

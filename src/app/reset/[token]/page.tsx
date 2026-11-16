@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { buttonClass, cx } from "@/components/ui";
+import { buttonClass, cx, ActionLink } from "@/components/ui";
 import { inspectResetToken } from "@/modules/identity/auth";
 import { formatWhen } from "@/modules/identity/emails";
 import { AuthShell } from "@/modules/identity/components/auth-shell";
@@ -32,9 +32,9 @@ export default async function ResetTokenPage({ params }: { params: Promise<{ tok
           <Alert tone="gold">{copy[1]}</Alert>
           {ASK_AGAIN}
           <p className="text-[14px] text-muted">
-            <Link href="/login" className="text-brand hover:underline">
+            <ActionLink href="/login" icon="back">
               Back to sign in
-            </Link>
+            </ActionLink>
           </p>
         </div>
       </AuthShell>

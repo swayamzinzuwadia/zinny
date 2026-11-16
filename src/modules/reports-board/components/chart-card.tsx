@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
-import { Card, cx } from "@/components/ui";
+import { Card, cx, ButtonLabel, actionClass } from "@/components/ui";
 
 export type FallbackTable = {
   /** Read by screen readers as the table's name. */
@@ -43,14 +43,11 @@ export function ChartCard({
         <h2 className="text-[16px] font-medium">{title}</h2>
         <div className="flex flex-wrap items-baseline gap-x-3 text-[13px] text-muted">
           {hint && <span>{hint}</span>}
-          <button
-            type="button"
+          <button type="button"
             aria-expanded={open}
             aria-controls={id}
-            onClick={() => setOpen((o) => !o)}
-            className="text-brand hover:underline"
-          >
-            {open ? "Hide the table" : "Show as a table"}
+            onClick={() => setOpen((o) => !o)} className={actionClass()}>
+            <ButtonLabel icon="view">{open ? "Hide the table" : "Show as a table"}</ButtonLabel>
           </button>
         </div>
       </div>
