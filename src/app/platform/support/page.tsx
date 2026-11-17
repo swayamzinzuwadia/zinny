@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Td } from "@/components/ui";
+import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Td, ActionAnchor } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { forceEndSupportAction, leaveSupportAction, startSupportAction } from "@/modules/zinny-team-panel/actions";
@@ -71,9 +71,9 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
                         </div>
                         {mine && (
                           <div className="flex items-center gap-3">
-                            <a href={`/${s.slug}/admin`} className="text-[13px] font-medium text-brand hover:underline">
+                            <ActionAnchor href={`/${s.slug}/admin`} icon="forward">
                               Go to {s.universityName}
-                            </a>
+                            </ActionAnchor>
                             <ActionForm action={leaveSupportAction}>
                               <input type="hidden" name="sessionId" value={s.id} />
                               <SubmitButton size="sm" variant="secondary">

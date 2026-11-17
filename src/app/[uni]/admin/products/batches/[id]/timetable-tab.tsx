@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Badge, Card, Empty, Select, buttonClass, cx } from "@/components/ui";
+import { Badge, Card, Empty, Select, buttonClass, cx, ActionLink } from "@/components/ui";
 import { formatDate, formatTime } from "@/server/lib/dates";
 import type { getBatchPlan } from "@/server/services/batch-plan";
 import { toneOf } from "./plan-tab";
@@ -73,9 +72,9 @@ export function TimetableTab({
             ))}
           </ul>
           {canEdit && (
-            <Link href={`${base}?tab=plan`} className="mt-4 inline-block text-[14px] font-medium text-brand hover:underline">
+            <ActionLink href={`${base}?tab=plan`} className="mt-4">
               Open Sections and plan
-            </Link>
+            </ActionLink>
           )}
         </Card>
       )}
@@ -109,14 +108,14 @@ export function TimetableTab({
             Show classes
           </button>
           {filtering && (
-            <Link href={`${base}?tab=timetable`} className="pb-2.5 text-[14px] text-brand hover:underline">
+            <ActionLink href={`${base}?tab=timetable`} className="pb-2.5">
               Clear filters
-            </Link>
+            </ActionLink>
           )}
           {teachesHere && facultyUserId !== viewerUserId && (
-            <Link href={`${base}?tab=timetable&faculty=${viewerUserId}`} className="pb-2.5 text-[14px] text-brand hover:underline">
+            <ActionLink href={`${base}?tab=timetable&faculty=${viewerUserId}`} className="pb-2.5" icon="view">
               Only my classes
-            </Link>
+            </ActionLink>
           )}
         </form>
         <div className="flex gap-2">

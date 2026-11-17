@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, type ReactNode } from "react";
-import { cx } from "./ui";
+import { ButtonLabel, actionClass, cx } from "./ui";
 
 /**
  * One row of a people list: what you read (`children`), a single "Manage" link on the right and,
@@ -23,9 +23,9 @@ export function ManageRow({ children, panel, label, lead }: { children: ReactNod
             aria-controls={id}
             aria-label={`Manage ${label}`}
             onClick={() => setOpen((o) => !o)}
-            className="shrink-0 py-0.5 text-[13px] font-medium text-brand hover:underline"
+            className={`${actionClass()} shrink-0`}
           >
-            {open ? "Close" : "Manage"}
+            <ButtonLabel icon="settings">{open ? "Close" : "Manage"}</ButtonLabel>
           </button>
         )}
       </div>

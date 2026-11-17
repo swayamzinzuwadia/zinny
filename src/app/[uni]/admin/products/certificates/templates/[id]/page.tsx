@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Notice, PageHeader, buttonClass } from "@/components/ui";
+import { Badge, Card, CardTitle, Empty, Notice, PageHeader, buttonClass, actionClass, ButtonLabel } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import {
@@ -122,7 +122,9 @@ export default async function TemplatePage({ params }: { params: Promise<{ uni: 
                       <ActionForm action={removeSignatureAction}>
                         {hidden}
                         <input type="hidden" name="index" value={i} />
-                        <button className="text-[13px] text-muted underline underline-offset-2 hover:text-danger">Remove signature</button>
+                        <button className={actionClass("Remove")}>
+                          <ButtonLabel>Remove signature</ButtonLabel>
+                        </button>
                       </ActionForm>
                     )}
                   </div>

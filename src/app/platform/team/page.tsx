@@ -1,5 +1,5 @@
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Avatar, Badge, ButtonLink, Card, CardTitle, Field, Input, PageHeader, Select } from "@/components/ui";
+import { Avatar, Badge, ButtonLink, Card, CardTitle, Field, Input, PageHeader, Select, actionClass, ButtonLabel } from "@/components/ui";
 import { platformContext } from "@/server/context";
 import { customRoleChoices } from "@/server/core";
 import { inviteMemberAction, removeRoleAction } from "@/modules/zinny-team-panel/actions";
@@ -67,8 +67,8 @@ export default async function TeamPage() {
                         ) : (
                           <ActionForm action={removeRoleAction} confirm={`Remove ${r.label} from ${m.name}?`}>
                             <input type="hidden" name="assignmentId" value={r.assignmentId} />
-                            <button className="rounded-full px-2 py-0.5 text-danger hover:bg-danger-soft" aria-label={`Remove ${r.label} from ${m.name}`}>
-                              Remove
+                            <button className={actionClass("Remove")} aria-label={`Remove ${r.label} from ${m.name}`}>
+                              <ButtonLabel>Remove</ButtonLabel>
                             </button>
                           </ActionForm>
                         )}

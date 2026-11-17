@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { MonthView, monthRange, monthTitle, shiftMonth } from "@/components/month-view";
-import { Card, Empty, PageHeader, buttonClass, cx } from "@/components/ui";
+import { Card, Empty, PageHeader, buttonClass, cx, ActionLink } from "@/components/ui";
 import { WeekView } from "@/components/week-view";
 import { spaceContext } from "@/server/context";
 import { addDays, formatDate, formatTime, weekStart } from "@/server/lib/dates";
@@ -88,9 +88,9 @@ export default async function MyTimetable({ params, searchParams }: { params: Pr
                     </span>
                   )}
                 </span>
-                <Link href={`/${uni}/admin/products/batches/${s.batchId}?tab=timetable`} className="text-[13px] font-medium text-brand hover:underline">
+                <ActionLink href={`/${uni}/admin/products/batches/${s.batchId}?tab=timetable`}>
                   Open the batch timetable
-                </Link>
+                </ActionLink>
               </li>
             ))}
           </ul>

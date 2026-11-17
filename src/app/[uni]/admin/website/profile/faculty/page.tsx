@@ -1,5 +1,5 @@
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, Empty, PageHeader, Tabs, Textarea } from "@/components/ui";
+import { Badge, Card, Empty, PageHeader, Tabs, Textarea, actionClass, ButtonLabel } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { canManageSite } from "@/modules/website-builder/access";
 import { approveProfileAction, profileVisibilityAction, sendBackProfileAction } from "@/modules/website-builder/actions";
@@ -105,8 +105,8 @@ export default async function FacultyProfilesPage({ params, searchParams }: { pa
                         {p.visible ? "Hide from website" : "Show on website"}
                       </ActionButton>
                       {p.visible && (
-                        <a href={`/site/${uni}/faculty/${p.id}`} target="_blank" rel="noreferrer" className="text-[13px] text-brand underline underline-offset-2">
-                          View on website
+                        <a href={`/site/${uni}/faculty/${p.id}`} target="_blank" rel="noreferrer" className={actionClass("View")}>
+                          <ButtonLabel icon="open">View on website</ButtonLabel>
                         </a>
                       )}
                     </>
@@ -115,7 +115,9 @@ export default async function FacultyProfilesPage({ params, searchParams }: { pa
               </div>
               {p.status === "pending" && (
                 <details className="mt-4 border-t border-line pt-3">
-                  <summary className="cursor-pointer text-[13px] text-brand">Send back with a note</summary>
+                  <summary className={`${actionClass("Send")} cursor-pointer list-none`}>
+                    <ButtonLabel icon="resend">Send back with a note</ButtonLabel>
+                  </summary>
                   <ActionForm action={sendBackProfileAction} className="mt-3 max-w-xl space-y-3">
                     <input type="hidden" name="uni" value={uni} />
                     <input type="hidden" name="id" value={p.id} />

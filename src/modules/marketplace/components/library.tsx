@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, ButtonLink, Card, CardTitle, buttonClass } from "@/components/ui";
+import { Badge, ButtonLink, Card, CardTitle, buttonClass, ActionAnchor, ActionLink } from "@/components/ui";
 import type { HomeCardProps } from "@/contracts/module";
 import { daysBetween, formatDate, formatTime } from "@/server/lib/dates";
 import { joinPath } from "@/server/lib/links";
@@ -84,9 +84,9 @@ export function LiveLibraryCard({ item }: { item: LibraryItem & { live: NonNulla
           Open the course
         </ButtonLink>
         {item.invoiceId && (
-          <a href={`/${item.instituteSlug}/learn/invoices/${item.invoiceId}`} className="px-2 text-[13px] text-brand hover:underline">
+          <ActionAnchor href={`/${item.instituteSlug}/learn/invoices/${item.invoiceId}`}>
             Download invoice
-          </a>
+          </ActionAnchor>
         )}
       </div>
       <p className="border-t border-dashed border-line px-5 py-3 text-[12.5px] text-muted">Bought {bought.format(item.boughtAt)}</p>
@@ -122,9 +122,9 @@ export function LibraryCard({ item }: { item: LibraryItem }) {
             {item.percent > 0 ? "Continue" : "Start watching"}
           </ButtonLink>
           {item.invoiceId && (
-            <a href={`/${item.instituteSlug}/learn/invoices/${item.invoiceId}`} className="px-2 text-[13px] text-brand hover:underline">
+            <ActionAnchor href={`/${item.instituteSlug}/learn/invoices/${item.invoiceId}`}>
               Download invoice
-            </a>
+            </ActionAnchor>
           )}
         </div>
       </div>
@@ -154,9 +154,9 @@ export async function LibraryHomeCard({ actor }: HomeCardProps) {
     <Card className="p-5">
       <CardTitle
         hint={
-          <Link href="/marketplace/library" className="inline-block py-1 font-medium text-brand hover:underline">
+          <ActionLink href="/marketplace/library" icon="forward">
             What I bought
-          </Link>
+          </ActionLink>
         }
       >
         Marketplace
@@ -177,9 +177,9 @@ export async function LibraryHomeCard({ actor }: HomeCardProps) {
         ))}
       </ul>
       {access.canShop && (
-        <Link href="/marketplace" className="mt-4 inline-block py-1 text-[13px] font-medium text-brand hover:underline">
+        <ActionLink href="/marketplace" className="mt-4" icon="forward">
           Browse the marketplace
-        </Link>
+        </ActionLink>
       )}
     </Card>
   );

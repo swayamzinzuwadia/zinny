@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Card, CardTitle } from "@/components/ui";
+import { Card, CardTitle, ActionAnchor, ActionLink } from "@/components/ui";
 import type { HubSectionProps } from "@/contracts/module";
 import { shortDate } from "../lib";
 import { myCertificates } from "../service";
@@ -24,17 +23,17 @@ export async function CertificatesHubSection({ uni, actor }: HubSectionProps) {
             <div className="flex shrink-0 items-center gap-3">
               <StatusBadge status={c.status} />
               {c.status !== "revoked" && (
-                <a href={`/${uni}/learn/certificates/${c.id}/download`} className="inline-block py-1 text-[13px] font-medium text-brand hover:underline">
+                <ActionAnchor href={`/${uni}/learn/certificates/${c.id}/download`}>
                   Download
-                </a>
+                </ActionAnchor>
               )}
             </div>
           </li>
         ))}
       </ul>
-      <Link href={`/${uni}/learn/certificates`} className="mt-3 inline-block py-1 text-[14px] font-medium text-brand hover:underline">
+      <ActionLink href={`/${uni}/learn/certificates`} className="mt-3" icon="view">
         See all certificates
-      </Link>
+      </ActionLink>
     </Card>
   );
 }

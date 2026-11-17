@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BookGrid, BrowseTop, EmptyShelf, Pill, SearchBar, SortLinks, query, shell } from "@/modules/marketplace/components/browse";
 import { browseMarketplace, type CatalogSort } from "@/modules/marketplace/service";
-import { cx } from "@/components/ui";
+import { cx, ActionLink } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -78,9 +78,9 @@ export default async function Recorded({ searchParams }: { searchParams: Promise
                 {q && <span className="text-muted"> for &ldquo;{q}&rdquo;</span>}
               </h2>
               {filtering && (
-                <Link href="/marketplace/recorded" className="mt-1 inline-block text-[14px] text-brand hover:underline">
+                <ActionLink href="/marketplace/recorded" className="mt-1">
                   Clear filters
-                </Link>
+                </ActionLink>
               )}
             </div>
             <SortLinks options={SORTS} current={sort} href={(key) => href({ sort: key })} />

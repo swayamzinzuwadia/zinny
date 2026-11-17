@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Field, Notice, Select } from "@/components/ui";
+import { Badge, Card, CardTitle, Field, Notice, Select, ActionLink } from "@/components/ui";
 import type { CourseTabProps } from "@/contracts/module";
 import { inr } from "@/modules/payments/money";
 import { createListingAction, setListingStatusAction } from "../actions";
@@ -41,9 +41,9 @@ function ListedRow({ uni, l }: { uni: string; l: Listed }) {
               {l.status === "live" ? "Pause" : l.batch ? "Relist" : "Put back on sale"}
             </SubmitButton>
           </ActionForm>
-          <Link href={`/${uni}/admin/marketplace/${l.id}`} className="text-[14px] text-brand hover:underline">
+          <ActionLink href={`/${uni}/admin/marketplace/${l.id}`} icon="edit">
             {l.batch ? "Edit or remove" : "Edit price"}
-          </Link>
+          </ActionLink>
         </div>
       </div>
       {note && <p className="mt-1.5 text-[13px] text-muted">{note}</p>}
@@ -151,12 +151,12 @@ export async function MarketplaceCourseTab({ uni, actor, course }: CourseTabProp
           <p className="mb-3 text-[14px] text-muted">This course isn&apos;t in a combo yet.</p>
         )}
         <div className="flex flex-wrap gap-x-5 gap-y-1 text-[14px]">
-          <Link href={`${admin}/combos`} className="font-medium text-brand hover:underline">
+          <ActionLink href={`${admin}/combos`} icon="add">
             Make a combo
-          </Link>
-          <Link href={`${admin}/codes`} className="font-medium text-brand hover:underline">
+          </ActionLink>
+          <ActionLink href={`${admin}/codes`} icon="add">
             Make a discount code
-          </Link>
+          </ActionLink>
           <Link href={admin} className="text-muted hover:text-ink">
             All marketplace listings
           </Link>

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { cx } from "@/components/ui";
+import { cx, ActionLink } from "@/components/ui";
 import { BrowseTop, EmptyShelf, SearchBar, instituteFaces, shell } from "@/modules/marketplace/components/browse";
 import { InstituteCard } from "@/modules/marketplace/components/live";
 import { marketplaceDirectory } from "@/modules/marketplace/service";
@@ -39,9 +38,9 @@ export default async function Institutes({ searchParams }: { searchParams: Promi
             </h2>
             <p className="mt-1 text-[14px] text-muted">
               {q ? (
-                <Link href="/marketplace/institutes" className="text-brand hover:underline">
+                <ActionLink href="/marketplace/institutes">
                   Clear search
-                </Link>
+                </ActionLink>
               ) : selling > 0 ? (
                 `${selling} with something on sale now, listed first.`
               ) : (

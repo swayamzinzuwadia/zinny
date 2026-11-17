@@ -1,7 +1,7 @@
 /** Small building blocks shared by the /platform pages. Server components. */
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Badge, Empty, cx } from "@/components/ui";
+import { Badge, Empty, cx, ActionLink } from "@/components/ui";
 import { formatCount } from "../lib/format";
 
 /** Shown instead of a section the person's platform roles don't open. */
@@ -12,9 +12,9 @@ export function NoAccess({ section, who }: { section: string; who?: string }) {
       <Empty title={`You don't have access to ${section}`}>
         {who ? `${who} can open this section.` : "Your role doesn't include this section."} Ask a Super Admin if you need it for your work.
         <div className="mt-4">
-          <Link href="/platform" className="text-[14px] font-medium text-brand hover:underline">
+          <ActionLink href="/platform" icon="back">
             Back to the platform home
-          </Link>
+          </ActionLink>
         </div>
       </Empty>
     </div>

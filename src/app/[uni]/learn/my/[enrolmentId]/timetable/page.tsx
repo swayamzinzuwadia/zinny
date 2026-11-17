@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Empty, cx } from "@/components/ui";
+import { Empty, cx, ActionAnchor, ActionLink } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { formatDate, formatTime, weekdayLabel } from "@/server/lib/dates";
@@ -33,9 +32,9 @@ export default async function FullTimetable({ params }: { params: Promise<{ uni:
 
   return (
     <>
-      <Link href={`/${uni}/learn/my/${enrolmentId}`} className="mb-2 inline-block py-1 text-sm text-brand hover:underline">
+      <ActionLink href={`/${uni}/learn/my/${enrolmentId}`} className="mb-2" icon="back">
         Back to {t.courseTitle}
-      </Link>
+      </ActionLink>
       <h1 className="text-[26px] font-semibold leading-tight tracking-tight">Full timetable</h1>
       <p className="mt-1 text-[14px] text-muted">
         {t.courseTitle} · {t.batchName}
@@ -61,9 +60,9 @@ export default async function FullTimetable({ params }: { params: Promise<{ uni:
       </dl>
 
       {next && (
-        <a href="#next-class" className="mt-3 inline-block py-1 text-[14px] text-brand hover:underline">
+        <ActionAnchor href="#next-class" className="mt-3" icon="forward">
           Go to the next class
-        </a>
+        </ActionAnchor>
       )}
 
       {t.days.length === 0 ? (

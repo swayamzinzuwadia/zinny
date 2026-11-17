@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
-import { cx } from "@/components/ui";
+import { cx, ActionLink } from "@/components/ui";
 import { shortDate, type EffectiveStatus } from "@/modules/certificates/lib";
 import { verifyForVisitor } from "@/modules/certificates/service";
 
@@ -73,9 +72,9 @@ export default async function VerifyCode({ params }: { params: Promise<{ code: s
           Check the code against the certificate and try again. Codes have 12 letters and numbers, like 7K3P-9QXA-M2D4. If it still isn&apos;t found, the certificate
           may not be genuine: contact the institute that issued it.
         </p>
-        <Link href="/verify" className="mt-5 inline-block text-[14px] font-medium text-brand hover:underline">
+        <ActionLink href="/verify" className="mt-5" icon="resend">
           Check another code
-        </Link>
+        </ActionLink>
       </div>
     );
   }
@@ -105,9 +104,9 @@ export default async function VerifyCode({ params }: { params: Promise<{ code: s
         </Row>
       </dl>
       <div className="border-t border-line px-6 py-4">
-        <Link href="/verify" className="text-[14px] font-medium text-brand hover:underline">
+        <ActionLink href="/verify" icon="resend">
           Check another code
-        </Link>
+        </ActionLink>
       </div>
     </article>
   );

@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Card, CardTitle, Empty, PageHeader, Select, Stat, buttonClass } from "@/components/ui";
+import { Card, CardTitle, Empty, PageHeader, Select, Stat, buttonClass, ActionLink } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { can } from "@/server/core";
 import { setNameDisplayAction } from "@/modules/gamification/actions";
@@ -110,21 +109,21 @@ export default async function LeaderboardPage({ params, searchParams }: { params
             <CardTitle>The XP system</CardTitle>
             <ul className="space-y-3 text-[14px]">
               <li>
-                <Link href={`${base}/xp-rules`} className="font-medium text-brand hover:underline">
+                <ActionLink href={`${base}/xp-rules`} icon="settings">
                   XP rules
-                </Link>
+                </ActionLink>
                 <div className="text-muted">What earns points, like finishing a lesson or passing a test.</div>
               </li>
               <li>
-                <Link href={`${base}/badges`} className="font-medium text-brand hover:underline">
+                <ActionLink href={`${base}/badges`} icon="settings">
                   Badges
-                </Link>
+                </ActionLink>
                 <div className="text-muted">Milestones students collect, like 10 lessons or 500 XP.</div>
               </li>
               <li>
-                <Link href={`${base}/challenges`} className="font-medium text-brand hover:underline">
+                <ActionLink href={`${base}/challenges`} icon="settings">
                   Challenges
-                </Link>
+                </ActionLink>
                 <div className="text-muted">Time-bound goals for a batch or a course.</div>
               </li>
             </ul>

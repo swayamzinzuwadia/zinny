@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Avatar, Badge, Card, CardTitle, Empty, Notice, PageHeader, buttonClass, inputClass } from "@/components/ui";
+import { Avatar, Badge, Card, CardTitle, Empty, Notice, PageHeader, buttonClass, inputClass, ActionLink } from "@/components/ui";
 import { can, reach } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { listDepartments } from "@/server/services/departments";
@@ -130,9 +130,9 @@ export default async function JoinRequestsPage({ params, searchParams }: { param
           <div className="mt-3">
             <ShareJoinCode code={settings.code} link={link} message={message} whatsApp={whatsAppShareHref(message)} />
           </div>
-          <Link href={`/${uni}/join-poster`} className="mt-3 inline-block text-[13px] font-medium text-brand hover:underline">
+          <ActionLink href={`/${uni}/join-poster`} className="mt-3">
             Print a poster with a QR code
-          </Link>
+          </ActionLink>
           <p className="mt-4 text-muted">
             {settings.mode === "approval" ? "Each student waits here until someone accepts them." : "Students with the code join straight away. Add their departments under Students."}
           </p>

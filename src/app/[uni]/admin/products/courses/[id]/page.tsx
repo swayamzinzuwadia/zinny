@@ -3,7 +3,7 @@ import { DayTimePicker } from "@/components/day-picker";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { SwitchRequests } from "@/components/switch-requests";
 import { EnrolmentRequests, SeatLimitForm } from "@/components/enrolment-requests";
-import { Badge, Card, CardTitle, Empty, Field, Input, Notice, PageHeader, SeatMap, Select, Tabs } from "@/components/ui";
+import { Badge, Card, CardTitle, Empty, Field, Input, Notice, PageHeader, SeatMap, Select, Tabs, actionClass, ButtonLabel } from "@/components/ui";
 import { SlotOutlet } from "@/components/slots";
 import { can } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
@@ -207,7 +207,9 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
                     </div>
                     {canAddStaff && (
                       <details className="mt-2 rounded-xl border border-line px-3 py-2">
-                        <summary className="cursor-pointer text-[13px] font-medium text-brand">Add a new teacher</summary>
+                        <summary className={`${actionClass("Add")} cursor-pointer list-none`}>
+                          <ButtonLabel>Add a new teacher</ButtonLabel>
+                        </summary>
                         <div className="mt-3 space-y-3 pb-1">
                           <Field label="Name">
                             <Input name="newTeacherName" placeholder="Priya Nair" />

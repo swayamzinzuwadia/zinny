@@ -6,7 +6,7 @@
  *   dashboardCards.top-learners    admin dashboard: top learners within the viewer's reach
  */
 import Link from "next/link";
-import { Card, CardTitle, cx } from "@/components/ui";
+import { Card, CardTitle, cx, ActionLink } from "@/components/ui";
 import type { DashboardCardProps, HomeCardProps, HubSectionProps, LearnerCourseTabProps } from "@/contracts/module";
 import { ordinal } from "../challenges";
 import { learnerBoard, myXpSummary } from "../learner";
@@ -48,9 +48,9 @@ export async function XpHomeCard({ uni, actor }: HomeCardProps) {
     <Card className="p-5">
       <CardTitle
         hint={
-          <Link href={`/${uni}/learn/leaderboard`} className="inline-block py-1 font-medium text-brand hover:underline">
+          <ActionLink href={`/${uni}/learn/leaderboard`}>
             Open leaderboard
-          </Link>
+          </ActionLink>
         }
       >
         Your XP
@@ -106,9 +106,9 @@ export async function XpHubSection({ uni, actor }: HubSectionProps) {
     <Card>
       <CardTitle
         hint={
-          <Link href={`/${uni}/learn/leaderboard`} className="inline-block py-1.5 font-medium text-brand hover:underline">
+          <ActionLink href={`/${uni}/learn/leaderboard`} icon="view">
             See all
-          </Link>
+          </ActionLink>
         }
       >
         XP and badges
@@ -218,9 +218,9 @@ export async function TopLearnersCard({ uni, actor }: DashboardCardProps) {
     <Card>
       <CardTitle
         hint={
-          <Link href={`/${uni}/admin/leaderboards`} className="font-medium text-brand hover:underline">
+          <ActionLink href={`/${uni}/admin/leaderboards`}>
             Open leaderboard
-          </Link>
+          </ActionLink>
         }
       >
         Top learners

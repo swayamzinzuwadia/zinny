@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, ButtonLink, Empty, PageHeader, Table, Td } from "@/components/ui";
+import { Badge, ButtonLink, Empty, PageHeader, Table, Td, ActionLink } from "@/components/ui";
 import { can } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { listCourses } from "@/server/services/courses";
@@ -54,9 +54,9 @@ export default async function CoursesPage({ params }: { params: Promise<{ uni: s
               <Td className="text-muted">{c.departmentName}</Td>
               <Td className="tabular-nums">
                 {c.batchCount === 0 ? (
-                  <Link href={`/${uni}/admin/products/courses/${c.id}?tab=batches`} className="font-medium text-brand hover:underline">
+                  <ActionLink href={`/${uni}/admin/products/courses/${c.id}?tab=batches`}>
                     Add a batch
-                  </Link>
+                  </ActionLink>
                 ) : (
                   c.batchCount
                 )}

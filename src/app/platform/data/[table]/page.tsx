@@ -1,16 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Form from "next/form";
-import {
-  Badge,
-  Empty,
-  Field,
-  Input,
-  Notice,
-  Select,
-  buttonClass,
-  cx,
-} from "@/components/ui";
+import { Badge, Empty, Field, Input, Notice, Select, buttonClass, cx, ButtonLabel, actionClass } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { platformContext } from "@/server/context";
 import { NotFoundError, ValidationError } from "@/server/errors";
@@ -363,11 +354,8 @@ export default async function DataTablePage({
                                 </td>
                                 <td className="px-3 py-2.5 align-top whitespace-nowrap">
                                   <Morph name={rowMorphName(t.name, key)}>
-                                    <IntentLink
-                                      href={dataRowHref(t.name, r.key)}
-                                      className="inline-block font-medium text-brand hover:underline"
-                                    >
-                                      Open
+                                    <IntentLink href={dataRowHref(t.name, r.key)} className={actionClass("Open")}>
+                                      <ButtonLabel>Open</ButtonLabel>
                                     </IntentLink>
                                   </Morph>
                                 </td>

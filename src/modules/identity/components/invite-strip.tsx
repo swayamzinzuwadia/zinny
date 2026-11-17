@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card } from "@/components/ui";
+import { Card, ActionLink } from "@/components/ui";
 import { joinLink, joinMessage, whatsAppShareHref } from "../share";
 import { ShareJoinCode } from "./share-join-code";
 
@@ -40,9 +40,9 @@ export function InviteStrip({
       <div className="flex flex-col gap-2">
         <ShareJoinCode code={code} link={link} message={message} whatsApp={whatsAppShareHref(message)} />
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
-          <Link href={`/${uni}/join-poster`} className="font-medium text-brand hover:underline">
+          <ActionLink href={`/${uni}/join-poster`}>
             Print a poster with a QR code
-          </Link>
+          </ActionLink>
           <Link href={`/${uni}/admin/users/requests`} className="font-medium text-brand hover:underline">
             {canManage ? "Join requests and settings" : "Join requests"}
           </Link>

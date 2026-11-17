@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState, useTransition, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import type { ActionState, FormAction } from "@/components/forms";
-import { buttonClass, cx, inputClass } from "@/components/ui";
+import { buttonClass, cx, inputClass, ButtonLabel, actionClass } from "@/components/ui";
 import { PhoneField } from "./phone-field";
 
 function Result({ state }: { state: ActionState }) {
@@ -194,12 +194,12 @@ export function PhoneChange({
           ) : (
             <form action={resendAction}>
               {hidden}
-              <button className="font-medium text-brand hover:underline">Send a new code</button>
+              <button className={actionClass("Send a new code")}><ButtonLabel>Send a new code</ButtonLabel></button>
             </form>
           )}
           <form action={cancel}>
             {hidden}
-            <button className="font-medium text-brand hover:underline">Cancel</button>
+            <button className={actionClass("Cancel")}><ButtonLabel>Cancel</ButtonLabel></button>
           </form>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton, type FormAction } from "@/components/forms";
-import { Badge, Card, CardTitle, Field, Input, buttonClass, cx } from "@/components/ui";
+import { Badge, Card, CardTitle, Field, Input, buttonClass, cx, ButtonLabel } from "@/components/ui";
 import { can, type Actor } from "@/server/core";
 import { markRestPresentAction } from "../actions";
 import { registerHref, startHref } from "../links";
@@ -131,7 +131,9 @@ export function TodayPanel({
                   )}
                   {canEdit && (
                     <details className="group w-full sm:w-auto">
-                      <summary className={cx(buttonClass("quiet", "sm"), "cursor-pointer list-none")}>Move class</summary>
+                      <summary className={cx(buttonClass("quiet", "sm"), "cursor-pointer list-none")}>
+                        <ButtonLabel>Move class</ButtonLabel>
+                      </summary>
                       <ActionForm action={moveAction} resetOnSuccess={false} className="mt-3 grid grid-cols-1 gap-3 rounded-xl bg-canvas p-4 sm:grid-cols-3">
                         {hidden}
                         <Field label="New day">

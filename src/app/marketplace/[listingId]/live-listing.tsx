@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionForm } from "@/components/forms";
-import { ButtonLink, cx } from "@/components/ui";
+import { ButtonLink, cx, ActionAnchor, ActionLink } from "@/components/ui";
 import { formatDate, formatTime } from "@/server/lib/dates";
 import { buyAction } from "@/modules/marketplace/actions";
 import { AddToCart } from "@/modules/marketplace/components/add-to-cart";
@@ -144,9 +144,9 @@ export function LiveListing({
                     <p className="text-[14px] leading-relaxed text-muted">
                       Every seat is taken or being paid for. A seat comes back if a payment isn&apos;t finished, so look again in a little while, or see what else {item.institute} has open.
                     </p>
-                    <Link href={`${institutePage}?tab=live`} className="inline-block pt-1 text-[14px] font-medium text-brand hover:underline">
+                    <ActionLink href={`${institutePage}?tab=live`} className="pt-1" icon="forward">
                       Their other live batches
-                    </Link>
+                    </ActionLink>
                   </div>
                 ) : canShop ? (
                   <ActionForm action={buyAction} resetOnSuccess={false} className="space-y-3">
@@ -247,9 +247,9 @@ export function LiveListing({
           </h2>
           <InstituteCard face={face} />
           {hasSite && (
-            <a href={`/site/${item.instituteSlug}`} className="mt-3 inline-block text-[14px] font-medium text-brand hover:underline">
+            <ActionAnchor href={`/site/${item.instituteSlug}`} className="mt-3" icon="open">
               Visit their website
-            </a>
+            </ActionAnchor>
           )}
         </aside>
       </div>

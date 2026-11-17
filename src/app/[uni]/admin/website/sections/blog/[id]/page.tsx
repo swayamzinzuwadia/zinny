@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/forms";
-import { Badge, Card, CardTitle, Field, Input, Select, Textarea } from "@/components/ui";
+import { Badge, Card, CardTitle, Field, Input, Select, Textarea, actionClass, ButtonLabel } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { canManageSite } from "@/modules/website-builder/access";
@@ -48,8 +48,8 @@ export default async function EditPostPage({ params }: { params: Promise<{ uni: 
             Preview
           </a>
           {published && (
-            <a href={`/site/${uni}/blog/${post.slug}`} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center rounded-full px-4 text-[14px] font-medium text-brand hover:bg-brand-soft">
-              View live post
+            <a href={`/site/${uni}/blog/${post.slug}`} target="_blank" rel="noreferrer" className={actionClass("View", "md")}>
+              <ButtonLabel icon="open">View live post</ButtonLabel>
             </a>
           )}
         </div>

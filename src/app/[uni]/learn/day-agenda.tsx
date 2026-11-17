@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
-import { Card, cx } from "@/components/ui";
+import { Card, cx, ActionLink, ButtonLabel, actionClass } from "@/components/ui";
 import { addDays, formatDate, formatTime, isoWeekday, toMinutes, weekdayLabel } from "@/server/lib/dates";
 import type { Session } from "@/server/services/schedule";
 
@@ -95,13 +94,13 @@ export function DayAgenda({
             <h2 className="text-[16px] font-medium">{title}</h2>
             <div className="flex items-baseline gap-4 text-[13px]">
               {!isToday && (
-                <button type="button" onClick={() => setPicked(today)} className="py-1 text-brand hover:underline">
-                  Back to today
+                <button type="button" onClick={() => setPicked(today)} className={actionClass()}>
+                  <ButtonLabel icon="back">Back to today</ButtonLabel>
                 </button>
               )}
-              <Link href={timetableHref} className="py-1 font-medium text-brand hover:underline">
+              <ActionLink href={timetableHref} icon="view">
                 Full timetable
-              </Link>
+              </ActionLink>
             </div>
           </div>
           {items.length === 0 ? (

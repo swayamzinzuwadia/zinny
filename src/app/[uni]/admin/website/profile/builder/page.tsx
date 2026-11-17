@@ -1,5 +1,5 @@
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, PageHeader, cx } from "@/components/ui";
+import { Badge, Card, PageHeader, cx, actionClass, ButtonLabel } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { canManageSite } from "@/modules/website-builder/access";
 import { discardDraftAction, moveSectionAction, publishPageAction, sectionVisibilityAction } from "@/modules/website-builder/actions";
@@ -39,8 +39,8 @@ export default async function BuilderPage({ params }: { params: Promise<{ uni: s
               Preview draft
             </a>
             {page.published && (
-              <a href={`/site/${uni}`} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center rounded-full px-4 text-[14px] font-medium text-brand hover:bg-brand-soft">
-                View live site
+              <a href={`/site/${uni}`} target="_blank" rel="noreferrer" className={actionClass("View", "md")}>
+                <ButtonLabel icon="open">View live site</ButtonLabel>
               </a>
             )}
           </>

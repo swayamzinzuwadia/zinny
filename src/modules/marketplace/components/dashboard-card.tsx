@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, CardTitle } from "@/components/ui";
+import { Card, CardTitle, ActionLink } from "@/components/ui";
 import type { DashboardCardProps, DashboardLine } from "@/contracts/module";
 import { inr } from "@/modules/payments/money";
 import { salesSummary } from "../listings";
@@ -43,9 +43,9 @@ export async function MarketplaceDashboardCard({ uni, actor, today }: DashboardC
         <p className="text-[14px] text-muted">Nothing on sale yet. List a recorded course or a single lecture and anyone on Zinny can buy it.</p>
       )}
       <div className="mt-4 flex gap-4 text-[14px]">
-        <Link href={base} className="font-medium text-brand hover:underline">
+        <ActionLink href={base} icon="settings">
           {listed ? "Manage listings" : "List something"}
-        </Link>
+        </ActionLink>
         {s.live > 0 && (
           <Link href={`/marketplace?institute=${uni}`} className="text-muted hover:text-ink">
             See it as buyers do

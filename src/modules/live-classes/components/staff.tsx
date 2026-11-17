@@ -4,7 +4,7 @@
  */
 import Link from "next/link";
 import type { BatchSectionProps, CourseTabProps, DashboardCardProps } from "@/contracts/module";
-import { Badge, buttonClass, Card, CardTitle, cx, Empty } from "@/components/ui";
+import { Badge, buttonClass, Card, CardTitle, cx, Empty, ActionLink } from "@/components/ui";
 import { attendanceHref, registerHref, startHref } from "../links";
 import { batchAttendance, courseLive, todaysClasses, type TodayClass } from "../overview";
 import { formatTime, relativeDay, startable } from "../time";
@@ -89,9 +89,9 @@ export async function BatchAttendanceSection({ uni, actor, batch }: BatchSection
             </ul>
           )}
           <div className="mt-3">
-            <Link href={attendanceHref(uni, batch.id)} className="text-[14px] font-medium text-brand hover:underline">
+            <ActionLink href={attendanceHref(uni, batch.id)} icon="view">
               See every class and student
-            </Link>
+            </ActionLink>
           </div>
         </div>
       </div>
@@ -170,9 +170,9 @@ export async function CourseLiveTab({ uni, actor, course }: CourseTabProps) {
               ))}
             </ul>
             <div className="mt-4 border-t border-line pt-3">
-              <Link href={attendanceHref(uni, b.batch.id)} className="text-[14px] font-medium text-brand hover:underline">
+              <ActionLink href={attendanceHref(uni, b.batch.id)} icon="view">
                 Attendance for {b.batch.name}
-              </Link>
+              </ActionLink>
             </div>
           </Card>
         ))}

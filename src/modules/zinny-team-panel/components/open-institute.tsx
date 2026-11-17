@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { buttonClass, cx } from "@/components/ui";
+import { ButtonLabel, actionClass, buttonClass, cx } from "@/components/ui";
 
 /**
  * The way into an institute's admin panel from the Zinny team panel. It goes through the
@@ -20,17 +20,17 @@ export function OpenInstitute({
   /** A text link, for table rows. */
   asLink?: boolean;
 }) {
-  const className = asLink ? "text-[13px] font-medium text-brand hover:underline" : cx(buttonClass("secondary", size), "whitespace-nowrap");
+  const className = asLink ? cx(actionClass(), "whitespace-nowrap") : cx(buttonClass("secondary", size), "whitespace-nowrap");
   if (inside) {
     return (
       <a href={`/${slug}/admin`} className={className}>
-        Go to its dashboard
+        <ButtonLabel icon="forward">Go to its dashboard</ButtonLabel>
       </a>
     );
   }
   return (
     <Link href={`/platform/support?university=${universityId}`} className={className}>
-      Enter support mode
+      <ButtonLabel icon="support">Enter support mode</ButtonLabel>
     </Link>
   );
 }

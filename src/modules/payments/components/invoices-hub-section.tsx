@@ -1,6 +1,5 @@
-import Link from "next/link";
 import type { HubSectionProps } from "@/contracts/module";
-import { Card, CardTitle } from "@/components/ui";
+import { Card, CardTitle, ActionAnchor, ActionLink } from "@/components/ui";
 import { myInvoices } from "../invoices";
 import { inr } from "../money";
 import { invoiceDate } from "../pdf/invoice-pdf";
@@ -14,9 +13,9 @@ export async function InvoicesHubSection({ uni, actor }: HubSectionProps) {
     <Card>
       <CardTitle
         hint={
-          <Link href={`/${uni}/learn/invoices`} className="font-medium text-brand hover:underline">
+          <ActionLink href={`/${uni}/learn/invoices`} icon="forward">
             All invoices
-          </Link>
+          </ActionLink>
         }
       >
         Invoices
@@ -31,9 +30,9 @@ export async function InvoicesHubSection({ uni, actor }: HubSectionProps) {
               </div>
             </div>
             {/* A plain link: the download is a file, not a page to prefetch. */}
-            <a href={`/${uni}/learn/invoices/${i.id}`} className="shrink-0 text-[13px] font-medium text-brand hover:underline">
+            <ActionAnchor href={`/${uni}/learn/invoices/${i.id}`} className="shrink-0">
               Download PDF
-            </a>
+            </ActionAnchor>
           </li>
         ))}
       </ul>

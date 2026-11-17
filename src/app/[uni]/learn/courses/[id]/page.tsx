@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { ButtonLink, Notice } from "@/components/ui";
+import { ButtonLink, Notice, ActionLink } from "@/components/ui";
 import { hasRole } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { todayIn } from "@/server/lib/dates";
@@ -21,9 +21,9 @@ export default async function CoursePage({ params }: { params: Promise<{ uni: st
         <p className="mt-2 text-muted">Batches are for {university.name}&apos;s students. Enter the joining code the institute gave you, then come back here to pick your batch.</p>
         <div className="mt-6 flex flex-wrap items-center gap-4">
           <ButtonLink href="/join">Enter a joining code</ButtonLink>
-          <Link href="/marketplace" className="text-[14px] font-medium text-brand hover:underline">
+          <ActionLink href="/marketplace" icon="back">
             Back to the marketplace
-          </Link>
+          </ActionLink>
         </div>
       </div>
     );

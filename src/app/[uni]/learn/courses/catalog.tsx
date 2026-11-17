@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { cx } from "@/components/ui";
+import { cx, ButtonLabel, actionClass } from "@/components/ui";
 
 export type CatalogCourse = {
   id: string;
@@ -79,15 +79,12 @@ export function CourseCatalog({ courses }: { courses: CatalogCourse[] }) {
       {shown.length === 0 ? (
         <div className="mt-8 rounded-[var(--radius-board)] border border-dashed border-line px-6 py-14 text-center">
           <p className="font-medium">No courses match</p>
-          <button
-            type="button"
+          <button type="button"
             onClick={() => {
               setDept(null);
               setQuery("");
-            }}
-            className="mt-2 text-[14px] text-brand hover:underline"
-          >
-            Show every course
+            }} className={`${actionClass()} mt-2`}>
+            <ButtonLabel icon="view">Show every course</ButtonLabel>
           </button>
         </div>
       ) : (

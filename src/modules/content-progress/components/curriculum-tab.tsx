@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Input, Notice, Select, cx } from "@/components/ui";
+import { Badge, Card, CardTitle, Empty, Input, Notice, Select, cx, ActionLink } from "@/components/ui";
 import type { CourseTabProps } from "@/contracts/module";
 import { can } from "@/server/core";
 import { addLessonAction, addSectionAction } from "../actions";
@@ -111,9 +111,9 @@ export async function CurriculumTab({ uni, actor, course, target }: CourseTabPro
                       {canEdit && (
                         <div className="flex shrink-0 items-center gap-1">
                           <MoveButtons kind="lesson" uni={uni} id={l.id} courseId={course.id} first={j === 0} last={j === s.lessons.length - 1} label={l.title} />
-                          <Link href={lessonEditorPath(uni, l.id)} className="hidden rounded-full px-3 py-1 text-[13px] text-brand hover:bg-brand-soft sm:inline-block">
+                          <ActionLink href={lessonEditorPath(uni, l.id)} className="hidden sm:inline-flex">
                             Edit
-                          </Link>
+                          </ActionLink>
                         </div>
                       )}
                     </li>
@@ -190,9 +190,9 @@ export async function CurriculumTab({ uni, actor, course, target }: CourseTabPro
                 </li>
               ))}
             </ul>
-            <Link href={progressOverviewPath(uni)} className="mt-5 inline-block text-[13px] text-brand hover:underline">
+            <ActionLink href={progressOverviewPath(uni)} className="mt-5" icon="view">
               See progress for all courses
-            </Link>
+            </ActionLink>
           </Card>
         )}
       </div>

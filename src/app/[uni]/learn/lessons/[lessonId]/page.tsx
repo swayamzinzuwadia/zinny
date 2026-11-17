@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { buttonClass, Card, cx, Empty, Notice } from "@/components/ui";
+import { buttonClass, Card, cx, Empty, Notice, ActionLink } from "@/components/ui";
 import { Icon, ProgressBar, PROSE, StateDot } from "@/modules/content-progress/components/bits";
 import { LessonOpened } from "@/modules/content-progress/components/lesson-opened";
 import { MarkLessonComplete } from "@/modules/content-progress/components/mark-lesson-complete";
@@ -160,9 +160,9 @@ export default async function LessonPage({ params }: { params: Promise<{ uni: st
                       })}
                     </ul>
                   )}
-                  <Link href={`/${uni}/learn/timetable`} className="mt-2 inline-block py-1 text-[14px] text-brand hover:underline">
+                  <ActionLink href={`/${uni}/learn/timetable`} className="mt-2" icon="view">
                     See the full timetable
-                  </Link>
+                  </ActionLink>
                 </Card>
               )}
 

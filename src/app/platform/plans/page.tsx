@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, ButtonLink, Notice, PageHeader, Td, cx } from "@/components/ui";
+import { Badge, ButtonLink, Notice, PageHeader, Td, cx, ActionLink } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { archivePlanAction, deletePlanAction, restorePlanAction } from "@/modules/zinny-team-panel/actions";
@@ -86,9 +86,9 @@ export default async function PlansPage({ searchParams }: { searchParams: Promis
             <Td>
               {canEdit && (
                 <div className="flex items-center justify-end gap-4 whitespace-nowrap">
-                  <Link href={`/platform/plans/${p.id}`} className="text-[13px] font-medium text-brand hover:underline">
+                  <ActionLink href={`/platform/plans/${p.id}`}>
                     Edit
-                  </Link>
+                  </ActionLink>
                   {p.archivedAt ? (
                     <ActionForm action={restorePlanAction}>
                       <input type="hidden" name="planId" value={p.id} />

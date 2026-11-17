@@ -2,9 +2,8 @@
  * Learner screens (mobile first): the course hub's Live classes tab and the home card.
  * Join buttons are plain <a> links, never <Link>: the join route records attendance.
  */
-import Link from "next/link";
 import type { HomeCardProps, LearnerCourseTabProps } from "@/contracts/module";
-import { buttonClass, Card, CardTitle, cx, Empty, Notice } from "@/components/ui";
+import { buttonClass, Card, CardTitle, cx, Empty, Notice, ActionAnchor, ActionLink } from "@/components/ui";
 import { joinNext, learnerLive } from "../join";
 import { joinHref, learnerTabHref } from "../links";
 import { clockIn, formatTime, relativeDay, startsIn } from "../time";
@@ -98,9 +97,9 @@ export async function LearnerLiveTab({ uni, actor, enrolment }: LearnerCourseTab
                     {p.note && <span>. Note: {p.note}</span>}
                   </div>
                   {p.recordingUrl && (
-                    <a href={p.recordingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-[13px] font-medium text-brand hover:underline">
+                    <ActionAnchor href={p.recordingUrl} target="_blank" rel="noreferrer" className="mt-1">
                       Watch recording
-                    </a>
+                    </ActionAnchor>
                   )}
                 </div>
                 <div className="shrink-0 pt-0.5">
@@ -143,9 +142,9 @@ export async function JoinNextCard({ uni, actor }: HomeCardProps) {
           </span>
         )}
         {next.joinedAt && <span className="text-[13px] text-muted">You joined at {clockIn(next.joinedAt, next.tz)}</span>}
-        <Link href={learnerTabHref(uni, next.enrolmentId)} className="text-[13px] text-brand hover:underline">
+        <ActionLink href={learnerTabHref(uni, next.enrolmentId)} icon="view">
           Your attendance
-        </Link>
+        </ActionLink>
       </div>
     </Card>
   );

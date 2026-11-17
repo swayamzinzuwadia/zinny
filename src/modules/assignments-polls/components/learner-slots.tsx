@@ -1,6 +1,6 @@
 /** Learner slot components: course hub tab, My learning section and home card. */
 import Link from "next/link";
-import { Card, CardTitle, Empty } from "@/components/ui";
+import { Card, CardTitle, Empty, ActionLink } from "@/components/ui";
 import type { HomeCardProps, HubSectionProps, LearnerCourseTabProps } from "@/contracts/module";
 import { can } from "@/server/core";
 import { calendarDaysUntil, dueLabel, formatWhen } from "../lib/time";
@@ -82,9 +82,9 @@ export async function AssignmentGradesSection({ uni, actor, university }: HubSec
           </li>
         ))}
       </ul>
-      <Link href={learnBase(uni)} className="mt-1 inline-block py-1.5 text-[13px] font-medium text-brand hover:underline">
+      <ActionLink href={learnBase(uni)} className="mt-1" icon="view">
         See all assignments
-      </Link>
+      </ActionLink>
     </Card>
   );
 }

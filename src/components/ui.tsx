@@ -1,6 +1,9 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
+import { ActionIcon, iconFor, isDestructive, type ActionIconName } from "./action-icons";
 import { DateField, DateTimeField, TimeField } from "./date-time-fields";
+
+export { ActionIcon, iconFor, type ActionIconName } from "./action-icons";
 
 export { Select } from "./select";
 
@@ -87,23 +90,86 @@ const BTN = {
   ghost: "text-brand hover:bg-brand-soft",
   danger: "border border-line bg-surface text-danger hover:bg-danger-soft",
   onDark: "border border-canvas/25 text-canvas hover:bg-canvas/10",
-  /** A row's second action: a text link with no pill around it. */
-  quiet: "text-brand hover:underline",
+  /** A row's action (Edit, Archive, Open…): an icon and a label, with a soft pill on hover. */
+  quiet: "text-brand hover:bg-brand-soft active:bg-brand-soft/80",
+  /** A row's destructive action (Delete, Remove). */
+  quietDanger: "text-danger hover:bg-danger-soft active:bg-danger-soft/80",
 };
 export type ButtonVariant = keyof typeof BTN;
 export const buttonClass = (v: ButtonVariant = "primary", size: "md" | "sm" = "md") =>
   cx(
     "inline-flex items-center justify-center gap-1.5 rounded-full font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
     size === "md" ? "h-10 text-[14px]" : "h-8 text-[13px]",
-    v !== "quiet" && (size === "md" ? "px-5" : "px-3.5"),
+    v === "quiet" || v === "quietDanger" ? (size === "md" ? "px-3" : "px-2.5") : size === "md" ? "px-5" : "px-3.5",
     BTN[v],
   );
 
-export function ButtonLink({ href, variant = "primary", size = "md", children }: { href: string; variant?: ButtonVariant; size?: "md" | "sm"; children: ReactNode }) {
+/**
+ * A button's label with its icon in front. The icon comes from the label's first word
+ * ("Edit plan" gets the pencil); pass `icon` to choose one, or `icon={false}` for none.
+ */
+export function ButtonLabel({ icon, children }: { icon?: ActionIconName | false; children: ReactNode }) {
+  const name = icon === false ? null : (icon ?? iconFor(children));
+  return (
+    <>
+      {name && <ActionIcon name={name} />}
+      {children}
+    </>
+  );
+}
+
+export function ButtonLink({
+  href,
+  variant = "primary",
+  size = "md",
+  icon,
+  children,
+}: {
+  href: string;
+  variant?: ButtonVariant;
+  size?: "md" | "sm";
+  icon?: ActionIconName | false;
+  children: ReactNode;
+}) {
   return (
     <Link href={href} className={buttonClass(variant, size)}>
-      {children}
+      <ButtonLabel icon={icon}>{children}</ButtonLabel>
     </Link>
+  );
+}
+
+/** A row's action as a link: icon and label in a compact pill (Edit, Open, Download…). Red for Delete and Remove. */
+export const actionClass = (label?: ReactNode, size: "md" | "sm" = "sm") => buttonClass(isDestructive(label) ? "quietDanger" : "quiet", size);
+
+export function ActionLink({
+  href,
+  icon,
+  size = "sm",
+  className,
+  children,
+  ...rest
+}: Omit<ComponentProps<typeof Link>, "children"> & { icon?: ActionIconName | false; size?: "md" | "sm"; children: ReactNode }) {
+  return (
+    <Link href={href} className={cx(actionClass(children, size), className)} {...rest}>
+      <ButtonLabel icon={icon}>{children}</ButtonLabel>
+    </Link>
+  );
+}
+
+/** The same for a plain `<a>`: file downloads and other sites. */
+export function ActionAnchor({
+  icon,
+  size = "sm",
+  className,
+  children,
+  ...rest
+}: Omit<ComponentProps<"a">, "children"> & { icon?: ActionIconName | false; size?: "md" | "sm"; children: ReactNode }) {
+  // Links that open another tab say so with the box-and-arrow icon.
+  const chosen = icon ?? (rest.target === "_blank" && iconFor(children) !== "download" ? "open" : undefined);
+  return (
+    <a className={cx(actionClass(children, size), className)} {...rest}>
+      <ButtonLabel icon={chosen}>{children}</ButtonLabel>
+    </a>
   );
 }
 

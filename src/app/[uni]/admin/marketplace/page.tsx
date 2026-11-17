@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Field, PageHeader, Select } from "@/components/ui";
+import { Badge, Card, CardTitle, Empty, Field, PageHeader, Select, ActionLink } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { formatINR } from "@/server/services/finance";
 import { createListingAction, setListingStatusAction } from "@/modules/marketplace/actions";
@@ -21,9 +21,9 @@ export default async function MarketplaceListings({ params }: { params: Promise<
         title="Marketplace"
         subtitle="Sell recorded courses, single lectures and combos, and seats in your live batches, to anyone on Zinny: your own students, other institutes' students and alumni, and independent learners."
         actions={
-          <Link href={`/marketplace/institutes/${uni}`} className="text-[14px] font-medium text-brand hover:underline">
+          <ActionLink href={`/marketplace/institutes/${uni}`} icon="view">
             See it as buyers do
-          </Link>
+          </ActionLink>
         }
       />
       <div className="space-y-6">
