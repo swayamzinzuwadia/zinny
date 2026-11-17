@@ -24,7 +24,7 @@ export function AddStudentForm({ uni, batchId, students, full }: { uni: string; 
     return (
       <div className="space-y-3">
         {state?.ok && <p className="rounded-xl bg-brand-soft px-3 py-2 text-sm text-brand-strong">{state.ok}</p>}
-        <p className="text-sm text-muted">The batch is full. Add seats under Seats to add more students.</p>
+        <p className="text-sm text-muted">The batch is full. Add seats in this batch&apos;s Settings to add more students.</p>
       </div>
     );
   }

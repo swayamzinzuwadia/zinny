@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
+import { Panel, PanelButton, Panels } from "@/components/panel";
 import Link from "next/link";
-import { Card, CardTitle, Empty, Field, Input, PageHeader, Select, buttonClass, actionClass, ButtonLabel } from "@/components/ui";
+import { Card, Empty, Field, Input, PageHeader, Select, buttonClass, actionClass, ButtonLabel } from "@/components/ui";
 import { ManageRow } from "@/components/manage-row";
 import { can, reach } from "@/server/authz/engine";
 import { ROLE_LABELS, USER_GROUPS } from "@/server/authz/roles";
@@ -57,9 +58,73 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
   const studentDepts = g === "students" ? await studentDepartmentMap(actor, people.map((p) => p.id)) : new Map<string, { id: string; name: string }[]>();
 
   return (
-    <>
-      <PageHeader title={TITLES[g][0]} subtitle={TITLES[g][1]} />
-      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+    // The list has the page to itself; the form to add someone waits behind its button, and is open already while the list is empty.
+    <Panels initial={canAdd && everyone.length === 0 ? "add" : undefined}>
+      <PageHeader title={TITLES[g][0]} subtitle={TITLES[g][1]} actions={canAdd ? <PanelButton panel="add">{g === "students" ? "Add a student" : "Add a person"}</PanelButton> : null} />
+      {canAdd && (
+        <Panel id="add" title={g === "students" ? "Add a student" : "Add a person"} hint="They get an email invitation to set their password." className="max-w-2xl">
+          <ActionForm action={addPersonAction} className="space-y-4">
+            <input type="hidden" name="uni" value={uni} />
+            <Field label="Name">
+              <Input name="name" required />
+            </Field>
+            <Field label="Email">
+              <Input name="email" type="email" required />
+            </Field>
+            <Field label="Phone">
+              <Input name="phone" inputMode="tel" />
+            </Field>
+            <Field label="Role">
+              <Select name="role">
+                {roles.map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_LABELS[r]}
+                  </option>
+                ))}
+                {custom.map((c) => (
+                  <option key={c.id} value={`custom:${c.id}`}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            {g === "teaching" && (
+              <>
+                <Field label="Department">
+                  <Select name="departmentId" required>
+                    {myDepts.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Access ends" hint="Required for visiting faculty.">
+                  <Input name="endsAt" type="date" />
+                </Field>
+              </>
+            )}
+            {g === "students" && admitDepts.length > 0 && (
+              <fieldset>
+                <legend className="mb-1.5 text-[13px] font-medium">Departments</legend>
+                <div className="flex flex-wrap gap-2">
+                  {admitDepts.map((d) => (
+                    <label key={d.id} className="cursor-pointer">
+                      <input type="checkbox" name="studentDepartmentId" value={d.id} className="peer sr-only" />
+                      <span className="inline-flex h-9 items-center rounded-full border border-line px-3.5 text-[13px] peer-checked:border-brand peer-checked:bg-brand-soft peer-checked:font-medium peer-checked:text-brand-strong peer-focus-visible:ring-2 peer-focus-visible:ring-gold">
+                        {d.name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[13px] text-muted">The student sees only these departments&apos; courses.</p>
+              </fieldset>
+            )}
+            <SubmitButton>{g === "students" ? "Add student" : "Add person"}</SubmitButton>
+          </ActionForm>
+        </Panel>
+      )}
+      <div>
         <div className="min-w-0">
           {everyone.length > 0 && (
             <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
@@ -95,14 +160,14 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
                 </>
               ) : g === "students" && canAdd ? (
                 <>
-                  Add students on the right, import a list under Bulk import, or share your joining code from the{" "}
+                  Add students with the button above, import a list under Bulk import, or share your joining code from the{" "}
                   <Link href={`/${uni}/admin`} className="font-medium text-brand hover:underline">
                     dashboard
                   </Link>
                   .
                 </>
               ) : canAdd ? (
-                "Add someone on the right."
+                "Add someone with the button above."
               ) : undefined}
             </Empty>
           ) : (
@@ -244,72 +309,8 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
           )}
         </div>
 
-        {canAdd && (
-          <Card className="h-fit">
-            <CardTitle>Add a person</CardTitle>
-            <ActionForm action={addPersonAction} className="space-y-4">
-              <input type="hidden" name="uni" value={uni} />
-              <Field label="Name">
-                <Input name="name" required />
-              </Field>
-              <Field label="Email">
-                <Input name="email" type="email" required />
-              </Field>
-              <Field label="Phone">
-                <Input name="phone" inputMode="tel" />
-              </Field>
-              <Field label="Role">
-                <Select name="role">
-                  {roles.map((r) => (
-                    <option key={r} value={r}>
-                      {ROLE_LABELS[r]}
-                    </option>
-                  ))}
-                  {custom.map((c) => (
-                    <option key={c.id} value={`custom:${c.id}`}>
-                      {c.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              {g === "teaching" && (
-                <>
-                  <Field label="Department">
-                    <Select name="departmentId" required>
-                      {myDepts.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                  <Field label="Access ends" hint="Required for visiting faculty.">
-                    <Input name="endsAt" type="date" />
-                  </Field>
-                </>
-              )}
-              {g === "students" && admitDepts.length > 0 && (
-                <fieldset>
-                  <legend className="mb-1.5 text-[13px] font-medium">Departments</legend>
-                  <div className="flex flex-wrap gap-2">
-                    {admitDepts.map((d) => (
-                      <label key={d.id} className="cursor-pointer">
-                        <input type="checkbox" name="studentDepartmentId" value={d.id} className="peer sr-only" />
-                        <span className="inline-flex h-9 items-center rounded-full border border-line px-3.5 text-[13px] peer-checked:border-brand peer-checked:bg-brand-soft peer-checked:font-medium peer-checked:text-brand-strong peer-focus-visible:ring-2 peer-focus-visible:ring-gold">
-                          {d.name}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  <p className="mt-1.5 text-[13px] text-muted">The student sees only these departments&apos; courses.</p>
-                </fieldset>
-              )}
-              <SubmitButton>Add person</SubmitButton>
-            </ActionForm>
-          </Card>
-        )}
       </div>
-    </>
+    </Panels>
   );
 }
 

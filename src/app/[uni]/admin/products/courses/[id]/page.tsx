@@ -2,8 +2,9 @@ import Link from "next/link";
 import { DayTimePicker } from "@/components/day-picker";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { SwitchRequests } from "@/components/switch-requests";
-import { EnrolmentRequests, SeatLimitForm } from "@/components/enrolment-requests";
-import { Badge, Card, CardTitle, Empty, Field, Input, Notice, PageHeader, SeatMap, Select, Tabs, actionClass, ButtonLabel } from "@/components/ui";
+import { EnrolmentRequests } from "@/components/enrolment-requests";
+import { Panel, PanelButton, Panels } from "@/components/panel";
+import { Badge, Card, CardTitle, Empty, Field, Input, Notice, PageHeader, SeatMap, Select, SubTabs, Tabs, actionClass, ButtonLabel } from "@/components/ui";
 import { SlotOutlet } from "@/components/slots";
 import { can } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
@@ -18,11 +19,18 @@ import { batchDateDefaults } from "@/server/services/quick-course";
 import { todayIn } from "@/server/lib/dates";
 import { canAdmit } from "@/modules/identity/joining";
 import { ROLE_LABELS } from "@/server/authz/roles";
-import { createBatchAction, decideEnrolmentAction, seatLimitAction, setCourseStatusAction, updateCourseAction } from "../../../actions";
+import { createBatchAction, decideEnrolmentAction, setCourseStatusAction, updateCourseAction } from "../../../actions";
+import { groupCourseTabs, groupOf } from "./tab-groups";
 
 type Search = Record<string, string | string[] | undefined>;
 
-const STATUS_LABEL: Record<string, string> = { published: "Published", draft: "Draft", archived: "Archived", open: "Open", closed: "Closed" };
+const STATUS_LABEL: Record<string, string> = {
+  published: "Published",
+  draft: "Draft",
+  archived: "Archived",
+  open: "Open",
+  closed: "Closed",
+};
 
 export default async function CoursePage({ params, searchParams }: { params: Promise<{ uni: string; id: string }>; searchParams: Promise<Search> }) {
   const { uni, id } = await params;
@@ -42,12 +50,17 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
   const requested = typeof search.tab === "string" ? search.tab : "batches";
   const tab = tabs.some((t) => t.key === requested) ? requested : "batches";
   const moduleTab = moduleTabs.find((t) => t.key === tab);
-  const canAddBatch = can(actor, "batch.create", { universityId: university.id, departmentIds: [course.departmentId] });
+  // Nine tabs read as nine places: they are shown as five, with a group's own pages in a second row.
+  const groups = groupCourseTabs(tabs);
+  const group = groupOf(groups, tab)!;
+  const canAddBatch = can(actor, "batch.create", {
+    universityId: university.id,
+    departmentIds: [course.departmentId],
+  });
   const base = `/${uni}/admin/products/courses/${id}`;
 
   const batches = tab === "batches" ? await listBatches(actor, id) : [];
   const enrolRequests = tab === "batches" ? await listEnrolmentRequests(actor, { courseId: id }) : [];
-  const canEditBatches = can(actor, "batch.update", { universityId: university.id, departmentIds: [course.departmentId] });
   const requests = tab === "batches" && canAddBatch ? (await listSwitchRequests(actor)).filter((r) => r.courseId === id) : [];
   const teachers = tab === "batches" && canAddBatch ? await teachersForDepartment(actor, course.departmentId) : [];
   // The batch form can add a new teacher, or the person themselves, to the department's staff.
@@ -82,19 +95,14 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
       />
       {created && (
         <Card className="mb-6 border-brand/30">
-          <p className="text-[15px] font-medium text-brand-strong">
-            {course.status === "published" ? "Course created and published. Students can enrol now." : "Course created as a draft. Publish it when it's ready."}
-          </p>
+          <p className="text-[15px] font-medium text-brand-strong">{course.status === "published" ? "Course created and published. Students can enrol now." : "Course created as a draft. Publish it when it's ready."}</p>
           {nextSteps.length > 0 && (
             <>
               <h2 className="mt-4 text-[15px] font-medium">What&apos;s next</h2>
               <ul className="mt-2 grid gap-2 md:grid-cols-2">
                 {nextSteps.map((s, i) => (
                   <li key={s.key}>
-                    <Link
-                      href={s.href}
-                      className={`block h-full rounded-2xl px-4 py-3 text-[14px] hover:border-brand/40 ${i === 0 ? "bg-gold-soft" : "border border-line bg-surface"}`}
-                    >
+                    <Link href={s.href} className={`block h-full rounded-2xl px-4 py-3 text-[14px] hover:border-brand/40 ${i === 0 ? "bg-gold-soft" : "border border-line bg-surface"}`}>
                       <span className="font-medium text-ink">{s.label}</span>
                       <span className="block text-[13px] text-muted">{s.hint}</span>
                     </Link>
@@ -105,64 +113,38 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
           )}
         </Card>
       )}
-      <Tabs active={tab} tabs={tabs.map(({ key, label }) => ({ key, label, href: `${base}?tab=${key}`, count: key === "batches" && tab === "batches" ? batches.length : undefined }))} />
+      <Tabs
+        active={group.key}
+        tabs={groups.map((g) => ({
+          key: g.key,
+          label: g.label,
+          href: `${base}?tab=${g.tabs[0].key}`,
+          count: g.key === "batches" && tab === "batches" ? batches.length : undefined,
+        }))}
+      />
+      <SubTabs
+        label={group.label}
+        active={tab}
+        tabs={group.tabs.map(({ key, label }) => ({
+          key,
+          label,
+          href: `${base}?tab=${key}`,
+        }))}
+      />
 
       {tab === "batches" && (
-        <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
-          <div className="space-y-6">
-            {batches.length === 0 ? (
-              <Empty title="No batches yet">
-                {canAddBatch
-                  ? "Add a batch for each schedule students can pick: weekday morning, evening, weekend. Students enrol in a batch, so the course can be published once it has one."
-                  : "Batches you teach show here. A head of department or institute admin adds batches."}
-              </Empty>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-                {batches.map((b) => (
-                  <Card key={b.batchId} className="h-full hover:border-brand/40">
-                    <Link href={`/${uni}/admin/products/batches/${b.batchId}`} className="block">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="font-semibold">{b.batchName}</div>
-                        {b.status !== "open" && <Badge>{STATUS_LABEL[b.status] ?? b.status}</Badge>}
-                      </div>
-                      <div className="mt-1 text-sm text-muted">{b.timings}</div>
-                      <div className="text-sm text-muted">Starts {new Date(b.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "long" })}</div>
-                      <div className="mt-3 flex items-center justify-between text-sm">
-                        <span className={b.seatsLeft === 0 ? "font-medium text-danger" : "font-medium text-brand"}>
-                          {b.seatsLeft === 0 ? "Full" : `${b.seatsLeft} ${b.seatsLeft === 1 ? "seat" : "seats"} left`}
-                        </span>
-                        <span className="tabular text-faint">
-                          {b.seatsTaken}/{b.seatLimit}
-                        </span>
-                      </div>
-                      <div className="mt-2">
-                        <SeatMap limit={b.seatLimit} taken={b.seatsTaken} />
-                      </div>
-                      <div className="mt-2 truncate text-xs text-muted">{b.faculty?.join(", ") || "No faculty"}</div>
-                      <div className="truncate text-xs text-muted">{b.incharge ? `Incharge: ${b.incharge}` : "No incharge yet"}</div>
-                    </Link>
-                    {canEditBatches && (
-                      <div className="mt-3 border-t border-line pt-3">
-                        <SeatLimitForm uni={uni} batchId={b.batchId} seatLimit={b.seatLimit} taken={b.seatsTaken} action={seatLimitAction} />
-                      </div>
-                    )}
-                  </Card>
-                ))}
-              </div>
+        // With no batch yet, the form to add the first one is already open.
+        <Panels initial={batches.length === 0 && canAddBatch ? "batch" : undefined}>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[14px] text-muted">{batches.length === 0 ? "Students enrol in a batch, so the course needs one before it can be published." : "Open a batch for its timetable, students and settings."}</p>
+            {canAddBatch && (
+              <PanelButton panel="batch" size="sm">
+                Add a batch
+              </PanelButton>
             )}
-            {typeof search.done === "string" && <p className="rounded-2xl bg-brand-soft px-4 py-3 text-[14px] text-brand-strong">{search.done}</p>}
-            {enrolRequests.length > 0 && (
-              <Card>
-                <CardTitle>Waiting for a seat</CardTitle>
-                <EnrolmentRequests requests={enrolRequests} uni={uni} action={decideEnrolmentAction} back={`${base}?tab=batches`} showCourse={false} />
-              </Card>
-            )}
-            {canAddBatch && <SwitchRequests uni={uni} requests={requests} />}
           </div>
-
           {canAddBatch && (
-            <Card className="h-fit">
-              <CardTitle>Add a batch</CardTitle>
+            <Panel id="batch" title="Add a batch" hint="One batch for each schedule students can pick: weekday morning, evening, weekend." className="max-w-2xl">
               {teachers.length === 0 && !canAddStaff ? (
                 <Notice tone="warn">
                   Nobody teaches in {department.name} yet, and every batch needs a teacher. Ask an institute admin to add teaching staff to {department.name}.
@@ -234,9 +216,56 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
                   <SubmitButton>Add batch</SubmitButton>
                 </ActionForm>
               )}
-            </Card>
+            </Panel>
           )}
-        </div>
+          <div className="space-y-6">
+            {batches.length === 0 ? (
+              <Empty title="No batches yet">
+                {canAddBatch
+                  ? "Add a batch for each schedule students can pick: weekday morning, evening, weekend. Students enrol in a batch, so the course can be published once it has one."
+                  : "Batches you teach show here. A head of department or institute admin adds batches."}
+              </Empty>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {batches.map((b) => (
+                  <Link key={b.batchId} href={`/${uni}/admin/products/batches/${b.batchId}`} className="block rounded-2xl border border-line bg-surface p-5 [transition-property:border-color] duration-150 hover:border-brand/40">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="font-semibold">{b.batchName}</div>
+                      {b.status !== "open" && <Badge>{STATUS_LABEL[b.status] ?? b.status}</Badge>}
+                    </div>
+                    <div className="mt-1 text-sm text-muted">{b.timings}</div>
+                    <div className="text-sm text-muted">
+                      Starts{" "}
+                      {new Date(b.startDate).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "long",
+                      })}
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-sm">
+                      <span className={b.seatsLeft === 0 ? "font-medium text-danger" : "font-medium text-brand"}>{b.seatsLeft === 0 ? "Full" : `${b.seatsLeft} ${b.seatsLeft === 1 ? "seat" : "seats"} left`}</span>
+                      <span className="tabular text-faint">
+                        {b.seatsTaken}/{b.seatLimit}
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <SeatMap limit={b.seatLimit} taken={b.seatsTaken} />
+                    </div>
+                    <div className="mt-2 truncate text-xs text-muted">{b.faculty?.join(", ") || "No faculty"}</div>
+                    <div className="truncate text-xs text-muted">{b.incharge ? `Incharge: ${b.incharge}` : "No incharge yet"}</div>
+                  </Link>
+                ))}
+              </div>
+            )}
+            {typeof search.done === "string" && <p className="rounded-2xl bg-brand-soft px-4 py-3 text-[14px] text-brand-strong">{search.done}</p>}
+            {enrolRequests.length > 0 && (
+              <Card>
+                <CardTitle>Waiting for a seat</CardTitle>
+                <EnrolmentRequests requests={enrolRequests} uni={uni} action={decideEnrolmentAction} back={`${base}?tab=batches`} showCourse={false} />
+              </Card>
+            )}
+            {canAddBatch && <SwitchRequests uni={uni} requests={requests} />}
+          </div>
+        </Panels>
       )}
 
       {tab === "settings" && canEdit && (

@@ -1,3 +1,4 @@
+import { Panel, PanelButton, Panels } from "@/components/panel";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Avatar, Badge, ButtonLink, Card, CardTitle, Field, Input, PageHeader, Select, actionClass, ButtonLabel } from "@/components/ui";
 import { platformContext } from "@/server/context";
@@ -18,16 +19,44 @@ export default async function TeamPage() {
   const [team, custom] = await Promise.all([listTeam(actor), customRoleChoices(actor, null)]);
 
   return (
-    <>
+    <Panels>
       <PageHeader
         title="Team"
         subtitle="The Zinny team and what each person can open. Role changes apply straight away."
         actions={
-          <ButtonLink href="/platform/roles" variant="secondary">
-            <span className="whitespace-nowrap">Roles & permissions</span>
-          </ButtonLink>
+          <>
+            <ButtonLink href="/platform/roles" variant="secondary">
+              <span className="whitespace-nowrap">Roles & permissions</span>
+            </ButtonLink>
+            <PanelButton panel="invite">Invite someone</PanelButton>
+          </>
         }
       />
+      <Panel id="invite" title="Invite someone" hint="They get an email to set a password and join the Zinny team." className="max-w-xl">
+        <ActionForm action={inviteMemberAction} className="space-y-3">
+          <Field label="Name">
+            <Input name="name" required minLength={2} />
+          </Field>
+          <Field label="Email">
+            <Input name="email" type="email" required />
+          </Field>
+          <Field label="Role">
+            <Select name="role" defaultValue="support_agent">
+              {ASSIGNABLE_PLATFORM_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {PLATFORM_ROLE_LABELS[r]}
+                </option>
+              ))}
+              {custom.map((c) => (
+                <option key={c.id} value={`custom:${c.id}`}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <SubmitButton>Invite to the Zinny team</SubmitButton>
+        </ActionForm>
+      </Panel>
       <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-3">
           {team.map((m) => {
@@ -82,32 +111,6 @@ export default async function TeamPage() {
         </div>
         <div className="space-y-6">
           <Card className="h-fit">
-            <CardTitle>Invite someone</CardTitle>
-            <ActionForm action={inviteMemberAction} className="space-y-3">
-              <Field label="Name">
-                <Input name="name" required minLength={2} />
-              </Field>
-              <Field label="Email">
-                <Input name="email" type="email" required />
-              </Field>
-              <Field label="Role">
-                <Select name="role" defaultValue="support_agent">
-                  {ASSIGNABLE_PLATFORM_ROLES.map((r) => (
-                    <option key={r} value={r}>
-                      {PLATFORM_ROLE_LABELS[r]}
-                    </option>
-                  ))}
-                  {custom.map((c) => (
-                    <option key={c.id} value={`custom:${c.id}`}>
-                      {c.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <SubmitButton>Invite to the Zinny team</SubmitButton>
-            </ActionForm>
-          </Card>
-          <Card className="h-fit">
             <CardTitle>What each role opens</CardTitle>
             <dl className="space-y-2 text-[13px]">
               {ASSIGNABLE_PLATFORM_ROLES.map((r) => (
@@ -120,6 +123,6 @@ export default async function TeamPage() {
           </Card>
         </div>
       </div>
-    </>
+    </Panels>
   );
 }

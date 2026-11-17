@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { Panel, PanelButton, Panels } from "@/components/panel";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Card, CardTitle, Empty, Field, Input, PageHeader, Select } from "@/components/ui";
+import { Card, Empty, Field, Input, PageHeader, Select } from "@/components/ui";
 import { can } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { listCourses } from "@/server/services/courses";
@@ -35,10 +36,28 @@ export default async function DepartmentsPage({ params }: { params: Promise<{ un
   };
 
   return (
-    <>
-      <PageHeader title="Departments" subtitle="Each department has a Head, its faculty and its courses. Students see only their departments' courses." />
-      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="grid gap-3 md:grid-cols-2">
+    <Panels initial={canManage && depts.length === 0 ? "add" : undefined}>
+      <PageHeader
+        title="Departments"
+        subtitle="Each department has a Head, its faculty and its courses. Students see only their departments' courses."
+        actions={canManage ? <PanelButton panel="add">Add a department</PanelButton> : null}
+      />
+      {canManage && (
+        <Panel id="add" title="New department" className="max-w-xl">
+          <ActionForm action={createDepartmentAction} className="space-y-4">
+            <input type="hidden" name="uni" value={uni} />
+            <Field label="Name">
+              <Input name="name" placeholder="Computer Science" required />
+            </Field>
+            <Field label="Code" hint="Used in CSV imports, like CS or MKT.">
+              <Input name="code" placeholder="CS" required />
+            </Field>
+            <SubmitButton>Add department</SubmitButton>
+          </ActionForm>
+        </Panel>
+      )}
+      <div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {depts.length === 0 && (
             <div className="md:col-span-2">
               <Empty title="No departments yet">
@@ -93,22 +112,7 @@ export default async function DepartmentsPage({ params }: { params: Promise<{ un
             );
           })}
         </div>
-        {canManage && (
-          <Card className="h-fit">
-            <CardTitle>New department</CardTitle>
-            <ActionForm action={createDepartmentAction} className="space-y-4">
-              <input type="hidden" name="uni" value={uni} />
-              <Field label="Name">
-                <Input name="name" placeholder="Computer Science" required />
-              </Field>
-              <Field label="Code" hint="Used in CSV imports, like CS or MKT.">
-                <Input name="code" placeholder="CS" required />
-              </Field>
-              <SubmitButton>Add department</SubmitButton>
-            </ActionForm>
-          </Card>
-        )}
       </div>
-    </>
+    </Panels>
   );
 }

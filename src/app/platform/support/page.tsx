@@ -1,14 +1,11 @@
 import Link from "next/link";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Td, ActionAnchor } from "@/components/ui";
+import { ActionLink, Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Td, ActionAnchor } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { forceEndSupportAction, leaveSupportAction, startSupportAction } from "@/modules/zinny-team-panel/actions";
 import { NoAccess, PanelTable } from "@/modules/zinny-team-panel/components/bits";
-import { PersonActions } from "@/modules/zinny-team-panel/components/person-actions";
 import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
-import { institutePeople } from "@/modules/zinny-team-panel/services/people";
-import { ROLE_LABELS } from "@/server/authz/roles";
 import { formatCount, formatDateTime, timeAgo, timeUntil } from "@/modules/zinny-team-panel/lib/format";
 import { activeSessions, recentSessions, sessionState, supportPicker } from "@/modules/zinny-team-panel/services/support";
 import { firstName } from "@/server/lib/names";
@@ -25,7 +22,6 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
   const picked = picker.universities.some((u) => u.id === university) ? university! : "";
   // Super Admins can also become one of the institute's people instead of acting as themselves.
   const superAdmin = isSuperAdmin(actor);
-  const pickedPeople = superAdmin && picked ? await institutePeople(actor, picked, 6) : null;
   const pickedName = picker.universities.find((u) => u.id === picked)?.name;
 
   return (
@@ -180,38 +176,25 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
           <Card className="h-fit">
             <CardTitle hint="Super Admins only">Sign in as one of its people</CardTitle>
             <p className="text-[14px] text-muted">
-              To see or fix something exactly as a person has it, sign in as them. You get everything they can do for up to 2 hours, and each change is recorded as them with your name
-              alongside.
+              To see or fix something exactly as a person has it, sign in as them from their institute&apos;s People tab, or find them here. You get everything they can do for up to 2
+              hours, and each change is recorded as them with your name alongside.
             </p>
-            {pickedPeople && pickedPeople.rows.length > 0 ? (
-              <>
-                <ul className="mt-4 divide-y divide-line">
-                  {pickedPeople.rows.map((p) => (
-                    <li key={p.userId} className="flex flex-wrap items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                      <div className="min-w-0">
-                        <Link href={`/platform/people/${p.userId}`} className="block truncate text-[14px] font-medium hover:text-brand">
-                          {p.name}
-                        </Link>
-                        <div className="truncate text-[12.5px] text-muted">{p.roles.map((r) => ROLE_LABELS[r]).join(", ")}</div>
-                      </div>
-                      <PersonActions userId={p.userId} name={p.name} email={p.email} phone={p.phone} universityId={picked} self={p.userId === actor.userId} />
-                    </li>
-                  ))}
-                </ul>
-                <Link href={`/platform/people?university=${picked}`} className="mt-4 inline-block text-[13px] font-medium text-brand hover:underline">
-                  All {formatCount(pickedPeople.total)} users at {pickedName}
-                </Link>
-              </>
-            ) : (
-              <form action="/platform/people" className="mt-4 flex flex-wrap gap-2" role="search">
-                {picked && <input type="hidden" name="university" value={picked} />}
-                <label className="min-w-[180px] flex-1">
-                  <span className="sr-only">Find a person</span>
-                  <Input name="q" placeholder="Name, email or phone" />
-                </label>
-                <button className="h-10 rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">Find person</button>
-              </form>
+            {/* The people themselves are listed in one place: the institute's own page. */}
+            {picked && pickedName && (
+              <div className="mt-4">
+                <ActionLink href={`/platform/institutes/${picked}?tab=people`} icon="view">
+                  See {pickedName}&apos;s people
+                </ActionLink>
+              </div>
             )}
+            <form action="/platform/people" className="mt-4 flex flex-wrap gap-2" role="search">
+              {picked && <input type="hidden" name="university" value={picked} />}
+              <label className="min-w-[180px] flex-1">
+                <span className="sr-only">Find a person</span>
+                <Input name="q" placeholder="Name, email or phone" />
+              </label>
+              <button className="h-10 rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">Find person</button>
+            </form>
           </Card>
         )}
         </div>

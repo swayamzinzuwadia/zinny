@@ -252,6 +252,29 @@ export function Tabs({ tabs, active }: { tabs: { key: string; label: string; hre
   );
 }
 
+/**
+ * A second, quieter row under Tabs, for the few pages that belong to one tab (a course's
+ * Tests, Assignments and Polls under Coursework). It only shows when there is a choice to make.
+ */
+export function SubTabs({ tabs, active, label }: { tabs: { key: string; label: string; href: string; count?: number }[]; active: string; label: string }) {
+  if (tabs.length < 2) return null;
+  return (
+    <nav aria-label={label} className="-mt-3 mb-6 flex flex-wrap gap-1 text-[13.5px]">
+      {tabs.map((t) => (
+        <Link
+          key={t.key}
+          href={t.href}
+          aria-current={t.key === active ? "page" : undefined}
+          className={cx("rounded-full px-3 py-1.5", t.key === active ? "bg-brand-soft font-medium text-brand-strong" : "text-muted hover:text-ink")}
+        >
+          {t.label}
+          {t.count !== undefined && <span className="ml-1.5 text-faint">{t.count}</span>}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
   return (
     <div className="rounded-2xl border border-line bg-surface px-5 py-4">
