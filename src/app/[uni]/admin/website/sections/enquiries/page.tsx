@@ -2,10 +2,9 @@ import Link from "next/link";
 import { Badge, Empty, PageHeader, Table, Tabs, Td, cx } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { canManageSite } from "@/modules/website-builder/access";
-import { NoAccess, SectionTabs } from "@/modules/website-builder/components/admin";
+import { NoAccess } from "@/modules/website-builder/components/admin";
 import { ENQUIRY_STATUS_LABEL, listEnquiries, type EnquiryFilter, type EnquiryStatus } from "@/modules/website-builder/enquiries";
 import { formatMoment, truncate } from "@/modules/website-builder/format";
-import { attentionCounts } from "@/modules/website-builder/overview";
 
 export const metadata = { title: "Enquiries" };
 
@@ -26,7 +25,7 @@ export default async function EnquiriesPage({ params, searchParams }: { params: 
   }
   const status = (STATUSES.includes(sp.show as EnquiryStatus) ? sp.show : "new") as EnquiryStatus | "all";
   const assignee = (["me", "unassigned"].includes(sp.who ?? "") ? sp.who : "anyone") as EnquiryFilter["assignee"];
-  const [{ rows, counts }, attention] = await Promise.all([listEnquiries(actor, { status, assignee }), attentionCounts(actor)]);
+  const { rows, counts } = await listEnquiries(actor, { status, assignee });
   const base = `/${uni}/admin/website/sections/enquiries`;
   const q = (s: string, w: string | undefined) => `${base}?show=${s}${w && w !== "anyone" ? `&who=${w}` : ""}`;
   const total = Object.values(counts).reduce((n, c) => n + (c ?? 0), 0);
@@ -34,7 +33,6 @@ export default async function EnquiriesPage({ params, searchParams }: { params: 
   return (
     <>
       <PageHeader title="Enquiries" subtitle="Questions sent from your website's enquiry form. Reply by email or phone, then mark them as contacted, and close them when you're done." />
-      <SectionTabs uni={uni} active="enquiries" counts={attention} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <Tabs
           active={status}

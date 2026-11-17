@@ -58,7 +58,7 @@ describe("Sales page access", () => {
   it("HOD and faculty can't open the Sales page (page and service)", async () => {
     for (const who of [w.hod, w.faculty]) {
       const page = await renderSales(who);
-      expect(page).toContain("You don't have access to Sales");
+      expect(page).toContain("You don't have access to Payments");
       expect(page).not.toContain("Riya Sharma");
       expect(page).not.toContain("Gross collected");
       await expect(salesOverview(who, {})).rejects.toThrow(/access/);

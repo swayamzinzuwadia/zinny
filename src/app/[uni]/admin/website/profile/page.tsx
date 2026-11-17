@@ -13,7 +13,7 @@ import { mediaPath } from "@/modules/website-builder/media";
 import { getProfile, SOCIAL_NETWORKS } from "@/modules/website-builder/profile";
 import { redirect } from "next/navigation";
 
-export const metadata = { title: "Manage profile" };
+export const metadata = { title: "Institute profile" };
 
 export default async function InstituteProfilePage({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
@@ -22,7 +22,7 @@ export default async function InstituteProfilePage({ params }: { params: Promise
     if (isTeachingStaff(actor)) redirect(`/${uni}/admin/website/profile/me`);
     return (
       <>
-        <PageHeader title="Manage profile" />
+        <PageHeader title="Institute profile" />
         <NoAccess uni={uni} />
       </>
     );
@@ -34,7 +34,7 @@ export default async function InstituteProfilePage({ params }: { params: Promise
   return (
     <>
       <PageHeader
-        title="Manage profile"
+        title="Institute profile"
         subtitle="Who you are and how to reach you. Saved changes appear on your public website straight away."
         actions={
           <a href={`/site/${uni}`} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">

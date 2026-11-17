@@ -5,7 +5,7 @@ import { PageTrail, type TrailParent } from "@/components/page-trail";
 import { SidebarAccount, SidebarLink } from "@/components/sidebar-account";
 import { Logo } from "@/components/ui";
 import { signOut } from "@/server/auth/session";
-import { ACCESS_LABEL, menuFor } from "@/server/authz/menu";
+import { ACCESS_LABEL, sidebarFor, sidebarLinks } from "@/server/authz/menu";
 import { can, isActive } from "@/server/authz/engine";
 import { ROLE_LABELS } from "@/server/authz/roles";
 import { spaceContext } from "@/server/context";
@@ -19,22 +19,24 @@ export default async function AdminLayout({ children, params }: { children: Reac
   if (!isAdminUser) redirect(`/${uni}/learn`);
 
   const base = `/${uni}/admin`;
-  const sections = menuFor(actor, university.id).map((s) => ({ ...s, access: ACCESS_LABEL[s.access] }));
-  // Every page below a menu item leads back to it; batches live inside courses.
-  const items = sections.flatMap((s) => s.items).filter((i) => i.href !== "");
-  const trail: TrailParent[] = items.map((i) => ({ prefix: i.href, href: i.href, label: i.label }));
-  if (items.some((i) => i.href === "/products/courses")) trail.push({ prefix: "/products/batches", href: "/products/courses", label: "Courses" });
+  const nav = sidebarFor(actor, university.id);
+  // Access is shown only where it is less than full.
+  const groups = nav.map((g) => ({ ...g, items: g.items.map((i) => ({ ...i, access: i.access && i.access !== "full" ? ACCESS_LABEL[i.access] : undefined })) }));
+  // Every page below a menu link leads back to it.
+  const links = sidebarLinks(nav).filter((l) => l.href !== "");
+  const trail: TrailParent[] = links.map((l) => ({ prefix: l.href, href: l.href, label: l.label }));
   const now = new Date();
   const roles = [
     ...new Set(actor.assignments.filter((a) => isActive(a, now) && a.universityId === university.id).map((a) => a.label ?? ROLE_LABELS[a.role])),
   ];
   // Staff with no notifications to choose from don't get a link to an empty page.
   const notificationsLink =
-    can(actor, "settings.manage", { universityId: university.id }) ||
-    (await getPreferences(actor, actor.userId).then(
-      (p) => p.rows.length > 0,
-      () => false,
-    ));
+    !links.some((l) => l.href === "/settings/notifications") &&
+    (can(actor, "settings.manage", { universityId: university.id }) ||
+      (await getPreferences(actor, actor.userId).then(
+        (p) => p.rows.length > 0,
+        () => false,
+      )));
 
   async function logout() {
     "use server";
@@ -49,16 +51,16 @@ export default async function AdminLayout({ children, params }: { children: Reac
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      <Link href={base} className="mb-6 block px-3 pt-1">
+      <Link href={base} className="mb-4 block px-3 pt-1">
         <Logo height={28} tone="cream" />
         <div className="mt-2 truncate text-[13px] text-canvas/55">{university.name}</div>
       </Link>
-      <div className="sidebar-scroll -mr-2 flex-1 overflow-y-auto py-2 pr-1">
-        <AdminNav base={base} sections={sections} />
+      <div className="sidebar-scroll -mr-2 flex-1 overflow-y-auto py-1 pr-1">
+        <AdminNav base={base} groups={groups} />
       </div>
       <SidebarAccount name={actor.name} roles={roles.join(", ")} logout={logout}>
         <SidebarLink href={`/${uni}/profile`}>Your profile</SidebarLink>
-        {/* Staff reach their own "My notifications" here; admins also get the Settings item. */}
+        {/* Staff reach their own "My notifications" here; admins have Notifications under Settings in the menu. */}
         {notificationsLink && <SidebarLink href={`/${uni}/admin/settings/notifications`}>Notifications</SidebarLink>}
         {isLearner && (
           <SidebarLink href={`/${uni}/learn`} gold>

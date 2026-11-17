@@ -1024,7 +1024,7 @@ export async function addStudentToBatchTx(
   ).filter((r) => !r.endsAt || r.endsAt > now);
   if (!student) {
     throw new ValidationError(
-      input.userId ? "That person isn't a student here yet. Add them under Users, Students first." : `No student with the email ${email} in this institute. Add them under Users, Students first.`,
+      input.userId ? "That person isn't a student here yet. Add them under Students first." : `No student with the email ${email} in this institute. Add them under Students first.`,
     );
   }
   const who = { id: student.id, name: student.name };

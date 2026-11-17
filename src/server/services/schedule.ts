@@ -540,7 +540,7 @@ export function batchTimetable(batch: ScheduledBatch, sections: PlanSection[], p
           message:
             `${s.facultyName ?? "The faculty member"}'s access ends on ${formatDate(s.facultyAccessEndsOn)}, before ` +
             (late.length === 1 ? `${firstDay} of ${s.title}.` : `${late.length} of their days in ${s.title}, starting with ${firstDay}.`),
-          fix: "Extend their access under Users, or pick someone else for this section.",
+          fix: "Extend their access under Staff, Teaching, or pick someone else for this section.",
           sectionId: s.id,
           dayNumbers: late.map((p) => p.dayNumber),
         });

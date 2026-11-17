@@ -145,7 +145,7 @@ export default async function PlatformHome() {
                 href={can.finance ? "/platform/billing" : "/platform/plans"}
                 className="group flex flex-wrap items-center gap-x-5 gap-y-1 rounded-2xl border border-line bg-surface px-5 py-3.5 text-[14px] [transition-property:border-color] duration-150 hover:border-brand/40"
               >
-                <span className="font-medium text-ink">Plans and billing</span>
+                <span className="font-medium text-ink">Billing</span>
                 {billing.plans !== null && <span className="tabular text-muted">{plural(billing.plans, "plan")}</span>}
                 {billing.renewing !== null && (
                   <span className="tabular text-muted">{billing.renewing === 0 ? "No renewals" : plural(billing.renewing, "renewal")} due in 30 days</span>

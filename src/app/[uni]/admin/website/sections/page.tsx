@@ -6,7 +6,7 @@ import { NoAccess, SectionTabs } from "@/modules/website-builder/components/admi
 import { plural } from "@/modules/website-builder/format";
 import { siteOverview } from "@/modules/website-builder/overview";
 
-export const metadata = { title: "Website sections" };
+export const metadata = { title: "Website content" };
 
 export default async function SectionsOverviewPage({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
@@ -14,7 +14,7 @@ export default async function SectionsOverviewPage({ params }: { params: Promise
   if (!canManageSite(actor)) {
     return (
       <>
-        <PageHeader title="Website sections" />
+        <PageHeader title="Website content" />
         <NoAccess uni={uni} />
       </>
     );
@@ -44,7 +44,7 @@ export default async function SectionsOverviewPage({ params }: { params: Promise
   return (
     <>
       <PageHeader
-        title="Website sections"
+        title="Website content"
         subtitle="The content inside your website: what visitors read, and what they send you. Items marked as shown appear on the site straight away."
       />
       <SectionTabs uni={uni} active="overview" counts={{ enquiries: o.enquiries.new, reviews: o.reviews.pending }} />

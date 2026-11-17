@@ -10,7 +10,7 @@ import { platformContext } from "@/server/context";
 import { leaveSupportAction } from "@/modules/zinny-team-panel/actions";
 import { ImpersonationBanner } from "@/modules/zinny-team-panel/components/impersonation-banner";
 import { PlatformNav } from "@/modules/zinny-team-panel/components/platform-nav";
-import { isZinnyTeam, navFor } from "@/modules/zinny-team-panel/lib/access";
+import { isZinnyTeam, sidebarFor, sidebarLinks } from "@/modules/zinny-team-panel/lib/access";
 import { PLATFORM_ROLE_LABELS, isPlatformRole } from "@/modules/zinny-team-panel/lib/constants";
 import { timeUntil } from "@/modules/zinny-team-panel/lib/format";
 import { activeSessions } from "@/modules/zinny-team-panel/services/support";
@@ -23,7 +23,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   // People without a Zinny team role go back to the space picker.
   if (!isZinnyTeam(actor)) redirect("/");
 
-  const sections = navFor(actor);
+  const groups = sidebarFor(actor);
   const now = new Date();
   const roles = [
     ...new Set(
@@ -42,12 +42,12 @@ export default async function PlatformLayout({ children }: { children: React.Rea
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      <Link href="/platform" className="mb-6 block px-3 pt-1">
+      <Link href="/platform" className="mb-4 block px-3 pt-1">
         <Logo height={28} tone="cream" />
         <div className="mt-2 text-[13px] text-canvas/55">Zinny team</div>
       </Link>
-      <div className="sidebar-scroll -mr-2 flex-1 overflow-y-auto py-2 pr-1">
-        <PlatformNav sections={sections} />
+      <div className="sidebar-scroll -mr-2 flex-1 overflow-y-auto py-1 pr-1">
+        <PlatformNav groups={groups} />
       </div>
       <SidebarAccount name={actor.name} roles={roles.join(", ")} logout={logout} />
     </div>
@@ -85,7 +85,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
           <main className="mx-auto max-w-[1280px] px-5 py-8 lg:px-10 lg:py-10">
             <PageTrail
               base="/platform"
-              parents={sections.flatMap((s) => s.items).filter((i) => i.href !== "").map((i) => ({ prefix: i.href, href: i.href, label: i.label }))}
+              parents={sidebarLinks(groups).filter((l) => l.href !== "").map((l) => ({ prefix: l.href, href: l.href, label: l.label }))}
             />
             {children}
           </main>

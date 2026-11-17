@@ -4,10 +4,9 @@ import { spaceContext } from "@/server/context";
 import { canManageSite } from "@/modules/website-builder/access";
 import { discardDraftAction, moveSectionAction, publishPageAction, sectionVisibilityAction } from "@/modules/website-builder/actions";
 import { ActionButton } from "@/modules/website-builder/components/action-button";
-import { NoAccess, ProfileTabs, VisibilityBadge } from "@/modules/website-builder/components/admin";
+import { NoAccess, VisibilityBadge } from "@/modules/website-builder/components/admin";
 import { SectionEditor } from "@/modules/website-builder/components/section-editor";
 import { getPage } from "@/modules/website-builder/builder";
-import { listFacultyProfiles } from "@/modules/website-builder/faculty";
 import { formatMoment } from "@/modules/website-builder/format";
 import { SECTION_INFO } from "@/modules/website-builder/sections";
 
@@ -24,7 +23,7 @@ export default async function BuilderPage({ params }: { params: Promise<{ uni: s
       </>
     );
   }
-  const [page, faculty] = await Promise.all([getPage(actor), listFacultyProfiles(actor, "pending")]);
+  const page = await getPage(actor);
   const tz = university.timezone;
   const publishedSections = new Map((page.published ?? []).map((s, i) => [s.type, { ...s, position: i }]));
 
@@ -46,7 +45,6 @@ export default async function BuilderPage({ params }: { params: Promise<{ uni: s
           </>
         }
       />
-      <ProfileTabs uni={uni} actor={actor} active="builder" pendingProfiles={faculty.counts.pending} />
 
       <Card className={cx("mb-8 flex flex-wrap items-center justify-between gap-4", page.hasChanges && "border-gold/60")}>
         <div className="min-w-0">

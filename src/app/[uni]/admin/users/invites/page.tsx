@@ -199,11 +199,11 @@ export default async function InvitesPage({ params }: { params: Promise<{ uni: s
             <ul className="space-y-2 text-muted">
               <li>
                 {can(actor, "user.import", { universityId: university.id })
-                  ? "Adding someone under Users, or by bulk import, sends their invitation automatically."
-                  : "Adding someone under Users sends their invitation automatically."}
+                  ? "Adding someone under Students or Staff, or by bulk import, sends their invitation automatically."
+                  : "Adding someone under Students or Staff sends their invitation automatically."}
               </li>
               <li>Resending sends a new link. Any older link stops working.</li>
-              <li>Revoking stops the link but keeps their role. Remove the role under Users to take away access.</li>
+              <li>Revoking stops the link but keeps their role. Remove the role under Students or Staff to take away access.</li>
               <li>Someone who already has a Zinny password isn&apos;t invited: they sign in as usual.</li>
             </ul>
           </Card>

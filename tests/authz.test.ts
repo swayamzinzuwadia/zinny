@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { can, canPlatform, type Actor, type Assignment } from "@/server/authz/engine";
 import type { Action } from "@/server/authz/roles";
-import { menuFor } from "@/server/authz/menu";
+import { menuFor, sidebarFor, sidebarLinks } from "@/server/authz/menu";
 import { activeHref } from "@/components/admin-nav";
 import type { RoleName } from "@/db/schema";
 
@@ -318,5 +318,108 @@ describe("contracts section 9: module permissions", () => {
       }
     }
     expect(canPlatform(admin, "platform.view_analytics")).toBe(false);
+  });
+});
+
+describe("admin sidebar: pages arranged by the job they do", () => {
+  const visiting = actor({ role: "visiting_faculty", scopeType: "batch", batchId: "b1" });
+  const everyone: [string, Actor][] = [
+    ["admin", admin],
+    ["board", board],
+    ["accounts", accounts],
+    ["hod", hodCS],
+    ["faculty", facultyB1],
+    ["visiting", visiting],
+  ];
+  const shape = (a: Actor) => sidebarFor(a, U).map((g) => [g.label ?? "", g.items.map((i) => i.label)]);
+  const item = (a: Actor, key: string) => sidebarFor(a, U).flatMap((g) => g.items).find((i) => i.key === key);
+  const kids = (a: Actor, key: string) => item(a, key)?.children.map((c) => c.label) ?? [];
+  const hrefs = (a: Actor) => sidebarLinks(sidebarFor(a, U)).map((l) => l.href);
+
+  it("the Institute Admin sees fifteen links under plain headings", () => {
+    expect(shape(admin)).toEqual([
+      ["", ["Home"]],
+      ["Teach", ["Courses", "Batches", "Tests and assignments", "Certificates"]],
+      ["People", ["Students", "Staff", "Enquiries"]],
+      ["Money", ["Payments", "Invoices", "Marketplace"]],
+      ["Grow", ["Website", "Leaderboard"]],
+      ["", ["Reports", "Settings"]],
+    ]);
+  });
+  it("a link's own pages sit under it", () => {
+    expect(kids(admin, "coursework")).toEqual(["Tests", "Assignments", "Question pool", "Grading"]);
+    expect(kids(admin, "students")).toEqual(["Join requests", "Invitations", "Bulk import"]);
+    expect(kids(admin, "staff")).toEqual(["Administration", "Teaching", "Departments"]);
+    expect(kids(admin, "marketplace")).toEqual(["Combos", "Discount codes"]);
+    expect(kids(admin, "website")).toEqual(["Builder", "Profiles", "Content"]);
+    expect(kids(admin, "leaderboard")).toEqual(["Challenges", "XP rules", "Badges"]);
+    expect(kids(admin, "reports")).toEqual(["Insights", "All reports", "Learning progress"]);
+    expect(kids(admin, "settings")).toEqual(["Roles & permissions", "Notifications"]);
+  });
+  it("a link without a page of its own leads to its first page", () => {
+    expect(item(admin, "staff")).toMatchObject({ own: false, href: "/users/administration" });
+    expect(item(admin, "website")).toMatchObject({ own: false, href: "/website/profile/builder" });
+    expect(item(admin, "reports")).toMatchObject({ own: false, href: "/insights" });
+    expect(item(admin, "marketplace")).toMatchObject({ own: true, href: "/marketplace" });
+  });
+  it("every page the menu allows is in the sidebar, for every role", () => {
+    for (const [name, a] of everyone) {
+      const allowed = menuFor(a, U).flatMap((s) => s.items.map((i) => i.href));
+      expect(hrefs(a), name).toEqual(expect.arrayContaining(allowed));
+    }
+  });
+  it("no page is in the sidebar twice", () => {
+    for (const [name, a] of everyone) expect(new Set(hrefs(a)).size, name).toBe(hrefs(a).length);
+  });
+  it("the sidebar opens nothing the menu doesn't: extra links follow a page the person already has", () => {
+    // Faculty and Accounts have no Website, Users or Settings sections, so none of their pages show.
+    for (const a of [facultyB1, visiting, accounts]) {
+      for (const h of hrefs(a)) expect(h).not.toMatch(/^\/(website|users|settings)/);
+    }
+    expect(hrefs(accounts)).not.toContain("/products/batches");
+    expect(hrefs(hodCS)).not.toContain("/website/sections/enquiries");
+    expect(hrefs(board)).not.toContain("/users/roles");
+  });
+  it("Batches, the question pool and grading come with courses and tests", () => {
+    for (const a of [admin, board, hodCS, facultyB1, visiting]) {
+      expect(hrefs(a)).toEqual(expect.arrayContaining(["/products/batches", "/products/tests/pool", "/products/tests/grading"]));
+    }
+  });
+  it("HOD: no bulk import, no Administration list, Marketplace under Money", () => {
+    expect(kids(hodCS, "students")).toEqual(["Join requests", "Invitations"]);
+    expect(kids(hodCS, "staff")).toEqual(["Teaching", "Departments"]);
+    expect(shape(hodCS)).toContainEqual(["Money", ["Marketplace"]]);
+  });
+  it("a group with one page left shows that page under its own name", () => {
+    // Accounts & Fees only have the reports page; faculty only have learning progress.
+    expect(item(accounts, "reports")).toMatchObject({ label: "Reports", href: "/finance/reports", own: true, children: [] });
+    expect(item(facultyB1, "reports")).toMatchObject({ label: "Learning progress", href: "/products/content", own: true, children: [] });
+    expect(shape(accounts)).toEqual([
+      ["", ["Home"]],
+      ["Money", ["Payments", "Invoices"]],
+      ["", ["Reports"]],
+    ]);
+  });
+  it("Board sees people and money to look at, nothing to set up", () => {
+    expect(kids(board, "students")).toEqual([]);
+    expect(item(board, "settings")).toBeUndefined();
+    expect(item(board, "students")?.access).toBe("view");
+  });
+  it("Students get no sidebar", () => {
+    expect(sidebarFor(student, U)).toEqual([]);
+  });
+  it("marks the closest link only, and names the way back in full", () => {
+    const base = "/demo/admin";
+    const all = hrefs(admin);
+    expect(activeHref(`${base}/website/sections/enquiries/abc`, base, all)).toBe("/website/sections/enquiries");
+    expect(activeHref(`${base}/website/sections/blog/abc`, base, all)).toBe("/website/sections");
+    expect(activeHref(`${base}/website/profile/builder`, base, all)).toBe("/website/profile/builder");
+    expect(activeHref(`${base}/website/profile/faculty`, base, all)).toBe("/website/profile");
+    expect(activeHref(`${base}/products/batches/abc/attendance`, base, all)).toBe("/products/batches");
+    expect(activeHref(`${base}/products/tests/pool/abc`, base, all)).toBe("/products/tests/pool");
+    const back = Object.fromEntries(sidebarLinks(sidebarFor(admin, U)).map((l) => [l.href, l.label]));
+    expect(back["/website/sections"]).toBe("Website content");
+    expect(back["/website/profile/builder"]).toBe("Website builder");
+    expect(back["/finance/reports"]).toBe("Reports");
   });
 });

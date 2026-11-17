@@ -141,7 +141,7 @@ export async function joinTx(
   await notify(tx, target.id, await admitters(tx, target.id, departmentId), {
     kind: "join.requested",
     title: `${person.name} asked to join`,
-    body: departmentId ? `For ${target.departments.find((d) => d.id === departmentId)?.name}. Accept or decline it under Users.` : "Accept or decline it under Users.",
+    body: departmentId ? `For ${target.departments.find((d) => d.id === departmentId)?.name}. Accept or decline it under Students, Join requests.` : "Accept or decline it under Students, Join requests.",
     data: { requestId: req.id },
   });
   await audit(tx, me, "user.join_request", "idn_join_request", req.id, { departmentId });

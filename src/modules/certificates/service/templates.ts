@@ -66,7 +66,7 @@ export async function defaultTemplate(tx: Tx, actor: Actor): Promise<Template> {
   if (d) return d;
   // No default marked (shouldn't happen): fall back to the oldest active template.
   const [first] = await tx.select().from(certTemplates).where(isNull(certTemplates.archivedAt)).orderBy(asc(certTemplates.createdAt)).limit(1);
-  if (!first) throw new ConflictError("There is no certificate template to use. Restore or add one under Products → Certificates.", "no_template");
+  if (!first) throw new ConflictError("There is no certificate template to use. Restore or add one on the Certificates page.", "no_template");
   return first;
 }
 

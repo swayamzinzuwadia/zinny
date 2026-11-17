@@ -45,7 +45,7 @@ export function InviteActions({
           <form
             action={revokeAction}
             onSubmit={(e) => {
-              if (!window.confirm(`Revoke the invitation for ${name}? The link stops working. They keep their role until you remove it under Users.`)) {
+              if (!window.confirm(`Revoke the invitation for ${name}? The link stops working. They keep their role until you remove it under People.`)) {
                 e.preventDefault();
               }
             }}

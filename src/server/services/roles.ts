@@ -227,7 +227,7 @@ async function saveCustom(tx: Tx, who: Actor, universityId: string | null, draft
   if (total >= MAX_CUSTOM_ROLES) throw new ValidationError(`You can have up to ${MAX_CUSTOM_ROLES} custom roles. Delete one you no longer use.`);
   const [row] = await tx.insert(customRoles).values({ universityId, kind, name, description, actions, createdBy: who.userId || null }).returning();
   await audit(tx, who, "role.create", "role", row.id, { name, kind, actions });
-  return `${name} created. Give it to people from Users.`;
+  return `${name} created. Give it to people from Staff or Students.`;
 }
 
 /** A built-in role that this person may change in this scope. */

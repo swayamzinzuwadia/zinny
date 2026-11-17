@@ -1,5 +1,5 @@
 /**
- * The institute profile (Website › Manage profile): about, address, contact details,
+ * The institute profile (Website › Profiles): about, address, contact details,
  * social links, logo, cover image and the site's colour. Live on the public site as soon
  * as it is saved.
  */

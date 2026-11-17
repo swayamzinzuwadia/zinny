@@ -26,7 +26,7 @@ export default async function MyProfilePage({ params }: { params: Promise<{ uni:
         <ProfileTabs uni={uni} actor={actor} active="me" />
         <Empty title="Public profiles are for teaching staff">
           {can(actor, "user.manage_roles", { universityId: university.id })
-            ? "Faculty and Heads of Department write their own profile here. To have one yourself, add yourself as faculty under Users, Teaching."
+            ? "Faculty and Heads of Department write their own profile here. To have one yourself, add yourself as faculty under Staff, Teaching."
             : "If you teach here, ask an Institute Admin to add you as faculty."}
         </Empty>
       </>

@@ -538,8 +538,8 @@ export default async function Dashboard({
                   </ul>
                 )}
                 {data.seats.length > 0 && (
-                  <ActionLink href={`${base}/products/courses`} className="mt-4" icon="view">
-                    See all courses and batches
+                  <ActionLink href={`${base}/products/batches`} className="mt-4" icon="view">
+                    See all batches
                   </ActionLink>
                 )}
               </Card>

@@ -404,18 +404,46 @@ export async function listBatches(actor: Actor, courseId: string) {
       .map((b) => b.id)
       .filter((id) => r.all || target.departmentIds!.some((d) => r.departmentIds.has(d)) || r.batchIds.has(id));
     if (ids.length === 0) assertCan(actor, "batch.view", target);
-    const sched = await scheduledBatches(tx, ids);
-    const incharges = ids.length
-      ? await tx.select({ batchId: batches.id, name: users.name }).from(batches).innerJoin(users, eq(users.id, batches.inchargeUserId)).where(inArray(batches.id, ids))
-      : [];
-    const out = [];
-    for (const b of sched) {
-      const taken = await seatsTaken(tx, b.batchId);
-      const incharge = incharges.find((i) => i.batchId === b.batchId)?.name ?? null;
-      out.push({ ...b, timings: describeSlots(b.slots), seatsTaken: taken, seatsLeft: Math.max(0, b.seatLimit - taken), incharge });
-    }
-    return out.sort(
-      (a, b) => a.startDate.localeCompare(b.startDate) || earliestStart(a.slots).localeCompare(earliestStart(b.slots)) || a.batchName.localeCompare(b.batchName),
+    return batchRows(tx, ids);
+  });
+}
+
+/** Timings, seats and incharge for a list of batches, earliest start first. */
+async function batchRows(tx: Tx, ids: string[]) {
+  const sched = await scheduledBatches(tx, ids);
+  const incharges = ids.length
+    ? await tx.select({ batchId: batches.id, name: users.name }).from(batches).innerJoin(users, eq(users.id, batches.inchargeUserId)).where(inArray(batches.id, ids))
+    : [];
+  const out = [];
+  for (const b of sched) {
+    const taken = await seatsTaken(tx, b.batchId);
+    const incharge = incharges.find((i) => i.batchId === b.batchId)?.name ?? null;
+    out.push({ ...b, timings: describeSlots(b.slots), seatsTaken: taken, seatsLeft: Math.max(0, b.seatLimit - taken), incharge });
+  }
+  return out.sort(
+    (a, b) => a.startDate.localeCompare(b.startDate) || earliestStart(a.slots).localeCompare(earliestStart(b.slots)) || a.batchName.localeCompare(b.batchName),
+  );
+}
+
+/**
+ * Every batch this person may open, across all courses: the Batches page. Admins see the
+ * whole institute, HODs their departments, faculty the batches they teach. Recorded
+ * (marketplace) batches have no timetable, so they are left out, as on a course's own page.
+ */
+export async function listAllBatches(actor: Actor) {
+  const r = reach(actor, "batch.view", uni(actor));
+  if (!r.all && r.departmentIds.size === 0 && r.batchIds.size === 0) return [];
+  return withTenant(actor, async (tx) => {
+    const within = r.all
+      ? undefined
+      : or(
+          r.departmentIds.size ? inArray(batches.departmentId, [...r.departmentIds]) : undefined,
+          r.batchIds.size ? inArray(batches.id, [...r.batchIds]) : undefined,
+        );
+    const rows = await tx.select({ id: batches.id }).from(batches).where(and(eq(batches.recorded, false), within));
+    return batchRows(
+      tx,
+      rows.map((b) => b.id),
     );
   });
 }

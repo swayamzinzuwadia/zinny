@@ -4,7 +4,10 @@ import { Empty, Tabs, cx } from "@/components/ui";
 import type { Actor } from "@/server/core";
 import { canManageSite, isTeachingStaff } from "../access";
 
-/** Tabs under Website › Manage profile. People who only teach see just their own profile page. */
+/**
+ * Tabs under Website › Profiles. The website builder is a menu page of its own, so it isn't a
+ * tab here. People who only teach see just their own profile page.
+ */
 export function ProfileTabs({ uni, actor, active, pendingProfiles }: { uni: string; actor: Actor; active: string; pendingProfiles?: number }) {
   const base = `/${uni}/admin/website/profile`;
   const manage = canManageSite(actor);
@@ -12,7 +15,6 @@ export function ProfileTabs({ uni, actor, active, pendingProfiles }: { uni: stri
     ...(manage
       ? [
           { key: "institute", label: "Institute profile", href: base },
-          { key: "builder", label: "Website builder", href: `${base}/builder` },
           { key: "faculty", label: "Faculty profiles", href: `${base}/faculty`, count: pendingProfiles || undefined },
         ]
       : []),
@@ -31,7 +33,10 @@ export const SECTION_PAGES = [
   { key: "team", label: "Team" },
 ] as const;
 
-/** Tabs under Website › Website sections. Counts show what needs attention. */
+/**
+ * Tabs under Website › Content. Counts show what needs attention. Enquiries are in the menu
+ * under People, so they have no tab here; the overview still counts the new ones.
+ */
 export function SectionTabs({ uni, active, counts = {} }: { uni: string; active: string; counts?: Partial<Record<string, number>> }) {
   const base = `/${uni}/admin/website/sections`;
   return (
@@ -39,7 +44,7 @@ export function SectionTabs({ uni, active, counts = {} }: { uni: string; active:
       active={active}
       tabs={[
         { key: "overview", label: "Overview", href: base },
-        ...SECTION_PAGES.map((s) => ({ key: s.key, label: s.label, href: `${base}/${s.key}`, count: counts[s.key] || undefined })),
+        ...SECTION_PAGES.filter((s) => s.key !== "enquiries").map((s) => ({ key: s.key, label: s.label, href: `${base}/${s.key}`, count: counts[s.key] || undefined })),
       ]}
     />
   );

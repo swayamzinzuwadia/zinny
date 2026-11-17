@@ -375,7 +375,7 @@ async function resolveFacultyTx(tx: Tx, actor: Actor, batch: Batch, target: Targ
   const permanent = membership.some((m) => m.role !== "visiting_faculty");
   // addFacultyTx refuses anyone who isn't on the department's teaching staff.
   await addFacultyTx(tx, actor, batch, { userId, role: permanent || membership.length === 0 ? "permanent_faculty" : "visiting_faculty" });
-  if (!(await onBatch())) throw new ValidationError("This person's access to the batch has ended. Extend it under Users, or pick someone else.");
+  if (!(await onBatch())) throw new ValidationError("This person's access to the batch has ended. Extend it under Staff, Teaching, or pick someone else.");
   return userId;
 }
 

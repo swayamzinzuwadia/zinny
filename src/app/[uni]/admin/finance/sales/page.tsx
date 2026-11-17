@@ -11,7 +11,7 @@ import { SALES_STATUSES, STATUS_LABEL, orderDetail, parseFilters, salesOverview,
 import { batchLabel } from "@/server/lib/recorded-batch";
 import { OrderPanelFrame, OrderRow } from "./order-row";
 
-export const metadata = { title: "Sales" };
+export const metadata = { title: "Payments" };
 export const dynamic = "force-dynamic";
 
 type Search = Record<string, string | string[] | undefined>;
@@ -38,8 +38,8 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
   if (!can(actor, "finance.view", { universityId: university.id })) {
     return (
       <>
-        <PageHeader title="Sales" />
-        <Empty title="You don't have access to Sales">Your role doesn&apos;t include Sales. Ask an Institute Admin if you need it.</Empty>
+        <PageHeader title="Payments" />
+        <Empty title="You don't have access to Payments">Your role doesn&apos;t include Payments. Ask an Institute Admin if you need it.</Empty>
       </>
     );
   }
@@ -57,7 +57,7 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
   return (
     <>
       <PageHeader
-        title="Sales"
+        title="Payments"
         subtitle="Every order with its payment, invoice and refunds."
         actions={
           <>

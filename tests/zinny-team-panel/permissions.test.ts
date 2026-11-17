@@ -5,7 +5,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeDb } from "@/db/client";
 import type { Actor } from "@/server/authz/engine";
-import { isZinnyTeam, navFor } from "@/modules/zinny-team-panel/lib/access";
+import { isZinnyTeam, navFor, sidebarFor, sidebarLinks } from "@/modules/zinny-team-panel/lib/access";
 import { analytics } from "@/modules/zinny-team-panel/services/analytics";
 import { listInvoices } from "@/modules/zinny-team-panel/services/billing";
 import { flagCourse, listOpenFlags, markReviewed, reviewQueue } from "@/modules/zinny-team-panel/services/content";
@@ -110,5 +110,42 @@ describe("the sidebar shows only the sections a person's roles allow", () => {
     expect(keys(par)).toEqual([]);
     expect(isZinnyTeam(par)).toBe(false);
     expect(keys(student)).toEqual([]);
+  });
+});
+
+describe("the sidebar arranges those pages by the job, each in one place", () => {
+  const items = (a: Actor) => sidebarFor(a).flatMap((g) => g.items);
+  const shape = (a: Actor) => items(a).map((i) => (i.children.length ? `${i.label}: ${i.children.map((c) => c.label).join(", ")}` : i.label));
+  const hrefs = (a: Actor) => sidebarLinks(sidebarFor(a)).map((l) => l.href);
+
+  it("Super Admin: everyday work first, set-up under Settings", () => {
+    expect(shape(sa)).toEqual([
+      "Overview",
+      "Institutes",
+      "Users",
+      "Billing: Invoices, Plans and prices, Licences",
+      "Support mode: Activity log",
+      "Content review",
+      "Analytics",
+      "Settings: Team, Roles & permissions, Billing settings, Data",
+    ]);
+    expect(items(sa).find((i) => i.key === "billing")).toMatchObject({ own: false, href: "/billing" });
+    expect(items(sa).find((i) => i.key === "support")).toMatchObject({ own: true, href: "/support" });
+  });
+  it("shows exactly the pages navFor allows, once each, for every role", () => {
+    for (const a of [sa, am, sup, qa, fin, par, student]) {
+      const allowed = navFor(a).flatMap((s) => s.items.map((i) => i.href));
+      expect([...hrefs(a)].sort()).toEqual([...allowed].sort());
+    }
+  });
+  it("per role", () => {
+    expect(shape(sup)).toEqual(["Overview", "Support mode: Activity log", "Analytics"]);
+    expect(shape(qa)).toEqual(["Overview", "Content review"]);
+    expect(shape(am)).toEqual(["Overview", "Institutes", "Billing: Plans and prices, Licences", "Content review", "Analytics"]);
+    expect(items(am).find((i) => i.key === "content")!.access).toBe("View");
+    // A group with one page left shows that page under its own name.
+    expect(shape(fin)).toEqual(["Overview", "Billing: Invoices, Plans and prices, Licences", "Billing settings"]);
+    expect(sidebarFor(par)).toEqual([]);
+    expect(sidebarFor(student)).toEqual([]);
   });
 });

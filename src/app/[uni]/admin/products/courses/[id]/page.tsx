@@ -266,7 +266,7 @@ export default async function CoursePage({ params, searchParams }: { params: Pro
                   </Select>
                 </Field>
               ) : (
-                <Field label="GST" hint="GST is turned off for this institute, so the price is the total. Finance, Sales, Invoice settings turns it back on.">
+                <Field label="GST" hint="GST is turned off for this institute, so the price is the total. Payments, Invoice settings turns it back on.">
                   {/* The saved rate is kept for when GST is turned back on. */}
                   <input type="hidden" name="gst" value={course.gstRateBp / 100} />
                   <Input value="Not charged" disabled readOnly aria-label="GST" />

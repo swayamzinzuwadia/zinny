@@ -97,7 +97,7 @@ const SECTIONS: Section[] = [
     key: "team",
     label: "Team",
     entries: [
-      { label: "Team and roles", href: "/team", allowed: isSuperAdmin },
+      { label: "Team", href: "/team", allowed: isSuperAdmin },
       { label: "Roles & permissions", href: "/roles", allowed: isSuperAdmin },
     ],
   },
@@ -111,4 +111,71 @@ export function navFor(actor: Actor): PlatformNavSection[] {
     access: s.access?.(actor),
     items: s.entries.filter((e) => e.allowed(actor)).map(({ label, href }) => ({ label, href })),
   })).filter((s) => s.items.length > 0);
+}
+
+/* ─────────────────────────── The sidebar ─────────────────────────── */
+
+/*
+ * How the sidebar arranges those pages: by the job, flat, each page in one place. SECTIONS and
+ * navFor above stay the list of who may open what; a link shows here when navFor allows it.
+ * A link's other pages (Billing's plans, Settings' team) show under it only while you are inside it.
+ */
+
+export type PlatformSidebarLink = { label: string; href: string };
+export type PlatformSidebarItem = { key: string; icon: string; label: string; href: string; own: boolean; access?: string; children: PlatformSidebarLink[] };
+export type PlatformSidebarGroup = { key: string; label?: string; items: PlatformSidebarItem[] };
+
+type SidebarDef = { key: string; icon: string; label: string; page?: string; children?: PlatformSidebarLink[] };
+
+const SIDEBAR: SidebarDef[] = [
+  { key: "overview", icon: "overview", label: "Overview", page: "" },
+  { key: "universities", icon: "universities", label: "Institutes", page: "/institutes" },
+  { key: "people", icon: "people", label: "Users", page: "/people" },
+  {
+    key: "billing",
+    icon: "billing",
+    label: "Billing",
+    children: [
+      { label: "Invoices", href: "/billing" },
+      { label: "Plans and prices", href: "/plans" },
+      { label: "Licences", href: "/licences" },
+    ],
+  },
+  { key: "support", icon: "support", label: "Support mode", page: "/support", children: [{ label: "Activity log", href: "/support/log" }] },
+  { key: "content", icon: "content", label: "Content review", page: "/content" },
+  { key: "analytics", icon: "analytics", label: "Analytics", page: "/analytics" },
+  // How the panel itself is set up, away from the everyday work above.
+  {
+    key: "settings",
+    icon: "settings",
+    label: "Settings",
+    children: [
+      { label: "Team", href: "/team" },
+      { label: "Roles & permissions", href: "/roles" },
+      { label: "Billing settings", href: "/billing/settings" },
+      { label: "Data", href: "/data" },
+    ],
+  },
+];
+
+/** The sidebar for this person: SIDEBAR, keeping only the pages navFor lets them open. */
+export function sidebarFor(actor: Actor): PlatformSidebarGroup[] {
+  const sections = navFor(actor);
+  const open = new Set(sections.flatMap((s) => s.items.map((i) => i.href)));
+  const content = sections.find((s) => s.key === "content")?.access;
+  const items: PlatformSidebarItem[] = [];
+  for (const def of SIDEBAR) {
+    const children = (def.children ?? []).filter((c) => open.has(c.href));
+    const base = { key: def.key, icon: def.icon, ...(def.key === "content" && content && { access: content }) };
+    if (def.page !== undefined && open.has(def.page)) items.push({ ...base, label: def.label, href: def.page, own: true, children });
+    // One page left of a group: it is the link, under its own name.
+    else if (children.length === 1) items.push({ ...base, label: children[0].label, href: children[0].href, own: true, children: [] });
+    else if (children.length > 1) items.push({ ...base, label: def.label, href: children[0].href, own: false, children });
+  }
+  return items.length > 0 ? [{ key: "panel", items }] : [];
+}
+
+/** Every link in a sidebar, flat: for marking the current page and for the way back. */
+export function sidebarLinks(groups: PlatformSidebarGroup[]): PlatformSidebarLink[] {
+  return groups.flatMap((g) => g.items.flatMap((i) => [...(i.own ? [{ label: i.label, href: i.href }] : []), ...i.children]));
 }
