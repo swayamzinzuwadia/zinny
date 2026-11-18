@@ -1,8 +1,6 @@
-import { ActionForm, SubmitButton } from "@/components/forms";
 import { Card, CardTitle, Empty, PageHeader, Select, Stat, buttonClass, ActionLink } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { can } from "@/server/core";
-import { setNameDisplayAction } from "@/modules/gamification/actions";
 import { PeriodSwitch, RankList } from "@/modules/gamification/components/board";
 import { NoAccess, Podium, SectionNav, unlessForbidden } from "@/modules/gamification/components/staff";
 import { periodLabel, scopeKey, staffLeaderboard } from "@/modules/gamification/leaderboards";
@@ -89,20 +87,14 @@ export default async function LeaderboardPage({ params, searchParams }: { params
 
         <div className="space-y-6">
           {mode && (
-            <Card>
+            <Card className="text-[14px]">
               <CardTitle>Student names</CardTitle>
-              <p className="mb-4 text-[14px] text-muted">How students see each other on leaderboards. Staff always see full names.</p>
-              <ActionForm action={setNameDisplayAction} resetOnSuccess={false} className="space-y-3">
-                <input type="hidden" name="uni" value={uni} />
-                {NAME_DISPLAYS.map((o) => (
-                  <label key={o.key} className="flex cursor-pointer items-center gap-3 rounded-2xl border border-line px-4 py-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
-                    <input type="radio" name="nameDisplay" value={o.key} defaultChecked={mode === o.key} className="accent-[var(--color-brand)]" />
-                    <span className="min-w-0 flex-1 text-[14px] font-medium">{o.label}</span>
-                    <span className="text-[13px] text-muted">{o.example}</span>
-                  </label>
-                ))}
-                <SubmitButton variant="secondary">Save name setting</SubmitButton>
-              </ActionForm>
+              <p className="text-muted">
+                Students see each other as <span className="font-medium text-ink">{NAME_DISPLAYS.find((o) => o.key === mode)?.label.toLowerCase() ?? mode}</span>. Staff always see full names.
+              </p>
+              <ActionLink href={`/${uni}/admin/settings`} className="mt-3" icon="settings">
+                Change this in Settings
+              </ActionLink>
             </Card>
           )}
           <Card>

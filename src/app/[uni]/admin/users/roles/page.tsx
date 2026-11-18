@@ -42,7 +42,7 @@ export default async function RolesPage({ params }: { params: Promise<{ uni: str
         actions={{ save: saveRoleAction, reset: resetRoleAction, remove: deleteRoleAction }}
         hidden={{ uni }}
         where={university.name}
-        peopleHref={`/${uni}/admin/users/administration`}
+        peopleHref={`/${uni}/admin/users/staff`}
       />
       <div className="mt-8 grid gap-6 md:grid-cols-3">
         {NOTES.map((n) => (

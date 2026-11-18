@@ -238,12 +238,12 @@ export default async function UniversityPage({ params, searchParams }: { params:
                       {!p.canSignIn && " · no password yet"}
                     </div>
                   </div>
-                  <PersonActions userId={p.userId} name={p.name} email={p.email} phone={p.phone} universityId={u.id} self={p.userId === actor.userId} />
+                  <PersonActions userId={p.userId} name={p.name} universityId={u.id} self={p.userId === actor.userId} />
                 </li>
               ))}
             </ul>
           )}
-          <p className="mt-4 text-[12.5px] text-muted">Admins and staff first. Setting a password and signing in as someone are logged here and in this institute&apos;s own log.</p>
+          <p className="mt-4 text-[12.5px] text-muted">Admins and staff first. Open someone to edit their details or set their password. Signing in as someone is logged here and in this institute&apos;s own log.</p>
         </Card>
       )}
 

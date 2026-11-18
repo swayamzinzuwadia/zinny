@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ActionForm, SubmitButton } from "@/components/forms";
+import { ActionForm } from "@/components/forms";
 import { Avatar, Badge, Card, CardTitle, Empty, Notice, PageHeader, buttonClass, inputClass, ActionLink } from "@/components/ui";
 import { can, reach } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
@@ -8,7 +8,7 @@ import { canAdmit, getJoinSettings, listJoinRequests } from "@/modules/identity/
 import { joinLink, joinMessage, whatsAppShareHref } from "@/modules/identity/share";
 import { ShareJoinCode } from "@/modules/identity/components/share-join-code";
 import { formatWhen } from "@/modules/identity/emails";
-import { decideJoinAction, joinModeAction, newJoinCodeAction } from "./actions";
+import { decideJoinAction } from "./actions";
 
 export const metadata = { title: "Join requests" };
 
@@ -146,34 +146,9 @@ export default async function JoinRequestsPage({ params, searchParams }: { param
             </p>
           )}
           {isAdmin && (
-            <>
-              <ActionForm action={joinModeAction} className="mt-4 space-y-2" resetOnSuccess={false}>
-                <input type="hidden" name="uni" value={uni} />
-                <fieldset className="space-y-2">
-                  <legend className="mb-1 text-[13px] font-medium">When a student uses the code</legend>
-                  {(
-                    [
-                      ["approval", "Ask Admins or HODs to accept them"],
-                      ["instant", "Let them in straight away"],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <label key={value} className="flex cursor-pointer items-center gap-2.5">
-                      <input type="radio" name="mode" value={value} defaultChecked={settings.mode === value} className="accent-brand" />
-                      {label}
-                    </label>
-                  ))}
-                </fieldset>
-                <SubmitButton size="sm" variant="secondary" pendingText="Saving…">
-                  Save joining rule
-                </SubmitButton>
-              </ActionForm>
-              <ActionForm action={newJoinCodeAction} className="mt-4 border-t border-line pt-4" confirm="The old code will stop working. Make a new one?">
-                <input type="hidden" name="uni" value={uni} />
-                <SubmitButton size="sm" variant="ghost" pendingText="Making a new code…">
-                  Make a new code
-                </SubmitButton>
-              </ActionForm>
-            </>
+            <ActionLink href={`/${uni}/admin/settings`} className="mt-3" icon="settings">
+              Change the joining rule or the code
+            </ActionLink>
           )}
         </Card>
       </div>

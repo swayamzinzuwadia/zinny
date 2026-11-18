@@ -4,6 +4,7 @@ import { ProgressBar } from "@/modules/content-progress/components/bits";
 import { formatDate } from "@/modules/content-progress/lib/dates";
 import { batchProgressPath, curriculumPath } from "@/modules/content-progress/paths";
 import { progressOverview } from "@/modules/content-progress/staff";
+import { reportsScreen } from "@/components/screen-tabs";
 import { spaceContext } from "@/server/context";
 import { RECORDED_BATCH_LABEL, isRecordedSpan } from "@/server/lib/recorded-batch";
 
@@ -14,16 +15,18 @@ const STATUS_LABEL: Record<string, string> = { closed: "Closed", archived: "Arch
 /** Progress by course and batch for everything the viewer may see (content.view_progress). */
 export default async function ProgressOverviewPage({ params }: { params: Promise<{ uni: string }> }) {
   const { uni } = await params;
-  const { actor } = await spaceContext(uni);
+  const { actor, university } = await spaceContext(uni);
+  const screen = reportsScreen(actor, university.id, uni, "/products/content");
   const rows = await progressOverview(actor);
   const courses = [...new Map(rows.map((r) => [r.courseId, r.courseTitle])).entries()];
 
   return (
     <>
       <PageHeader
-        title="Learning progress"
+        title={screen.title ?? "Learning progress"}
         subtitle="How far students are through each course's required lessons, batch by batch. Open a batch to see every student."
       />
+      {screen.tabs}
       {rows.length === 0 ? (
         <Empty title="No batches to show">Progress shows here for the batches you teach or manage.</Empty>
       ) : (

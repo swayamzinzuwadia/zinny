@@ -103,7 +103,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
     <>
       <PageHeader
         title="Users"
-        subtitle="Every account on Zinny: institute admins, staff, students, parents, marketplace learners and the Zinny team. Edit anyone's details, set their password or sign in as them from their row, or open them for more. Only Super Admins can open this page, and each view is kept in the activity log."
+        subtitle="Every account on Zinny: institute admins, staff, students, parents, marketplace learners and the Zinny team. Sign in as someone from their row, or open them to edit their details and set their password. Only Super Admins can open this page, and each view is kept in the activity log."
       />
 
       <nav className="mb-5 flex flex-wrap gap-1 rounded-full border border-line bg-surface p-1 sm:w-fit" aria-label="Filter users by group">
@@ -244,7 +244,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
               <Td className="whitespace-nowrap">{p.canSignIn ? "Active" : <span className="text-gold-strong">Invited</span>}</Td>
               <Td className={cx(WIDE_ONLY, "whitespace-nowrap tabular")}>{formatDate(p.joinedAt.toISOString().slice(0, 10))}</Td>
               <Td className="text-right">
-                <PersonActions userId={p.userId} name={p.name} email={p.email} phone={p.phone} universityId={p.universityId} self={p.userId === actor.userId} />
+                <PersonActions userId={p.userId} name={p.name} universityId={p.universityId} self={p.userId === actor.userId} />
               </Td>
             </tr>
           ))}

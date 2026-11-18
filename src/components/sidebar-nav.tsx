@@ -13,8 +13,11 @@ import { cx } from "./ui";
  */
 
 export type SidebarLink = { label: string; href: string };
-/** `own` false means the link has no page of its own and leads to its first child. */
-export type SidebarItem = { key: string; icon: string; label: string; href: string; own: boolean; access?: string; children: SidebarLink[] };
+/**
+ * `own` false means the link has no page of its own and leads to its first child. `covers`
+ * are the other pages of the link's screen (its tabs): being on one keeps the link marked.
+ */
+export type SidebarItem = { key: string; icon: string; label: string; href: string; own: boolean; access?: string; children: SidebarLink[]; covers?: SidebarLink[] };
 export type SidebarGroup = { key: string; label?: string; items: SidebarItem[] };
 
 /**
@@ -31,7 +34,7 @@ export function SidebarNav({ base, groups, label }: { base: string; groups: Side
   const current = activeHref(
     path,
     base,
-    groups.flatMap((g) => g.items.flatMap((i) => [i.href, ...i.children.map((c) => c.href)])),
+    groups.flatMap((g) => g.items.flatMap((i) => [i.href, ...i.children.map((c) => c.href), ...(i.covers ?? []).map((c) => c.href)])),
   );
 
   return (
@@ -55,7 +58,7 @@ const row = "group/row relative flex w-full items-center gap-3 rounded-xl px-3 p
 
 function Item({ item, base, current }: { item: SidebarItem; base: string; current: string | null }) {
   // On the link's own page the link is marked; on one of its pages the link stays lit and the page is marked below it.
-  const here = item.own && item.href === current;
+  const here = item.own && (item.href === current || (item.covers ?? []).some((c) => c.href === current));
   const inside = item.children.some((c) => c.href === current);
   const open = here || inside;
   const id = `nav-${item.key}`;

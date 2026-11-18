@@ -1,3 +1,4 @@
+import { reportsScreen } from "@/components/screen-tabs";
 import { Empty, Notice, PageHeader } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { ReportFilters } from "@/modules/reports-board/components/report-filters";
@@ -59,6 +60,7 @@ export default async function ReportsPage({ params, searchParams }: { params: Pr
   return (
     <>
       <PageHeader title="Reports" subtitle="Choose a report and a date range, then view it here or download it." />
+      {reportsScreen(actor, university.id, uni, "/finance/reports").tabs}
 
       {sp.failed && (
         <div className="mb-5">

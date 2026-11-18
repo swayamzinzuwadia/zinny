@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { can, canPlatform, type Actor, type Assignment } from "@/server/authz/engine";
 import type { Action } from "@/server/authz/roles";
-import { menuFor, sidebarFor, sidebarLinks } from "@/server/authz/menu";
+import { menuFor, screenTabs, sidebarFor, sidebarLinks } from "@/server/authz/menu";
 import { activeHref } from "@/components/admin-nav";
 import type { RoleName } from "@/db/schema";
 
@@ -349,22 +349,22 @@ describe("admin sidebar: pages arranged by the job they do", () => {
   it("a link's own pages sit under it", () => {
     expect(kids(admin, "coursework")).toEqual(["Tests", "Assignments", "Question pool", "Grading"]);
     expect(kids(admin, "students")).toEqual(["Join requests", "Invitations", "Bulk import"]);
-    expect(kids(admin, "staff")).toEqual(["Administration", "Teaching", "Departments"]);
+    expect(kids(admin, "staff")).toEqual(["Departments"]);
     expect(kids(admin, "marketplace")).toEqual(["Combos", "Discount codes"]);
     expect(kids(admin, "website")).toEqual(["Builder", "Profiles", "Content"]);
     expect(kids(admin, "leaderboard")).toEqual(["Challenges", "XP rules", "Badges"]);
-    expect(kids(admin, "reports")).toEqual(["Insights", "All reports", "Learning progress"]);
+    // Reports is one screen: its pages are its tabs, not links under it.
+    expect(kids(admin, "reports")).toEqual([]);
     expect(kids(admin, "settings")).toEqual(["Roles & permissions", "Notifications"]);
   });
   it("a link without a page of its own leads to its first page", () => {
-    expect(item(admin, "staff")).toMatchObject({ own: false, href: "/users/administration" });
     expect(item(admin, "website")).toMatchObject({ own: false, href: "/website/profile/builder" });
-    expect(item(admin, "reports")).toMatchObject({ own: false, href: "/insights" });
     expect(item(admin, "marketplace")).toMatchObject({ own: true, href: "/marketplace" });
   });
   it("every page the menu allows is in the sidebar, for every role", () => {
     for (const [name, a] of everyone) {
-      const allowed = menuFor(a, U).flatMap((s) => s.items.map((i) => i.href));
+      // The two staff lists are one page now.
+      const allowed = menuFor(a, U).flatMap((s) => s.items.map((i) => (i.href === "/users/teaching" || i.href === "/users/administration" ? "/users/staff" : i.href)));
       expect(hrefs(a), name).toEqual(expect.arrayContaining(allowed));
     }
   });
@@ -382,12 +382,13 @@ describe("admin sidebar: pages arranged by the job they do", () => {
   });
   it("Batches, the question pool and grading come with courses and tests", () => {
     for (const a of [admin, board, hodCS, facultyB1, visiting]) {
-      expect(hrefs(a)).toEqual(expect.arrayContaining(["/products/batches", "/products/tests/pool", "/products/tests/grading"]));
+      expect(hrefs(a)).toEqual(expect.arrayContaining(["/products/batches", "/products/tests/pool", "/products/grading"]));
     }
   });
   it("HOD: no bulk import, no Administration list, Marketplace under Money", () => {
     expect(kids(hodCS, "students")).toEqual(["Join requests", "Invitations"]);
-    expect(kids(hodCS, "staff")).toEqual(["Teaching", "Departments"]);
+    expect(item(hodCS, "staff")).toMatchObject({ label: "Staff", href: "/users/staff", own: true });
+    expect(kids(hodCS, "staff")).toEqual(["Departments"]);
     expect(shape(hodCS)).toContainEqual(["Money", ["Marketplace"]]);
   });
   it("a group with one page left shows that page under its own name", () => {
@@ -421,5 +422,50 @@ describe("admin sidebar: pages arranged by the job they do", () => {
     expect(back["/website/sections"]).toBe("Website content");
     expect(back["/website/profile/builder"]).toBe("Website builder");
     expect(back["/finance/reports"]).toBe("Reports");
+  });
+});
+
+describe("admin sidebar: screens that used to be several links", () => {
+  const visiting = actor({ role: "visiting_faculty", scopeType: "batch", batchId: "b1" });
+  const item = (a: Actor, key: string) => sidebarFor(a, U).flatMap((g) => g.items).find((i) => i.key === key);
+  const tabs = (a: Actor) => screenTabs(a, U, "reports").map((t) => `${t.label} ${t.href}`);
+
+  it("Reports is one link; the charts, the reports and learning progress are its tabs", () => {
+    expect(item(admin, "reports")).toMatchObject({ label: "Reports", href: "/insights", own: true, children: [] });
+    expect(item(admin, "reports")!.covers.map((c) => c.href)).toEqual(["/finance/reports", "/products/content"]);
+    expect(tabs(admin)).toEqual(["Overview /insights", "Detailed reports /finance/reports", "Learning progress /products/content"]);
+    // HODs have no Finance section but reach reports through Insights, as before.
+    expect(tabs(hodCS)).toEqual(["Overview /insights", "Detailed reports /finance/reports", "Learning progress /products/content"]);
+  });
+  it("each role gets only the Reports tabs it may open", () => {
+    expect(tabs(accounts)).toEqual(["Detailed reports /finance/reports"]);
+    expect(tabs(facultyB1)).toEqual(["Learning progress /products/content"]);
+    expect(tabs(visiting)).toEqual(["Learning progress /products/content"]);
+    expect(tabs(student)).toEqual([]);
+    // One tab left: the link goes straight to it and has nothing else to cover.
+    expect(item(accounts, "reports")).toMatchObject({ label: "Reports", href: "/finance/reports", covers: [] });
+    expect(item(facultyB1, "reports")).toMatchObject({ label: "Learning progress", href: "/products/content", covers: [] });
+  });
+  it("being on any tab keeps the one Reports link marked, and the way back names the tab", () => {
+    const links = sidebarLinks(sidebarFor(admin, U));
+    const hrefs = links.map((l) => l.href);
+    expect(activeHref("/demo/admin/products/content/batches/abc", "/demo/admin", hrefs)).toBe("/products/content");
+    expect(activeHref("/demo/admin/finance/reports", "/demo/admin", hrefs)).toBe("/finance/reports");
+    const back = Object.fromEntries(links.map((l) => [l.href, l.label]));
+    expect(back["/products/content"]).toBe("Learning progress");
+    expect(back["/insights"]).toBe("Insights");
+    expect(back["/finance/reports"]).toBe("Reports");
+  });
+  it("Staff is one list, shown to whoever had either staff list", () => {
+    expect(item(admin, "staff")).toMatchObject({ label: "Staff", href: "/users/staff", own: true });
+    expect(item(board, "staff")).toMatchObject({ href: "/users/staff", access: "view" });
+    expect(item(hodCS, "staff")).toMatchObject({ href: "/users/staff", access: "dept" });
+    for (const a of [accounts, facultyB1, visiting, student]) expect(item(a, "staff")).toBeUndefined();
+  });
+  it("Grading is one queue, for whoever has tests or assignments", () => {
+    for (const a of [admin, board, hodCS, facultyB1, visiting]) {
+      expect(item(a, "coursework")!.children.map((c) => c.href)).toContain("/products/grading");
+    }
+    expect(item(accounts, "coursework")).toBeUndefined();
   });
 });

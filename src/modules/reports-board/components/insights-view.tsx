@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ButtonLink, PageHeader, Stat } from "@/components/ui";
 import type { Insights } from "../insights";
 import { formatDay, formatDayShort, formatMonth, formatWeek } from "../lib/dates";
@@ -22,7 +23,8 @@ const limitHint = (base: string, total: number) => (total > LIST_LIMIT ? `${base
 /** Dashboards show money in whole rupees; paise stay on invoices and in the tables. */
 const rupees = (paise: number) => formatMoney(Math.round(paise / 100) * 100);
 
-export function InsightsView({ data, reportsHref }: { data: Insights; reportsHref: string | null }) {
+/** `title` and `tabs` come from the screen this view is shown in: on its own it is "Insights"; as a tab of Reports it takes that name. */
+export function InsightsView({ data, reportsHref, title = "Insights", tabs }: { data: Insights; reportsHref: string | null; title?: string; tabs?: ReactNode }) {
   const { stats, revenue } = data;
 
   const weeks: Datum[] = data.enrolmentsByWeek.map((w) => ({
@@ -56,10 +58,11 @@ export function InsightsView({ data, reportsHref }: { data: Insights; reportsHre
   return (
     <>
       <PageHeader
-        title="Insights"
+        title={title}
         subtitle={`${revenue ? "Enrolment, completion, revenue and faculty load" : "Enrolment, completion and faculty load"} for ${data.scopeLabel}.`}
         actions={reportsHref ? <ButtonLink href={reportsHref} variant="secondary">Open reports</ButtonLink> : undefined}
       />
+      {tabs}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Active learners" value={formatNumber(stats.activeLearners)} hint="Enrolled and learning now" />

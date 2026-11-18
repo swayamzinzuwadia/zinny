@@ -230,12 +230,18 @@ export function menuFor(actor: Actor, universityId: string, now = new Date()) {
 
 /** `trail` is the name used on the way back and when the link stands alone, where the short label needs its parent to make sense. */
 export type NavLink = { label: string; href: string; trail?: string };
-/** `href` is where the link leads; `own` says it is a page of its own rather than its first child. */
-export type NavItem = { key: string; icon: string; label: string; href: string; own: boolean; access?: Access; children: NavLink[] };
+/**
+ * `href` is where the link leads; `own` says it is a page of its own rather than its first child.
+ * `covers` are the other pages of the same screen, reached by its tabs: they keep the link lit
+ * and are never listed under it.
+ */
+export type NavItem = { key: string; icon: string; label: string; href: string; own: boolean; access?: Access; children: NavLink[]; covers: NavLink[] };
 export type NavGroup = { key: string; label?: string; items: NavItem[] };
 
-type NavEntry = NavLink & { follows?: string };
-type NavItemDef = { key: string; icon: string; label: string; page?: string | { href: string; follows: string }; children?: NavEntry[] };
+/** `follows`: the MENU page (or any one of several) that decides whether this link shows, for pages MENU never listed. */
+type NavEntry = NavLink & { follows?: string | string[] };
+/** `tabs` are the pages of one screen: the link leads to the first one the person may open, and the screen's own tabs lead to the rest. */
+type NavItemDef = { key: string; icon: string; label: string; page?: string | { href: string; follows: string | string[] }; children?: NavEntry[]; tabs?: NavEntry[] };
 
 export const NAV: { key: string; label?: string; items: NavItemDef[] }[] = [
   { key: "home", items: [{ key: "home", icon: "overview", label: "Home", page: "" }] },
@@ -255,7 +261,8 @@ export const NAV: { key: string; label?: string; items: NavItemDef[] }[] = [
           { label: "Tests", href: "/products/tests" },
           { label: "Assignments", href: "/products/assignments" },
           { label: "Question pool", href: "/products/tests/pool", follows: "/products/tests" },
-          { label: "Grading", trail: "Test grading", href: "/products/tests/grading", follows: "/products/tests" },
+          // One queue for test answers and handed-in assignments.
+          { label: "Grading", href: "/products/grading", follows: ["/products/tests", "/products/assignments"] },
         ],
       },
       { key: "certificates", icon: "certificates", label: "Certificates", page: "/products/certificates" },
@@ -277,15 +284,13 @@ export const NAV: { key: string; label?: string; items: NavItemDef[] }[] = [
           { label: "Bulk import", href: "/users/import" },
         ],
       },
+      // One list of everyone who works here, teaching and administration together.
       {
         key: "staff",
         icon: "users",
         label: "Staff",
-        children: [
-          { label: "Administration", href: "/users/administration" },
-          { label: "Teaching", href: "/users/teaching" },
-          { label: "Departments", href: "/users/departments" },
-        ],
+        page: { href: "/users/staff", follows: ["/users/teaching", "/users/administration"] },
+        children: [{ label: "Departments", href: "/users/departments" }],
       },
       // Enquiries arrive through the website, but they are people to answer, not website content.
       { key: "enquiries", icon: "enquiries", label: "Enquiries", page: { href: "/website/sections/enquiries", follows: "/website/sections" } },
@@ -340,13 +345,14 @@ export const NAV: { key: string; label?: string; items: NavItemDef[] }[] = [
   {
     key: "more",
     items: [
+      // One Reports screen: the charts, the reports to run and download, and learning progress are its tabs.
       {
         key: "reports",
         icon: "insights",
         label: "Reports",
-        children: [
-          { label: "Insights", href: "/insights" },
-          { label: "All reports", trail: "Reports", href: "/finance/reports" },
+        tabs: [
+          { label: "Overview", trail: "Insights", href: "/insights" },
+          { label: "Detailed reports", trail: "Reports", href: "/finance/reports" },
           { label: "Learning progress", href: "/products/content" },
         ],
       },
@@ -364,29 +370,48 @@ export const NAV: { key: string; label?: string; items: NavItemDef[] }[] = [
   },
 ];
 
-/** The sidebar for this person: NAV, keeping only the pages menuFor lets them open. */
-export function sidebarFor(actor: Actor, universityId: string, now = new Date()): NavGroup[] {
+function openPages(actor: Actor, universityId: string, now: Date) {
   const open = new Map<string, Access>();
   for (const s of menuFor(actor, universityId, now)) for (const i of s.items) open.set(i.href, s.access);
-  const accessOf = (href: string, follows?: string) => open.get(follows ?? href);
+  /** The access a link opens with: its own page's, or the first page it follows that the person has. */
+  return (href: string, follows?: string | string[]) => {
+    if (follows === undefined) return open.get(href);
+    for (const f of typeof follows === "string" ? [follows] : follows) if (open.has(f)) return open.get(f);
+    return undefined;
+  };
+}
+
+/** The sidebar for this person: NAV, keeping only the pages menuFor lets them open. */
+export function sidebarFor(actor: Actor, universityId: string, now = new Date()): NavGroup[] {
+  const accessOf = openPages(actor, universityId, now);
+  const plain = ({ label, href, trail }: NavEntry): NavLink => (trail ? { label, href, trail } : { label, href });
 
   const groups: NavGroup[] = [];
   for (const g of NAV) {
     const items: NavItem[] = [];
     for (const def of g.items) {
+      const base = { key: def.key, icon: def.icon };
+      if (def.tabs) {
+        // One screen with tabs: the link is its first open page, and is named for that page when it is the only one.
+        const tabs = def.tabs.filter((t) => accessOf(t.href, t.follows));
+        if (tabs.length === 0) continue;
+        const [first, ...rest] = tabs;
+        const label = tabs.length === 1 ? (first.trail ?? first.label) : def.label;
+        items.push({ ...base, label, href: first.href, own: true, access: accessOf(first.href, first.follows), children: [], covers: rest.map(plain) });
+        continue;
+      }
       const page = def.page === undefined ? null : typeof def.page === "string" ? { href: def.page, follows: undefined } : def.page;
       const pageAccess = page ? accessOf(page.href, page.follows) : undefined;
       const children = (def.children ?? []).filter((c) => accessOf(c.href, c.follows));
-      const links = children.map(({ label, href, trail }): NavLink => (trail ? { label, href, trail } : { label, href }));
-      const base = { key: def.key, icon: def.icon };
+      const links = children.map(plain);
       if (page && pageAccess) {
-        items.push({ ...base, label: def.label, href: page.href, own: true, access: pageAccess, children: links });
+        items.push({ ...base, label: def.label, href: page.href, own: true, access: pageAccess, children: links, covers: [] });
       } else if (children.length === 1) {
         // One page left of a group: it is the link, under its own full name.
         const only = children[0];
-        items.push({ ...base, label: only.trail ?? only.label, href: only.href, own: true, access: accessOf(only.href, only.follows), children: [] });
+        items.push({ ...base, label: only.trail ?? only.label, href: only.href, own: true, access: accessOf(only.href, only.follows), children: [], covers: [] });
       } else if (children.length > 1) {
-        items.push({ ...base, label: def.label, href: children[0].href, own: false, access: accessOf(children[0].href, children[0].follows), children: links });
+        items.push({ ...base, label: def.label, href: children[0].href, own: false, access: accessOf(children[0].href, children[0].follows), children: links, covers: [] });
       }
     }
     if (items.length > 0) groups.push({ key: g.key, ...(g.label && { label: g.label }), items });
@@ -396,7 +421,30 @@ export function sidebarFor(actor: Actor, universityId: string, now = new Date())
 
 /** Every link in a sidebar, flat: for marking the current page and for the way back. */
 export function sidebarLinks(groups: NavGroup[]): NavLink[] {
+  const named = (c: NavLink) => ({ label: c.trail ?? c.label, href: c.href });
   return groups.flatMap((g) =>
-    g.items.flatMap((i) => [...(i.own ? [{ label: i.label, href: i.href }] : []), ...i.children.map((c) => ({ label: c.trail ?? c.label, href: c.href }))]),
+    g.items.flatMap((i) => [
+      // A screen with tabs is named for the tab on the way back to it ("Insights", not the first tab's "Reports").
+      ...(i.own ? [{ label: i.covers.length > 0 ? (tabName(i.key, i.href) ?? i.label) : i.label, href: i.href }] : []),
+      ...i.children.map(named),
+      ...i.covers.map(named),
+    ]),
   );
+}
+
+function tabName(itemKey: string, href: string): string | undefined {
+  const tab = NAV.flatMap((g) => g.items).find((d) => d.key === itemKey)?.tabs?.find((t) => t.href === href);
+  return tab ? (tab.trail ?? tab.label) : undefined;
+}
+
+export type ScreenTab = { key: string; label: string; href: string };
+
+/**
+ * The tabs of a screen that several pages share (Reports): the ones this person may open,
+ * with hrefs relative to the admin panel. Fewer than two means the page stands alone, under its own name.
+ */
+export function screenTabs(actor: Actor, universityId: string, itemKey: string, now = new Date()): ScreenTab[] {
+  const accessOf = openPages(actor, universityId, now);
+  const def = NAV.flatMap((g) => g.items).find((d) => d.key === itemKey);
+  return (def?.tabs ?? []).filter((t) => accessOf(t.href, t.follows)).map((t) => ({ key: t.href, label: t.label, href: t.href }));
 }

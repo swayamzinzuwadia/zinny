@@ -1,13 +1,12 @@
 import Link from "next/link";
-import { ActionForm, SubmitButton } from "@/components/forms";
 import { InviteActions } from "@/modules/identity/components/invite-actions";
-import { Avatar, Badge, Card, CardTitle, Empty, PageHeader, Stat, cx } from "@/components/ui";
+import { ActionLink, Avatar, Badge, Card, CardTitle, Empty, PageHeader, Stat, cx } from "@/components/ui";
 import { can } from "@/server/authz/engine";
 import { spaceContext } from "@/server/context";
 import { canSeeInvites, listInvites, type InviteRow } from "@/modules/identity/invites";
 import { getSignInSettings } from "@/modules/identity/settings";
 import { formatWhen } from "@/modules/identity/emails";
-import { phoneSignInAction, resendInviteAction, revokeInviteAction, selfSignupAction } from "./actions";
+import { resendInviteAction, revokeInviteAction } from "./actions";
 
 export const metadata = { title: "Invitations" };
 
@@ -151,47 +150,19 @@ export default async function InvitesPage({ params }: { params: Promise<{ uni: s
 
         <div className="space-y-6">
           {settings && (
-            <Card className="h-fit">
+            <Card className="h-fit text-[14px]">
               <CardTitle>Sign-in options</CardTitle>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="font-medium">Sign in with a mobile number</div>
-                  <p className="mt-1 text-[13px] text-muted">
-                    Adds a Mobile number tab to the sign-in page. People get a 6-digit code by SMS to the number on their profile.
-                  </p>
-                </div>
-                <Badge tone={settings.phoneSignIn ? "brand" : "neutral"}>{settings.phoneSignIn ? "On" : "Off"}</Badge>
-              </div>
-              <ActionForm action={phoneSignInAction} className="mt-4" resetOnSuccess={false}>
-                <input type="hidden" name="uni" value={uni} />
-                <input type="hidden" name="on" value={settings.phoneSignIn ? "0" : "1"} />
-                <SubmitButton size="sm" variant="secondary" pendingText="Saving…">
-                  {settings.phoneSignIn ? "Turn off phone sign-in" : "Turn on phone sign-in"}
-                </SubmitButton>
-              </ActionForm>
-              <div className="mt-6 flex items-start justify-between gap-3 border-t border-line pt-5">
-                <div>
-                  <div className="font-medium">Student sign-up</div>
-                  <p className="mt-1 text-[13px] text-muted">
-                    Lets students create their own account at <span className="break-all text-ink">/signup?uni={uni}</span>. Turn it off if you only want students you add yourself.
-                  </p>
-                  <p className="mt-1 text-[13px] text-muted">
-                    Students can also join with your joining code:{" "}
-                    <Link href={`/${uni}/admin/users/requests`} className="text-brand hover:underline">
-                      Join requests
-                    </Link>
-                    .
-                  </p>
-                </div>
-                <Badge tone={settings.selfSignup ? "brand" : "neutral"}>{settings.selfSignup ? "On" : "Off"}</Badge>
-              </div>
-              <ActionForm action={selfSignupAction} className="mt-4" resetOnSuccess={false}>
-                <input type="hidden" name="uni" value={uni} />
-                <input type="hidden" name="on" value={settings.selfSignup ? "0" : "1"} />
-                <SubmitButton size="sm" variant="secondary" pendingText="Saving…">
-                  {settings.selfSignup ? "Turn off student sign-up" : "Turn on student sign-up"}
-                </SubmitButton>
-              </ActionForm>
+              <ul className="space-y-1.5 text-muted">
+                <li>
+                  Sign in with a mobile number is <span className="font-medium text-ink">{settings.phoneSignIn ? "on" : "off"}</span>.
+                </li>
+                <li>
+                  Students creating their own account is <span className="font-medium text-ink">{settings.selfSignup ? "on" : "off"}</span>.
+                </li>
+              </ul>
+              <ActionLink href={`/${uni}/admin/settings`} className="mt-3" icon="settings">
+                Change these in Settings
+              </ActionLink>
             </Card>
           )}
           <Card className="h-fit text-[14px]">

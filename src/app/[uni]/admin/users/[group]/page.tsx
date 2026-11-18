@@ -1,10 +1,11 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Panel, PanelButton, Panels } from "@/components/panel";
 import Link from "next/link";
-import { Card, Empty, Field, Input, PageHeader, Select, buttonClass, actionClass, ButtonLabel } from "@/components/ui";
+import { Card, Empty, Field, Input, PageHeader, buttonClass, actionClass, ButtonLabel, cx } from "@/components/ui";
 import { ManageRow } from "@/components/manage-row";
 import { can, reach } from "@/server/authz/engine";
+import { menuFor } from "@/server/authz/menu";
 import { ROLE_LABELS, USER_GROUPS } from "@/server/authz/roles";
 import { spaceContext } from "@/server/context";
 import { formatDate, todayIn } from "@/server/lib/dates";
@@ -17,10 +18,15 @@ import { addPersonAction, graduateAction, linkParentAction, revokeRoleAction, st
 import { addToBatchAction } from "../../daily-actions";
 import { BulkPlaceBar, BulkTick } from "@/components/bulk-place";
 import { quickChoices } from "@/server/services/daily";
+import { mergePeople } from "./merge-people";
+import { StaffRoleFields } from "./staff-role-fields";
 
+/*
+ * Two lists: Students, and Staff. Staff is everyone who works at the institute, teaching and
+ * administration together, with a filter for either; they used to be two separate pages.
+ */
 const TITLES = {
-  administration: ["Administration", "Institute Admin, Board / Owner and Accounts & Fees."],
-  teaching: ["Teaching", "Heads of Department, permanent and visiting faculty."],
+  staff: ["Staff", "Everyone who works here: heads of department and faculty, and the administration."],
   students: ["Students", "Current students, alumni and parents."],
 } as const;
 
@@ -29,25 +35,41 @@ const ADDABLE: Record<keyof typeof USER_GROUPS, RoleName[]> = {
   teaching: ["permanent_faculty", "visiting_faculty", "hod"],
   students: ["student"],
 };
+const STAFF_GROUPS = ["teaching", "administration"] as const;
+const GROUP_LABEL = { teaching: "Teaching", administration: "Administration" } as const;
 
-export default async function PeoplePage({ params, searchParams }: { params: Promise<{ uni: string; group: string }>; searchParams: Promise<{ q?: string }> }) {
+export default async function PeoplePage({ params, searchParams }: { params: Promise<{ uni: string; group: string }>; searchParams: Promise<{ q?: string; show?: string }> }) {
   const { uni, group } = await params;
-  if (!(group in USER_GROUPS)) notFound();
-  const g = group as keyof typeof USER_GROUPS;
+  // The two old staff pages lead to the one list, already filtered.
+  if (group === "teaching" || group === "administration") redirect(`/${uni}/admin/users/staff?show=${group}`);
+  if (group !== "staff" && group !== "students") notFound();
+  const g: "staff" | "students" = group;
   const { actor, university } = await spaceContext(uni);
-  const q = ((await searchParams).q ?? "").trim();
-  const everyone = await listPeople(actor, g);
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim();
+  // Which staff lists this person may see is the menu's decision (a HOD has Teaching, not Administration).
+  const open = new Set(menuFor(actor, university.id).flatMap((s) => s.items.map((i) => i.href)));
+  const staffGroups = STAFF_GROUPS.filter((k) => open.has(`/users/${k}`));
+  const show = g === "staff" && staffGroups.some((k) => k === sp.show) ? (sp.show as (typeof STAFF_GROUPS)[number]) : null;
+  const lists = await Promise.all((g === "students" ? (["students"] as const) : staffGroups).map(async (k) => [k, await listPeople(actor, k)] as const));
+  // Someone with a teaching and an administration role is one person in the list, with both roles.
+  const all = mergePeople(lists);
+  const everyone = show ? all.filter((p) => p.kinds.has(show)) : all;
   const needle = q.toLowerCase();
   const people = needle ? everyone.filter((p) => p.name.toLowerCase().includes(needle) || p.email.toLowerCase().includes(needle)) : everyone;
-  const listHref = `/${uni}/admin/users/${g}`;
+  const listHref = `/${uni}/admin/users/${g}${show ? `?show=${show}` : ""}`;
   const isAdmin = can(actor, "user.manage_roles", { universityId: university.id });
   const hodReach = reach(actor, "user.manage_roles", university.id);
   const depts = await listDepartments(actor);
   const myDepts = depts.filter((d) => isAdmin || hodReach.departmentIds.has(d.id));
-  const canAdd = isAdmin || (g === "teaching" && myDepts.length > 0);
-  const roles = isAdmin ? ADDABLE[g] : (["permanent_faculty", "visiting_faculty"] as RoleName[]);
-  const customKind = g === "administration" ? "custom_institute" : g === "teaching" ? "custom_department" : null;
-  const custom = (await customRoleChoices(actor, university.id)).filter((c) => c.kind === customKind);
+  const canAdd = isAdmin || (g === "staff" && myDepts.length > 0);
+  // A HOD adds faculty to their own departments; an admin adds anyone.
+  const teachingRoles = g === "staff" && myDepts.length > 0 ? (isAdmin ? ADDABLE.teaching : (["permanent_faculty", "visiting_faculty"] as RoleName[])) : [];
+  const adminRoles = g === "staff" && isAdmin ? ADDABLE.administration : [];
+  const custom = canAdd && g === "staff" ? await customRoleChoices(actor, university.id) : [];
+  const choice = (kind: string, roles: RoleName[]) => [...roles.map((r) => ({ value: r as string, label: ROLE_LABELS[r] })), ...custom.filter((c) => c.kind === kind).map((c) => ({ value: `custom:${c.id}`, label: c.name }))];
+  const teachingChoices = teachingRoles.length > 0 ? choice("custom_department", teachingRoles) : [];
+  const adminChoices = adminRoles.length > 0 ? choice("custom_institute", adminRoles) : [];
   const canGraduate = can(actor, "user.graduate", { universityId: university.id });
   // Students only see the courses of their departments; Admins and HODs decide which.
   const admit = reach(actor, "user.admit", university.id);
@@ -56,6 +78,7 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
   const placeBatches = g === "students" ? (await quickChoices(actor)).place : [];
   const bulk = placeBatches.length > 0;
   const studentDepts = g === "students" ? await studentDepartmentMap(actor, people.map((p) => p.id)) : new Map<string, { id: string; name: string }[]>();
+  const filters = [{ key: null as string | null, label: "Everyone", count: all.length }, ...staffGroups.map((k) => ({ key: k as string | null, label: GROUP_LABEL[k], count: all.filter((p) => p.kinds.has(k)).length }))];
 
   return (
     // The list has the page to itself; the form to add someone waits behind its button, and is open already while the list is empty.
@@ -74,36 +97,7 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
             <Field label="Phone">
               <Input name="phone" inputMode="tel" />
             </Field>
-            <Field label="Role">
-              <Select name="role">
-                {roles.map((r) => (
-                  <option key={r} value={r}>
-                    {ROLE_LABELS[r]}
-                  </option>
-                ))}
-                {custom.map((c) => (
-                  <option key={c.id} value={`custom:${c.id}`}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            {g === "teaching" && (
-              <>
-                <Field label="Department">
-                  <Select name="departmentId" required>
-                    {myDepts.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="Access ends" hint="Required for visiting faculty.">
-                  <Input name="endsAt" type="date" />
-                </Field>
-              </>
-            )}
+            {g === "staff" ? <StaffRoleFields teaching={teachingChoices} administration={adminChoices} departments={myDepts.map((d) => ({ id: d.id, name: d.name }))} /> : <input type="hidden" name="role" value="student" />}
             {g === "students" && admitDepts.length > 0 && (
               <fieldset>
                 <legend className="mb-1.5 text-[13px] font-medium">Departments</legend>
@@ -126,8 +120,24 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
       )}
       <div>
         <div className="min-w-0">
+          {g === "staff" && staffGroups.length > 1 && (
+            <nav aria-label="Show" className="mb-4 flex flex-wrap gap-1 text-[13.5px]">
+              {filters.map((f) => (
+                <Link
+                  key={f.label}
+                  href={`/${uni}/admin/users/staff${f.key ? `?show=${f.key}` : ""}`}
+                  aria-current={show === f.key ? "page" : undefined}
+                  className={cx("rounded-full px-3 py-1.5", show === f.key ? "bg-brand-soft font-medium text-brand-strong" : "text-muted hover:text-ink")}
+                >
+                  {f.label}
+                  <span className="ml-1.5 text-faint">{f.count}</span>
+                </Link>
+              ))}
+            </nav>
+          )}
           {everyone.length > 0 && (
             <form method="get" className="mb-4 flex flex-wrap items-center gap-2">
+              {show && <input type="hidden" name="show" value={show} />}
               <Input type="search" name="q" defaultValue={q} placeholder="Search by name or email" aria-label="Search by name or email" className="max-w-xs" />
               <button type="submit" className={buttonClass("secondary")}>
                 Search
@@ -146,7 +156,7 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
             <Empty title={q ? `Nobody matches “${q}”` : "Nobody here yet"}>
               {q ? (
                 "Check the spelling, or search by email instead."
-              ) : g === "teaching" && depts.length === 0 ? (
+              ) : g === "staff" && depts.length === 0 && canAdd ? (
                 <>
                   Teachers belong to a department, and there isn&apos;t one yet.{" "}
                   <Link href={`/${uni}/admin/products/courses/new`} className="font-medium text-brand hover:underline">
