@@ -1,0 +1,36 @@
+/* The account menu opens outward from the avatar button and folds back into it. */
+.ptb-menu {
+  opacity: 0;
+  transform: scale(0.94) translateY(-4px);
+  visibility: hidden;
+  transition:
+    opacity 140ms ease-out,
+    transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s linear 200ms;
+}
+.ptb-menu[data-open="true"] {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  transition-delay: 0s;
+}
+/* The licence banner folds up into the top edge when dismissed. */
+.lb-wrap {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.lb-wrap[data-hidden="true"] {
+  grid-template-rows: 0fr;
+}
+.lb-wrap > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ptb-menu,
+  .lb-wrap {
+    transition: none;
+  }
+}

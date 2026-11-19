@@ -1,0 +1,26 @@
+/* The list under a combobox opens downward from the box it belongs to. */
+.cbx-pop {
+  animation: cbx-in 160ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes cbx-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+.cbx-spin {
+  animation: cbx-spin 700ms linear infinite;
+}
+@keyframes cbx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cbx-pop {
+    animation: none;
+  }
+  .cbx-spin {
+    animation-duration: 2s;
+  }
+}
