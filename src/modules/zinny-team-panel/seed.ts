@@ -20,7 +20,7 @@ import { LICENSABLE_MODULES, type PlatformRole } from "./lib/constants";
 import { addDays, financialYear } from "./lib/format";
 import { createInvoice, markInvoicePaid, reviseInvoice } from "./services/billing";
 import { flagCourse, markReviewed } from "./services/content";
-import { saveLicence } from "./services/licences";
+import { saveLicence, syncAllAlerts } from "./services/licences";
 import { addContact, addNote, createPartner } from "./services/partners";
 import { createPlan, ensureDefaultPlans } from "./services/plans";
 import { createUniversityWithLicence } from "./services/universities";
@@ -113,6 +113,8 @@ export async function seed(ctx: SeedContext) {
     if (zinnyOnlinePayments()) await payZinnyInvoice(asha, bought.invoice.id, addDays(today, -28));
     else await markInvoicePaid(farida, bought.invoice.id, { paidOn: addDays(today, -28), reference: "UTR HDFC0051190274" });
   }
+  // The purchase checked the warnings as of a month ago; check them again as of today.
+  await syncAllAlerts(zara);
   // A charge outside the licence, now overdue.
   await createInvoice(farida, {
     universityId: ctx.universityId,

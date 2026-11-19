@@ -13,6 +13,9 @@ import { licenceFormSettings } from "@/modules/zinny-team-panel/services/billing
 import { formatDate, formatDateTime, formatINR, todayIST } from "@/modules/zinny-team-panel/lib/format";
 import { licenceDefaults } from "@/modules/zinny-team-panel/lib/licence";
 import { licenceFor } from "@/modules/zinny-team-panel/services/licences";
+import { SeatPacksCard } from "@/modules/zinny-team-panel/components/seat-packs-card";
+import { seatPacksFor } from "@/modules/zinny-team-panel/services/seat-packs";
+import { addPacksAction, removePacksAction, setCapsAction } from "./seat-actions";
 
 export const metadata = { title: "Licence" };
 
@@ -28,6 +31,8 @@ export default async function LicencePage({ params }: { params: Promise<{ id: st
   const settings = await licenceFormSettings(actor);
   const today = todayIST();
   const canFinance = canPlatform(actor, "platform.finance");
+  const seats = l ? await seatPacksFor(actor, u.id, today) : null;
+  const licencePlan = l ? plans.find((p) => p.key === l.plan) : undefined;
   // A new licence starts on Standard when there is one, otherwise on the first plan on offer.
   const first = plans.find((p) => p.key === "standard" && !p.archived) ?? plans.find((p) => !p.archived);
   const initial = l
@@ -125,6 +130,19 @@ export default async function LicencePage({ params }: { params: Promise<{ id: st
               </dl>
               <p className="mt-4 text-[12.5px] text-muted">The price was copied from the plan when this licence was priced. A change to the plan&apos;s price applies from its next renewal.</p>
             </Card>
+          )}
+
+          {seats && (
+            <SeatPacksCard
+              data={seats}
+              universityId={u.id}
+              today={today}
+              gstRateBp={licencePlan?.gstRateBp ?? 1800}
+              intraState={u.stateCode === zinnySeller().stateCode}
+              canEditCaps={canPlatform(actor, "platform.seat_pricing")}
+              canEditPricing={canPlatform(actor, "platform.seat_pricing")}
+              actions={{ add: addPacksAction, remove: removePacksAction, caps: setCapsAction }}
+            />
           )}
 
           <Card>
