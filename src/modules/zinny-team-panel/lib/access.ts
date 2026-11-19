@@ -70,7 +70,7 @@ const SECTIONS: Section[] = [
       { label: "Plans and prices", href: "/plans", allowed: can("platform.licences") },
       { label: "Licences", href: "/licences", allowed: can("platform.licences") },
       { label: "Invoices", href: "/billing", allowed: can("platform.finance") },
-      { label: "Billing settings", href: "/billing/settings", allowed: (a) => isSuperAdmin(a) || canPlatform(a, "platform.finance") },
+      { label: "Billing settings", href: "/billing/settings", allowed: (a) => isSuperAdmin(a) || canPlatform(a, "platform.finance") || canPlatform(a, "platform.seat_pricing") },
     ],
   },
   { key: "people", label: "Users", entries: [{ label: "Users", href: "/people", allowed: isSuperAdmin }] },

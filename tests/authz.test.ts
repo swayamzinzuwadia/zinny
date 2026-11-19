@@ -110,8 +110,8 @@ describe("PRD page 3: who sees what in the admin menu", () => {
     expect(items(admin, "finance")).toContain("/finance/reports");
     expect(items(board, "insights")).not.toContain("/finance/reports");
   });
-  it("Settings lists the settings hub and Notifications for the Institute Admin", () => {
-    expect(items(admin, "settings")).toEqual(["/settings", "/settings/notifications"]);
+  it("Settings lists the settings hub, Notifications and Seats for the Institute Admin", () => {
+    expect(items(admin, "settings")).toEqual(["/settings", "/settings/notifications", "/settings/seats"]);
   });
 });
 
