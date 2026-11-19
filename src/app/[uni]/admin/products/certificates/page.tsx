@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Panel, PanelButton, Panels } from "@/components/panel";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Badge, Card, Empty, Field, Input, Notice, PageHeader, Select, Table, Td } from "@/components/ui";
 import { spaceContext } from "@/server/context";
@@ -49,23 +50,45 @@ export default async function CertificatesPage({ params, searchParams }: { param
   const issued = await searchCertificates(actor, { q, status, limit: 100 }).catch(() => null);
 
   return (
-    <>
-      <PageHeader
-        title="Certificates"
-        subtitle="Your certificate templates and every certificate issued. Each course picks its template, validity and reminders on its own Certificates tab."
-      />
+    <Panels>
+      <PageHeader title="Certificates" subtitle="Your certificate templates and every certificate issued. Each course picks its template, validity and reminders on its own Certificates tab." />
 
       <section aria-labelledby="templates" className="space-y-4">
         <div className="flex items-baseline justify-between gap-3">
           <h2 id="templates" className="text-[19px] font-semibold">
             Templates
           </h2>
-          {!canManage && <Badge>View only</Badge>}
+          {canManage ? (
+            <PanelButton panel="add" size="sm">
+              Add a template
+            </PanelButton>
+          ) : (
+            <Badge>View only</Badge>
+          )}
         </div>
+        {canManage && (
+          <Panel id="add" title="Add a template" hint="Start from one of the three designs, then set its wording and signatories." className="max-w-xl">
+            <ActionForm action={createTemplateAction} className="space-y-3">
+              <input type="hidden" name="uni" value={uni} />
+              <Field label="Name">
+                <Input name="name" placeholder="Workshop certificate" required minLength={2} maxLength={60} />
+              </Field>
+              <Field label="Design">
+                <Select name="design" defaultValue="classic">
+                  {Object.entries(DESIGNS).map(([key, d]) => (
+                    <option key={key} value={key}>
+                      {d.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <SubmitButton variant="secondary">Add template</SubmitButton>
+            </ActionForm>
+          </Panel>
+        )}
         {canManage && unsigned.length > 0 && (
           <Notice tone="gold">
-            {unsigned.length === 1 ? `${unsigned[0].name} is` : `${unsigned.length} templates are`} missing a signatory or a signature image. Open{" "}
-            {unsigned.length === 1 ? "it" : "each one"} to add who signs, so certificates carry their signature.
+            {unsigned.length === 1 ? `${unsigned[0].name} is` : `${unsigned.length} templates are`} missing a signatory or a signature image. Open {unsigned.length === 1 ? "it" : "each one"} to add who signs, so certificates carry their signature.
           </Notice>
         )}
         <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
@@ -88,28 +111,6 @@ export default async function CertificatesPage({ params, searchParams }: { param
               </Card>
             </Link>
           ))}
-          {canManage && (
-            <Card className="h-full">
-              <h3 className="mb-1 text-[17px] font-medium">Add a template</h3>
-              <p className="mb-4 text-[13px] text-muted">Start from one of the three designs, then set its wording and signatories.</p>
-              <ActionForm action={createTemplateAction} className="space-y-3">
-                <input type="hidden" name="uni" value={uni} />
-                <Field label="Name">
-                  <Input name="name" placeholder="Workshop certificate" required minLength={2} maxLength={60} />
-                </Field>
-                <Field label="Design">
-                  <Select name="design" defaultValue="classic">
-                    {Object.entries(DESIGNS).map(([key, d]) => (
-                      <option key={key} value={key}>
-                        {d.label}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <SubmitButton variant="secondary">Add template</SubmitButton>
-              </ActionForm>
-            </Card>
-          )}
         </div>
         {archived.length > 0 && (
           <p className="text-[13px] text-muted">
@@ -138,11 +139,11 @@ export default async function CertificatesPage({ params, searchParams }: { param
               </div>
               <div className="w-40">
                 <Select name="status" defaultValue={status} aria-label="Status">
-                {STATUSES.map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {s.label}
-                  </option>
-                ))}
+                  {STATUSES.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
                 </Select>
               </div>
               <button type="submit" className="h-10 rounded-full border border-line bg-surface px-4 text-[14px] font-medium hover:border-brand/40">
@@ -151,9 +152,7 @@ export default async function CertificatesPage({ params, searchParams }: { param
             </form>
           </div>
           {issued.rows.length === 0 ? (
-            <Empty title={q || status !== "all" ? "No certificates match" : "No certificates issued yet"}>
-              {q || status !== "all" ? "Try another name or code, or any status." : "They appear here as students complete courses."}
-            </Empty>
+            <Empty title={q || status !== "all" ? "No certificates match" : "No certificates issued yet"}>{q || status !== "all" ? "Try another name or code, or any status." : "They appear here as students complete courses."}</Empty>
           ) : (
             <Table head={["Student", "Course", "Code", "Issued", "Status"]}>
               {issued.rows.map((c) => (
@@ -183,6 +182,6 @@ export default async function CertificatesPage({ params, searchParams }: { param
           {issued.rows.length === 100 && <p className="text-[13px] text-muted">Showing the newest 100. Search to narrow the list.</p>}
         </section>
       )}
-    </>
+    </Panels>
   );
 }

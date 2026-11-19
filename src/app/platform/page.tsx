@@ -69,7 +69,7 @@ export default async function PlatformHome() {
           <Stat label="Institutes" value={formatCount(stats.universities.active)} hint={stats.universities.suspended ? `${stats.universities.suspended} suspended` : "All active"} />
           <Stat label="Active students" value={formatCount(stats.activeStudents)} hint={`Of ${formatCount(stats.students)} students`} />
           <Stat label="Enrolments, 4 weeks" value={formatCount(stats.weeks.reduce((s, w) => s + w.enrolments, 0))} hint={`${formatCount(stats.weeks.at(-1)?.enrolments ?? 0)} this week`} />
-          <Stat label="Student fees this month" value={formatINRShort(stats.months.at(-1)?.paise ?? 0)} hint="Paid by students to institutes" />
+          <Stat label="Collected this month" value={formatINRShort(stats.months.at(-1)?.paise ?? 0)} hint="Paid by students to institutes, with GST" />
         </div>
       )}
 

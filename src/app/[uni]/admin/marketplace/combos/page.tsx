@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { Panel, PanelButton, Panels } from "@/components/panel";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Field, PageHeader, Table, Td } from "@/components/ui";
+import { Badge, Empty, Field, PageHeader, Table, Td } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { formatINR } from "@/server/services/finance";
 import { createComboAction } from "@/modules/marketplace/actions";
@@ -16,13 +17,32 @@ export default async function Combos({ params }: { params: Promise<{ uni: string
   const combos = listings.filter((l) => l.kind === "combo");
 
   return (
-    <>
-      <PageHeader title="Combos" subtitle="A combo sells several of your courses together at one price, as a single course with a section for each." />
-      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
+    <Panels initial={sources.length >= 2 && combos.length === 0 ? "add" : undefined}>
+      <PageHeader title="Combos" subtitle="A combo sells several of your courses together at one price, as a single course with a section for each." actions={sources.length >= 2 ? <PanelButton panel="add" icon="add">Make a combo</PanelButton> : null} />
+      {sources.length >= 2 && (
+        <Panel id="add" title="Make a combo" className="max-w-2xl">
+          <ActionForm action={createComboAction} className="space-y-4">
+            <input type="hidden" name="uni" value={uni} />
+            <Field label="Courses in the combo" hint="Two to ten courses, in the order buyers will see them.">
+              <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-line bg-surface p-2">
+                {sources.map((s) => (
+                  <label key={s.id} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-[14px] hover:bg-canvas">
+                    <input type="checkbox" name="courseIds" value={s.id} className="size-4 accent-[var(--color-brand)]" />
+                    {s.title}
+                  </label>
+                ))}
+              </div>
+            </Field>
+            <ListingFieldsInputs titlePlaceholder="Data career starter pack" />
+            <SubmitButton pendingText="Making the combo…">List the combo</SubmitButton>
+          </ActionForm>
+        </Panel>
+      )}
+      <div className="grid gap-6">
         <div>
           {combos.length === 0 ? (
             <Empty title="No combos yet">
-              {sources.length >= 2 ? "Pick two or more courses on the right and set one price for them all." : "You need at least two courses with recorded video lessons to make a combo."}
+              {sources.length >= 2 ? "Use Make a combo to pick two or more courses and set one price for them all." : "You need at least two courses with recorded video lessons to make a combo."}
             </Empty>
           ) : (
             <Table head={["Combo", "Price before GST", "Buyers", "Status"]}>
@@ -51,28 +71,7 @@ export default async function Combos({ params }: { params: Promise<{ uni: string
             reprice a combo under Marketplace, Listings.
           </p>
         </div>
-
-        {sources.length >= 2 && (
-          <Card>
-            <CardTitle>Make a combo</CardTitle>
-            <ActionForm action={createComboAction} className="space-y-4">
-              <input type="hidden" name="uni" value={uni} />
-              <Field label="Courses in the combo" hint="Two to ten courses, in the order buyers will see them.">
-                <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-line bg-surface p-2">
-                  {sources.map((s) => (
-                    <label key={s.id} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-[14px] hover:bg-canvas">
-                      <input type="checkbox" name="courseIds" value={s.id} className="size-4 accent-[var(--color-brand)]" />
-                      {s.title}
-                    </label>
-                  ))}
-                </div>
-              </Field>
-              <ListingFieldsInputs titlePlaceholder="Data career starter pack" />
-              <SubmitButton pendingText="Making the combo…">List the combo</SubmitButton>
-            </ActionForm>
-          </Card>
-        )}
       </div>
-    </>
+    </Panels>
   );
 }

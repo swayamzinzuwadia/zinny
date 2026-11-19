@@ -1,5 +1,6 @@
+import { Panel, PanelButton, Panels } from "@/components/panel";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Card, CardTitle, Empty, Field, Input, PageHeader, Textarea, cx, actionClass, ButtonLabel } from "@/components/ui";
+import { Empty, Field, Input, PageHeader, Textarea, cx, actionClass, ButtonLabel } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { canManageSite } from "@/modules/website-builder/access";
 import { saveVideoAction } from "@/modules/website-builder/actions";
@@ -45,13 +46,19 @@ export default async function VideosPage({ params }: { params: Promise<{ uni: st
   const [rows, counts] = await Promise.all([listVideos(actor), attentionCounts(actor)]);
 
   return (
-    <>
-      <PageHeader title="Videos" subtitle="YouTube videos for the Videos section: campus tours, sample classes, convocation. They play on your website without leaving it." />
+    <Panels initial={rows.length === 0 ? "add" : undefined}>
+      <PageHeader title="Videos" subtitle="YouTube videos for the Videos section: campus tours, sample classes, convocation. They play on your website without leaving it." actions={<PanelButton panel="add">Add a video</PanelButton>} />
       <SectionTabs uni={uni} active="videos" counts={counts} />
-      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <Panel id="add" title="Add a video" className="max-w-2xl">
+        <ActionForm action={saveVideoAction} className="space-y-4">
+          <VideoFields uni={uni} />
+          <SubmitButton>Add video</SubmitButton>
+        </ActionForm>
+      </Panel>
+      <div className="grid gap-6">
         <div>
           {rows.length === 0 ? (
-            <Empty title="No videos yet">Paste a YouTube link on the right to add the first one.</Empty>
+            <Empty title="No videos yet">Use Add a video to paste a YouTube link.</Empty>
           ) : (
             <ul className="space-y-3">
               {rows.map((v, i) => (
@@ -86,14 +93,7 @@ export default async function VideosPage({ params }: { params: Promise<{ uni: st
             </ul>
           )}
         </div>
-        <Card className="h-fit">
-          <CardTitle>Add a video</CardTitle>
-          <ActionForm action={saveVideoAction} className="space-y-4">
-            <VideoFields uni={uni} />
-            <SubmitButton>Add video</SubmitButton>
-          </ActionForm>
-        </Card>
       </div>
-    </>
+    </Panels>
   );
 }

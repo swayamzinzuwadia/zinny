@@ -1,5 +1,6 @@
+import { Panel, PanelButton, Panels } from "@/components/panel";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Card, CardTitle, Empty, Field, Input, PageHeader, Textarea, cx, actionClass, ButtonLabel } from "@/components/ui";
+import { Empty, Field, Input, PageHeader, Textarea, cx, actionClass, ButtonLabel } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { canManageSite } from "@/modules/website-builder/access";
 import { saveTeamMemberAction } from "@/modules/website-builder/actions";
@@ -60,13 +61,19 @@ export default async function TeamPage({ params }: { params: Promise<{ uni: stri
   const [rows, counts] = await Promise.all([listTeam(actor), attentionCounts(actor)]);
 
   return (
-    <>
-      <PageHeader title="Team" subtitle="Leadership and administration: the people visitors might want to know or contact, in this order." />
+    <Panels initial={rows.length === 0 ? "add" : undefined}>
+      <PageHeader title="Team" subtitle="Leadership and administration: the people visitors might want to know or contact, in this order." actions={<PanelButton panel="add">Add someone</PanelButton>} />
       <SectionTabs uni={uni} active="team" counts={counts} />
-      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <Panel id="add" title="Add someone" className="max-w-2xl">
+        <ActionForm action={saveTeamMemberAction} className="space-y-4">
+          <TeamFields uni={uni} />
+          <SubmitButton>Add team member</SubmitButton>
+        </ActionForm>
+      </Panel>
+      <div className="grid gap-6">
         <div>
           {rows.length === 0 ? (
-            <Empty title="No team members yet">Add your leadership team on the right. Faculty have their own profiles.</Empty>
+            <Empty title="No team members yet">Add your leadership team with the button above. Faculty have their own profiles.</Empty>
           ) : (
             <ul className="space-y-3">
               {rows.map((m, i) => (
@@ -99,14 +106,7 @@ export default async function TeamPage({ params }: { params: Promise<{ uni: stri
             </ul>
           )}
         </div>
-        <Card className="h-fit">
-          <CardTitle>Add someone</CardTitle>
-          <ActionForm action={saveTeamMemberAction} className="space-y-4">
-            <TeamFields uni={uni} />
-            <SubmitButton>Add team member</SubmitButton>
-          </ActionForm>
-        </Card>
       </div>
-    </>
+    </Panels>
   );
 }

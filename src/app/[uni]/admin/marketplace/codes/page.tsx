@@ -1,5 +1,6 @@
+import { Panel, PanelButton, Panels } from "@/components/panel";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, Table, Td } from "@/components/ui";
+import { Badge, Empty, Field, Input, PageHeader, Select, Table, Td } from "@/components/ui";
 import { reach } from "@/server/core";
 import { spaceContext } from "@/server/context";
 import { formatINR } from "@/server/services/finance";
@@ -25,12 +26,55 @@ export default async function Codes({ params }: { params: Promise<{ uni: string 
   const everything = reach(actor, "course.update", university.id).all;
 
   return (
-    <>
-      <PageHeader title="Discount codes" subtitle="Codes buyers type on a listing before they pay. They come off the price before GST, and the price never drops below ₹1." />
-      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
+    <Panels initial={codes.length === 0 ? "add" : undefined}>
+      <PageHeader title="Discount codes" subtitle="Codes buyers type on a listing before they pay. They come off the price before GST, and the price never drops below ₹1." actions={(everything || listings.length > 0) ? <PanelButton panel="add" icon="add">Make a code</PanelButton> : null} />
+      {(everything || listings.length > 0) && (
+        <Panel id="add" title="Make a code" className="max-w-2xl">
+          <ActionForm action={createCodeAction} className="space-y-4">
+            <input type="hidden" name="uni" value={uni} />
+            <Field label="Code" hint="Letters, numbers, - or _. Buyers can type it in any case.">
+              <Input name="code" required minLength={3} maxLength={24} placeholder="DIWALI20" className="uppercase" />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Takes off">
+                <Select name="kind" defaultValue="percent">
+                  <option value="percent">A percentage</option>
+                  <option value="amount">An amount in ₹</option>
+                </Select>
+              </Field>
+              <Field label="How much" hint="Up to 90%, or rupees.">
+                <Input name="value" required inputMode="decimal" placeholder="20" />
+              </Field>
+            </div>
+            <Field label="Works on">
+              <Select name="listingId" defaultValue={everything ? "" : listings[0]?.id}>
+                {everything && <option value="">Everything you sell</option>}
+                {listings.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.title}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="First day" hint="Optional.">
+                <Input name="startsOn" type="date" />
+              </Field>
+              <Field label="Last day" hint="Optional.">
+                <Input name="endsOn" type="date" />
+              </Field>
+            </div>
+            <Field label="Limit" hint="Optional. How many purchases can use it.">
+              <Input name="maxUses" inputMode="numeric" placeholder="100" />
+            </Field>
+            <SubmitButton pendingText="Making the code…">Make the code</SubmitButton>
+          </ActionForm>
+        </Panel>
+      )}
+      <div className="grid gap-6">
         <div>
           {codes.length === 0 ? (
-            <Empty title="No discount codes yet">Make one on the right, then share it with the people you want to reach.</Empty>
+            <Empty title="No discount codes yet">Make one with the button above, then share it with the people you want to reach.</Empty>
           ) : (
             <Table head={["Code", "Takes off", "Works on", "When", "Used", ""]}>
               {codes.map((c) => (
@@ -65,52 +109,7 @@ export default async function Codes({ params }: { params: Promise<{ uni: string 
             </Table>
           )}
         </div>
-
-        {(everything || listings.length > 0) && (
-          <Card>
-            <CardTitle>Make a code</CardTitle>
-            <ActionForm action={createCodeAction} className="space-y-4">
-              <input type="hidden" name="uni" value={uni} />
-              <Field label="Code" hint="Letters, numbers, - or _. Buyers can type it in any case.">
-                <Input name="code" required minLength={3} maxLength={24} placeholder="DIWALI20" className="uppercase" />
-              </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Takes off">
-                  <Select name="kind" defaultValue="percent">
-                    <option value="percent">A percentage</option>
-                    <option value="amount">An amount in ₹</option>
-                  </Select>
-                </Field>
-                <Field label="How much" hint="Up to 90%, or rupees.">
-                  <Input name="value" required inputMode="decimal" placeholder="20" />
-                </Field>
-              </div>
-              <Field label="Works on">
-                <Select name="listingId" defaultValue={everything ? "" : listings[0]?.id}>
-                  {everything && <option value="">Everything you sell</option>}
-                  {listings.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.title}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="First day" hint="Optional.">
-                  <Input name="startsOn" type="date" />
-                </Field>
-                <Field label="Last day" hint="Optional.">
-                  <Input name="endsOn" type="date" />
-                </Field>
-              </div>
-              <Field label="Limit" hint="Optional. How many purchases can use it.">
-                <Input name="maxUses" inputMode="numeric" placeholder="100" />
-              </Field>
-              <SubmitButton pendingText="Making the code…">Make the code</SubmitButton>
-            </ActionForm>
-          </Card>
-        )}
       </div>
-    </>
+    </Panels>
   );
 }

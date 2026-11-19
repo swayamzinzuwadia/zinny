@@ -60,7 +60,7 @@ describe("Sales page access", () => {
       const page = await renderSales(who);
       expect(page).toContain("You don't have access to Payments");
       expect(page).not.toContain("Riya Sharma");
-      expect(page).not.toContain("Gross collected");
+      expect(page).not.toContain("Collected after refunds");
       await expect(salesOverview(who, {})).rejects.toThrow(/access/);
       await expect(orderDetail(who, w.orders["Riya Sharma"])).rejects.toThrow(/access/);
       await expect(salesCsv(who, {})).rejects.toThrow(/access/);
@@ -71,7 +71,7 @@ describe("Sales page access", () => {
 
   it("Accounts sees the orders, totals and the refund form", async () => {
     const page = await renderSales(w.accounts, { order: w.orders["Riya Sharma"] });
-    expect(page).toContain("Gross collected");
+    expect(page).toContain("Collected after refunds");
     expect(page).toContain("Riya Sharma");
     expect(page).toContain("TU/");
     expect(page).toContain("Send refund");
@@ -80,7 +80,7 @@ describe("Sales page access", () => {
 
   it("the Board views Sales without the refund form", async () => {
     const page = await renderSales(w.board, { order: w.orders["Riya Sharma"] });
-    expect(page).toContain("Gross collected");
+    expect(page).toContain("Collected after refunds");
     expect(page).toContain("Riya Sharma");
     expect(page).not.toContain("Send refund");
     const d = await orderDetail(w.board, w.orders["Riya Sharma"]);

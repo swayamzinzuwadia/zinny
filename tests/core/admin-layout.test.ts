@@ -11,7 +11,7 @@ const layout = readFileSync(new URL("../../src/app/[uni]/admin/layout.tsx", impo
 describe("admin layout sidebar", () => {
   it("the aside is the full-height column, without sticky or a fixed height", () => {
     const aside = layout.match(/<aside className="([^"]+)"/)?.[1] ?? "";
-    expect(aside.split(" ").sort()).toEqual(["bg-brand-deep", "hidden", "md:block", "shrink-0", "w-[264px]"]);
+    expect(aside.split(" ").sort()).toEqual(["bg-brand-deep", "hidden", "lg:block", "shrink-0", "w-[264px]"]);
   });
   it("an inner wrapper holds the sticky, one-screen part", () => {
     expect(layout).toMatch(/<aside[^>]*>\s*<div className="sticky top-0 h-dvh px-3 py-6">\{sidebar\}<\/div>\s*<\/aside>/);

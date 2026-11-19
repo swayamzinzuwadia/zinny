@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Card, CardTitle, Empty, Input, PageHeader, Select, Table, Td, buttonClass } from "@/components/ui";
+import { Panel, PanelButton, Panels } from "@/components/panel";
+import { Empty, Input, PageHeader, Select, Table, Td, buttonClass } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { createTestAction } from "@/modules/assessments/actions";
 import { FilterLink, KindBadge, StatusBadge } from "@/modules/assessments/components/bits";
@@ -41,7 +42,7 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
   const toGrade = new Set(queue.map((x) => x.attemptId)).size;
 
   return (
-    <>
+    <Panels initial={choices.length > 0 && allTests.length === 0 ? "add" : undefined}>
       <PageHeader
         title="Tests"
         subtitle="Quizzes, mock tests and test series in one list. Every question comes from the question pool."
@@ -55,10 +56,16 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
             <Link href={`${base}/pool`} className={buttonClass("secondary")}>
               Question pool
             </Link>
+            {choices.length > 0 && <PanelButton panel="add">New test</PanelButton>}
           </>
         }
       />
-      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]">
+      {choices.length > 0 && (
+        <Panel id="add" title="New test" className="max-w-2xl">
+          <NewTestForm uni={uni} choices={choices} action={createTestAction} defaultCourseId={courseId} defaultKind={kind || undefined} />
+        </Panel>
+      )}
+      <div className="grid gap-6">
         <div className="min-w-0 space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <FilterLink href={href("")} active={!kind}>
@@ -88,7 +95,7 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
 
           {tests.length === 0 ? (
             <Empty title={allTests.length ? "No tests match" : "No tests yet"}>
-              {allTests.length ? "Try another type or search." : choices.length ? "Create the first one on the right." : "Tests for the batches you teach will show here."}
+              {allTests.length ? "Try another type or search." : choices.length ? "Create the first one with New test." : "Tests for the batches you teach will show here."}
             </Empty>
           ) : (
             <Table head={["Test", "Course and batches", "Questions", "Window", "Attempts", "Status"]}>
@@ -118,14 +125,7 @@ export default async function TestsPage({ params, searchParams }: { params: Prom
             </Table>
           )}
         </div>
-
-        {choices.length > 0 && (
-          <Card className="h-fit">
-            <CardTitle>New test</CardTitle>
-            <NewTestForm uni={uni} choices={choices} action={createTestAction} defaultCourseId={courseId} defaultKind={kind || undefined} />
-          </Card>
-        )}
       </div>
-    </>
+    </Panels>
   );
 }

@@ -12,7 +12,7 @@ export async function marketplaceMonthLines({ uni, actor, today }: DashboardCard
   return [
     {
       key: "sales",
-      label: "Marketplace sales",
+      label: "Marketplace revenue",
       value: listed ? rupees(s.earnedThisMonthPaise) : "None",
       hint: listed ? `${rupees(s.earnedPaise)} in all, ${s.buyers} ${s.buyers === 1 ? "buyer" : "buyers"}, before GST` : "Nothing on sale yet",
       href: `/${uni}/admin/marketplace`,
@@ -28,7 +28,7 @@ export async function MarketplaceDashboardCard({ uni, actor, today }: DashboardC
   const listed = s.live + s.paused > 0;
   return (
     <Card>
-      <CardTitle hint={listed ? "Before GST" : undefined}>Marketplace sales</CardTitle>
+      <CardTitle hint={listed ? "Before GST" : undefined}>Marketplace revenue</CardTitle>
       {listed ? (
         <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
           <div className="tabular text-[28px] font-medium leading-none">{inr(s.earnedPaise)}</div>

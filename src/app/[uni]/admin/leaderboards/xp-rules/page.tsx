@@ -1,5 +1,6 @@
+import { Panel, PanelButton, Panels } from "@/components/panel";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Field, Input, Notice, PageHeader, Select, cx } from "@/components/ui";
+import { Badge, Card, Empty, Field, Input, Notice, PageHeader, Select, cx } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { applyRuleAction, createRuleAction, setRuleActiveAction, updateRuleAction } from "@/modules/gamification/actions";
 import { TRIGGERS } from "@/modules/gamification/catalog";
@@ -21,16 +22,51 @@ export default async function XpRulesPage({ params }: { params: Promise<{ uni: s
   const off = rules.filter((r) => !r.active);
 
   return (
-    <>
+    <Panels initial={canCreate && rules.length === 0 ? "add" : undefined}>
       <SectionNav uni={uni} active="/xp-rules" />
       <PageHeader
         title="XP rules"
         subtitle="What earns points. Each lesson, test, class or assignment earns XP once per rule, and a daily cap limits how much one student can earn from a rule in a day."
+        actions={canCreate ? <PanelButton panel="add">Add a rule</PanelButton> : null}
       />
-      <div className={cx("grid gap-6", canCreate && "grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]")}>
+      {canCreate && (
+        <Panel id="add" title="New rule" className="max-w-2xl">
+            <ActionForm action={createRuleAction} className="space-y-4">
+              <input type="hidden" name="uni" value={uni} />
+              <Field label="Name" hint="Students see this next to the XP they earn.">
+                <Input name="name" placeholder="Lesson finished" required maxLength={80} />
+              </Field>
+              <TriggerFields triggers={TRIGGERS.map((t) => ({ key: t.key, label: t.label, needsScore: t.needsScore }))} defaultKey="lesson" />
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="XP">
+                  <Input name="points" type="number" inputMode="numeric" min={1} max={1000} defaultValue={10} required />
+                </Field>
+                <Field label="Daily cap" hint="Most a day, per student">
+                  <Input name="dailyCap" type="number" inputMode="numeric" min={1} max={100} placeholder="No cap" />
+                </Field>
+              </div>
+              <Field label="Applies to">
+                <Select name="departmentId" defaultValue={scopes.universityWide ? "" : scopes.departments[0]?.id}>
+                  {scopes.universityWide && <option value="">Whole institute</option>}
+                  {scopes.departments.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} only
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <SubmitButton>Add rule</SubmitButton>
+            </ActionForm>
+          <Notice tone="neutral">
+            A department rule only counts activity in that department&apos;s courses. New rules count activity from now on. Use Apply to past
+            activity to include what already happened.
+          </Notice>
+        </Panel>
+      )}
+      <div className="grid gap-6">
         <div className="min-w-0 space-y-4">
           {rules.length === 0 && (
-            <Empty title="No XP rules yet">{canCreate ? "Add the first rule on the right, like 10 XP for finishing a lesson." : "Rules your institute sets up will show here."}</Empty>
+            <Empty title="No XP rules yet">{canCreate ? "Add the first rule with the button above, like 10 XP for finishing a lesson." : "Rules your institute sets up will show here."}</Empty>
           )}
           {[...on, ...off].map((r) => (
             <Card key={r.id} className={cx("p-5", !r.active && "bg-canvas/60")}>
@@ -111,45 +147,7 @@ export default async function XpRulesPage({ params }: { params: Promise<{ uni: s
             </Card>
           ))}
         </div>
-
-        {canCreate && (
-          <div className="space-y-4">
-            <Card className="h-fit">
-              <CardTitle>New rule</CardTitle>
-              <ActionForm action={createRuleAction} className="space-y-4">
-                <input type="hidden" name="uni" value={uni} />
-                <Field label="Name" hint="Students see this next to the XP they earn.">
-                  <Input name="name" placeholder="Lesson finished" required maxLength={80} />
-                </Field>
-                <TriggerFields triggers={TRIGGERS.map((t) => ({ key: t.key, label: t.label, needsScore: t.needsScore }))} defaultKey="lesson" />
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="XP">
-                    <Input name="points" type="number" inputMode="numeric" min={1} max={1000} defaultValue={10} required />
-                  </Field>
-                  <Field label="Daily cap" hint="Most a day, per student">
-                    <Input name="dailyCap" type="number" inputMode="numeric" min={1} max={100} placeholder="No cap" />
-                  </Field>
-                </div>
-                <Field label="Applies to">
-                  <Select name="departmentId" defaultValue={scopes.universityWide ? "" : scopes.departments[0]?.id}>
-                    {scopes.universityWide && <option value="">Whole institute</option>}
-                    {scopes.departments.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name} only
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <SubmitButton>Add rule</SubmitButton>
-              </ActionForm>
-            </Card>
-            <Notice tone="neutral">
-              A department rule only counts activity in that department&apos;s courses. New rules count activity from now on. Use Apply to past
-              activity to include what already happened.
-            </Notice>
-          </div>
-        )}
       </div>
-    </>
+    </Panels>
   );
 }

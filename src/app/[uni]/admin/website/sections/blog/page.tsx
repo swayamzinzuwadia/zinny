@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { Panel, PanelButton, Panels } from "@/components/panel";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Table, Td } from "@/components/ui";
+import { Badge, Empty, Field, Input, PageHeader, Table, Td } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { canManageSite } from "@/modules/website-builder/access";
 import { createPostAction } from "@/modules/website-builder/actions";
@@ -27,21 +28,33 @@ export default async function BlogPage({ params }: { params: Promise<{ uni: stri
   const base = `/${uni}/admin/website/sections/blog`;
 
   return (
-    <>
+    <Panels initial={posts.length === 0 ? "add" : undefined}>
       <PageHeader
         title="Blog"
         subtitle="News, results and advice for students. Drafts stay private; published posts appear on your blog and in the Blog highlights section."
         actions={
-          <a href={`/site/${uni}/blog`} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
-            View blog
-          </a>
+          <>
+            <a href={`/site/${uni}/blog`} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center rounded-full border border-line bg-surface px-5 text-[14px] font-medium hover:border-brand/40">
+              View blog
+            </a>
+            <PanelButton panel="add">New post</PanelButton>
+          </>
         }
       />
       <SectionTabs uni={uni} active="blog" counts={counts} />
-      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <Panel id="add" title="New post" className="max-w-2xl">
+        <ActionForm action={createPostAction} className="space-y-4">
+          <input type="hidden" name="uni" value={uni} />
+          <Field label="Title" hint="You can change it later.">
+            <Input name="title" required minLength={3} maxLength={140} placeholder="Placements 2026: where our graduates went" />
+          </Field>
+          <SubmitButton pendingText="Creating…">Start writing</SubmitButton>
+        </ActionForm>
+      </Panel>
+      <div className="grid gap-6">
         <div>
           {posts.length === 0 ? (
-            <Empty title="No posts yet">Start one on the right. Placement results, admissions dates and student stories are good first posts.</Empty>
+            <Empty title="No posts yet">Start one with New post. Placement results, admissions dates and student stories are good first posts.</Empty>
           ) : (
             <Table head={["Post", "Author", "Status", "Updated"]}>
               {posts.map((p) => (
@@ -60,17 +73,7 @@ export default async function BlogPage({ params }: { params: Promise<{ uni: stri
             </Table>
           )}
         </div>
-        <Card className="h-fit">
-          <CardTitle>New post</CardTitle>
-          <ActionForm action={createPostAction} className="space-y-4">
-            <input type="hidden" name="uni" value={uni} />
-            <Field label="Title" hint="You can change it later.">
-              <Input name="title" required minLength={3} maxLength={140} placeholder="Placements 2026: where our graduates went" />
-            </Field>
-            <SubmitButton pendingText="Creating…">Start writing</SubmitButton>
-          </ActionForm>
-        </Card>
       </div>
-    </>
+    </Panels>
   );
 }

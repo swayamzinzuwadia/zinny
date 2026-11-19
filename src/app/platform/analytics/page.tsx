@@ -23,7 +23,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     <>
       <PageHeader
         title="Analytics"
-        subtitle={`${one ? `${one.name} only` : "Across every institute"}, in India time. Weeks start on Monday. Students hold a student role; active students also have an active enrolment. Student fees are what students paid their institute, before refunds.`}
+        subtitle={`${one ? `${one.name} only` : "Across every institute"}, in India time. Weeks start on Monday. Students hold a student role; active students also have an active enrolment. "Collected" is what students paid their institute, with GST and before refunds.`}
         actions={
           <form className="flex gap-2">
             <Select name="university" defaultValue={a.universityId ?? ""} aria-label="Institute" className="w-60">
@@ -46,7 +46,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
         )}
         <Stat label="Active students" value={formatCount(a.activeStudents)} hint={`Of ${formatCount(a.students)} students`} />
         <Stat label="Enrolments this week" value={formatCount(a.weeks[lastWeek]?.enrolments ?? 0)} hint={`${formatCount(a.weeks.reduce((s, w) => s + w.enrolments, 0))} in 12 weeks`} />
-        <Stat label="Student fees this month" value={formatINRShort(a.months[lastMonth]?.paise ?? 0)} hint={`${formatINRShort(a.months.reduce((s, m) => s + m.paise, 0))} in 12 months`} />
+        <Stat label="Collected this month" value={formatINRShort(a.months[lastMonth]?.paise ?? 0)} hint={`${formatINRShort(a.months.reduce((s, m) => s + m.paise, 0))} in 12 months`} />
       </div>
       <div className="mb-6 grid gap-6 xl:grid-cols-2">
         <Card>
@@ -58,9 +58,9 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
           />
         </Card>
         <Card>
-          <CardTitle hint={scopeName}>Student fees per month</CardTitle>
+          <CardTitle hint={scopeName}>Collected per month</CardTitle>
           <BarChart
-            title={`Student fees per month, ${scopeName}`}
+            title={`Collected per month, ${scopeName}`}
             emptyText="No payments in the last 12 months"
             bars={a.months.map((m, i) => ({ key: m.month, label: formatMonth(m.month, { year: false }), value: m.paise, display: formatINRShort(m.paise), current: i === lastMonth }))}
           />

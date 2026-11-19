@@ -24,6 +24,8 @@ export default async function AdminLayout({ children, params }: { children: Reac
   const groups = nav.map((g) => ({ ...g, items: g.items.map((i) => ({ ...i, access: i.access && i.access !== "full" ? ACCESS_LABEL[i.access] : undefined })) }));
   // Every page below a menu link leads back to it.
   const links = sidebarLinks(nav).filter((l) => l.href !== "");
+  // Finding is for people who have courses or people to find.
+  const canFind = links.some((l) => ["/products/courses", "/users/students", "/users/staff"].includes(l.href));
   const trail: TrailParent[] = links.map((l) => ({ prefix: l.href, href: l.href, label: l.label }));
   const now = new Date();
   const roles = [
@@ -51,10 +53,22 @@ export default async function AdminLayout({ children, params }: { children: Reac
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      <Link href={base} className="mb-4 block px-3 pt-1">
+      <Link href={base} className="mb-4 hidden px-3 pt-1 lg:block">
         <Logo height={28} tone="cream" />
         <div className="mt-2 truncate text-[13px] text-canvas/55">{university.name}</div>
       </Link>
+      {canFind && (
+        // One box for any student, member of staff, course or batch; one match goes straight to it.
+        <form action={`${base}/find`} role="search" className="mb-3 px-1">
+          <input
+            type="search"
+            name="q"
+            aria-label="Find a student, course or batch"
+            placeholder="Find a student, course or batch"
+            className="h-9 w-full rounded-xl border border-canvas/15 bg-canvas/[0.08] px-3 text-[13.5px] text-canvas outline-none [transition-property:border-color,background-color] duration-150 placeholder:text-canvas/45 focus:border-gold/70 focus:bg-canvas/[0.12]"
+          />
+        </form>
+      )}
       <div className="sidebar-scroll -mr-2 flex-1 overflow-y-auto py-1 pr-1">
         <AdminNav base={base} groups={groups} />
       </div>
@@ -90,11 +104,11 @@ export default async function AdminLayout({ children, params }: { children: Reac
       )}
       <div className="flex">
         {/* The aside is the full-height green column (flex stretch makes it as tall as the page); only its contents stick. */}
-        <aside className="hidden w-[264px] shrink-0 bg-brand-deep md:block">
+        <aside className="hidden w-[264px] shrink-0 bg-brand-deep lg:block">
           <div className="sticky top-0 h-dvh px-3 py-6">{sidebar}</div>
         </aside>
         <div className="min-w-0 flex-1">
-          <details className="group border-b border-line bg-brand-deep md:hidden">
+          <details className="group border-b border-line bg-brand-deep lg:hidden">
             <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3">
               <Logo height={26} tone="cream" />
               <span className="text-[13px] text-canvas/80">Menu</span>

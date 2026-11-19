@@ -42,7 +42,7 @@ export default async function PlatformLayout({ children }: { children: React.Rea
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      <Link href="/platform" className="mb-4 block px-3 pt-1">
+      <Link href="/platform" className="mb-4 hidden px-3 pt-1 lg:block">
         <Logo height={28} tone="cream" />
         <div className="mt-2 text-[13px] text-canvas/55">Zinny team</div>
       </Link>
@@ -71,11 +71,11 @@ export default async function PlatformLayout({ children }: { children: React.Rea
         </div>
       ))}
       <div className="flex">
-        <aside className="hidden w-[264px] shrink-0 bg-brand-deep md:block">
+        <aside className="hidden w-[264px] shrink-0 bg-brand-deep lg:block">
           <div className="sticky top-0 h-dvh px-3 py-6">{sidebar}</div>
         </aside>
         <div className="min-w-0 flex-1">
-          <details className="group border-b border-line bg-brand-deep md:hidden">
+          <details className="group border-b border-line bg-brand-deep lg:hidden">
             <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3">
               <Logo height={26} tone="cream" />
               <span className="text-[13px] text-canvas/80">Menu</span>

@@ -1,3 +1,4 @@
+import { Panel, PanelButton, Panels } from "@/components/panel";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Avatar, Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, cx } from "@/components/ui";
 import { spaceContext } from "@/server/context";
@@ -23,13 +24,53 @@ export default async function BadgesPage({ params }: { params: Promise<{ uni: st
   const canCreate = scopes.universityWide || scopes.departments.length > 0;
 
   return (
-    <>
+    <Panels initial={canCreate && badges.length === 0 ? "add" : undefined}>
       <SectionNav uni={uni} active="/badges" />
-      <PageHeader title="Badges" subtitle="Milestones students collect. Each badge is earned once, and the student gets a notification." />
-      <div className={cx("grid gap-6", canCreate && "grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]")}>
+      <PageHeader title="Badges" subtitle="Milestones students collect. Each badge is earned once, and the student gets a notification." actions={canCreate ? <PanelButton panel="add">Create a badge</PanelButton> : null} />
+      {canCreate && (
+        <Panel id="add" title="New badge" className="max-w-2xl">
+          <ActionForm action={createBadgeAction} className="space-y-4">
+            <input type="hidden" name="uni" value={uni} />
+            <Field label="Name">
+              <Input name="name" placeholder="Bookworm" required maxLength={60} />
+            </Field>
+            <Field label="Description" hint="Optional. Shown to students with the badge.">
+              <Input name="description" placeholder="Finished 10 lessons" maxLength={200} />
+            </Field>
+            <div className="grid grid-cols-[1fr_110px] gap-3">
+              <Field label="Counts">
+                <Select name="metric" defaultValue="lessons_completed">
+                  {METRIC_KEYS.map((m) => (
+                    <option key={m} value={m}>
+                      {METRICS[m].label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Target">
+                <Input name="threshold" type="number" inputMode="numeric" min={1} defaultValue={10} required />
+              </Field>
+            </div>
+            <IconPicker />
+            <Field label="Applies to">
+              <Select name="departmentId" defaultValue={scopes.universityWide ? "" : scopes.departments[0]?.id}>
+                {scopes.universityWide && <option value="">Whole institute</option>}
+                {scopes.departments.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} only
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <SubmitButton>Create badge</SubmitButton>
+            <p className="text-[12px] text-muted">Students who already qualify get the badge straight away.</p>
+          </ActionForm>
+        </Panel>
+      )}
+      <div className="grid gap-6">
         <div className="min-w-0 space-y-6">
           {badges.length === 0 ? (
-            <Empty title="No badges yet">{canCreate ? "Create the first one on the right, like Bookworm for 10 lessons." : "Badges your institute sets up will show here."}</Empty>
+            <Empty title="No badges yet">{canCreate ? "Create the first one with the button above, like Bookworm for 10 lessons." : "Badges your institute sets up will show here."}</Empty>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {badges.map((b) => (
@@ -104,49 +145,7 @@ export default async function BadgesPage({ params }: { params: Promise<{ uni: st
             </Card>
           )}
         </div>
-
-        {canCreate && (
-          <Card className="h-fit">
-            <CardTitle>New badge</CardTitle>
-            <ActionForm action={createBadgeAction} className="space-y-4">
-              <input type="hidden" name="uni" value={uni} />
-              <Field label="Name">
-                <Input name="name" placeholder="Bookworm" required maxLength={60} />
-              </Field>
-              <Field label="Description" hint="Optional. Shown to students with the badge.">
-                <Input name="description" placeholder="Finished 10 lessons" maxLength={200} />
-              </Field>
-              <div className="grid grid-cols-[1fr_110px] gap-3">
-                <Field label="Counts">
-                  <Select name="metric" defaultValue="lessons_completed">
-                    {METRIC_KEYS.map((m) => (
-                      <option key={m} value={m}>
-                        {METRICS[m].label}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="Target">
-                  <Input name="threshold" type="number" inputMode="numeric" min={1} defaultValue={10} required />
-                </Field>
-              </div>
-              <IconPicker />
-              <Field label="Applies to">
-                <Select name="departmentId" defaultValue={scopes.universityWide ? "" : scopes.departments[0]?.id}>
-                  {scopes.universityWide && <option value="">Whole institute</option>}
-                  {scopes.departments.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name} only
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <SubmitButton>Create badge</SubmitButton>
-              <p className="text-[12px] text-muted">Students who already qualify get the badge straight away.</p>
-            </ActionForm>
-          </Card>
-        )}
       </div>
-    </>
+    </Panels>
   );
 }

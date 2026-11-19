@@ -1,5 +1,6 @@
+import { Panel, PanelButton, Panels } from "@/components/panel";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Card, CardTitle, Empty, Field, Input, PageHeader, Textarea, cx, actionClass, ButtonLabel } from "@/components/ui";
+import { Empty, Field, Input, PageHeader, Textarea, cx, actionClass, ButtonLabel } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { canManageSite } from "@/modules/website-builder/access";
 import { saveTestimonialAction } from "@/modules/website-builder/actions";
@@ -56,13 +57,19 @@ export default async function TestimonialsPage({ params }: { params: Promise<{ u
   const [rows, counts] = await Promise.all([listTestimonials(actor), attentionCounts(actor)]);
 
   return (
-    <>
-      <PageHeader title="Testimonials" subtitle="Quotes from students and alumni, shown in this order in the Testimonials section of your website." />
+    <Panels initial={rows.length === 0 ? "add" : undefined}>
+      <PageHeader title="Testimonials" subtitle="Quotes from students and alumni, shown in this order in the Testimonials section of your website." actions={<PanelButton panel="add">Add a testimonial</PanelButton>} />
       <SectionTabs uni={uni} active="testimonials" counts={counts} />
-      <div className="grid gap-6 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <Panel id="add" title="Add a testimonial" className="max-w-2xl">
+        <ActionForm action={saveTestimonialAction} className="space-y-4">
+          <TestimonialFields uni={uni} />
+          <SubmitButton>Add testimonial</SubmitButton>
+        </ActionForm>
+      </Panel>
+      <div className="grid gap-6">
         <div>
           {rows.length === 0 ? (
-            <Empty title="No testimonials yet">Add the first one on the right. Short, specific quotes work best.</Empty>
+            <Empty title="No testimonials yet">Add the first one with the button above. Short, specific quotes work best.</Empty>
           ) : (
             <ul className="space-y-3">
               {rows.map((t, i) => (
@@ -95,14 +102,7 @@ export default async function TestimonialsPage({ params }: { params: Promise<{ u
             </ul>
           )}
         </div>
-        <Card className="h-fit">
-          <CardTitle>Add a testimonial</CardTitle>
-          <ActionForm action={saveTestimonialAction} className="space-y-4">
-            <TestimonialFields uni={uni} />
-            <SubmitButton>Add testimonial</SubmitButton>
-          </ActionForm>
-        </Card>
       </div>
-    </>
+    </Panels>
   );
 }

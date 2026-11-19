@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { Panel, PanelButton, Panels } from "@/components/panel";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, CardTitle, Empty, Field, Input, PageHeader, Select, cx } from "@/components/ui";
+import { Badge, Card, Empty, Field, Input, PageHeader, Select, cx } from "@/components/ui";
 import { spaceContext } from "@/server/context";
 import { createChallengeAction } from "@/modules/gamification/actions";
 import { CHALLENGE_METRICS, METRICS } from "@/modules/gamification/catalog";
@@ -76,13 +77,62 @@ export default async function ChallengesPage({ params }: { params: Promise<{ uni
   ].filter((g) => g.items.length > 0);
 
   return (
-    <>
+    <Panels initial={canCreate && groups.length === 0 ? "add" : undefined}>
       <SectionNav uni={uni} active="/challenges" />
-      <PageHeader title="Challenges" subtitle="Time-bound goals for a batch or a whole course. Progress updates live, and the students who reach the target first are listed when it ends." />
-      <div className={cx("grid gap-6", canCreate && "grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px]")}>
+      <PageHeader title="Challenges" subtitle="Time-bound goals for a batch or a whole course. Progress updates live, and the students who reach the target first are listed when it ends." actions={canCreate ? <PanelButton panel="add" icon="add">Set a challenge</PanelButton> : null} />
+      {canCreate && (
+        <Panel id="add" title="New challenge" className="max-w-2xl">
+          <ActionForm action={createChallengeAction} className="space-y-4">
+            <input type="hidden" name="uni" value={uni} />
+            <Field label="Title">
+              <Input name="title" placeholder="Weekend sprint" required maxLength={80} />
+            </Field>
+            <Field label="Description" hint="Optional. Tell students why it matters.">
+              <Input name="description" placeholder="Catch up before the mid-term test" maxLength={300} />
+            </Field>
+            <Field label="For">
+              <Select name="scope" required>
+                {data.scopes.map((g) => (
+                  <optgroup key={g.courseTitle} label={g.courseTitle}>
+                    {g.options.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </Select>
+            </Field>
+            <div className="grid grid-cols-[1fr_110px] gap-3">
+              <Field label="Counts">
+                <Select name="metric" defaultValue="lessons_completed">
+                  {CHALLENGE_METRICS.map((m) => (
+                    <option key={m} value={m}>
+                      {METRICS[m].label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Target">
+                <Input name="target" type="number" inputMode="numeric" min={1} defaultValue={8} required />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Starts">
+                <Input name="startDate" type="date" defaultValue={data.today} required />
+              </Field>
+              <Field label="Ends">
+                <Input name="endDate" type="date" defaultValue={addDays(data.today, 13)} min={data.today} required />
+              </Field>
+            </div>
+            <SubmitButton>Set challenge</SubmitButton>
+          </ActionForm>
+        </Panel>
+      )}
+      <div className="grid gap-6">
         <div className="min-w-0 space-y-8">
           {groups.length === 0 && (
-            <Empty title="No challenges yet">{canCreate ? "Set the first one on the right, like 8 lessons in two weeks." : "Challenges for your batches will show here."}</Empty>
+            <Empty title="No challenges yet">{canCreate ? "Set the first one with the button above, like 8 lessons in two weeks." : "Challenges for your batches will show here."}</Empty>
           )}
           {groups.map((g) => (
             <section key={g.key}>
@@ -97,58 +147,7 @@ export default async function ChallengesPage({ params }: { params: Promise<{ uni
             </section>
           ))}
         </div>
-
-        {canCreate && (
-          <Card className="h-fit">
-            <CardTitle>New challenge</CardTitle>
-            <ActionForm action={createChallengeAction} className="space-y-4">
-              <input type="hidden" name="uni" value={uni} />
-              <Field label="Title">
-                <Input name="title" placeholder="Weekend sprint" required maxLength={80} />
-              </Field>
-              <Field label="Description" hint="Optional. Tell students why it matters.">
-                <Input name="description" placeholder="Catch up before the mid-term test" maxLength={300} />
-              </Field>
-              <Field label="For">
-                <Select name="scope" required>
-                  {data.scopes.map((g) => (
-                    <optgroup key={g.courseTitle} label={g.courseTitle}>
-                      {g.options.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </Select>
-              </Field>
-              <div className="grid grid-cols-[1fr_110px] gap-3">
-                <Field label="Counts">
-                  <Select name="metric" defaultValue="lessons_completed">
-                    {CHALLENGE_METRICS.map((m) => (
-                      <option key={m} value={m}>
-                        {METRICS[m].label}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label="Target">
-                  <Input name="target" type="number" inputMode="numeric" min={1} defaultValue={8} required />
-                </Field>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Starts">
-                  <Input name="startDate" type="date" defaultValue={data.today} required />
-                </Field>
-                <Field label="Ends">
-                  <Input name="endDate" type="date" defaultValue={addDays(data.today, 13)} min={data.today} required />
-                </Field>
-              </div>
-              <SubmitButton>Set challenge</SubmitButton>
-            </ActionForm>
-          </Card>
-        )}
       </div>
-    </>
+    </Panels>
   );
 }

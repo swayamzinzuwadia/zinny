@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Pager, pageOf } from "@/components/pager";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Card, CardTitle, Field, Input, Notice, PageHeader, Tabs } from "@/components/ui";
 import { can } from "@/server/core";
@@ -15,7 +16,7 @@ import { safeTimezone } from "@/modules/notifications-delivery/time";
 
 export const metadata = { title: "Notification settings" };
 
-type Search = { tab?: string; kind?: string; status?: string; channel?: string; notice?: string };
+type Search = { tab?: string; kind?: string; status?: string; channel?: string; notice?: string; page?: string };
 const STATUSES: DeliveryStatus[] = ["queued", "sending", "sent", "failed", "skipped"];
 
 export default async function NotificationSettingsPage({ params, searchParams }: { params: Promise<{ uni: string }>; searchParams: Promise<Search> }) {
@@ -57,7 +58,7 @@ export default async function NotificationSettingsPage({ params, searchParams }:
           <Notice>Queued again. It goes out within a minute.</Notice>
         </div>
       )}
-      {tab === "log" && <LogTab uni={uni} base={base} timezone={safeTimezone(university.timezone)} status={search.status} channel={search.channel} />}
+      {tab === "log" && <LogTab uni={uni} base={base} timezone={safeTimezone(university.timezone)} status={search.status} channel={search.channel} page={search.page} />}
       {tab === "setup" && <SetupTab uni={uni} />}
       {tab === "mine" && <MineTab uni={uni} />}
     </>
@@ -82,12 +83,20 @@ async function KindsTab({ uni, kind, base }: { uni: string; kind?: string; base:
   );
 }
 
-async function LogTab({ uni, base, timezone, status, channel }: { uni: string; base: string; timezone: string; status?: string; channel?: string }) {
+async function LogTab({ uni, base, timezone, status, channel, page }: { uni: string; base: string; timezone: string; status?: string; channel?: string; page?: string }) {
   const { actor } = await spaceContext(uni);
   const s = STATUSES.includes(status as DeliveryStatus) ? (status as DeliveryStatus) : "";
   const c = CHANNELS.includes(channel as Channel) ? (channel as Channel) : "";
   const log = await listDeliveries(actor, { status: s, channel: c, limit: 200 });
-  return <DeliveryLog uni={uni} rows={log.rows} stats={log.stats} timezone={timezone} filter={{ status: s, channel: c }} baseHref={base} />;
+  // The latest 200 messages, 25 to a page: the whole log on one page ran to many screens.
+  const p = pageOf(log.rows, page, 25);
+  const keep = new URLSearchParams({ tab: "log", ...(s && { status: s }), ...(c && { channel: c }) });
+  return (
+    <>
+      <DeliveryLog uni={uni} rows={p.rows} stats={log.stats} timezone={timezone} filter={{ status: s, channel: c }} baseHref={base} />
+      <Pager {...p} noun="messages" hrefFor={(n) => `${base}?${keep.toString()}${n > 1 ? `&page=${n}` : ""}`} />
+    </>
+  );
 }
 
 async function SetupTab({ uni }: { uni: string }) {

@@ -46,10 +46,11 @@ export type MenuSection = {
 };
 
 export const MENU: MenuSection[] = [
-  { key: "dashboard", label: "Dashboard", hint: "Unchanged", items: [{ label: "Overview", href: "" }] },
+  { key: "dashboard", label: "Home", hint: "Unchanged", items: [{ label: "Overview", href: "" }] },
   {
     key: "products",
-    label: "Products",
+    // The roles editor groups permissions under these names, so they follow the sidebar's words.
+    label: "Courses and teaching",
     hint: "Everything you sell and teach",
     items: [
       { label: "Courses", href: "/products/courses" },
@@ -72,7 +73,7 @@ export const MENU: MenuSection[] = [
   },
   {
     key: "users",
-    label: "Users",
+    label: "People",
     hint: "Everyone in the institute",
     items: [
       { label: "Administration", href: "/users/administration" },
@@ -98,7 +99,7 @@ export const MENU: MenuSection[] = [
   },
   {
     key: "finance",
-    label: "Finance",
+    label: "Money",
     hint: "All money in one place",
     items: [
       { label: "Sales", href: "/finance/sales" },
@@ -116,7 +117,7 @@ export const MENU: MenuSection[] = [
     ],
   },
   // Marketing and Community aren't built yet: they keep their keys (roles still carry the access) but have no menu entry.
-  { key: "insights", label: "Insights", hint: "Unchanged", items: [{ label: "Insights", href: "/insights" }] },
+  { key: "insights", label: "Reports", hint: "Unchanged", items: [{ label: "Insights", href: "/insights" }] },
   {
     key: "settings",
     label: "Settings",
@@ -198,6 +199,8 @@ export function menuFor(actor: Actor, universityId: string, now = new Date()) {
           ? { ...s, items: s.items.filter((i) => i.href !== "/products/certificates") }
           : s,
       )
+      // XP rules and badges are set-up: someone who can only look at the leaderboard (faculty) doesn't get them in the menu.
+      .map((s) => (s.key === "leaderboards" && s.access === "view" ? { ...s, items: s.items.filter((i) => i.href !== "/leaderboards/xp-rules" && i.href !== "/leaderboards/badges") } : s))
       // My timetable is for people who teach batches.
       .map((s) => (s.key === "products" && !teachesBatches(actor, universityId, now) ? { ...s, items: s.items.filter((i) => i.href !== "/products/timetable") } : s))
       // Scoped viewers only get the people lists they can actually use. Faculty find their students on their batch pages.

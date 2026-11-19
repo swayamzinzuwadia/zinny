@@ -135,14 +135,14 @@ export default async function SalesPage({ params, searchParams }: { params: Prom
       </form>
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Gross collected" value={inr(t.grossPaise)} hint={`${showGst ? "Including GST, " : ""}${t.paidOrders} paid ${t.paidOrders === 1 ? "order" : "orders"}`} />
+        <Stat label="Collected" value={inr(t.grossPaise)} hint={`${showGst ? "Including GST, " : ""}${t.paidOrders} paid ${t.paidOrders === 1 ? "order" : "orders"}`} />
         {showGst ? (
           <Stat label="GST" value={inr(t.gstPaise)} hint={university.gstEnabled ? "Part of gross collected" : "From orders placed while GST was on"} />
         ) : (
           <Stat label="Paid orders" value={t.paidOrders} hint="GST is off: fees carry no tax" />
         )}
         <Stat label="Refunds" value={inr(t.refundsPaise)} hint="Sent back to students" />
-        <Stat label="After refunds" value={inr(t.netPaise)} hint={showGst ? "Gross minus refunds, including GST" : "Gross minus refunds"} />
+        <Stat label="Collected after refunds" value={inr(t.netPaise)} hint={showGst ? "Collected minus refunds, including GST" : "Collected minus refunds"} />
       </div>
 
       {t.refundDue > 0 && f.status !== "refund_due" && (

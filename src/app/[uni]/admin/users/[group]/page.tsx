@@ -18,6 +18,7 @@ import { addPersonAction, graduateAction, linkParentAction, revokeRoleAction, st
 import { addToBatchAction } from "../../daily-actions";
 import { BulkPlaceBar, BulkTick } from "@/components/bulk-place";
 import { quickChoices } from "@/server/services/daily";
+import { Pager, pageOf } from "@/components/pager";
 import { mergePeople } from "./merge-people";
 import { StaffRoleFields } from "./staff-role-fields";
 
@@ -38,7 +39,7 @@ const ADDABLE: Record<keyof typeof USER_GROUPS, RoleName[]> = {
 const STAFF_GROUPS = ["teaching", "administration"] as const;
 const GROUP_LABEL = { teaching: "Teaching", administration: "Administration" } as const;
 
-export default async function PeoplePage({ params, searchParams }: { params: Promise<{ uni: string; group: string }>; searchParams: Promise<{ q?: string; show?: string }> }) {
+export default async function PeoplePage({ params, searchParams }: { params: Promise<{ uni: string; group: string }>; searchParams: Promise<{ q?: string; show?: string; page?: string }> }) {
   const { uni, group } = await params;
   // The two old staff pages lead to the one list, already filtered.
   if (group === "teaching" || group === "administration") redirect(`/${uni}/admin/users/staff?show=${group}`);
@@ -56,7 +57,14 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
   const all = mergePeople(lists);
   const everyone = show ? all.filter((p) => p.kinds.has(show)) : all;
   const needle = q.toLowerCase();
-  const people = needle ? everyone.filter((p) => p.name.toLowerCase().includes(needle) || p.email.toLowerCase().includes(needle)) : everyone;
+  const matching = needle ? everyone.filter((p) => p.name.toLowerCase().includes(needle) || p.email.toLowerCase().includes(needle)) : everyone;
+  // 30 to a page, so a large institute's list stays one screen or two.
+  const paged = pageOf(matching, sp.page, 30);
+  const people = paged.rows;
+  const pageHref = (n: number) => {
+    const keep = new URLSearchParams({ ...(show && { show }), ...(q && { q }), ...(n > 1 && { page: String(n) }) }).toString();
+    return `/${uni}/admin/users/${g}${keep ? `?${keep}` : ""}`;
+  };
   const listHref = `/${uni}/admin/users/${g}${show ? `?show=${show}` : ""}`;
   const isAdmin = can(actor, "user.manage_roles", { universityId: university.id });
   const hodReach = reach(actor, "user.manage_roles", university.id);
@@ -148,7 +156,7 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
                 </Link>
               )}
               <span className="text-[13px] text-muted">
-                {q ? `${people.length} of ${everyone.length}` : everyone.length} {everyone.length === 1 ? "person" : "people"}
+                {q ? `${matching.length} of ${everyone.length}` : everyone.length} {everyone.length === 1 ? "person" : "people"}
               </span>
             </form>
           )}
@@ -315,6 +323,7 @@ export default async function PeoplePage({ params, searchParams }: { params: Pro
                   })}
                 </ul>
               </Card>
+              <Pager {...paged} hrefFor={pageHref} />
             </>
           )}
         </div>

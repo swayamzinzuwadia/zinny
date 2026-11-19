@@ -462,6 +462,16 @@ describe("admin sidebar: screens that used to be several links", () => {
     expect(item(hodCS, "staff")).toMatchObject({ href: "/users/staff", access: "dept" });
     for (const a of [accounts, facultyB1, visiting, student]) expect(item(a, "staff")).toBeUndefined();
   });
+  it("faculty, who can only look at the leaderboard, don't get XP rules or badges in the menu", () => {
+    const leaderboard = (a: Actor) => sidebarFor(a, U).flatMap((g) => g.items).find((i) => i.key === "leaderboard");
+    expect(leaderboard(facultyB1)).toMatchObject({ href: "/leaderboards", access: "view" });
+    expect(leaderboard(facultyB1)!.children.map((c) => c.href)).toEqual(["/leaderboards/challenges"]);
+    expect(leaderboard(admin)!.children.map((c) => c.href)).toEqual(["/leaderboards/challenges", "/leaderboards/xp-rules", "/leaderboards/badges"]);
+    expect(leaderboard(hodCS)!.children.map((c) => c.href)).toEqual(["/leaderboards/challenges", "/leaderboards/xp-rules", "/leaderboards/badges"]);
+  });
+  it("permission sections are named like the sidebar", () => {
+    expect(menuFor(admin, U).map((s) => s.label)).toEqual(["Home", "Courses and teaching", "Marketplace", "People", "Leaderboard", "Money", "Website", "Reports", "Settings"]);
+  });
   it("Grading is one queue, for whoever has tests or assignments", () => {
     for (const a of [admin, board, hodCS, facultyB1, visiting]) {
       expect(item(a, "coursework")!.children.map((c) => c.href)).toContain("/products/grading");
