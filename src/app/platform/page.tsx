@@ -1,23 +1,39 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Card, CardTitle, Field, Input, PageHeader, Select, Stat, cx, ActionLink } from "@/components/ui";
+import { DateRangeFilter } from "@/components/date-range-filter";
+import { describeSpan, resolveRange } from "@/components/date-range";
+import { Badge, Card, CardTitle, Field, Input, PageHeader, Select, Stat, cx, ActionLink } from "@/components/ui";
 import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { acknowledgeAlertAction, startSupportAction } from "@/modules/zinny-team-panel/actions";
 import { canSeeContentFlags } from "@/modules/zinny-team-panel/lib/access";
-import { formatCount, formatDate, formatINR, formatINRShort, formatRupees, plural, timeAgo, timeUntil } from "@/modules/zinny-team-panel/lib/format";
+import { BarChart } from "@/modules/zinny-team-panel/components/bar-chart";
+import { RangeStat } from "@/modules/zinny-team-panel/components/range-stat";
+import { daysLeftText } from "@/modules/zinny-team-panel/components/licence-reminder";
+import { formatCount, formatDate, formatINR, formatINRShort, formatRupees, plural, timeAgo, timeUntil, todayIST, ZINNY_TZ } from "@/modules/zinny-team-panel/lib/format";
 import { billingOverview } from "@/modules/zinny-team-panel/services/automation";
-import { analytics } from "@/modules/zinny-team-panel/services/analytics";
+import { overview } from "@/modules/zinny-team-panel/services/analytics";
 import { overdueInvoices } from "@/modules/zinny-team-panel/services/billing";
 import { reviewCounts } from "@/modules/zinny-team-panel/services/content";
 import { listAlerts, listLicences } from "@/modules/zinny-team-panel/services/licences";
 import { activeSessions, activityLog, actionLabel, supportPicker } from "@/modules/zinny-team-panel/services/support";
+import { licencesEndingSoon } from "@/modules/zinny-team-panel/services/universities";
 
 export const metadata = { title: "Overview" };
 
-export default async function PlatformHome() {
+/** "Good morning" for the hour in India, where the Zinny team works. */
+function greeting(now = new Date()) {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: ZINNY_TZ, hour: "2-digit", hour12: false }).format(now)) % 24;
+  return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+}
+
+type Search = { range?: string; from?: string; to?: string };
+
+export default async function PlatformHome({ searchParams }: { searchParams: Promise<Search> }) {
   const actor = await platformContext();
+  const today = todayIST();
+  const range = resolveRange(await searchParams, today);
   const can = {
     licences: canPlatform(actor, "platform.licences"),
     support: canPlatform(actor, "platform.support_mode"),
@@ -27,17 +43,20 @@ export default async function PlatformHome() {
     analytics: canPlatform(actor, "platform.view_analytics"),
   };
 
-  const [alerts, licences, sessions, log, picker, review, overdue, stats, billing] = await Promise.all([
+  const [allAlerts, licences, ending, sessions, log, picker, review, overdue, stats, billing] = await Promise.all([
     can.licences ? listAlerts(actor, { handled: false }) : [],
     can.licences ? listLicences(actor) : [],
+    can.licences ? licencesEndingSoon(actor, 30, today) : [],
     can.support ? activeSessions(actor) : [],
     can.support ? activityLog(actor, { scope: "support" }, 1) : null,
     can.support ? supportPicker(actor) : null,
     can.flags ? reviewCounts(actor) : null,
     can.finance ? overdueInvoices(actor) : [],
-    can.analytics ? analytics(actor, { weeks: 4, months: 3 }) : null,
+    can.analytics ? overview(actor, range, today) : null,
     can.licences || can.finance ? billingOverview(actor) : null,
   ]);
+  // Licence end dates have their own list below, with the days left and a renew action.
+  const alerts = can.licences ? allAlerts.filter((a) => a.kind !== "licence_end") : allAlerts;
   const unlicensed = licences.filter((l) => !l.licence && l.status === "active");
   const showNeeds = can.licences || can.flags || can.finance;
   const showFlags = !!review && review.openFlags > 0;
@@ -57,25 +76,67 @@ export default async function PlatformHome() {
   const seesEverything = can.licences && can.support && can.flags && can.review && can.finance;
   const showSide = !!picker || can.support;
 
+  const firstName = actor.name.split(/\s+/)[0];
+  const asOf = `${describeSpan(range.from, range.to)}`;
+  const compare = `${describeSpan(range.prev.from, range.prev.to)}`;
+
   return (
     <>
       <PageHeader
-        title="Overview"
+        title={`${greeting()}, ${firstName}`}
         subtitle={summary.length ? summary.join(" · ") : seesEverything ? "Nothing needs attention across the institutes right now." : undefined}
       />
 
       {stats && (
-        <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat label="Institutes" value={formatCount(stats.universities.active)} hint={stats.universities.suspended ? `${stats.universities.suspended} suspended` : "All active"} />
-          <Stat label="Active students" value={formatCount(stats.activeStudents)} hint={`Of ${formatCount(stats.students)} students`} />
-          <Stat label="Enrolments, 4 weeks" value={formatCount(stats.weeks.reduce((s, w) => s + w.enrolments, 0))} hint={`${formatCount(stats.weeks.at(-1)?.enrolments ?? 0)} this week`} />
-          <Stat label="Student fees this month" value={formatINRShort(stats.months.at(-1)?.paise ?? 0)} hint="Paid by students to institutes" />
-        </div>
+        <section aria-label="Numbers for the chosen dates" className="mb-6">
+          <DateRangeFilter basePath="/platform" active={range} today={today} />
+          <p className="mt-3 mb-4 text-[13px] text-muted">
+            Showing <span className="font-medium text-ink">{asOf}</span>, compared with {compare}.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <RangeStat label="New institutes" value={formatCount(stats.current.newInstitutes)} now={stats.current.newInstitutes} before={stats.previous.newInstitutes} format={formatCount} />
+            <RangeStat label="New learners" value={formatCount(stats.current.newLearners)} now={stats.current.newLearners} before={stats.previous.newLearners} format={formatCount} />
+            <RangeStat label="Enrolments" value={formatCount(stats.current.enrolments)} now={stats.current.enrolments} before={stats.previous.enrolments} format={formatCount} />
+            <RangeStat
+              label="Student fees collected"
+              value={formatINRShort(stats.current.collectedPaise)}
+              now={stats.current.collectedPaise}
+              before={stats.previous.collectedPaise}
+              format={formatINRShort}
+              hint={`${formatCount(stats.current.sales)} sale${stats.current.sales === 1 ? "" : "s"}, was ${formatINRShort(stats.previous.collectedPaise)}`}
+            />
+          </div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardTitle hint={`By ${stats.granularity}`}>Enrolments</CardTitle>
+              <BarChart
+                title={`Enrolments by ${stats.granularity}, ${asOf}`}
+                emptyText="No enrolments in these dates."
+                bars={stats.series.map((b, i) => ({ key: b.key, label: b.label, value: b.enrolments, display: formatCount(b.enrolments), current: i === stats.series.length - 1 && range.to === today }))}
+              />
+            </Card>
+            <Card>
+              <CardTitle hint={`By ${stats.granularity}`}>Student fees collected</CardTitle>
+              <BarChart
+                title={`Student fees by ${stats.granularity}, ${asOf}`}
+                emptyText="No payments in these dates."
+                bars={stats.series.map((b, i) => ({ key: b.key, label: b.label, value: b.paise, display: formatINRShort(b.paise), current: i === stats.series.length - 1 && range.to === today }))}
+              />
+            </Card>
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <Stat label="Active institutes" value={formatCount(stats.now.activeInstitutes)} hint={stats.now.suspended ? `${stats.now.suspended} suspended` : "None suspended"} />
+            <Stat label="Active students" value={formatCount(stats.now.activeStudents)} hint={`Of ${formatCount(stats.now.students)} students`} />
+            <Stat label="Licences running" value={formatCount(stats.now.licencesRunning)} hint="As of today" />
+          </div>
+          <p className="mt-2 text-[12.5px] text-faint">The last three show today&apos;s position, whatever dates are chosen.</p>
+        </section>
       )}
 
       <div className={cx("grid grid-cols-1 items-start gap-4", showNeeds && showSide && "xl:grid-cols-[1.55fr_1fr]")}>
         {showNeeds && (
           <div className="min-w-0 space-y-4">
+            {can.licences && <EndingLicences items={ending} />}
             <Card className="min-w-0">
               <CardTitle hint={needsCount ? `${needsCount} item${needsCount === 1 ? "" : "s"}` : undefined}>Needs attention</CardTitle>
               {needsCount === 0 ? (
@@ -287,5 +348,42 @@ function NeedsRow({ title, detail, action, dot = "gold" }: { title: ReactNode; d
 function RowLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <ActionLink href={href}>{children}</ActionLink>
+  );
+}
+
+/** Institutes whose licence ends within 30 days (or already has), soonest first. Gold marks "needs attention". */
+function EndingLicences({ items }: { items: Awaited<ReturnType<typeof licencesEndingSoon>> }) {
+  const shown = items.slice(0, 6);
+  return (
+    <Card className="min-w-0">
+      <CardTitle hint={items.length ? `${items.length} in the next 30 days` : undefined}>Licences ending soon</CardTitle>
+      {items.length === 0 ? (
+        <p className="text-[14px] text-muted">No licence ends in the next 30 days.</p>
+      ) : (
+        <>
+          <ul className="divide-y divide-line">
+            {shown.map((l) => (
+              <li key={l.universityId} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[14px] font-medium text-ink">{l.name}</div>
+                  <div className="tabular text-[13px] text-muted">
+                    {l.planName} · {l.level.ended ? "ended" : "ends"} {formatDate(l.endDate)}
+                  </div>
+                </div>
+                <Badge tone={l.level.ended ? "danger" : "gold"}>{daysLeftText(l.daysLeft)}</Badge>
+                <ActionLink href={`/platform/licences/${l.universityId}`}>Renew licence</ActionLink>
+              </li>
+            ))}
+          </ul>
+          {items.length > shown.length && (
+            <div className="mt-3 border-t border-line pt-3">
+              <ActionLink href="/platform/institutes?ending=1" icon="view">
+                See all {items.length} ending soon
+              </ActionLink>
+            </div>
+          )}
+        </>
+      )}
+    </Card>
   );
 }

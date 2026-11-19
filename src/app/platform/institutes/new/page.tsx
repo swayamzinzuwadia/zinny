@@ -29,7 +29,7 @@ export default async function NewUniversityPage() {
     <>
       <PageHeader
         title="New institute"
-        subtitle="Creates its private space, invites its Institute Admin by email and, with a licence, invoices it for the plan. Nothing is visible to students until the admin sets it up."
+        subtitle="Creates its private space and invites its Institute Admin by email. With a licence, it also invoices the plan. Students see nothing until the admin sets it up."
       />
       <ActionForm action={createUniversityAction} resetOnSuccess={false} className="max-w-5xl space-y-6">
         <div className="grid gap-6 lg:grid-cols-2">
@@ -42,9 +42,15 @@ export default async function NewUniversityPage() {
               <Field label="Web address" hint="zinny.app/your-address. Lowercase letters, numbers and hyphens.">
                 <Input name="slug" placeholder="lakeview" required minLength={2} maxLength={40} autoCapitalize="none" spellCheck={false} />
               </Field>
-              <Field label="Invoice prefix" hint="1 to 4 letters or numbers on its student invoices. Leave empty to use the web address.">
-                <Input name="invoicePrefix" placeholder="LCA" maxLength={4} className="uppercase" />
-              </Field>
+              {/* Rarely changed, so it stays out of the way until asked for. */}
+              <details className="group rounded-xl border border-line px-4 py-3 open:bg-canvas/50">
+                <summary className="cursor-pointer list-none text-[14px] text-muted group-open:text-ink">Invoice prefix, optional</summary>
+                <div className="mt-3">
+                  <Field label="Invoice prefix" hint="1 to 4 letters or numbers on its student invoices. Left empty, the web address is used.">
+                    <Input name="invoicePrefix" placeholder="LCA" maxLength={4} className="uppercase" />
+                  </Field>
+                </div>
+              </details>
             </div>
             <div className="mt-6 border-t border-line pt-5">
               <h3 className="mb-3 text-[15px] font-medium">Institute Admin</h3>

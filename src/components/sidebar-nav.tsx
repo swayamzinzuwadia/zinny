@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useSidebarRail } from "./collapsible-sidebar";
 import { useNavPath } from "./nav-progress";
 import { cx } from "./ui";
 
@@ -43,7 +44,7 @@ export function SidebarNav({ base, sections, label }: { base: string; sections: 
   );
 }
 
-const row = "group/row relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[14px] [transition-property:background-color,color] duration-150";
+const row = "zs-row group/row relative flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[14px] [transition-property:background-color,color] duration-150";
 
 function Single({ section, href, active }: { section: SidebarSection; href: string; active: boolean }) {
   return (
@@ -51,11 +52,12 @@ function Single({ section, href, active }: { section: SidebarSection; href: stri
       href={href}
       aria-current={active ? "page" : undefined}
       title={section.access}
+      data-tip={section.label}
       className={cx(row, active ? "bg-canvas/[0.12] font-medium text-canvas" : "text-canvas/70 hover:bg-canvas/[0.06] hover:text-canvas")}
     >
       {active && <Marker />}
       <Icon name={section.key} active={active} />
-      <span className="truncate">{section.label}</span>
+      <span className="zs-label truncate">{section.label}</span>
     </Link>
   );
 }
@@ -63,6 +65,7 @@ function Single({ section, href, active }: { section: SidebarSection; href: stri
 function Group({ section, base, current }: { section: SidebarSection; base: string; current: string | null }) {
   const holdsCurrent = section.items.some((i) => i.href === current);
   const [open, setOpen] = useState(holdsCurrent);
+  const rail = useSidebarRail();
   const id = `nav-${section.key}`;
 
   return (
@@ -72,16 +75,23 @@ function Group({ section, base, current }: { section: SidebarSection; base: stri
         aria-expanded={open}
         aria-controls={id}
         title={section.access}
-        onClick={() => setOpen((o) => !o)}
+        data-tip={section.label}
+        onClick={() => {
+          // In the icon rail there is no room for the pages: open the menu, with this group open.
+          if (rail.collapsed) {
+            rail.expand();
+            setOpen(true);
+          } else setOpen((o) => !o);
+        }}
         className={cx(row, holdsCurrent ? "text-canvas" : "text-canvas/70 hover:bg-canvas/[0.06] hover:text-canvas")}
       >
         <Icon name={section.key} active={holdsCurrent} />
-        <span className="truncate">{section.label}</span>
+        <span className="zs-label truncate">{section.label}</span>
         <svg
           aria-hidden
           viewBox="0 0 16 16"
           className={cx(
-            "ml-auto size-3.5 shrink-0 text-canvas/45 [transition-property:transform] duration-200 group-hover/row:text-canvas/70",
+            "zs-label ml-auto size-3.5 shrink-0 text-canvas/45 [transition-property:transform] duration-200 group-hover/row:text-canvas/70",
             open && "rotate-90",
           )}
           fill="none"
@@ -97,7 +107,7 @@ function Group({ section, base, current }: { section: SidebarSection; base: stri
       <div
         id={id}
         className={cx(
-          "grid [transition-property:grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
+          "zs-sub grid [transition-property:grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
           open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
         )}
       >

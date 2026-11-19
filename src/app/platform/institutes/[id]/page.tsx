@@ -7,6 +7,8 @@ import { platformContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { setStatusAction, updateBasicsAction } from "@/modules/zinny-team-panel/actions";
 import { Fact, NoAccess, PlanBadge, RenewalText, StatusBadge, UsageMeter } from "@/modules/zinny-team-panel/components/bits";
+import { DataPage, Morph } from "@/modules/zinny-team-panel/components/data-motion";
+import { instituteMorphName } from "@/modules/zinny-team-panel/components/institute-names";
 import { OpenInstitute } from "@/modules/zinny-team-panel/components/open-institute";
 import { PersonActions } from "@/modules/zinny-team-panel/components/person-actions";
 import { canSeeContentFlags, isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
@@ -44,7 +46,9 @@ export default async function UniversityPage({ params, searchParams }: { params:
   const inside = can.support && (await activeSessions(actor)).some((s) => s.staffUserId === actor.userId && s.universityId === u.id);
 
   return (
-    <>
+    <DataPage>
+      <Morph name={instituteMorphName(u.id)}>
+        <div>
       <PageHeader
         title={u.name}
         subtitle={
@@ -325,6 +329,8 @@ export default async function UniversityPage({ params, searchParams }: { params:
           </Card>
         </div>
       </div>
-    </>
+        </div>
+      </Morph>
+    </DataPage>
   );
 }
