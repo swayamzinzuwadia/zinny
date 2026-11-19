@@ -27,12 +27,101 @@
   font-weight: 560;
 }
 
-/* The brand's chalkboard: deep green with faint ruled lines and a lighter patch where it has been wiped. */
+/* The brand's chalkboard: one flat brand green, with nothing drawn across it. */
 .chalkboard {
-  background-color: #063a2f;
-  background-image:
-    radial-gradient(90% 70% at 16% 0%, rgb(11 94 76 / 0.6) 0%, rgb(6 58 47 / 0) 70%),
-    repeating-linear-gradient(to bottom, rgb(250 246 234 / 0.035) 0 1px, transparent 1px 44px);
+  background-color: var(--color-brand-deep);
+}
+
+/* "Now," on the desk, before the cards. Hidden until the film (or the plain layout) shows it. */
+.now {
+  position: absolute;
+  inset-inline: 0;
+  top: 50%;
+  z-index: 20;
+  translate: 0 -50%;
+  text-align: center;
+  font-size: clamp(4rem, 14vw, 12rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/*
+ * One card on the board. Hover lifts it a little, tilts it and fills it from the bottom in its own
+ * shade, drawn from the brand tokens. GSAP moves the wrapper (data-tile); this face has its own transform.
+ */
+.tileFace {
+  --accent: var(--color-gold-soft);
+  --on-accent: var(--color-brand-deep);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  height: 100%;
+  min-height: 84px;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  border-radius: 16px;
+  padding: 0.625rem;
+  color: var(--color-canvas);
+  background: color-mix(in srgb, var(--color-canvas) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-canvas) 10%, transparent);
+  transition:
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    color 0.25s ease;
+}
+.tileFace::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--accent);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (min-width: 640px) {
+  .tileFace {
+    min-height: 104px;
+    padding: 1rem;
+  }
+}
+@media (hover: hover) {
+  .tileFace:hover {
+    color: var(--on-accent);
+    transform: translateY(-5px) rotate(var(--tilt, 0deg));
+    box-shadow: 0 18px 30px -14px rgb(0 0 0 / 0.55);
+  }
+  .tileFace:hover::before {
+    transform: scaleY(1);
+  }
+}
+.accent0 {
+  --accent: var(--color-gold-soft);
+}
+.accent1 {
+  --accent: var(--color-brand-soft);
+}
+.accent2 {
+  --accent: var(--color-gold);
+}
+.accent3 {
+  --accent: var(--color-canvas);
+}
+.accent4 {
+  --accent: color-mix(in srgb, var(--color-gold) 45%, var(--color-brand-soft));
+}
+.accent5 {
+  --accent: color-mix(in srgb, var(--color-brand) 30%, var(--color-brand-soft));
+}
+/* The recordings card is the gold one, and fills the other way round. */
+.tileGold {
+  --accent: var(--color-brand-soft);
+  color: var(--color-brand-deep);
+  background: var(--color-gold);
+  box-shadow: none;
 }
 
 /* Frosted surface for the navbar, which floats over every scene. */
@@ -49,7 +138,7 @@
 
 .film {
   position: relative;
-  height: 820svh;
+  height: 880svh;
 }
 .marketAnchor {
   position: absolute;
@@ -219,7 +308,7 @@
   transition: flex-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .doorTitle {
-  font-size: clamp(3.75rem, 10vw, 9.5rem);
+  font-size: clamp(3rem, 6.4vw, 6.25rem);
   line-height: 0.98;
   letter-spacing: -0.025em;
 }
@@ -249,6 +338,20 @@
   .desk,
   .play {
     display: none;
+  }
+  .now {
+    position: static;
+    translate: none;
+    visibility: visible;
+    padding-block: 2rem;
+    color: var(--color-brand);
+  }
+  .tileFace,
+  .tileFace::before {
+    transition: none;
+  }
+  .tileFace:hover {
+    transform: none;
   }
   .board {
     position: relative;

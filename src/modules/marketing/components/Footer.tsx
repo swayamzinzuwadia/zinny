@@ -22,6 +22,12 @@ export function Footer() {
         <Link href="/signup" className="hover:text-canvas">
           Sign up
         </Link>
+        <Link href="/privacy" className="hover:text-canvas">
+          Privacy notice
+        </Link>
+        <Link href="/privacy#grievance" className="hover:text-canvas">
+          Grievance officer
+        </Link>
       </nav>
       <p>© 2026 Zinny</p>
     </footer>

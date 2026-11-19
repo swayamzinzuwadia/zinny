@@ -7,11 +7,11 @@ const SERIF = display.className;
 /** What Zinny already does for the way Indian institutes work. Each line is something the product does today. */
 const FACTS = [
   ["UPI, cards and netbanking", "Students pay online through Razorpay, and a seat is held for them while they do."],
-  ["GST invoices on every sale", "CGST and SGST worked out for each course, numbered in your institute's own series, emailed on payment."],
+  ["GST invoices, if you charge GST", "Each institute chooses at onboarding whether GST applies to its courses. Where it does, CGST and SGST are worked out for each course, numbered in your own series and emailed on payment."],
   ["Your records stay yours", "Every institute's data is walled off from every other institute's, down to the database."],
   ["Certificates anyone can check", "Each certificate has a public link that proves it is real."],
   ["A place for every role", "Owner, heads of department, permanent and visiting faculty, accounts, students and parents."],
-  ["Built for phones", "Students and parents use Zinny on the phone they already have, with nothing to install."],
+  ["Built for mobiles", "Students and parents use Zinny on the mobile they already have, with nothing to install."],
 ];
 
 export function India() {

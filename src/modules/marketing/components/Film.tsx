@@ -50,6 +50,10 @@ export function Film() {
         const pieces = gsap.utils.toArray<HTMLElement>("[data-piece]");
         const tiles = gsap.utils.toArray<HTMLElement>("[data-tile]");
         const slots = gsap.utils.toArray<HTMLElement>("[data-slot]");
+        // The film's colours are the brand tokens, read once so GSAP can tween to them.
+        const tokens = getComputedStyle(document.documentElement);
+        const night = tokens.getPropertyValue("--color-brand-deep").trim() || "#063a2f";
+        const paper = tokens.getPropertyValue("--color-canvas").trim() || "#faf6ea";
         const word = (name: string) => stage.querySelector<HTMLElement>(`[data-beat="${name}"]`)!;
 
         pieces.forEach((el, i) => gsap.set(el, { xPercent: -50, yPercent: -50, rotation: PIECES[i].tilt, visibility: "visible" }));
@@ -64,7 +68,7 @@ export function Film() {
           .from(headline.words, { yPercent: 110, duration: 1, stagger: 0.035, ease: "expo.out" }, 0)
           .from("[data-desk-line]", { autoAlpha: 0, y: 16, duration: 0.7, ease: "power3.out" }, 0.4)
           .from("[data-face]", { y: () => -window.innerHeight, rotation: () => gsap.utils.random(-30, 30), duration: 1.1, stagger: { each: 0.07, from: "random" }, ease: "back.out(1.1)" }, 0.2)
-          .from("[data-cue]", { autoAlpha: 0, y: 12, duration: 0.6 }, 1.3);
+          .from("[data-cue-in]", { autoAlpha: 0, y: 12, duration: 0.6 }, 1.3);
 
         /* ── While it sits there, the desk stays alive ── */
         gsap.utils.toArray<HTMLElement>("[data-idle]").forEach((el, i) => {
@@ -105,13 +109,19 @@ export function Film() {
         };
 
         // Sorting: the title leaves, then each scrap flies home and turns into its tile.
+        // The old way is read first. Then it lifts away and "Now," takes its place.
         tl.to("[data-cue]", { autoAlpha: 0, duration: 0.15 }, 0);
-        tl.to(["[data-mess-title]", "[data-desk-line]"], { yPercent: -60, autoAlpha: 0, duration: 0.5, ease: "power2.in" }, 0.15);
+        tl.to({}, { duration: 0.3 }, 0);
+        tl.to(["[data-mess-title]", "[data-desk-line]"], { yPercent: -60, autoAlpha: 0, duration: 0.5, ease: "power2.in" }, 0.3);
+        tl.fromTo("[data-now]", { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.4, ease: "power3.out" }, 0.7);
+        // The scraps start to fly only once "Now," has been read.
+        const S = 1.1;
+        tl.to("[data-now]", { autoAlpha: 0, y: -30, duration: 0.35, ease: "power2.in" }, S + 0.55);
 
         const flight = [6, 8, 3, 0, 9, 5, 2, 10, 7, 1, 4, 11];
         flight.forEach((i, turn) => {
           const el = pieces[i];
-          const start = 0.3 + turn * 0.13;
+          const start = S + 0.3 + turn * 0.13;
           tl.to(
             el,
             {
@@ -129,16 +139,15 @@ export function Film() {
         });
 
         // The chalkboard wipes in behind them.
-        tl.fromTo("[data-board]", { clipPath: "circle(0% at 50% 58%)" }, { clipPath: "circle(145% at 50% 58%)", duration: 1.35, ease: "power2.inOut" }, 0.65);
+        tl.fromTo("[data-board]", { clipPath: "circle(0% at 50% 58%)" }, { clipPath: "circle(145% at 50% 58%)", duration: 1.35, ease: "power2.inOut" }, S + 0.65);
         // Staggers on a scrubbed timeline only hold back their first item, so everything starts hidden here.
         gsap.set(order.chars, { yPercent: 70, autoAlpha: 0 });
-        tl.to(order.chars, { yPercent: 0, autoAlpha: 1, stagger: 0.012, duration: 0.3, ease: "back.out(1.8)" }, 2.25);
-        tl.fromTo("[data-order-line]", { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.3, ease: "power2.out" }, 2.6);
+        tl.to(order.chars, { yPercent: 0, autoAlpha: 1, stagger: 0.012, duration: 0.3, ease: "back.out(1.8)" }, S + 2.25);
+        tl.fromTo("[data-order-line]", { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.3, ease: "power2.out" }, S + 2.6);
 
-        // The gold now line runs across the finished board.
-        tl.addLabel("sorted", 2.9);
-        tl.fromTo("[data-sweep]", { scaleX: 0 }, { scaleX: 1, duration: 0.5, ease: "power2.inOut" }, "sorted");
-        tl.to({}, { duration: 0.35 });
+        // A beat to read the board.
+        tl.addLabel("sorted", S + 2.9);
+        tl.to({}, { duration: 0.6 }, "sorted");
 
         // The turn: everything dims except the forgotten recordings, which burst open.
         tl.addLabel("turn");
@@ -166,8 +175,9 @@ export function Film() {
         tl.addLabel("wall");
         tl.to(word("once"), { autoAlpha: 0, y: -50, duration: 0.3, ease: "power2.in" }, "wall");
         tl.to("[data-play]", { scale: 0.18, rotation: 0, autoAlpha: 0, duration: 0.45, ease: "power3.in" }, "wall");
-        tl.to("[data-lecture]", { backgroundColor: "#04291f", color: "#faf6ea", duration: 0.5 }, "wall+=0.1");
+        tl.to("[data-lecture]", { backgroundColor: night, color: paper, duration: 0.5 }, "wall+=0.1");
         tl.fromTo(word("every"), { autoAlpha: 0, y: 40 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: "power3.out" }, "wall+=0.3");
+        tl.fromTo("[data-sale-copy]", { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: 0.35, ease: "power3.out" }, "wall+=0.5");
         tl.fromTo("[data-store]", { autoAlpha: 0, y: 80, rotation: 3 }, { autoAlpha: 1, y: 0, rotation: 0, duration: 0.5, ease: "power3.out" }, "wall+=0.35");
 
         // The sales come in: each order drops in at the top of the feed and pushes the older ones
@@ -198,19 +208,24 @@ export function Film() {
         {/* ── The desk ── */}
         <div className={`${css.desk} absolute inset-0`} />
         <div className="absolute inset-x-0 top-1/2 z-20 mx-auto max-w-[23rem] -translate-y-[58%] px-5 text-center sm:max-w-[46rem] xl:max-w-[54rem]">
-          <h2 data-mess-title className={`${display.className} ${css.headline} text-[clamp(2.6rem,6vw,6rem)] leading-[1.14] tracking-[-0.025em] text-ink`}>
-            Your institute is held together by WhatsApp.
+          <h2 data-mess-title className={`${display.className} ${css.headline} text-[clamp(2.2rem,5vw,4.8rem)] leading-[1.14] tracking-[-0.025em] text-ink`}>
+            Your institute used to run on WhatsApp, spreadsheets and paper.
           </h2>
           <p data-desk-line className="mx-auto mt-5 max-w-[34rem] text-[17px] leading-relaxed text-ink/75">
             Fees in a spreadsheet, the timetable on paper, parents in a group chat, recordings nobody watches again.
           </p>
         </div>
+        <p data-now className={`${display.className} ${css.headline} ${css.now} text-gold-strong`}>
+          Now,
+        </p>
         {/* A hint, not a control: plain text, so it isn't mistaken for a button. */}
-        <div data-cue aria-hidden className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex flex-col items-center gap-1 text-[14px] font-medium text-ink/70">
-          <span>Keep scrolling to sort it out</span>
-          <svg data-cue-arrow aria-hidden viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 8l5 5 5-5" />
-          </svg>
+        <div data-cue aria-hidden className="pointer-events-none absolute inset-x-0 bottom-6 z-20">
+          <div data-cue-in className="flex flex-col items-center gap-1 text-[14px] font-medium text-ink/70">
+            <span>Keep scrolling to sort it out</span>
+            <svg data-cue-arrow aria-hidden viewBox="0 0 20 20" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 8l5 5 5-5" />
+            </svg>
+          </div>
         </div>
 
         {/* ── The chalkboard: the same things, in order ── */}
@@ -222,21 +237,19 @@ export function Film() {
             <p data-order-line className="-mt-2 text-center text-[15px] text-canvas/70 sm:-mt-4 sm:text-[17px]">
               Every scrap on that desk is now one part of Zinny.
             </p>
-            <div className="relative">
+            <div>
               <ul className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4">
                 {PIECES.map((p, i) => (
                   <li key={p.id} data-slot>
-                    <div
-                      data-tile
-                      className={`flex h-full min-h-[84px] flex-col justify-between rounded-2xl p-2.5 sm:min-h-[104px] sm:p-4 ${i === PIECES.length - 1 ? "bg-gold text-brand-deep" : "bg-canvas/[0.09] ring-1 ring-canvas/10"}`}
-                    >
-                      <span className="text-[14px] leading-tight font-medium sm:text-[17px]">{p.tile}</span>
-                      <span className={`mt-1 hidden text-[13px] leading-snug sm:block ${i === PIECES.length - 1 ? "text-brand-deep/75" : "text-canvas/60"}`}>{p.note}</span>
+                    <div data-tile className="h-full">
+                      <div className={`${css.tileFace} ${i === PIECES.length - 1 ? css.tileGold : css[`accent${i % 6}`]}`} style={{ "--tilt": i % 2 ? "0.8deg" : "-0.8deg" } as React.CSSProperties}>
+                        <span className="text-[14px] leading-tight font-medium sm:text-[17px]">{p.tile}</span>
+                        <span className="mt-1 hidden text-[13px] leading-snug opacity-70 sm:block">{p.note}</span>
+                      </div>
                     </div>
                   </li>
                 ))}
               </ul>
-              <span data-sweep aria-hidden className="absolute -bottom-3 left-0 h-[2px] w-full origin-left rounded-full bg-gold sm:-bottom-4" />
             </div>
           </div>
         </div>
@@ -292,8 +305,8 @@ export function Film() {
                 <br />
                 <em className="text-gold">Sold while you teach.</em>
               </h2>
-              <p className="mt-4 hidden max-w-[27rem] text-[16px] leading-relaxed text-canvas/70 sm:block">
-                Put a recording on the Zinny marketplace and learners anywhere can buy it. Every sale shows up here, with its GST invoice already sent.
+              <p data-sale-copy className="mt-4 hidden max-w-[27rem] text-[16px] leading-relaxed text-canvas/70 sm:block">
+                Put a recording on the Zinny marketplace and learners anywhere can buy it. Every sale shows up here, with its invoice already sent.
               </p>
               <div data-earned-block className="mt-6 sm:mt-10">
                 <p className="text-[13px] text-canvas/60">This year, from one course</p>
@@ -301,7 +314,7 @@ export function Film() {
                   {rupees(EARNED)}
                 </p>
                 <p className="mt-2 text-[12px] text-canvas/50">
-                  An example: {SALES} sales at {rupees(PRICE)}, before GST.
+                  An example: {SALES} sales at {rupees(PRICE)}, before any GST.
                 </p>
               </div>
             </div>
