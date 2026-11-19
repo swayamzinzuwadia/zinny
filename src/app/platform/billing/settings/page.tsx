@@ -6,15 +6,27 @@ import { runBillingNowAction, saveBillingSettingsAction } from "@/modules/zinny-
 import { NoAccess } from "@/modules/zinny-team-panel/components/bits";
 import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
 import { formatDateTime } from "@/modules/zinny-team-panel/lib/format";
-import { canManageBillingSettings, getBillingSettings } from "@/modules/zinny-team-panel/services/billing-settings";
+import { canManageBillingSettings, canSeeSeatPacks, getBillingSettings, getSeatPackSettings } from "@/modules/zinny-team-panel/services/billing-settings";
+import Link from "next/link";
+import { canPlatform } from "@/server/core";
+import { PackTermsForm } from "@/modules/zinny-team-panel/components/pack-terms-form";
+import { formatINR } from "@/modules/zinny-team-panel/lib/format";
+import { allPlans } from "@/modules/zinny-team-panel/services/plans";
+import { planPackSummary } from "@/modules/zinny-team-panel/services/seat-packs";
+import { saveSeatPackSettingsAction } from "./seat-actions";
 
 export const metadata = { title: "Billing settings" };
 
 export default async function BillingSettingsPage() {
   const actor = await platformContext();
-  if (!canManageBillingSettings(actor)) return <NoAccess section="Billing settings" />;
-  const s = await getBillingSettings(actor);
+  const manage = canManageBillingSettings(actor);
+  const seeSeats = canSeeSeatPacks(actor);
+  if (!manage && !seeSeats) return <NoAccess section="Billing settings" />;
+  const s = manage ? await getBillingSettings(actor) : null;
   const superAdmin = isSuperAdmin(actor);
+  const packs = seeSeats ? await getSeatPackSettings(actor) : null;
+  const ownPacks = seeSeats ? planPackSummary(await allPlans()) : [];
+  const editPacks = canPlatform(actor, "platform.seat_pricing");
 
   return (
     <>
@@ -23,6 +35,7 @@ export default async function BillingSettingsPage() {
         subtitle="How Zinny invoices institutes: payment terms, automatic renewals and payment reminders. Billing runs by itself every day just after midnight."
       />
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[1.6fr_1fr]">
+        {s && (
         <Card className="min-w-0 p-6">
           <ActionForm action={saveBillingSettingsAction} resetOnSuccess={false} className="space-y-6">
             <Section title="Invoices">
@@ -74,6 +87,36 @@ export default async function BillingSettingsPage() {
             </div>
           </ActionForm>
         </Card>
+        )}
+
+        <div className="min-w-0 space-y-4">
+        {packs && (
+          <Card id="seat-packs" className="min-w-0 scroll-mt-24">
+            <CardTitle hint={packs.updatedAt ? `Last changed ${formatDateTime(packs.updatedAt)}` : "Zinny's defaults"}>Seat packs</CardTitle>
+            <p className="mb-4 text-[14px] text-muted">
+              Institutes add users mid-term in packs. A pack bought part-way through a term pays for the days left, to the rupee, plus GST. Packs renew with the licence at the price then. A plan can set its own.
+            </p>
+            <PackTermsForm action={saveSeatPackSettingsAction} values={packs} canEdit={editPacks} submitLabel="Save seat packs" />
+            {ownPacks.length > 0 && (
+              <div className="mt-5 border-t border-line pt-4">
+                <h3 className="text-[13px] font-medium">Plans with their own packs</h3>
+                <ul className="mt-2 space-y-1.5 text-[13px]">
+                  {ownPacks.map((p) => (
+                    <li key={p.id} className="flex flex-wrap items-baseline justify-between gap-2">
+                      <Link href={`/platform/plans/${p.id}`} className="font-medium text-ink hover:text-brand">
+                        {p.name}
+                      </Link>
+                      <span className="tabular text-muted">
+                        Students {p.studentPackSize ?? packs.studentPackSize} for {formatINR(p.studentPackPricePaise ?? packs.studentPackPricePaise)} · staff {p.staffPackSize ?? packs.staffPackSize} for{" "}
+                        {formatINR(p.staffPackPricePaise ?? packs.staffPackPricePaise)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </Card>
+        )}
 
         {superAdmin && (
           <Card className="min-w-0">
@@ -88,6 +131,7 @@ export default async function BillingSettingsPage() {
             </ActionForm>
           </Card>
         )}
+        </div>
       </div>
     </>
   );

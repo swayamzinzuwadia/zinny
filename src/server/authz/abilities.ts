@@ -134,6 +134,18 @@ export const PLATFORM_ABILITIES: readonly Ability[] = [
   // Partners left the team panel; kept (hidden) so roles that hold it still load.
   { key: "platform.partners", section: "partners", label: "Manage sponsors and partners", actions: ["platform.partners"], reach: "institute", row: "Sponsors and partners", cols: ED, hidden: true },
   { key: "platform.finance", section: "billing", label: "Manage Zinny invoices", actions: ["platform.finance"], reach: "institute", row: "Zinny invoices", cols: E },
+  // Seat pack prices and sizes, and a licence's user caps set by hand. Adding or removing packs
+  // on a licence only needs Manage licences, which this one brings with it.
+  {
+    key: "platform.seat_pricing",
+    section: "billing",
+    label: "Edit seat packs and user caps",
+    actions: ["platform.seat_pricing"],
+    reach: "institute",
+    needs: ["platform.licences"],
+    row: "Seat packs and user caps",
+    cols: E,
+  },
   { key: "platform.analytics", section: "analytics", label: "View analytics", actions: ["platform.view_analytics"], reach: "institute", readOnly: true, row: "Analytics", cols: V },
 ];
 

@@ -100,6 +100,8 @@ export const ACTIONS = [
   "platform.partners",
   "platform.finance",
   "platform.view_analytics",
+  // seats: seat pack prices and sizes, and a licence's user caps set by hand
+  "platform.seat_pricing",
 ] as const;
 
 export type Action = (typeof ACTIONS)[number];
@@ -152,6 +154,7 @@ export const ROLE_GRANTS: Record<RoleName, readonly Action[]> = {
     "platform.partners",
     "platform.finance",
     "platform.view_analytics",
+    "platform.seat_pricing",
   ],
   support_agent: ["platform.support_mode", "platform.view_analytics"],
   account_manager: ["platform.manage_universities", "platform.licences", "platform.view_analytics"],

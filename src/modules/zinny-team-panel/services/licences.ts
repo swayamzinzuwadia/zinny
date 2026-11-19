@@ -11,17 +11,18 @@
  * licence (and its invoices) alone until it renews: a renewal, by hand or by the daily
  * billing job, is priced at the plan's price on that day.
  */
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 import type { Conn, Tx } from "@/db/client";
 import { universities, users } from "@/db/schema";
-import { assertPlatform, type Actor } from "@/server/core";
-import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
-import { platAlerts, platLicences } from "../schema";
+import { assertPlatform, canPlatform, type Actor } from "@/server/core";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
+import { platAlerts, platLicences, platSeatPacks } from "../schema";
 import { CAP_WARNING_RATIO, END_WARNING_DAYS, LICENSABLE_MODULES } from "../lib/constants";
 import { addDays, daysBetween, formatDate, isDate, todayIST } from "../lib/format";
 import { termEnd } from "../lib/licence";
+import { PACK_KINDS, packInvoiceLine, packPricingFor, renewalPackAmount } from "../lib/seat-packs";
 import { invoicesForLicence, issueInvoice, licenceInvoiceLine, type Invoice } from "./billing";
-import { readBillingSettings, type BillingSettings } from "./billing-settings";
+import { readBillingSettings, readSeatPackSettings, type BillingSettings } from "./billing-settings";
 import { planByKey, planNameFallback, planNames, planOptions, type Plan } from "./plans";
 import { db, emptyUsage, isUuid, logAction, universityOrThrow, usageFor, type Usage } from "./shared";
 
@@ -120,7 +121,8 @@ export async function planForLicence(conn: Conn, key: string, currentPlan?: stri
   return plan;
 }
 
-export type SavedLicence = Licence & { invoice: Invoice | null };
+/** `packInvoices`: the seat packs that renewed with a new term, one invoice per kind. */
+export type SavedLicence = Licence & { invoice: Invoice | null; packInvoices?: Invoice[] };
 
 /**
  * Creates or replaces a university's licence, raises its invoice when there is something
@@ -160,6 +162,11 @@ export async function saveLicenceTx(
   const discountNote = discountPaise > 0 ? (input.discountNote !== undefined ? input.discountNote?.trim() || null : billable ? null : before.discountNote) : null;
   if (discountPaise > pricePaise) throw new ValidationError("The discount can't be more than the price.");
   if (discountPaise > 0 && !discountNote) throw new ValidationError("Write why the discount was given, so finance can see it later.");
+  // Caps set by hand on a licence that stays on its plan are a pricing decision: platform.seat_pricing.
+  // A new licence, or one moving to another plan, takes the caps agreed for it.
+  if (before && before.plan === plan.key && (before.studentCap !== clean.studentCap || before.staffCap !== clean.staffCap) && !canPlatform(actor, "platform.seat_pricing")) {
+    throw new ForbiddenError("Changing the student or staff cap needs the Edit seat packs and user caps permission. Add seat packs to the licence instead, or ask a Super Admin.");
+  }
   const autoRenew = input.autoRenew ?? before?.autoRenew ?? settings.autoRenewDefault;
 
   const values = { ...clean, plan: plan.key, pricePaise, discountPaise, discountNote, autoRenew, updatedAt: new Date(), updatedBy: actor.userId || null };
@@ -186,6 +193,18 @@ export async function saveLicenceTx(
       dueDate: terms.dueDate ?? addDays(issueDate, settings.paymentDays),
       automatic: opts.automatic,
     });
+  }
+
+  // A new term after the old one ended: the seat packs still on the licence renew with it,
+  // at today's pack price, on an invoice of their own. (Changing the dates of the same term
+  // doesn't charge the packs again.)
+  const packInvoices: Invoice[] = [];
+  if (before && wanted && clean.startDate > before.endDate) {
+    const terms = input.invoice || {};
+    const issueDate = terms.issueDate ?? today;
+    packInvoices.push(
+      ...(await renewPacksTx(tx, actor, row, plan, { issueDate, dueDate: terms.dueDate ?? addDays(issueDate, settings.paymentDays), gstRateBp: terms.gstRateBp }, opts)),
+    );
   }
 
   const action = opts.renewal ? "plat.licence.renew" : before ? "plat.licence.update" : "plat.licence.create";
@@ -217,7 +236,64 @@ export async function saveLicenceTx(
     }),
   });
   await syncAlertsFor(tx, actor, universityId, today, { [plan.key]: plan.name });
-  return { ...row, invoice };
+  return { ...row, invoice, packInvoices };
+}
+
+/**
+ * Invoices the seat packs still on `licence` for its new term (licence.startDate to
+ * endDate), one invoice per kind, at the pack price today: the plan's own when it sets one,
+ * otherwise the billing settings' default. Inside the caller's transaction; no permission
+ * check. Packs priced at 0 are carried over without an invoice.
+ */
+async function renewPacksTx(
+  tx: Tx,
+  actor: Actor,
+  licence: Licence,
+  plan: Plan,
+  terms: { issueDate: string; dueDate: string; gstRateBp?: number },
+  opts: { automatic?: boolean },
+): Promise<Invoice[]> {
+  const held = await tx
+    .select({ kind: platSeatPacks.kind, packs: platSeatPacks.packs, seatsPerPack: platSeatPacks.seatsPerPack })
+    .from(platSeatPacks)
+    .where(and(eq(platSeatPacks.licenceId, licence.id), gt(platSeatPacks.packs, 0)));
+  if (held.length === 0) return [];
+  const pricing = packPricingFor(await readSeatPackSettings(tx), plan);
+  const out: Invoice[] = [];
+  for (const kind of PACK_KINDS) {
+    const mine = held.filter((h) => h.kind === kind);
+    if (mine.length === 0) continue;
+    const sum = renewalPackAmount(mine, pricing[kind], licence.startDate, licence.endDate);
+    let inv: Invoice | null = null;
+    if (sum.amountPaise > 0) {
+      inv = await issueInvoice(tx, actor, {
+        universityId: licence.universityId,
+        licenceId: licence.id,
+        periodStart: licence.startDate,
+        periodEnd: licence.endDate,
+        description: packInvoiceLine(kind, sum.packs, sum.seats, licence.startDate, licence.endDate, formatDate, true),
+        listPricePaise: sum.amountPaise,
+        gstRateBp: terms.gstRateBp ?? plan.gstRateBp,
+        issueDate: terms.issueDate,
+        dueDate: terms.dueDate,
+        automatic: opts.automatic,
+      });
+      out.push(inv);
+    }
+    await logAction(tx, actor, { universityId: licence.universityId, inUniversityLog: true }, "plat.seats.renew", "plat_licence", licence.id, {
+      kind,
+      packs: sum.packs,
+      seats: sum.seats,
+      yearPricePaise: pricing[kind].yearPricePaise,
+      packSize: pricing[kind].size,
+      amountPaise: sum.amountPaise,
+      periodStart: licence.startDate,
+      periodEnd: licence.endDate,
+      ...(inv ? { number: inv.number, totalPaise: inv.totalPaise } : { invoiced: false }),
+      ...(opts.automatic && { automatic: true }),
+    });
+  }
+  return out;
 }
 
 /** The term after `licence`: from the day after it ends, for the plan's billing period. */

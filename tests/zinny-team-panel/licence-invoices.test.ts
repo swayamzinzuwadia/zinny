@@ -183,7 +183,8 @@ describe("renewing and changing a licence", () => {
   it("editing a cap, the modules or the notes bills nothing", async () => {
     const U = await makeUniversity("Edit Only U");
     await saveLicence(am, U.id, licence());
-    const edited = await saveLicence(am, U.id, licence({ studentCap: 150, modules: ["assessments"], notes: "Cap raised for the new batch" }));
+    // Caps set by hand need platform.seat_pricing (a Super Admin's by default).
+    const edited = await saveLicence(sa, U.id, licence({ studentCap: 150, modules: ["assessments"], notes: "Cap raised for the new batch" }));
     expect(edited.invoice).toBeNull();
     expect(await invoicesOf(U.id)).toHaveLength(1);
     // Unless an invoice is asked for.
