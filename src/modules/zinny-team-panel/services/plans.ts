@@ -14,6 +14,7 @@ import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
 import { platLicences, platPlans } from "../schema";
 import { assertSuperAdmin } from "../lib/access";
 import { DEFAULT_GST_BP, GST_RATES_BP, LICENSABLE_MODULES } from "../lib/constants";
+import { MAX_PACK_PRICE, MAX_PACK_SIZE } from "../lib/seat-packs";
 import { db, isUniqueViolation, isUuid, logAction } from "./shared";
 
 export type Plan = typeof platPlans.$inferSelect;
@@ -277,6 +278,51 @@ export async function updatePlan(actor: Actor, planId: string, input: PlanInput)
       .where(eq(platPlans.id, planId))
       .returning();
     await logAction(tx, actor, {}, "plat.plan.update", "plat_plan", row.id, { key: row.key, ...logged(row), before: logged(before) });
+    return row;
+  });
+}
+
+/** A plan's own seat packs. Null for a field: use the billing settings' default. */
+export type PlanPackInput = { studentPackSize: number | null; studentPackPricePaise: number | null; staffPackSize: number | null; staffPackPricePaise: number | null };
+
+const PACK_KEYS = ["studentPackSize", "studentPackPricePaise", "staffPackSize", "staffPackPricePaise"] as const;
+
+/**
+ * Sets the seat packs on one plan (platform.seat_pricing), or clears them back to the
+ * defaults. Applies to packs bought or renewed from now on; invoices already raised stay.
+ */
+export async function savePlanPacks(actor: Actor, planId: string, input: PlanPackInput): Promise<Plan> {
+  assertPlatform(actor, "platform.seat_pricing");
+  if (!isUuid(planId)) throw new NotFoundError("Plan");
+  const check = (v: number | null, min: number, max: number, message: string) => {
+    if (v === null) return null;
+    if (!Number.isInteger(v) || v < min || v > max) throw new ValidationError(message);
+    return v;
+  };
+  const clean: PlanPackInput = {
+    studentPackSize: check(input.studentPackSize, 1, MAX_PACK_SIZE, "A student pack holds a whole number of people from 1, or leave it empty for the default."),
+    studentPackPricePaise: check(input.studentPackPricePaise, 0, MAX_PACK_PRICE, "Enter the student pack's year price in rupees, or leave it empty for the default."),
+    staffPackSize: check(input.staffPackSize, 1, MAX_PACK_SIZE, "A staff pack holds a whole number of people from 1, or leave it empty for the default."),
+    staffPackPricePaise: check(input.staffPackPricePaise, 0, MAX_PACK_PRICE, "Enter the staff pack's year price in rupees, or leave it empty for the default."),
+  };
+  return db().transaction(async (tx) => {
+    const [before] = await tx.select().from(platPlans).where(eq(platPlans.id, planId)).for("update");
+    if (!before) throw new NotFoundError("Plan");
+    const from: Record<string, unknown> = {};
+    const to: Record<string, unknown> = {};
+    for (const k of PACK_KEYS) {
+      if (before[k] !== clean[k]) {
+        from[k] = before[k];
+        to[k] = clean[k];
+      }
+    }
+    if (Object.keys(to).length === 0) throw new ValidationError("Nothing is different. Change a pack's size or price, then save.");
+    const [row] = await tx
+      .update(platPlans)
+      .set({ ...clean, updatedAt: new Date(), updatedBy: actor.userId || null })
+      .where(eq(platPlans.id, planId))
+      .returning();
+    await logAction(tx, actor, {}, "plat.plan.packs", "plat_plan", row.id, { key: row.key, name: row.name, before: from, after: to });
     return row;
   });
 }

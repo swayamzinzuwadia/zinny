@@ -1,7 +1,8 @@
 /**
  * Demo data for the Zinny team panel: the plans (Pilot, Standard, Enterprise and one custom
  * plan), licences for the Demo University and Riverside College priced from them with the
- * invoice each one raised (one paid, one discounted and revised, one overdue), partners, a content-review flag, Zinny team members for every
+ * invoice each one raised (one paid, one discounted and revised, one overdue), the seat pack
+ * defaults and a staff pack the Demo University bought, partners, a content-review flag, Zinny team members for every
  * platform role, and one finished support session.
  *
  * Writes only plat_ tables, and goes through the core API for everything else
@@ -12,7 +13,9 @@ import { eq, inArray, sql } from "drizzle-orm";
 import type { SeedContext } from "@/contracts/module";
 import { users, universities } from "@/db/schema";
 import { enterSupportMode, exitSupportMode, grantPlatformRole, type Actor } from "@/server/core";
-import { platInvoiceCounters, platInvoices, platPartners, platPlans } from "./schema";
+import { platBillingSettings, platInvoiceCounters, platInvoices, platPartners, platPlans } from "./schema";
+import { DEFAULT_SEAT_PACK_SETTINGS } from "./services/billing-settings";
+import { buySeatPacks, payZinnyInvoice, zinnyOnlinePayments } from "./services/seat-packs";
 import { LICENSABLE_MODULES, type PlatformRole } from "./lib/constants";
 import { addDays, financialYear } from "./lib/format";
 import { createInvoice, markInvoicePaid, reviseInvoice } from "./services/billing";
@@ -87,7 +90,8 @@ export async function seed(ctx: SeedContext) {
   const demo = await saveLicence(zara, ctx.universityId, {
     plan: "pilot",
     studentCap: 13,
-    staffCap: 25,
+    // 20 on the plan, and one staff pack of 5 the institute bought itself (below): 25 in all.
+    staffCap: 20,
     modules: allModules.filter((m) => m !== "website-builder" && m !== "gamification"),
     startDate: demoStart,
     endDate: addDays(today, 20),
@@ -95,6 +99,20 @@ export async function seed(ctx: SeedContext) {
     invoice: { issueDate: demoStart, dueDate: addDays(demoStart, 15) },
   });
   if (demo.invoice) await markInvoicePaid(farida, demo.invoice.id, { paidOn: addDays(demoStart, 9), reference: "UTR HDFC0042871193" });
+
+  // Seat packs: the defaults written down (25 students for ₹2,500 a year, 5 staff for ₹3,000),
+  // and one staff pack Asha bought for the Demo University a month ago and paid online. Its
+  // students stay at 12 of 13, so the Seats page and the platform home both show the warning.
+  await db()
+    .insert(platBillingSettings)
+    .values({ id: "zinny", ...DEFAULT_SEAT_PACK_SETTINGS, packsUpdatedAt: new Date(), packsUpdatedBy: zara.userId })
+    .onConflictDoNothing();
+  const asha = await ctx.actorFor("asha@demo.edu");
+  const bought = await buySeatPacks(asha, { kind: "staff", packs: 1 }, addDays(today, -30));
+  if (bought.invoice) {
+    if (zinnyOnlinePayments()) await payZinnyInvoice(asha, bought.invoice.id, addDays(today, -28));
+    else await markInvoicePaid(farida, bought.invoice.id, { paidOn: addDays(today, -28), reference: "UTR HDFC0051190274" });
+  }
   // A charge outside the licence, now overdue.
   await createInvoice(farida, {
     universityId: ctx.universityId,

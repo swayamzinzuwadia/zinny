@@ -324,23 +324,41 @@ export async function markInvoicePaid(actor: Actor, invoiceId: string, input: { 
   const reference = input.reference.trim();
   if (reference.length < 3) throw new ValidationError("Enter the payment reference, like the UTR or cheque number.");
   if (reference.length > 120) throw new ValidationError("Keep the reference under 120 characters.");
-  return db().transaction(async (tx) => {
-    const [inv] = await tx.select().from(platInvoices).where(eq(platInvoices.id, invoiceId)).for("update");
-    if (!inv) throw new NotFoundError("Invoice");
-    if (inv.status === "paid") throw new ConflictError(`Invoice ${inv.number} is already marked paid.`);
-    if (input.paidOn < inv.issueDate) throw new ValidationError(`The payment date can't be before the invoice was issued (${formatDate(inv.issueDate)}).`);
-    const [row] = await tx
-      .update(platInvoices)
-      .set({ status: "paid", paidOn: input.paidOn, paymentReference: reference })
-      .where(eq(platInvoices.id, invoiceId))
-      .returning();
-    await logAction(tx, actor, { universityId: inv.universityId, inUniversityLog: true }, "plat.invoice.paid", "plat_invoice", inv.id, {
-      number: inv.number,
-      paidOn: input.paidOn,
-      reference,
-    });
-    return row;
+  return db().transaction((tx) => recordPaymentTx(tx, actor, invoiceId, { paidOn: input.paidOn, reference }));
+}
+
+/**
+ * Marks an invoice paid inside the caller's transaction and logs it. No permission check:
+ * `markInvoicePaid` (platform.finance) and the institute's own payment (seat-packs.ts) check
+ * theirs. `universityId` limits it to one institute's invoices. `online` says the institute
+ * paid through the gateway rather than Zinny recording money that arrived.
+ */
+export async function recordPaymentTx(
+  tx: Tx,
+  actor: Actor,
+  invoiceId: string,
+  input: { paidOn: string; reference: string; universityId?: string; online?: boolean },
+) {
+  const [inv] = await tx
+    .select()
+    .from(platInvoices)
+    .where(and(eq(platInvoices.id, invoiceId), input.universityId ? eq(platInvoices.universityId, input.universityId) : undefined))
+    .for("update");
+  if (!inv) throw new NotFoundError("Invoice");
+  if (inv.status === "paid") throw new ConflictError(`Invoice ${inv.number} is already marked paid.`);
+  if (input.paidOn < inv.issueDate) throw new ValidationError(`The payment date can't be before the invoice was issued (${formatDate(inv.issueDate)}).`);
+  const [row] = await tx
+    .update(platInvoices)
+    .set({ status: "paid", paidOn: input.paidOn, paymentReference: input.reference })
+    .where(eq(platInvoices.id, invoiceId))
+    .returning();
+  await logAction(tx, actor, { universityId: inv.universityId, inUniversityLog: true }, "plat.invoice.paid", "plat_invoice", inv.id, {
+    number: inv.number,
+    paidOn: input.paidOn,
+    reference: input.reference,
+    ...(input.online && { online: true }),
   });
+  return row;
 }
 
 /** Undoes "paid" when it was recorded by mistake. Needs a reason. */

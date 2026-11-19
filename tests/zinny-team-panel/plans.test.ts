@@ -167,8 +167,8 @@ describe("creating and editing a plan", () => {
     expect(lic.pricePaise).toBe(2_00_000_00);
     const [inv] = await systemDb().select().from(platInvoices).where(eq(platInvoices.id, saved.invoice!.id));
     expect(inv).toMatchObject({ basePaise: 2_00_000_00, totalPaise: 2_36_000_00 });
-    // A change that isn't billed (a cap) leaves the price alone.
-    const edited = await saveLicence(am, first.id, licence({ plan: plan.key, studentCap: 120 }));
+    // A change that isn't billed (a cap, set by someone with platform.seat_pricing) leaves the price alone.
+    const edited = await saveLicence(sa, first.id, licence({ plan: plan.key, studentCap: 120 }));
     expect(edited.pricePaise).toBe(2_00_000_00);
     expect(edited.invoice).toBeNull();
 
@@ -202,7 +202,7 @@ describe("archiving", () => {
     // The institute already on it keeps it: it is offered on its form, edits and renewals save.
     expect((await licenceFor(am, onIt.id)).plans.map((p) => p.key)).toContain(plan.key);
     expect((await planOptions(am, { keep: plan.key })).find((p) => p.key === plan.key)).toMatchObject({ archived: true });
-    expect((await saveLicence(am, onIt.id, licence({ plan: plan.key, studentCap: 77 }))).studentCap).toBe(77);
+    expect((await saveLicence(sa, onIt.id, licence({ plan: plan.key, studentCap: 77 }))).studentCap).toBe(77);
     expect((await saveLicence(am, onIt.id, licence({ plan: plan.key, studentCap: 77, startDate: "2027-04-01", endDate: "2028-03-31", invoice: false }))).plan).toBe(plan.key);
 
     await restorePlan(sa, plan.id);
