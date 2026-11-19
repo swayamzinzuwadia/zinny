@@ -205,18 +205,18 @@ function Recordings() {
 
 /** In reading order of the tiles. `Recordings` comes last: it's where the page turns to the marketplace. */
 export const PIECES: Piece[] = [
-  { id: "admissions", tile: "Admissions", note: "One form, no duplicates", x: 67, y: 17, mx: 74, my: 17, tilt: 3, width: 230, depth: 0.5, Face: AdmissionForm },
-  { id: "timetable", tile: "Timetable", note: "Built from your batches", x: 89, y: 74, mx: 78, my: 74, tilt: -5, width: 220, depth: 0.8, Face: PaperTimetable },
-  { id: "classes", tile: "Live classes", note: "Join from the timetable", x: 31, y: 85, mx: 24, my: 89, tilt: 6, width: 220, depth: 0.6, Face: MeetingLink },
-  { id: "attendance", tile: "Attendance", note: "Marked as they join", x: 11, y: 70, mx: 24, my: 74, tilt: 4, width: 240, depth: 1, Face: Register },
-  { id: "tests", tile: "Tests", note: "Timed, graded, results shared", x: 69, y: 86, mx: 74, my: 88, tilt: -3, width: 190, depth: 0.7, Face: Marks },
-  { id: "assignments", tile: "Assignments", note: "Due dates everyone can see", x: 33, y: 16, mx: 18, my: 25, tilt: -8, width: 170, depth: 0.9, Face: Sticky },
-  { id: "fees", tile: "Fees and GST", note: "An invoice for every rupee", x: 14, y: 26, mx: 30, my: 17, tilt: -6, width: 290, depth: 1.1, Face: Fees },
-  { id: "certificates", tile: "Certificates", note: "With a QR anyone can check", x: 7, y: 48, mx: 16, my: 71, tilt: 5, width: 220, depth: 0.5, Face: WordCertificate },
-  { id: "messages", tile: "Messages", note: "To the right people, once", x: 88, y: 29, mx: 82, my: 25, tilt: 5, width: 250, depth: 1.2, Face: Parents },
-  { id: "website", tile: "Your website", note: "With live seat counts", x: 95, y: 52, mx: 86, my: 70, tilt: 7, width: 170, depth: 0.6, Face: Pamphlet },
-  { id: "reports", tile: "Reports", note: "The numbers, already added up", x: 50, y: 14, mx: 50, my: 8, tilt: 2, width: 180, depth: 0.4, Face: Notebook },
-  { id: "recordings", tile: "Recordings", note: "Ready to sell on the marketplace", x: 50, y: 88, mx: 50, my: 95, tilt: -2, width: 210, depth: 0.9, Face: Recordings },
+  { id: "admissions", tile: "Admissions", note: "Students apply on one form. No double entries.", x: 67, y: 17, mx: 74, my: 17, tilt: 3, width: 230, depth: 0.5, Face: AdmissionForm },
+  { id: "timetable", tile: "Timetable", note: "Every batch's classes in one calendar.", x: 89, y: 74, mx: 78, my: 74, tilt: -5, width: 220, depth: 0.8, Face: PaperTimetable },
+  { id: "classes", tile: "Live classes", note: "Teach online. Students join with one tap.", x: 31, y: 85, mx: 24, my: 89, tilt: 6, width: 220, depth: 0.6, Face: MeetingLink },
+  { id: "attendance", tile: "Attendance", note: "Marked automatically when students join.", x: 11, y: 70, mx: 24, my: 74, tilt: 4, width: 240, depth: 1, Face: Register },
+  { id: "tests", tile: "Tests", note: "Set a test. Marks are worked out for you.", x: 69, y: 86, mx: 74, my: 88, tilt: -3, width: 190, depth: 0.7, Face: Marks },
+  { id: "assignments", tile: "Assignments", note: "Students see what is due, and when.", x: 33, y: 16, mx: 18, my: 25, tilt: -8, width: 170, depth: 0.9, Face: Sticky },
+  { id: "fees", tile: "Fees and invoices", note: "Collect fees by UPI. Invoices go out by themselves.", x: 14, y: 26, mx: 30, my: 17, tilt: -6, width: 290, depth: 1.1, Face: Fees },
+  { id: "certificates", tile: "Certificates", note: "Students get one anyone can verify.", x: 7, y: 48, mx: 16, my: 71, tilt: 5, width: 220, depth: 0.5, Face: WordCertificate },
+  { id: "messages", tile: "Messages", note: "Tell a batch or parents once. No group chats.", x: 88, y: 29, mx: 82, my: 25, tilt: 5, width: 250, depth: 1.2, Face: Parents },
+  { id: "website", tile: "Your website", note: "A public page with your courses and open seats.", x: 95, y: 52, mx: 86, my: 70, tilt: 7, width: 170, depth: 0.6, Face: Pamphlet },
+  { id: "reports", tile: "Reports", note: "Fees, attendance and results, added up.", x: 50, y: 14, mx: 50, my: 8, tilt: 2, width: 180, depth: 0.4, Face: Notebook },
+  { id: "recordings", tile: "Recordings", note: "Sell your old classes on the marketplace.", x: 50, y: 78, mx: 50, my: 86, tilt: -2, width: 210, depth: 0.9, Face: Recordings },
 ];
 
 /** ₹1,499, with Indian digit grouping. */

@@ -12,7 +12,7 @@ const COUNT_FROM = 12;
 const POINTS = [
   ["Straight from the institute", "Every recording is sold by the institute that teaches it, at the price it sets."],
   ["One cart, one payment", "Buy from several institutes at once and pay with UPI, a card or netbanking."],
-  ["Yours to keep watching", "Watch at your own pace. Your progress is saved lesson by lesson, and each purchase comes with a GST invoice."],
+  ["Yours to keep watching", "Watch at your own pace. Your progress is saved lesson by lesson, and each purchase comes with an invoice, with GST where the institute charges it."],
 ];
 
 /**
@@ -29,7 +29,7 @@ export function Learners({ shelf, count }: { shelf: ReactNode; count: number }) 
               Learn from the institutes <span className="text-gold">themselves.</span>
             </h2>
             <p data-reveal className="mt-5 max-w-[34rem] text-[17px] leading-relaxed text-canvas/75">
-              Recorded courses, single lectures and combos from real institutes, for anyone: students anywhere, alumni, and people who aren&apos;t at an institute at all.
+              Watch <strong className="font-semibold text-gold">recorded classes</strong>, single lectures and combos from real institutes. Open to everyone: students anywhere, alumni, and people who aren&apos;t at an institute at all.
             </p>
             <div data-reveal className="mt-8 flex flex-wrap items-center gap-3">
               <Link
