@@ -115,11 +115,10 @@ export async function reviewDocument(actor: Actor, universityId: string, documen
     const [doc] = await tx.select().from(onbDocuments).where(eq(onbDocuments.id, documentId)).for("update");
     if (!doc || doc.status === "uploading") throw new NotFoundError("Document");
     if (doc.supersededAt) throw new ConflictError("The institute has replaced this document since. Review the new one.");
-    const [row] = await tx
+    await tx
       .update(onbDocuments)
       .set({ status: decision, reviewerNote: why || null, reviewedBy: actor.userId || null, reviewedAt: new Date() })
-      .where(eq(onbDocuments.id, doc.id))
-      .returning();
+      .where(eq(onbDocuments.id, doc.id));
     await audit(tx, as, decision === "approved" ? "onboarding.document.approve" : "onboarding.document.reject", "onb_document", doc.id, {
       kind: doc.kind,
       note: why || null,

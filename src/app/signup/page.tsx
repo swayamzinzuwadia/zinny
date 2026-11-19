@@ -5,20 +5,25 @@ import { loginUniversity } from "@/modules/identity/auth";
 import { findInstituteByCode } from "@/modules/identity/joining";
 import { AuthShell } from "@/modules/identity/components/auth-shell";
 import { InstituteCodeForm, SignUpForm } from "@/modules/identity/components/auth-forms";
+import { OnboardingShell } from "@/modules/onboarding/components/shell";
+import { SignupChoice } from "@/modules/onboarding/components/signup-choice";
 import { signUpAction } from "../login/actions";
 
 export const metadata = { title: "Create your account", referrer: "strict-origin-when-cross-origin" as const };
 
 /**
- * Student sign-up.
- *  - On its own it makes a marketplace account, which belongs to no institute. The learner
+ * Sign-up. On its own, /signup offers two choices: "Sign up as institute" (the self sign-up
+ * wizard at /signup/institute, with a free trial) and "Sign up as student" (?as=student).
+ *
+ * Student sign-up:
+ *  - On its own (?as=student) it makes a marketplace account, which belongs to no institute. The learner
  *    can join an institute later from /join.
  *  - With ?code= (an institute's joining code) the account joins that institute, straight
  *    away or with a join request, as the institute chooses.
  *  - ?uni= is the institute's own website linking here; it works like a code.
  * Staff and parents are still added by the institute.
  */
-export default async function SignUpPage({ searchParams }: { searchParams: Promise<{ uni?: string; code?: string; join?: string }> }) {
+export default async function SignUpPage({ searchParams }: { searchParams: Promise<{ uni?: string; code?: string; join?: string; as?: string }> }) {
   const sp = await searchParams;
   if (await currentUserId()) redirect("/");
 
@@ -35,6 +40,14 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
       </Link>
     </p>
   );
+
+  if (!code && !slug && sp.join === undefined && sp.as !== "student") {
+    return (
+      <OnboardingShell>
+        <SignupChoice />
+      </OnboardingShell>
+    );
+  }
 
   if (!code && !slug && sp.join === undefined) {
     return (
@@ -82,7 +95,7 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
         {signIn}
         <p className="mt-2 text-[14px] text-muted">
           Not with an institute?{" "}
-          <Link href="/signup" className="text-brand hover:underline">
+          <Link href="/signup?as=student" className="text-brand hover:underline">
             Create a free account
           </Link>
         </p>

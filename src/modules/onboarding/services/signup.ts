@@ -10,6 +10,7 @@ import { normalizePhone } from "@/server/auth/phone";
 import { consume, throttleKey } from "@/server/auth/throttle";
 import { AppError, ValidationError } from "@/server/errors";
 import { createSelfServeUniversity, type SelfServeUniversity } from "@/server/services/core-api";
+import { universityBySlug } from "@/server/context";
 import { checkSlug } from "@/modules/zinny-team-panel/services/universities";
 import { GSTIN_RE, INSTITUTE_TYPES, STATE_NAME, TRIAL_DAYS, documentProblem, isDocumentKind, slugFrom } from "../lib/constants";
 import { onbSignups } from "../schema";
@@ -110,6 +111,30 @@ export function validateSignup(input: InstituteSignupInput) {
   }
 
   return { name, legalName, instituteType: input.instituteType, city, stateCode: input.stateCode, address, slug, contactName, email, phone: phone!, gstEnabled, gstin };
+}
+
+/**
+ * Checks the steps up to and including `step`, so the wizard can stop people on the step that
+ * has the problem before they go on. Later steps aren't checked yet. On the first step it also
+ * says when the web address is taken. Returns the problem, or null.
+ */
+export async function checkSignupStep(input: InstituteSignupInput, step: SignupStep): Promise<{ step: SignupStep; message: string } | null> {
+  const upTo = SIGNUP_STEPS.indexOf(step);
+  if (upTo < 0) return { step: "institute", message: "Start from the first step." };
+  // Placeholders for the steps not reached yet, so only the real problems up to here show.
+  const filler: Partial<InstituteSignupInput> = {};
+  if (upTo < SIGNUP_STEPS.indexOf("account")) Object.assign(filler, { contactName: "Wizard Check", email: "check@zinny.in", phone: "9820011001", password: "Kx9-trial-wizard-77", confirm: "Kx9-trial-wizard-77" });
+  if (upTo < SIGNUP_STEPS.indexOf("gst")) Object.assign(filler, { gstApplies: "no", gstin: "" });
+  if (upTo < SIGNUP_STEPS.indexOf("documents")) filler.documents = [{ kind: "pan", fileName: "pan.pdf", size: 1, type: "application/pdf" }];
+  let slug = "";
+  try {
+    slug = validateSignup({ ...input, ...filler }).slug;
+  } catch (e) {
+    if (e instanceof SignupError) return { step: e.step, message: e.message };
+    throw e;
+  }
+  if (await universityBySlug(slug)) return { step: "institute", message: `Another institute already uses zinny.app/${slug}. Pick another web address.` };
+  return null;
 }
 
 export type StartedTrial = SelfServeUniversity;

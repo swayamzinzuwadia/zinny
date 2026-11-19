@@ -12,7 +12,6 @@ export function sniffType(bytes: Uint8Array): "application/pdf" | "image/jpeg" |
 /** A file name safe to show and to offer as a download name: no folders, no control characters, at most 120 characters. */
 export function cleanFileName(name: string) {
   const base = name.split(/[\\/]/).pop() ?? "";
-  // eslint-disable-next-line no-control-regex
   const clean = base.replace(/[\u0000-\u001f\u007f"<>|*?:]/g, "").replace(/\s+/g, " ").trim();
   if (!clean) return "document";
   if (clean.length <= 120) return clean;

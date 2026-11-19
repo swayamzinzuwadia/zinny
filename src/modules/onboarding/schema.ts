@@ -47,7 +47,7 @@ export const onbDocumentStatus = pgEnum("onb_document_status", ["uploading", "pe
 
 /**
  * The institute's documents (PAN card, deeds, certificates), reviewed by the Zinny team.
- * Files live in storage() under `<universityId>/onboarding/documents/<id>.<ext>`. Replacing
+ * Files live in storage() under `<universityId>/<STORAGE_AREA>/documents/<id>.<ext>` (services/documents.ts). Replacing
  * or removing one keeps the old row with `superseded_at` set: nothing is deleted.
  */
 export const onbDocuments = pgTable(

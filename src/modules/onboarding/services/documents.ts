@@ -5,7 +5,7 @@
  * Files go up in parts of PART_BYTES through a route handler, because server actions accept
  * 1 MB and Vercel functions about 4.5 MB per request:
  *   1. startDocumentUpload  checks kind, type and size; records the document as "uploading"
- *   2. putDocumentPart      stores each part under <uni>/onboarding/staging/<id>/
+ *   2. putDocumentPart      stores each part under <uni>/<STORAGE_AREA>/staging/<id>/
  *   3. finishDocumentUpload joins the parts, checks the bytes really are a PDF, JPG or PNG,
  *                           stores the file and marks it pending for the Zinny team
  * A new upload of a kind replaces the one before (kept, with superseded_at set). Nothing is
@@ -23,8 +23,16 @@ export type DocumentRow = typeof onbDocuments.$inferSelect;
 /** Kinds where an institute may keep several files (each registration is its own). */
 const MULTIPLE: ReadonlySet<DocumentKind> = new Set(["registration"]);
 
+/**
+ * Where the files live in storage(). Storage keys must start with a module id from
+ * MODULE_IDS (src/contracts/module.ts), which doesn't list "onboarding" yet during this wave,
+ * so documents sit in the Zinny team panel's area, under onboarding/. Once the integrator adds
+ * "onboarding" to MODULE_IDS this becomes "onboarding" (stored keys are kept on each row).
+ */
+export const STORAGE_AREA = "zinny-team-panel/onboarding";
+
 const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-const partKey = (universityId: string, id: string, index: number) => `${universityId}/onboarding/staging/${id}/part-${String(index).padStart(3, "0")}`;
+const partKey = (universityId: string, id: string, index: number) => `${universityId}/${STORAGE_AREA}/staging/${id}/part-${String(index).padStart(3, "0")}`;
 const partsFor = (size: number) => Math.max(1, Math.ceil(size / PART_BYTES));
 
 function uni(actor: Actor) {
@@ -70,7 +78,7 @@ export async function startDocumentUpload(actor: Actor, input: { kind: string; f
       fileName,
       contentType,
       sizeBytes: input.size,
-      storageKey: `${universityId}/onboarding/documents/${id}.${DOCUMENT_TYPES[contentType].ext}`,
+      storageKey: `${universityId}/${STORAGE_AREA}/documents/${id}.${DOCUMENT_TYPES[contentType].ext}`,
       status: "uploading",
       uploadedBy: actor.userId || null,
     }),
