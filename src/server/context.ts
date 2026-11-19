@@ -9,8 +9,9 @@ import { loadActor } from "./actor";
 import { currentUserId } from "./auth/session";
 import { isChangeRequest, readViewAs } from "./auth/view-as";
 import { ADMIN_PANEL_ROLES } from "./authz/roles";
-import { isActive, type Actor } from "./authz/engine";
+import { can, isActive, type Actor } from "./authz/engine";
 import { ForbiddenError } from "./errors";
+import { workAsyncStorage } from "next/dist/server/app-render/work-async-storage.external";
 
 /** The university for a URL slug, shaped as UniversityLite (what slot components receive). */
 export const universityBySlug = cache(async (slug: string): Promise<UniversityLite | null> => {
@@ -30,11 +31,40 @@ export const universityBySlug = cache(async (slug: string): Promise<UniversityLi
   return u ?? null;
 });
 
-/** "active" or "suspended" (set by the Zinny team panel). */
+/** "active", "suspended" (set by the Zinny team panel) or "frozen" (a self sign-up's trial ended without a plan). */
 export const universityStatus = cache(async (universityId: string): Promise<string | null> => {
   const [u] = await systemDb().select({ status: universities.status }).from(universities).where(eq(universities.id, universityId));
   return u?.status ?? null;
 });
+
+/** The pages a frozen university's admins can still open: choosing and paying for a plan, and their documents. */
+export const CHOOSE_PLAN_ROUTE = "/[uni]/admin/choose-plan";
+
+/**
+ * The route being rendered (like "/[uni]/admin/choose-plan"), for layouts, which aren't told
+ * which page is under them. Null when Next doesn't say.
+ */
+function currentRoute(): string | null {
+  try {
+    return workAsyncStorage.getStore()?.route ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Where a frozen university sends someone, or null to let them in. Nothing is deleted while
+ * it is frozen: people who run the institute (settings.manage) go to choose a plan, and can
+ * open only those pages; everyone else sees "temporarily unavailable". The Zinny team gets in
+ * (support mode, viewing as someone, signed in as someone). When the route is unknown the
+ * admin is let in rather than sent round in a loop.
+ */
+export function frozenRedirect(o: { slug: string; route: string | null; canChoosePlan: boolean; zinnyTeam: boolean }): string | null {
+  if (o.zinnyTeam) return null;
+  if (!o.canChoosePlan) return `/frozen?uni=${encodeURIComponent(o.slug)}`;
+  if (o.route === null || o.route === CHOOSE_PLAN_ROUTE || o.route.startsWith(`${CHOOSE_PLAN_ROUTE}/`)) return null;
+  return `/${o.slug}/admin/choose-plan`;
+}
 
 /** The person a Super Admin is viewing as at this university, as an actor. Checked on every request. */
 async function viewedLearner(signedIn: Actor, universityId: string): Promise<Actor | null> {
@@ -61,7 +91,13 @@ export const spaceContext = cache(async (slug: string) => {
   const actor = viewed ?? signedIn;
   // A suspended university is closed to its own people; the Zinny team still gets in through
   // support mode, by viewing as a learner, or signed in as one of its people.
-  if (!signedIn.supportSessionId && !viewed && !signedIn.impersonatedBy && (await universityStatus(university.id)) === "suspended") redirect(`/suspended?uni=${encodeURIComponent(slug)}`);
+  const zinnyTeam = !!signedIn.supportSessionId || !!viewed || !!signedIn.impersonatedBy;
+  const status = await universityStatus(university.id);
+  if (!zinnyTeam && status === "suspended") redirect(`/suspended?uni=${encodeURIComponent(slug)}`);
+  if (status === "frozen") {
+    const to = frozenRedirect({ slug, route: currentRoute(), canChoosePlan: can(signedIn, "settings.manage", { universityId: university.id }), zinnyTeam });
+    if (to) redirect(to);
+  }
   const now = new Date();
   const active = actor.assignments.filter((a) => isActive(a, now) && a.universityId === university.id);
   return {

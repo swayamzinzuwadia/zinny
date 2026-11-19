@@ -1,0 +1,96 @@
+/*
+ * Motion for onboarding screens. Nothing just appears: steps slide in from the side they
+ * come from, chosen files and notices scale in, and choice cards grow into their page.
+ */
+
+::view-transition-group(.onb-morph) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  border-radius: 22px;
+  overflow: clip;
+}
+::view-transition-old(.onb-morph),
+::view-transition-new(.onb-morph) {
+  height: 100%;
+  width: 100%;
+  object-fit: none;
+  object-position: left top;
+}
+::view-transition-old(.onb-morph) {
+  animation: 140ms ease-out both onb-fade-out;
+}
+::view-transition-new(.onb-morph) {
+  animation: 240ms ease-out 120ms both onb-fade-in;
+}
+
+.onb-step-forward {
+  animation: onb-from-right 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.onb-step-back {
+  animation: onb-from-left 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.onb-pop {
+  animation: onb-pop 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: top center;
+}
+.onb-grow {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 280ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease-out;
+}
+.onb-grow[data-open="false"] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.onb-grow > * {
+  overflow: hidden;
+}
+.onb-bar {
+  transition: width 240ms ease-out, background-color 200ms ease-out;
+}
+
+@keyframes onb-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+@keyframes onb-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+@keyframes onb-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@keyframes onb-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes onb-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onb-step-forward,
+  .onb-step-back,
+  .onb-pop {
+    animation: none;
+  }
+  .onb-grow,
+  .onb-bar {
+    transition: none;
+  }
+  ::view-transition-group(.onb-morph),
+  ::view-transition-old(.onb-morph),
+  ::view-transition-new(.onb-morph) {
+    animation: none;
+  }
+}

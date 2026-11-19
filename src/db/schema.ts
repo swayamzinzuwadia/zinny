@@ -113,6 +113,8 @@ export const universities = pgTable("universities", {
   gstEnabled: boolean("gst_enabled").notNull().default(true),
   branding: jsonb("branding").$type<{ primaryColor?: string; logoUrl?: string }>().notNull().default({}),
   status: text("status").notNull().default("active"),
+  /** Self sign-ups: the free trial runs until this date ("YYYY-MM-DD", university time zone). Null for institutes the Zinny team set up. */
+  trialEndsAt: date("trial_ends_at"),
   createdAt: createdAt(),
 }, (t) => [check("invoice_prefix_len", sql`char_length(${t.invoicePrefix}) between 1 and 4`)]);
 
