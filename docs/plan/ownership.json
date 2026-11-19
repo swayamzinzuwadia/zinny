@@ -128,6 +128,19 @@
         "src/app/marketplace/",
         "src/app/[uni]/admin/products/marketplace/"
       ]
+    },
+    "onboarding": {
+      "module": "onboarding",
+      "port": 3114,
+      "paths": [
+        "src/modules/onboarding/",
+        "src/app/signup/",
+        "src/app/book-a-demo/",
+        "src/app/frozen/",
+        "src/app/[uni]/admin/choose-plan/",
+        "src/app/[uni]/learn/kyc/",
+        "src/app/platform/signups/"
+      ]
     }
   }
 }

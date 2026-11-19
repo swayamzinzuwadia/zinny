@@ -25,6 +25,7 @@ export const MODULE_IDS = [
   "live-classes",
   "marketplace",
   "notifications-delivery",
+  "onboarding",
   "payments",
   "reports-board",
   "website-builder",

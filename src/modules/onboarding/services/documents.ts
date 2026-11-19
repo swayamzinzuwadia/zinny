@@ -29,7 +29,7 @@ const MULTIPLE: ReadonlySet<DocumentKind> = new Set(["registration"]);
  * so documents sit in the Zinny team panel's area, under onboarding/. Once the integrator adds
  * "onboarding" to MODULE_IDS this becomes "onboarding" (stored keys are kept on each row).
  */
-export const STORAGE_AREA = "zinny-team-panel/onboarding";
+export const STORAGE_AREA = "onboarding";
 
 const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 const partKey = (universityId: string, id: string, index: number) => `${universityId}/${STORAGE_AREA}/staging/${id}/part-${String(index).padStart(3, "0")}`;

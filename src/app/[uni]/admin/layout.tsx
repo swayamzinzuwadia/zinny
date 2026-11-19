@@ -15,6 +15,7 @@ import { spaceContext } from "@/server/context";
 import { exitSupportMode } from "@/server/services/support";
 import { getPreferences } from "@/modules/notifications-delivery/service";
 import { ImpersonationBanner } from "@/modules/zinny-team-panel/components/impersonation-banner";
+import { TrialBanner } from "@/modules/onboarding/components/trial-banner";
 import { LicenceBanner } from "@/modules/zinny-team-panel/components/licence-banner";
 import { formatDate, todayIST } from "@/modules/zinny-team-panel/lib/format";
 import { ownLicenceReminder } from "@/modules/zinny-team-panel/services/universities";
@@ -128,7 +129,7 @@ export default async function AdminLayout({ children, params }: { children: Reac
               today={today}
             />
           )}
-          {/* trial-banner slot */}
+          <TrialBanner uni={uni} actor={actor} />
           <main className="mx-auto max-w-[1280px] px-5 py-8 lg:px-10 lg:py-10">
             <PageTrail base={base} parents={trail} />
             {children}

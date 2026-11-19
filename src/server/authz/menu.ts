@@ -120,6 +120,7 @@ export const MENU: MenuSection[] = [
       { label: "All settings", href: "/settings" },
       { label: "Notifications", href: "/settings/notifications" },
       { label: "Seats", href: "/settings/seats" },
+      { label: "Documents", href: "/choose-plan/documents" },
     ],
   },
 ];
