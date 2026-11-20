@@ -96,13 +96,13 @@ describe("each section allows its roles and refuses everyone else", () => {
 describe("the sidebar shows only the sections a person's roles allow", () => {
   const keys = (a: Actor) => navFor(a).map((s) => s.key);
   it("per role", () => {
-    expect(keys(sa)).toEqual(["overview", "universities", "billing", "people", "support", "content", "analytics", "data", "team"]);
+    expect(keys(sa)).toEqual(["overview", "universities", "billing", "people", "support", "content", "privacy", "analytics", "data", "team"]);
     expect(keys(sup)).toEqual(["overview", "support", "analytics"]);
     expect(keys(qa)).toEqual(["overview", "content"]);
     // Plans, licences and invoices live together under "Plans and billing".
     expect(keys(fin)).toEqual(["overview", "billing"]);
     expect(navFor(fin).find((s) => s.key === "billing")!.items.map((i) => i.label)).toEqual(["Plans and prices", "Licences", "Invoices", "Billing settings"]);
-    expect(keys(am)).toEqual(["overview", "universities", "billing", "content", "analytics"]);
+    expect(keys(am)).toEqual(["overview", "universities", "billing", "content", "privacy", "analytics"]);
     expect(navFor(am).find((s) => s.key === "billing")!.items.map((i) => i.label)).toEqual(["Plans and prices", "Licences"]);
     expect(navFor(am).find((s) => s.key === "universities")!.items.map((i) => i.label)).toEqual(["Institutes"]);
     expect(navFor(am).find((s) => s.key === "content")!.access).toBe("View");

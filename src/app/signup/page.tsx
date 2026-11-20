@@ -4,10 +4,11 @@ import { currentUserId } from "@/server/auth/session";
 import { loginUniversity } from "@/modules/identity/auth";
 import { findInstituteByCode } from "@/modules/identity/joining";
 import { AuthShell } from "@/modules/identity/components/auth-shell";
-import { InstituteCodeForm, SignUpForm } from "@/modules/identity/components/auth-forms";
+import { InstituteCodeForm } from "@/modules/identity/components/auth-forms";
 import { OnboardingShell } from "@/modules/onboarding/components/shell";
 import { SignupChoice } from "@/modules/onboarding/components/signup-choice";
-import { signUpAction } from "../login/actions";
+import { studentSignUpAction } from "./actions";
+import { StudentSignUp } from "./student-signup";
 
 export const metadata = { title: "Create your account", referrer: "strict-origin-when-cross-origin" as const };
 
@@ -59,7 +60,7 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
             Use your joining code
           </Link>
         </div>
-        <SignUpForm action={signUpAction} uni="" signInHref={signInHref} />
+        <StudentSignUp action={studentSignUpAction} uni="" signInHref={signInHref} />
         {signIn}
       </AuthShell>
     );
@@ -81,7 +82,7 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
           </span>
         }
       >
-        <SignUpForm action={signUpAction} uni="" code={byCode.code} departments={byCode.departments} signInHref={signInHref} />
+        <StudentSignUp action={studentSignUpAction} uni="" code={byCode.code} departments={byCode.departments} signInHref={signInHref} />
         {signIn}
         <p className="mt-2 text-[13px] text-muted">Staff and parents are added by the institute.</p>
       </AuthShell>
@@ -125,7 +126,7 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
         </span>
       }
     >
-      <SignUpForm action={signUpAction} uni={bySlug.slug} signInHref={signInHref} />
+      <StudentSignUp action={studentSignUpAction} uni={bySlug.slug} signInHref={signInHref} />
       {signIn}
       <p className="mt-2 text-[13px] text-muted">Staff and parents are added by the institute.</p>
     </AuthShell>

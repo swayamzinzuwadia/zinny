@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { NavigationProgress } from "@/components/nav-progress";
+import { CookieBanner } from "@/modules/privacy/components/cookie-banner";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,6 +19,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <NavigationProgress />
         </Suspense>
         {children}
+        {/* Essential cookies only unless someone switches analytics on; public pages only (privacy module). */}
+        <CookieBanner />
       </body>
     </html>
   );

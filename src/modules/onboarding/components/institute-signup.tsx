@@ -20,6 +20,8 @@ const STEPS: { key: SignupStep; label: string; title: string; lead: string }[] =
 type Values = Omit<InstituteSignupInput, "documents" | "source">;
 type CheckResult = { step: SignupStep; message: string } | null;
 export type StartResult = { ok: true; slug: string; trialEndsAt: string } | { ok: false; step: SignupStep | null; message: string };
+/** Consent to each purpose on its own (DPDP Act s.6, recorded by the privacy module): account and service are needed, news is optional and off. */
+export type SignupConsents = { account: boolean; service: boolean; marketing: boolean };
 
 const EMPTY: Values = {
   name: "",
@@ -63,7 +65,7 @@ export function InstituteSignup({
   source,
 }: {
   checkStep: (input: InstituteSignupInput, step: SignupStep) => Promise<CheckResult>;
-  start: (input: InstituteSignupInput) => Promise<StartResult>;
+  start: (input: InstituteSignupInput, consents: SignupConsents) => Promise<StartResult>;
   source: "signup" | "book-a-demo";
 }) {
   const id = useId();
@@ -77,6 +79,8 @@ export function InstituteSignup({
   const [fileErrors, setFileErrors] = useState<Record<string, string | null>>({});
   const [sending, setSending] = useState<Sending | null>(null);
   const [created, setCreated] = useState<{ slug: string } | null>(null);
+  const [consents, setConsents] = useState<SignupConsents>({ account: false, service: false, marketing: false });
+  const agreed = consents.account && consents.service;
   const [pending, startTransition] = useTransition();
   const top = useRef<HTMLDivElement>(null);
 
@@ -123,7 +127,11 @@ export function InstituteSignup({
       let slug = created?.slug;
       if (!slug) {
         setSending({ phase: "creating" });
-        const res = await start(input());
+        if (!agreed) {
+          setSending(null);
+          return setError("Tick both boxes to agree to how Zinny uses your details. News is optional.");
+        }
+        const res = await start(input(), consents);
         if (!res.ok) {
           setSending(null);
           return showProblem(res);
@@ -343,6 +351,37 @@ export function InstituteSignup({
                     }}
                   />
                 ))}
+                {!created && (
+                  <fieldset className="space-y-2.5 border-t border-line pt-5">
+                    <legend className="mb-2 text-[15px] font-medium">Your consent</legend>
+                    {(
+                      [
+                        { key: "account", text: "Zinny may use my name, email and mobile number to create and run my admin account.", hint: "Needed" },
+                        { key: "service", text: "Zinny may process my institute's details and documents to set up the trial, check them, and bill us.", hint: "Needed" },
+                        { key: "marketing", text: "Send me product news and offers by email.", hint: "Optional" },
+                      ] as const
+                    ).map((c) => (
+                      <label key={c.key} className="flex gap-3 rounded-2xl border border-line bg-surface p-3.5 text-[14px] leading-relaxed">
+                        <input
+                          type="checkbox"
+                          checked={consents[c.key]}
+                          onChange={(e) => setConsents((old) => ({ ...old, [c.key]: e.target.checked }))}
+                          className="mt-1 size-4 shrink-0 accent-[var(--color-brand)]"
+                        />
+                        <span className="min-w-0 flex-1">
+                          {c.text} <span className="text-[12px] text-muted">{c.hint}</span>
+                        </span>
+                      </label>
+                    ))}
+                    <p className="text-[12px] text-muted">
+                      Read the{" "}
+                      <a href="/privacy" target="_blank" rel="noreferrer" className="text-brand underline underline-offset-2">
+                        privacy notice
+                      </a>
+                      . You can withdraw consent to news any time from your privacy settings.
+                    </p>
+                  </fieldset>
+                )}
               </div>
             )}
           </div>
@@ -376,7 +415,7 @@ export function InstituteSignup({
             </button>
           ) : (
             <div className="flex flex-col items-stretch gap-2 sm:items-end">
-              <button type="button" onClick={finish} disabled={busy || !panOnFile && !created} className={cx(buttonClass("primary"), "h-11 px-7 text-[15px]")}>
+              <button type="button" onClick={finish} disabled={busy || (!panOnFile && !created) || (!agreed && !created)} className={cx(buttonClass("primary"), "h-11 px-7 text-[15px]")}>
                 {busy ? <Spinner /> : <ActionIcon name="forward" />}
                 {sending?.phase === "creating"
                   ? "Creating your institute…"
@@ -389,6 +428,7 @@ export function InstituteSignup({
                         : `Start my free ${TRIAL_DAYS}-day trial`}
               </button>
               {!panOnFile && !created && <span className="text-right text-[12px] text-muted">Add your PAN card to continue.</span>}
+              {panOnFile && !agreed && !created && <span className="text-right text-[12px] text-muted">Tick both consent boxes to continue.</span>}
             </div>
           )}
         </div>

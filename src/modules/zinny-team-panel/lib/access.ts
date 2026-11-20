@@ -90,6 +90,15 @@ const SECTIONS: Section[] = [
     entries: [{ label: "Content review", href: "/content", allowed: canSeeContentFlags }],
     access: (actor) => (canPlatform(actor, "platform.content_review") ? undefined : "View"),
   },
+  // DPDP: Zinny's own privacy requests, every institute's queue, and the breach register (privacy module).
+  {
+    key: "privacy",
+    label: "Privacy",
+    entries: [
+      { label: "Privacy requests", href: "/privacy", allowed: can("platform.manage_universities") },
+      { label: "Breach register", href: "/privacy/breaches", allowed: can("platform.manage_universities") },
+    ],
+  },
   { key: "analytics", label: "Analytics", entries: [{ label: "Analytics", href: "/analytics", allowed: can("platform.view_analytics") }] },
   // Every table in the database, for Super Admins only (see data-console.ts).
   { key: "data", label: "Data", entries: [{ label: "Data", href: "/data", allowed: isSuperAdmin }] },

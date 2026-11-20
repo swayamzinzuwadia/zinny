@@ -27,6 +27,7 @@ export const MODULE_IDS = [
   "notifications-delivery",
   "onboarding",
   "payments",
+  "privacy",
   "reports-board",
   "website-builder",
   "zinny-team-panel",

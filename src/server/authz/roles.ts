@@ -49,6 +49,7 @@ export const ACTIONS = [
   "insights.view",
   "settings.manage",
   "audit.view",
+  "privacy.manage", // personal data requests, consents and retention (DPDP Act); the privacy module
   // Learner app — only ever on yourself
   "catalog.browse",
   "self.enrol",
