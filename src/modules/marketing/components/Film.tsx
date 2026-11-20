@@ -37,6 +37,45 @@ gsap.registerPlugin(ScrollTrigger, SplitText, useGSAP);
  * as a plain page.
  */
 
+/*
+ * The cards on the board follow the mouse: the colour pours in from the point the cursor
+ * enters, the card tilts towards it with a glare under the pointer, and the colour drains
+ * back out towards where it leaves. All of it is CSS custom properties on the card, so React
+ * never re-renders on a mouse move. Touch and pen get the plain colour change only.
+ */
+function pointAt(e: React.PointerEvent<HTMLElement>) {
+  const r = e.currentTarget.getBoundingClientRect();
+  return { x: Math.min(Math.max((e.clientX - r.left) / r.width, 0), 1), y: Math.min(Math.max((e.clientY - r.top) / r.height, 0), 1) };
+}
+const stillMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function tileMove(e: React.PointerEvent<HTMLElement>) {
+  if (e.pointerType !== "mouse") return;
+  const { x, y } = pointAt(e);
+  const s = e.currentTarget.style;
+  s.setProperty("--mx", `${(x * 100).toFixed(1)}%`);
+  s.setProperty("--my", `${(y * 100).toFixed(1)}%`);
+  if (stillMotion()) return;
+  s.setProperty("--rx", `${((0.5 - y) * 11).toFixed(2)}deg`);
+  s.setProperty("--ry", `${((x - 0.5) * 13).toFixed(2)}deg`);
+  s.setProperty("--tx", `${((x - 0.5) * 6).toFixed(1)}px`);
+  s.setProperty("--ty", `${((y - 0.5) * 4).toFixed(1)}px`);
+}
+function tileEnter(e: React.PointerEvent<HTMLElement>) {
+  if (e.pointerType !== "mouse") return;
+  const { x, y } = pointAt(e);
+  e.currentTarget.style.setProperty("--ex", `${(x * 100).toFixed(1)}%`);
+  e.currentTarget.style.setProperty("--ey", `${(y * 100).toFixed(1)}%`);
+  tileMove(e);
+}
+function tileLeave(e: React.PointerEvent<HTMLElement>) {
+  const { x, y } = pointAt(e);
+  const s = e.currentTarget.style;
+  s.setProperty("--ex", `${(x * 100).toFixed(1)}%`);
+  s.setProperty("--ey", `${(y * 100).toFixed(1)}%`);
+  for (const v of ["--rx", "--ry"]) s.setProperty(v, "0deg");
+  for (const v of ["--tx", "--ty"]) s.setProperty(v, "0px");
+}
+
 export function Film() {
   const root = useRef<HTMLDivElement>(null);
 
@@ -66,7 +105,8 @@ export function Film() {
         const arrive = gsap.timeline({ scrollTrigger: { trigger: root.current, start: "top 65%", once: true } });
         arrive
           .from(headline.words, { yPercent: 110, duration: 1, stagger: 0.035, ease: "expo.out" }, 0)
-          .from("[data-desk-line]", { autoAlpha: 0, y: 16, duration: 0.7, ease: "power3.out" }, 0.4)
+          // The arrival fades the line's inner span: the film below hides the line itself, and the two must not fight.
+          .from("[data-desk-line-in]", { autoAlpha: 0, y: 16, duration: 0.7, ease: "power3.out" }, 0.4)
           .from("[data-face]", { y: () => -window.innerHeight, rotation: () => gsap.utils.random(-30, 30), duration: 1.1, stagger: { each: 0.07, from: "random" }, ease: "back.out(1.1)" }, 0.2)
           .from("[data-cue-in]", { autoAlpha: 0, y: 12, duration: 0.6 }, 1.3);
 
@@ -207,12 +247,14 @@ export function Film() {
       <div data-stage className={css.stage}>
         {/* ── The desk ── */}
         <div className={`${css.desk} absolute inset-0`} />
-        <div className="absolute inset-x-0 top-1/2 z-20 mx-auto max-w-[23rem] -translate-y-[58%] px-5 text-center sm:max-w-[46rem] xl:max-w-[54rem]">
+        <div className="pointer-events-none absolute inset-x-0 top-1/2 z-20 mx-auto max-w-[23rem] -translate-y-[58%] px-5 text-center sm:max-w-[46rem] xl:max-w-[54rem]">
           <h2 data-mess-title className={`${display.className} ${css.headline} text-[clamp(2.2rem,5vw,4.8rem)] leading-[1.14] tracking-[-0.025em] text-ink`}>
             Your institute used to run on WhatsApp, spreadsheets and paper.
           </h2>
           <p data-desk-line className="mx-auto mt-5 max-w-[34rem] text-[17px] leading-relaxed text-ink/75">
-            Fees in a spreadsheet, the timetable on paper, parents in a group chat, recordings nobody watches again.
+            <span data-desk-line-in className="inline-block">
+              Fees in a spreadsheet, the timetable on paper, parents in a group chat, recordings nobody watches again.
+            </span>
           </p>
         </div>
         <p data-now className={`${display.className} ${css.headline} ${css.now} text-gold-strong`}>
@@ -238,13 +280,21 @@ export function Film() {
               Every scrap on that desk is now one part of Zinny.
             </p>
             <div>
-              <ul className="grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4">
+              <ul className={`${css.tileGrid} grid grid-cols-3 gap-2 sm:gap-3 md:grid-cols-4`}>
                 {PIECES.map((p, i) => (
                   <li key={p.id} data-slot>
                     <div data-tile className="h-full">
-                      <div className={`${css.tileFace} ${i === PIECES.length - 1 ? css.tileGold : css[`accent${i % 6}`]}`} style={{ "--tilt": i % 2 ? "0.8deg" : "-0.8deg" } as React.CSSProperties}>
-                        <span className="text-[14px] leading-tight font-medium sm:text-[17px]">{p.tile}</span>
-                        <span className="mt-1 hidden text-[13px] leading-snug opacity-70 sm:block">{p.note}</span>
+                      <div
+                        className={`${css.tileFace} ${i === PIECES.length - 1 ? css.tileGold : css[`accent${i % 6}`]}`}
+                        onPointerEnter={tileEnter}
+                        onPointerMove={tileMove}
+                        onPointerLeave={tileLeave}
+                      >
+                        <span aria-hidden className={css.tileNum}>
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <span className={`${css.tileTitle} text-[14px] leading-tight font-medium sm:text-[17px]`}>{p.tile}</span>
+                        <span className={`${css.tileNote} mt-1 hidden text-[13px] leading-snug sm:block`}>{p.note}</span>
                       </div>
                     </div>
                   </li>
