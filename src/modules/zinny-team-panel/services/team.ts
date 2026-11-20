@@ -75,6 +75,17 @@ function pickedRole(value: string): { role: PlatformRole; customRoleId: string |
   return { role, customRoleId: null };
 }
 
+/** "Nina New is already a Support Agent." Names the role, built-in or custom, so the error says which. */
+async function alreadyHasRole(name: string, picked: { role: PlatformRole; customRoleId: string | null }) {
+  let label: string = PLATFORM_ROLE_LABELS[picked.role];
+  if (picked.customRoleId) {
+    const [c] = await db().select({ name: customRoles.name }).from(customRoles).where(eq(customRoles.id, picked.customRoleId));
+    if (c?.name) label = c.name;
+  }
+  const article = /^[aeiou]/i.test(label) ? "an" : "a";
+  return new ConflictError(`${name} is already ${article} ${label}.`);
+}
+
 /** Invites someone to the Zinny team with one role. New people get an invite (`user.invited`). */
 export async function inviteMember(actor: Actor, input: { name: string; email: string; role: string }) {
   assertSuperAdmin(actor);
@@ -85,7 +96,7 @@ export async function inviteMember(actor: Actor, input: { name: string; email: s
   const picked = pickedRole(input.role);
   const [existing] = await db().select({ id: users.id, name: users.name }).from(users).where(sql`lower(${users.email}) = ${email}`);
   if (existing && (await activeRole(existing.id, picked.role, picked.customRoleId))) {
-    throw new ConflictError(`${existing.name} already has that role.`);
+    throw await alreadyHasRole(existing.name, picked);
   }
   return grantPlatformRole(actor, { email, name, ...picked });
 }
@@ -103,7 +114,7 @@ export async function addRole(actor: Actor, userId: string, role: string) {
     .where(and(eq(roleAssignments.userId, userId), eq(roleAssignments.scopeType, "platform"), isNull(roleAssignments.revokedAt)))
     .limit(1);
   if (!member) throw new ValidationError("This person isn't on the Zinny team. Invite them instead.");
-  if (await activeRole(userId, picked.role, picked.customRoleId)) throw new ConflictError(`${u.name} already has that role.`);
+  if (await activeRole(userId, picked.role, picked.customRoleId)) throw await alreadyHasRole(u.name, picked);
   return grantPlatformRole(actor, { email: u.email, name: u.name, ...picked });
 }
 

@@ -218,6 +218,13 @@ grantPlatformRole, revokePlatformRole, assertPlatform, canPlatform
 // updateUniversity(actor, universityId, { name, slug, timezone, gstin, legalName, address, stateCode, invoicePrefix, branding, status })
 //   needs platform.manage_universities; logged in that university's audit log
 // grantPlatformRole(actor, { email, name, role }) / revokePlatformRole(actor, assignmentId): Super Admin only
+// Added by later integrations (schedule, joining, marketplace, finance, roles)
+findClashes, todayIn(timezone), loadActor(userId)
+settleNotifications                                     // marks a kind of notification done for its recipients
+admitStudentTx, ensureStudentRoleTx, addStudentDepartmentsTx   // join codes and enrolment requests
+cancelHold, holdRecordedSeat, holdMarketplaceSeat, ensureRecordedBatch, createLectureCourse
+gstFor, splitGst, nextInvoiceNumber, gstEnabledFor, setGstEnabled   // GST follows the institute's own "GST applies" choice
+customRoleChoices, listRoles, roleDraft, saveRole, resetRole, deleteRole, parseRoleChoice   // custom roles (Super Admin)
 ```
 
 Types: `Actor`, `Target`, `Action`, and `UniversityLite`, `PersonLite`, `CourseLite`, `BatchLite`, `StudentEnrolment`, `EnrolmentLite`, `CheckoutOrder` are exported from `@/server/core` too.

@@ -22,6 +22,12 @@ const CONTRACT_EXPORTS = [
   "orderForCheckout", "confirmPayment", "failPayment", "holdSeat", "markOrderRefunded", "orderUniversity",
   "listUniversities", "createUniversity", "updateUniversity", "enterSupportMode", "exitSupportMode", "supportTrail",
   "grantPlatformRole", "revokePlatformRole", "assertPlatform", "canPlatform",
+  // Added by later integrations; listed at the end of contracts section 8.
+  "findClashes", "todayIn", "loadActor", "settleNotifications",
+  "admitStudentTx", "ensureStudentRoleTx", "addStudentDepartmentsTx",
+  "cancelHold", "holdRecordedSeat", "holdMarketplaceSeat", "ensureRecordedBatch", "createLectureCourse",
+  "gstFor", "splitGst", "nextInvoiceNumber", "gstEnabledFor", "setGstEnabled",
+  "customRoleChoices", "listRoles", "roleDraft", "saveRole", "resetRole", "deleteRole", "parseRoleChoice",
 ];
 
 describe("contracts section 8: the core API facade", () => {
