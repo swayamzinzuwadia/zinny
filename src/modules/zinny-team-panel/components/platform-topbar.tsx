@@ -5,11 +5,11 @@ import { useEffect, useRef, useState } from "react";
 import { BackButton, Breadcrumbs, type TrailParent } from "@/components/page-trail";
 import { Avatar, cx } from "@/components/ui";
 import "./platform-topbar.css";
-import { InstituteSearch } from "./institute-search";
+import { GlobalSearch } from "./global-search";
 
 /**
- * The bar across the top of the Zinny team panel: a way back, where you are, a quick search
- * for institutes (press / anywhere) and your account menu.
+ * The bar across the top of the Zinny team panel: a way back, where you are, a search across the panel
+ * (press / or Ctrl K anywhere) and your account menu.
  */
 export function PlatformTopbar({
   parents,
@@ -24,6 +24,7 @@ export function PlatformTopbar({
   name: string;
   email: string;
   roles: string;
+  /** Whether this person may open the institutes list (adds the "Search institutes" row). */
   canSearch: boolean;
   /** Pages for the account menu, already limited to what this person may open. */
   links: { label: string; href: string }[];
@@ -36,7 +37,7 @@ export function PlatformTopbar({
         <div className="min-w-0 flex-1">
           <Breadcrumbs base="/platform" rootLabel="Zinny team" parents={parents} labels={{ "/signups": "Sign-ups", "/institutes/new": "New institute" }} />
         </div>
-        {canSearch && <InstituteSearch variant="topbar" className="hidden md:block" />}
+        <GlobalSearch canSearchInstitutes={canSearch} />
         <AccountMenu name={name} email={email} roles={roles} links={links} logout={logout} />
       </div>
     </header>
