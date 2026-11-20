@@ -261,6 +261,10 @@ export const MODULE_KINDS: KindDefinition[] = [
     ...moduleKind("zinny.invoice_reminder", "Zinny invoice reminder", "Zinny's invoice for the institute's licence is due soon, due today or overdue. Goes to the Institute Admin.", "staff", ["institute_admin"], "Open Zinny", "/admin"),
     defaults: { email: "off", sms: "off", whatsapp: "off" },
   },
+  {
+    ...moduleKind("zinny.licence_end_reminder", "Licence ending", "The institute's Zinny licence ends or renews in 30, 14, 7 or 1 days. Goes to the Institute Admin.", "staff", ["institute_admin"], "Open settings", "/admin/settings"),
+    defaults: { email: "off", sms: "off", whatsapp: "off" },
+  },
 ];
 
 const BY_KIND = new Map([...CORE_KINDS, ...SECURITY_KINDS_CATALOGUE, ...MODULE_KINDS].map((k) => [k.kind, k]));

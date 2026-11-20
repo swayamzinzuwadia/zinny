@@ -96,6 +96,12 @@ export const platLicences = pgTable(
     notes: text("notes"),
     /** Renewed by the daily billing job before it ends: the next term at the plan's price then, invoiced. */
     autoRenew: boolean("auto_renew").notNull().default(true),
+    /**
+     * Licence-end reminders already emailed to the institute's admins: the end date they were
+     * for and the smallest step sent (30, 14, 7 or 1 days before). A new end date starts over.
+     */
+    endReminderFor: date("end_reminder_for"),
+    endReminderDays: integer("end_reminder_days"),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),

@@ -48,6 +48,8 @@ export type UniversityListRow = {
   slug: string;
   status: string;
   createdAt: Date;
+  /** Set for an institute that signed itself up: the last day of its free trial. */
+  trialEndsAt: string | null;
   students: number;
   staff: number;
   /** The licence's plan key, and what that plan is called. */
@@ -66,7 +68,7 @@ export async function listUniversities(actor: Actor, today = todayIST()): Promis
   const conn = db();
   const [unis, usage, lics, alerts, names] = await Promise.all([
     conn
-      .select({ id: universities.id, name: universities.name, slug: universities.slug, status: universities.status, createdAt: universities.createdAt })
+      .select({ id: universities.id, name: universities.name, slug: universities.slug, status: universities.status, createdAt: universities.createdAt, trialEndsAt: universities.trialEndsAt })
       .from(universities)
       .orderBy(asc(universities.name)),
     usageFor(conn),
@@ -297,7 +299,7 @@ export async function searchUniversities(actor: Actor, query: string, limit = 8)
   const like = `%${term.replace(/[\\%_]/g, (c) => `\\${c}`).toLowerCase()}%`;
   const conn = db();
   const rows = await conn
-    .select({ id: universities.id, name: universities.name, slug: universities.slug, status: universities.status })
+    .select({ id: universities.id, name: universities.name, slug: universities.slug, status: universities.status, trialEndsAt: universities.trialEndsAt })
     .from(universities)
     .where(or(sql`lower(${universities.name}) like ${like}`, sql`${universities.slug} like ${like}`))
     .orderBy(asc(universities.name))
@@ -313,7 +315,9 @@ export async function searchUniversities(actor: Actor, query: string, limit = 8)
   const planOf = new Map(lics.map((l) => [l.universityId, l.plan]));
   return best.map((r) => {
     const plan = planOf.get(r.id);
-    return { id: r.id, name: r.name, slug: r.slug, status: r.status, planName: plan ? (names[plan] ?? planNameFallback(plan)) : null };
+    // A self-signed institute with no licence yet is on its free trial.
+    const status = r.status === "active" && r.trialEndsAt && !plan ? "trial" : r.status;
+    return { id: r.id, name: r.name, slug: r.slug, status, planName: plan ? (names[plan] ?? planNameFallback(plan)) : null };
   });
 }
 

@@ -14,7 +14,17 @@ import { navFor } from "@/modules/zinny-team-panel/lib/access";
 import { addDays, todayIST } from "@/modules/zinny-team-panel/lib/format";
 import { termEnd } from "@/modules/zinny-team-panel/lib/licence";
 import { platAlerts, platBillingSettings, platInvoices, platLicences } from "@/modules/zinny-team-panel/schema";
-import { describeRun, reminderDue, reminderSteps, runBillingFor, runBillingNow, upcomingRenewals } from "@/modules/zinny-team-panel/services/automation";
+import {
+  describeRun,
+  licenceEndMessage,
+  licenceEndReminderDue,
+  licenceEndRemindersFor,
+  reminderDue,
+  reminderSteps,
+  runBillingFor,
+  runBillingNow,
+  upcomingRenewals,
+} from "@/modules/zinny-team-panel/services/automation";
 import { createInvoice, getInvoice, invoiceHistory, reviseInvoice } from "@/modules/zinny-team-panel/services/billing";
 import { DEFAULT_BILLING_SETTINGS, getBillingSettings, readBillingSettings, saveBillingSettings } from "@/modules/zinny-team-panel/services/billing-settings";
 import { renewLicenceNow, saveLicence, setAutoRenew, syncAlertsFor } from "@/modules/zinny-team-panel/services/licences";
@@ -301,5 +311,52 @@ describe("the menu", () => {
     expect(billing(qa)).toBeUndefined();
     // Invoices are no longer a separate item.
     expect(navFor(sa).flatMap((s) => s.items.map((i) => i.label))).not.toContain("Zinny invoices");
+  });
+});
+
+describe("licence-end reminders", () => {
+  it("come at 30, 14, 7 and 1 days, only the latest missed step, once per step and end date", () => {
+    const lic = { endDate: "2027-03-31", endReminderFor: null, endReminderDays: null };
+    expect(licenceEndReminderDue(lic, "2027-02-28")).toBeNull(); // 31 days left
+    expect(licenceEndReminderDue(lic, "2027-03-01")).toEqual({ days: 30, daysLeft: 30 });
+    expect(licenceEndReminderDue({ ...lic, endReminderFor: "2027-03-31", endReminderDays: 30 }, "2027-03-10")).toBeNull();
+    expect(licenceEndReminderDue({ ...lic, endReminderFor: "2027-03-31", endReminderDays: 30 }, "2027-03-17")).toEqual({ days: 14, daysLeft: 14 });
+    // A missed week sends only the 7-day step, not 14 and 7 together.
+    expect(licenceEndReminderDue(lic, "2027-03-25")).toEqual({ days: 7, daysLeft: 6 });
+    expect(licenceEndReminderDue({ ...lic, endReminderFor: "2027-03-31", endReminderDays: 1 }, "2027-03-31")).toBeNull();
+    expect(licenceEndReminderDue(lic, "2027-04-01")).toBeNull(); // ended: the banners and billing take over
+    // A renewal moves the end date, so the steps start again for the new one.
+    expect(licenceEndReminderDue({ endDate: "2028-03-31", endReminderFor: "2027-03-31", endReminderDays: 1 }, "2028-03-01")).toEqual({ days: 30, daysLeft: 30 });
+  });
+
+  it("say whether the licence renews or ends", () => {
+    expect(licenceEndMessage({ endDate: "2027-03-31", autoRenew: true }, 7).title).toBe("Your Zinny licence renews on 31 Mar 2027");
+    expect(licenceEndMessage({ endDate: "2027-03-31", autoRenew: false }, 1).body).toContain("ends tomorrow");
+  });
+
+  it("notify and email the institute's admins, and never repeat a step", async () => {
+    const { uni } = await licensed("End Reminder U", planA, 20, { autoRenew: false });
+    const admin = await person("End Reminder Admin", "institute_admin", { universityId: uni.id });
+    await person("End Reminder Student", "student", { universityId: uni.id });
+    const run = (day: string) => licenceEndRemindersFor(systemActorFor(uni.id), day);
+
+    expect(await run(today)).toBe(1); // 20 days left: the 30-day step
+    expect(await run(today)).toBe(0);
+    expect(await run(addDays(today, 5))).toBe(0); // 15 days left: still the 30-day step
+    expect(await run(addDays(today, 6))).toBe(1); // 14 days left
+    expect(await run(addDays(today, 19))).toBe(1); // 1 day left
+    expect(await run(addDays(today, 19))).toBe(0);
+
+    const got = await db().select().from(notifications).where(and(eq(notifications.universityId, uni.id), eq(notifications.kind, "zinny.licence_end_reminder")));
+    expect(got).toHaveLength(3);
+    expect(new Set(got.map((n) => n.userId))).toEqual(new Set([admin.user.id]));
+    const emails = await db().select().from(notifDeliveries).where(and(eq(notifDeliveries.universityId, uni.id), eq(notifDeliveries.kind, "zinny.licence_end_reminder")));
+    expect(emails).toHaveLength(3);
+    expect(emails.every((e) => e.recipient === admin.user.email.toLowerCase() && e.status === "sent")).toBe(true);
+    expect(await licenceOf(uni.id)).toMatchObject({ endReminderDays: 1 });
+  });
+
+  it("run only as the institute's system actor", async () => {
+    await expect(licenceEndRemindersFor(sa, today)).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

@@ -2,7 +2,7 @@ import type { ZinnyModule } from "@/contracts/module";
 import { withTenant } from "@/server/core";
 import { todayIST } from "./lib/format";
 import { seed } from "./seed";
-import { runBillingFor } from "./services/automation";
+import { licenceEndRemindersFor, runBillingFor } from "./services/automation";
 import { syncAlertsFor } from "./services/licences";
 import { planNames } from "./services/plans";
 
@@ -26,12 +26,15 @@ const zinnyTeamPanel: ZinnyModule = {
     {
       // Billing: renews licences set to renew automatically (and invoices them) when they
       // come within the renewal lead time, and sends payment reminders on the schedule in
-      // the billing settings. Idempotent. On Vercel it runs from the daily cron.
+      // the billing settings, then licence-end reminders at 30, 14, 7 and 1 days. Idempotent. On Vercel it runs from the daily cron.
       id: "zinny-team-panel.billing",
       every: "day",
       async run(actor) {
         if (!actor.universityId) return;
-        await runBillingFor(actor, todayIST());
+        const today = todayIST();
+        await runBillingFor(actor, today);
+        // After renewals, so a licence that just renewed is reminded about its new end date, not the old one.
+        await licenceEndRemindersFor(actor, today);
       },
     },
   ],

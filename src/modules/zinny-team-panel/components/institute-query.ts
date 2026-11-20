@@ -41,12 +41,13 @@ export function parseInstituteQuery(sp: Raw): InstituteQuery {
 
 /**
  * What an institute is, for filtering: suspended and frozen come from its status; a trial is
- * an institute whose status says so or whose licence is the Pilot plan; the rest are active.
+ * an institute whose status says so, whose licence is the Pilot plan, or that signed itself up
+ * and has no licence yet (its free trial); the rest are active.
  */
-export function effectiveStatus(u: Pick<UniversityListRow, "status" | "plan">): StatusFilter {
+export function effectiveStatus(u: Pick<UniversityListRow, "status" | "plan"> & { trialEndsAt?: string | null }): StatusFilter {
   if (u.status === "suspended") return "suspended";
   if (u.status === "frozen") return "frozen";
-  if (u.status === "trial" || u.plan === "pilot") return "trial";
+  if (u.status === "trial" || u.plan === "pilot" || (!u.plan && u.trialEndsAt)) return "trial";
   return "active";
 }
 
