@@ -151,28 +151,24 @@ export default async function UniversityPage({ params, searchParams }: { params:
             </ActionForm>
           </Card>
 
-          {can.flags && (
+          {can.flags && flags.length > 0 && (
             <Card>
               <CardTitle hint={<Link href={`/platform/content?tab=flagged&university=${u.id}`} className="hover:text-brand">Review queue</Link>}>Open content flags</CardTitle>
-              {flags.length === 0 ? (
-                <p className="text-[14px] text-muted">Content QA hasn&apos;t flagged anything here.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {flags.map((f) => (
-                    <li key={f.id} className="rounded-2xl bg-gold-soft p-4 text-[14px]">
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <Link href={`/platform/content/${f.courseId}`} className="font-medium text-ink hover:text-brand">
-                          {f.courseTitle}
-                        </Link>
-                        <span className="text-[12.5px] text-gold-strong">
-                          {FLAG_LABEL[f.category] ?? f.category} · {timeAgo(f.createdAt)}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-ink/80">{f.note}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <ul className="space-y-3">
+                {flags.map((f) => (
+                  <li key={f.id} className="rounded-2xl bg-gold-soft p-4 text-[14px]">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <Link href={`/platform/content/${f.courseId}`} className="font-medium text-ink hover:text-brand">
+                        {f.courseTitle}
+                      </Link>
+                      <span className="text-[12.5px] text-gold-strong">
+                        {FLAG_LABEL[f.category] ?? f.category} · {timeAgo(f.createdAt)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-ink/80">{f.note}</p>
+                  </li>
+                ))}
+              </ul>
             </Card>
           )}
 

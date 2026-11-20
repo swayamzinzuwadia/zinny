@@ -23,7 +23,7 @@ async function quietSeed() {
 }
 
 describe("seed", () => {
-  it("adds licences for two universities, invoices, partners, a flag and a support session, and can run again", async () => {
+  it("adds licences for two universities, invoices, partners and a support session, and no content flag, and can run again", async () => {
     setTestModules([zinnyTeamPanel], { only: true });
     await quietSeed();
     const ctx = await quietSeed();
@@ -43,7 +43,7 @@ describe("seed", () => {
     expect(await systemDb().select().from(platInvoices).where(eq(platInvoices.universityId, riverside.id))).toHaveLength(2);
     const partners = (await systemDb().select().from(platPartners)).map((p) => p.name);
     for (const n of ["BrightPath Skills Foundation", "Kalpana Infotech", "Northwind Analytics"]) expect(partners.filter((x) => x === n)).toHaveLength(1);
-    expect(await systemDb().select().from(platContentFlags).where(eq(platContentFlags.universityId, ctx.universityId))).toHaveLength(1);
+    expect(await systemDb().select().from(platContentFlags).where(eq(platContentFlags.universityId, ctx.universityId))).toHaveLength(0);
     const support = await systemDb().select().from(auditLog).where(eq(auditLog.universityId, ctx.universityId));
     expect(support.map((l) => l.action)).toEqual(expect.arrayContaining(["support.enter", "support.exit"]));
   });

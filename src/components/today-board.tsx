@@ -39,12 +39,6 @@ export function TodayBoard({ data, base, actions }: { data: DashboardData; base:
 
   return (
     <section className="relative overflow-hidden rounded-[var(--radius-board)] bg-brand-deep text-canvas">
-      {/* chalk texture: a faint grid of rules, like an exercise book on a board */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.05]"
-        style={{ backgroundImage: "linear-gradient(to bottom, #faf6ea 1px, transparent 1px)", backgroundSize: "100% 28px" }}
-      />
       {header}
       {data.canSeeBatches ? (
         empty ? (

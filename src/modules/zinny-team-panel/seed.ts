@@ -19,7 +19,7 @@ import { buySeatPacks, payZinnyInvoice, zinnyOnlinePayments } from "./services/s
 import { LICENSABLE_MODULES, type PlatformRole } from "./lib/constants";
 import { addDays, financialYear } from "./lib/format";
 import { createInvoice, markInvoicePaid, reviseInvoice } from "./services/billing";
-import { flagCourse, markReviewed } from "./services/content";
+import { markReviewed } from "./services/content";
 import { saveLicence, syncAllAlerts } from "./services/licences";
 import { addContact, addNote, createPartner } from "./services/partners";
 import { createPlan, ensureDefaultPlans } from "./services/plans";
@@ -182,12 +182,8 @@ export async function seed(ctx: SeedContext) {
     await saveLicence(zara, riverside.id, { ...riversideLicence, invoice: false });
   }
 
-  // Content review: one course cleared, one flagged. The rest wait in the queue.
+  // Content review: one course cleared. The rest wait in the queue; no demo course is flagged.
   await markReviewed(qasim, ctx.ids.courses["Python Basics"], "Clear outline, realistic outcomes.");
-  await flagCourse(qasim, ctx.ids.courses["Digital Marketing"], {
-    category: "claims",
-    note: "The description promises \"guaranteed placement with top brands\". Ask the institute to remove the guarantee or link to its placement terms.",
-  });
 
   // Partners for the marketplace.
   const names = ["BrightPath Skills Foundation", "Kalpana Infotech", "Northwind Analytics"];

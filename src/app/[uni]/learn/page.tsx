@@ -108,11 +108,6 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
     <div className="space-y-4 sm:space-y-6">
       {/* The board: the day, then the live or next class */}
       <section className="relative overflow-hidden rounded-[var(--radius-board)] bg-brand-deep p-5 text-canvas sm:p-8">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.06]"
-          style={{ backgroundImage: "linear-gradient(to bottom, #faf6ea 1px, transparent 1px)", backgroundSize: "100% 28px" }}
-        />
         <div className="relative">
           <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.02em] sm:text-[32px]">{dayTitle(today)}</h1>
           {next ? (
