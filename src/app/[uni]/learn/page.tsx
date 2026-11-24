@@ -70,13 +70,14 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
     );
   }
 
-  const week = await studentTimetable(actor);
-  const today = week.today;
-  const [ahead, learning, notes] = await Promise.all([
-    studentTimetable(actor, { from: today, to: addDays(today, 14) }),
+  const weekRequest = studentTimetable(actor);
+  const [week, ahead, learning, notes] = await Promise.all([
+    weekRequest,
+    weekRequest.then((w) => studentTimetable(actor, { from: w.today, to: addDays(w.today, 14) })),
     myLearning(actor),
     myNotifications(actor, UPDATES_SHOWN),
   ]);
+  const today = week.today;
   const active = learning.filter((l) => l.status === "active");
   // Same order as the timetable (this week's courses as they come), then the rest.
   const courseOrder = [...new Set([...week.sessions.map((s) => s.courseId), ...active.map((l) => l.course.id)])];

@@ -170,7 +170,7 @@ export const programs = pgTable("programs", {
   departmentId: uuid("department_id").notNull().references(() => departments.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   createdAt: createdAt(),
-});
+}, (t) => [index("programs_dept_idx").on(t.departmentId)]);
 
 /* ─────────────────────── Courses and batches ─────────────────────── */
 
@@ -197,6 +197,8 @@ export const batches = pgTable("batches", {
   check("batch_dates", sql`${t.endDate} >= ${t.startDate}`),
   check("batch_seats", sql`${t.seatLimit} > 0`),
   index("batches_course_idx").on(t.courseId),
+  index("batches_uni_status_idx").on(t.universityId, t.status),
+  index("batches_dept_idx").on(t.departmentId),
 ]);
 
 /**
@@ -230,6 +232,8 @@ export const roleAssignments = pgTable("role_assignments", {
   index("role_assignments_user_idx").on(t.userId),
   index("role_assignments_uni_idx").on(t.universityId),
   index("role_assignments_batch_idx").on(t.batchId),
+  // Who holds which role in an institute: the people lists and the seat counts read live rows only.
+  index("role_assignments_uni_role_idx").on(t.universityId, t.role).where(sql`${t.revokedAt} is null`),
 ]);
 
 /**
@@ -273,7 +277,7 @@ export const courses = pgTable("courses", {
   status: courseStatus("status").notNull().default("draft"),
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: createdAt(),
-}, (t) => [check("course_price", sql`${t.pricePaise} >= 0`), index("courses_dept_idx").on(t.departmentId)]);
+}, (t) => [check("course_price", sql`${t.pricePaise} >= 0`), index("courses_dept_idx").on(t.departmentId), index("courses_uni_status_idx").on(t.universityId, t.status)]);
 
 /** Weekly timings. weekday is ISO: 1 = Monday … 7 = Sunday. Times are in the university's time zone. */
 export const batchSlots = pgTable("batch_slots", {
@@ -304,7 +308,7 @@ export const sessionOverrides = pgTable("session_overrides", {
   note: text("note"),
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: createdAt(),
-});
+}, (t) => [index("session_overrides_batch_date_idx").on(t.batchId, t.date)]);
 
 /**
  * A part of a batch's syllabus ("Direct tax", "GST", "Revision") taught by one faculty member.
@@ -362,6 +366,8 @@ export const enrolments = pgTable("enrolments", {
 }, (t) => [
   index("enrolments_batch_idx").on(t.batchId, t.status),
   index("enrolments_user_idx").on(t.userId),
+  index("enrolments_course_idx").on(t.courseId),
+  index("enrolments_uni_status_idx").on(t.universityId, t.status),
   // A student holds at most one live seat (or request for one) per course: anything not finished.
   // Only long-standing values are named, so the migration that adds new ones can build it.
   uniqueIndex("enrolments_one_live_per_course")
@@ -405,7 +411,7 @@ export const parentLinks = pgTable("parent_links", {
   parentUserId: uuid("parent_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   studentUserId: uuid("student_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   createdAt: createdAt(),
-}, (t) => [primaryKey({ columns: [t.universityId, t.parentUserId, t.studentUserId] })]);
+}, (t) => [primaryKey({ columns: [t.universityId, t.parentUserId, t.studentUserId] }), index("parent_links_student_idx").on(t.studentUserId)]);
 
 /* ─────────────────────── Money ─────────────────────── */
 
@@ -425,7 +431,13 @@ export const orders = pgTable("orders", {
   gatewayPaymentId: text("gateway_payment_id"),
   paidAt: timestamp("paid_at", { withTimezone: true }),
   createdAt: createdAt(),
-}, (t) => [check("order_total", sql`${t.totalPaise} = ${t.basePaise} + ${t.gstPaise}`)]);
+}, (t) => [
+  check("order_total", sql`${t.totalPaise} = ${t.basePaise} + ${t.gstPaise}`),
+  index("orders_user_idx").on(t.userId),
+  index("orders_uni_created_idx").on(t.universityId, t.createdAt),
+  index("orders_enrolment_idx").on(t.enrolmentId),
+  index("orders_batch_idx").on(t.batchId),
+]);
 
 export const invoiceCounters = pgTable("invoice_counters", {
   universityId: universityId(),
@@ -469,7 +481,7 @@ export const auditLog = pgTable("audit_log", {
   entityId: text("entity_id"),
   data: jsonb("data").notNull().default({}),
   at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [index("audit_uni_at_idx").on(t.universityId, t.at)]);
+}, (t) => [index("audit_uni_at_idx").on(t.universityId, t.at), index("audit_actor_at_idx").on(t.actorUserId, t.at)]);
 
 export const notifications = pgTable("notifications", {
   id: id(),

@@ -412,6 +412,7 @@ export const platSeatPacks = pgTable(
   (t) => [
     index("plat_seat_packs_licence_idx").on(t.licenceId, t.kind),
     index("plat_seat_packs_university_idx").on(t.universityId, t.createdAt),
+    index("plat_seat_packs_invoice_idx").on(t.invoiceId),
     check("plat_seat_pack_kind", sql`${t.kind} in ('student', 'staff')`),
     check("plat_seat_pack_source", sql`${t.source} in ('institute', 'zinny')`),
     check("plat_seat_pack_counts", sql`${t.packsBought} > 0 and ${t.packs} >= 0 and ${t.packs} <= ${t.packsBought} and ${t.seatsPerPack} > 0`),

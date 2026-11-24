@@ -86,9 +86,3 @@ export async function measurer(): Promise<Measure> {
     return units * size;
   };
 }
-
-/** Characters in `text` that `font` can't draw (for example Devanagari in Lexend). */
-export async function missingGlyphs(font: FontKey, text: string): Promise<string[]> {
-  const f = await fkFont(font);
-  return [...new Set([...text].filter((ch) => !/\s/.test(ch) && !f.hasGlyphForCodePoint(ch.codePointAt(0)!)))];
-}

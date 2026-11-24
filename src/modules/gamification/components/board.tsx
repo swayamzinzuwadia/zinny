@@ -104,14 +104,3 @@ export function ProgressBar({ value, target, label }: { value: number; target: n
     </div>
   );
 }
-
-/** Small stat for the cream panels on learner screens. */
-export function MiniStat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: React.ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-[12px] text-muted">{label}</div>
-      <div className="tabular text-[22px] font-semibold leading-tight">{value}</div>
-      {hint && <div className="truncate text-[12px] text-muted">{hint}</div>}
-    </div>
-  );
-}

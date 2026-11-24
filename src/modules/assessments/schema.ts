@@ -258,6 +258,8 @@ export const assessAttempts = pgTable(
     uniqueIndex("assess_attempts_one_open_uq").on(t.testId, t.userId).where(sql`${t.status} = 'in_progress'`),
     index("assess_attempts_test_idx").on(t.testId),
     index("assess_attempts_user_idx").on(t.userId),
+    index("assess_attempts_batch_idx").on(t.batchId),
+    index("assess_attempts_course_idx").on(t.courseId),
     index("assess_attempts_open_idx").on(t.status, t.endsAt),
   ],
 );
