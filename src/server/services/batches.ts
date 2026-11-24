@@ -444,10 +444,17 @@ export async function facultyExpiryAlerts(actor: Actor, withinDays = 14) {
     const horizon = new Date(now.getTime() + withinDays * 86_400_000);
     const open = await tx.select().from(batches).where(inArray(batches.status, ["open", "closed"]));
     const alerts: { batchId: string; batchName: string; lastAccessEnds: Date }[] = [];
+    // One query for every batch's faculty, instead of one per batch.
+    const assignments = open.length
+      ? await tx
+          .select()
+          .from(roleAssignments)
+          .where(and(inArray(roleAssignments.batchId, open.map((b) => b.id)), isNull(roleAssignments.revokedAt)))
+      : [];
+    const facultyOf = new Map<string, typeof assignments>();
+    for (const a of assignments) facultyOf.set(a.batchId!, [...(facultyOf.get(a.batchId!) ?? []), a]);
     for (const b of open) {
-      const fac = (
-        await tx.select().from(roleAssignments).where(and(eq(roleAssignments.batchId, b.id), isNull(roleAssignments.revokedAt)))
-      ).filter((a) => !a.endsAt || a.endsAt > now);
+      const fac = (facultyOf.get(b.id) ?? []).filter((a) => !a.endsAt || a.endsAt > now);
       if (fac.length === 0 || fac.some((a) => !a.endsAt || a.endsAt > horizon)) continue;
       const last = new Date(Math.max(...fac.map((a) => a.endsAt!.getTime())));
       if (b.endDate < last.toISOString().slice(0, 10)) continue; // batch ends first — fine

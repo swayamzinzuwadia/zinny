@@ -2,14 +2,14 @@
  * The learner's tests (brief item 6): available, upcoming and completed, only for the
  * student's own active batches. A test series shows as one item.
  */
-import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { batches, courses } from "@/db/schema";
 import { assertCan, studentEnrolments, universityLite, withTenant, type Actor } from "@/server/core";
 import { NotFoundError } from "@/server/errors";
 import { uni, type TestRow } from "./access";
 import { windowState, type WindowState } from "./attempts";
-import { assessAttemptItems, assessAttempts, assessDrawRules, assessTestBatches, assessTestQuestions, assessTests, type AttemptStatus } from "./schema";
+import { assessAttempts, assessDrawRules, assessTestBatches, assessTestQuestions, assessTests, type AttemptStatus } from "./schema";
 
 export type MyAttempt = {
   id: string;
@@ -230,13 +230,4 @@ export async function myResults(actor: Actor, limit = 20, opts: { courseId?: str
     const { timezone } = await universityLite(tx);
     return { rows, timezone };
   });
-}
-
-/** Short answers waiting in this attempt (for the "being graded" note). */
-export async function waitingItems(tx: Tx, attemptId: string) {
-  const [{ n }] = await tx
-    .select({ n: sql<number>`count(*)::int` })
-    .from(assessAttemptItems)
-    .where(and(eq(assessAttemptItems.attemptId, attemptId), eq(assessAttemptItems.needsGrading, true), isNull(assessAttemptItems.gradedAt)));
-  return n;
 }

@@ -130,9 +130,6 @@ export function niceScale(lo: number, hi: number, opts: { integer?: boolean; emp
   return { lo: bottom, hi: top, ticks };
 }
 
-/** How many characters of a label fit in an axis this wide (Lexend at 12px). */
-export const labelChars = (width: number) => Math.max(8, Math.floor((width - 16) / 7.4));
-
 export function fitLabel(text: string, chars: number): string {
   return text.length > chars ? `${text.slice(0, chars - 1).trimEnd()}…` : text;
 }

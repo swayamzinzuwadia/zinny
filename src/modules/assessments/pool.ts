@@ -284,15 +284,3 @@ export async function importQuestions(actor: Actor, departmentId: string | null,
     return { rows: out, total: lines.length, errors, skipped: lines.filter((l) => l.duplicate).length, saved };
   });
 }
-
-/** Tags used anywhere in the pools the actor can use (for draw-rule pickers). */
-export async function poolTags(actor: Actor, departmentId: string | null) {
-  return withTenant(actor, async (tx) => {
-    await assertPoolAccess(tx, actor, departmentId);
-    const rows = await tx.execute<{ tag: string }>(sql`
-      select min(t) as tag from ${assessQuestions}, unnest(${assessQuestions.tags}) t
-      where ${and(isNull(assessQuestions.archivedAt), departmentId ? eq(assessQuestions.departmentId, departmentId) : isNull(assessQuestions.departmentId))}
-      group by lower(t) order by lower(t)`);
-    return Array.from(rows as unknown as { tag: string }[]).map((r) => r.tag);
-  });
-}

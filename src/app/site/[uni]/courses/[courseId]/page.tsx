@@ -34,9 +34,8 @@ export default async function CoursePage({ params }: Props) {
   const { uni, courseId } = await params;
   const site = await getSite(uni);
   if (!site) notFound();
-  const course = await getCourse(uni, site.universityId, courseId);
+  const [course, home] = await Promise.all([getCourse(uni, site.universityId, courseId), getHome(uni, site.universityId)]);
   if (!course) notFound();
-  const home = await getHome(uni, site.universityId);
   const total = course.pricePaise + Math.round((course.pricePaise * course.gstRateBp) / 10_000);
   const avg = course.reviews.length ? course.reviews.reduce((n, r) => n + r.rating, 0) / course.reviews.length : null;
   const anyOpen = course.batches.some((b) => b.seatsLeft > 0);

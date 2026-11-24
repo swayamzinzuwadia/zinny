@@ -576,8 +576,3 @@ export async function moveInSeries(actor: Actor, seriesId: string, testId: strin
     await audit(tx, actor, "assess.series.reorder", "assess_test", seriesId, { testId, direction });
   });
 }
-
-/** Tests for one course (the course page's Tests tab). */
-export async function courseTests(actor: Actor, courseId: string) {
-  return listTests(actor, { courseId });
-}

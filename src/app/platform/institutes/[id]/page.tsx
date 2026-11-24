@@ -39,11 +39,14 @@ export default async function UniversityPage({ params, searchParams }: { params:
     support: canPlatform(actor, "platform.support_mode"),
     flags: canSeeContentFlags(actor),
   };
-  const invoices = can.finance ? await invoicesForUniversity(actor, u.id) : [];
   const suspended = u.status === "suspended";
   const superAdmin = isSuperAdmin(actor);
-  const people = superAdmin ? await institutePeople(actor, u.id) : null;
-  const inside = can.support && (await activeSessions(actor)).some((s) => s.staffUserId === actor.userId && s.universityId === u.id);
+  const [invoices, people, supportSessions] = await Promise.all([
+    can.finance ? invoicesForUniversity(actor, u.id) : Promise.resolve([]),
+    superAdmin ? institutePeople(actor, u.id) : Promise.resolve(null),
+    can.support ? activeSessions(actor) : Promise.resolve([]),
+  ]);
+  const inside = can.support && supportSessions.some((s) => s.staffUserId === actor.userId && s.universityId === u.id);
 
   return (
     <DataPage>

@@ -209,13 +209,3 @@ export async function learnerBoard(actor: Actor, opts: { batchId: string; board?
     };
   });
 }
-
-/** For tests and the hub: is this learner allowed to see XP at all? */
-export function canViewXp(actor: Actor): boolean {
-  try {
-    assertSelf(actor);
-    return true;
-  } catch {
-    return false;
-  }
-}

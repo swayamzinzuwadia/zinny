@@ -87,6 +87,7 @@ export const contentLessonProgress = pgTable("content_lesson_progress", {
 }, (t) => [
   uniqueIndex("content_lesson_progress_uq").on(t.lessonId, t.userId),
   index("content_lesson_progress_user_course_idx").on(t.userId, t.courseId),
+  index("content_lesson_progress_course_idx").on(t.courseId),
   check("content_lesson_progress_percent", sql`${t.percent} between 0 and 100`),
 ]);
 

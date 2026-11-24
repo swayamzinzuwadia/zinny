@@ -1,6 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { Avatar, Badge, Empty, PageHeader, cx } from "@/components/ui";
+import { Avatar, Empty, PageHeader, cx } from "@/components/ui";
 import { ForbiddenError } from "@/server/errors";
 import type { RankRow } from "./board";
 
@@ -77,8 +76,4 @@ export function Podium({ rows }: { rows: RankRow[] }) {
       })}
     </div>
   );
-}
-
-export function ScopeChip({ children, department }: { children: ReactNode; department: boolean }) {
-  return <Badge tone={department ? "neutral" : "brand"}>{children}</Badge>;
 }

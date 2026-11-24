@@ -28,7 +28,7 @@
 import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { auditLog, universities, users } from "@/db/schema";
-import { assertCan, assertPlatform, audit, can, canPlatform, gateway, withTenant, type Actor } from "@/server/core";
+import { assertCan, assertPlatform, audit, can, gateway, withTenant, type Actor } from "@/server/core";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
 import { platInvoices, platLicences, platSeatPacks } from "../schema";
 import { chargeFor } from "../lib/charge";
@@ -50,7 +50,7 @@ import {
   type PackQuote,
 } from "../lib/seat-packs";
 import { isOverdue, issueInvoice, listPriceOf, recordPaymentTx, type Invoice } from "./billing";
-import { readBillingSettings, readSeatPackSettings, type SeatPackSettings } from "./billing-settings";
+import { readBillingSettings, readSeatPackSettings } from "./billing-settings";
 import { syncAlertsFor, type Licence } from "./licences";
 import { planByKey, planNameFallback, type Plan } from "./plans";
 import { db, emptyUsage, isUuid, logAction, usageFor, type Usage } from "./shared";
@@ -518,12 +518,6 @@ export function describeSeatEvent(e: { action: string; data: Record<string, unkn
     default:
       return e.action;
   }
-}
-
-/** Seat pack defaults with who last changed them, for the billing settings page. */
-export async function seatPackDefaults(actor: Actor): Promise<SeatPackSettings & { updatedAt: Date | null; canEdit: boolean }> {
-  if (!canPlatform(actor, "platform.seat_pricing") && !canPlatform(actor, "platform.licences") && !canPlatform(actor, "platform.finance")) throw new ForbiddenError();
-  return { ...(await readSeatPackSettings()), canEdit: canPlatform(actor, "platform.seat_pricing") };
 }
 
 /** Every plan's own packs (only those that set any), for the billing settings page. */
