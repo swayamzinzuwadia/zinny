@@ -51,3 +51,15 @@ graphify-out/
 
 # Written by next dev on every start
 /AGENTS.md
+
+# Uploaded files and test output (the local storage driver also writes .storage/)
+/storage/
+/test-results/
+/playwright-report/
+/blob-report/
+
+# Keys and certificates (never committed; set them as environment variables)
+*.key
+*.p12
+*.pfx
+*.jks
