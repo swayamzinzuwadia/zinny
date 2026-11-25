@@ -141,14 +141,18 @@ export default async function DataTablePage({
                 </div>
               </div>
             </div>
-            <Morph name={addRowMorphName(t.name)}>
-              <IntentLink
-                href={`/platform/data/${t.name}/new`}
-                className={buttonClass("primary")}
-              >
-                Add a row
-              </IntentLink>
-            </Morph>
+            {t.readOnly ? (
+              <Badge>Read only</Badge>
+            ) : (
+              <Morph name={addRowMorphName(t.name)}>
+                <IntentLink
+                  href={`/platform/data/${t.name}/new`}
+                  className={buttonClass("primary")}
+                >
+                  Add a row
+                </IntentLink>
+              </Morph>
+            )}
           </header>
 
           <dl className="grid grid-cols-2 border-y border-line text-[13px] sm:grid-cols-4">
