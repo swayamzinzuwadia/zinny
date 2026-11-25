@@ -16,6 +16,8 @@ import {
   PHONE_COOKIE_MS,
   acceptInvite,
   landingAfterSignIn,
+  landingAfterPhoneSignIn,
+  phoneRefUniversity,
   choosePhoneAccount,
   completePasswordReset,
   demoSignIn,
@@ -39,10 +41,24 @@ import { PHONE_COOKIE, UNI_COOKIE } from "@/modules/identity/cookies";
  * where to go next.
  */
 async function signInAs(userId: string, method: SessionMethod, next?: string | null): Promise<string> {
+  if (method === "phone") throw new Error("Phone sign-ins go through signInWithPhoneAt.");
   await startSession(userId, method, { keepFresh: true });
   const spaces = await homeSpacesFor(userId);
   if (spaces.length === 1) (await cookies()).set(UNI_COOKIE, spaces[0].slug, { ...cookieOptions(), maxAge: 400 * 86_400 });
   return landingAfterSignIn(userId, next);
+}
+
+/**
+ * Signs in with a phone code. The session is bound to the institute the code was entered
+ * at (a number can be typed in by that institute's admin), so the landing is inside it.
+ */
+async function signInWithPhoneAt(userId: string, ref: string | null, next?: string | null): Promise<string> {
+  const universityId = phoneRefUniversity(ref);
+  if (!universityId) throw new ValidationError("This sign-in has timed out. Enter your mobile number again to get a new code.", "restart");
+  await startSession(userId, "phone", { keepFresh: true, scopeUniversityId: universityId });
+  const { slug, landing } = await landingAfterPhoneSignIn(userId, universityId, next);
+  if (slug) (await cookies()).set(UNI_COOKIE, slug, { ...cookieOptions(), maxAge: 400 * 86_400 });
+  return landing;
 }
 
 /** "Not your institute?" on /login. */
@@ -195,7 +211,7 @@ export async function phoneVerifyAction(_: AuthState, data: FormData): Promise<A
       redirect(`/login?${new URLSearchParams({ uni, tab: "phone", ...(next && next !== "/" ? { next } : {}) })}`);
     }
     await clearPhoneRef();
-    dest = await signInAs(r.userId, "phone", str(data, "next"));
+    dest = await signInWithPhoneAt(r.userId, ref, str(data, "next"));
   } catch (e) {
     if (e instanceof AppError && ["restart", "locked"].includes(e.code)) await clearPhoneRef();
     return fail(e);
@@ -206,9 +222,10 @@ export async function phoneVerifyAction(_: AuthState, data: FormData): Promise<A
 export async function phoneChooseAction(_: AuthState, data: FormData): Promise<AuthState> {
   let dest: string | null = null;
   try {
-    const r = await choosePhoneAccount({ ref: await phoneRef(), userId: str(data, "userId") });
+    const ref = await phoneRef();
+    const r = await choosePhoneAccount({ ref, userId: str(data, "userId") });
     await clearPhoneRef();
-    dest = await signInAs(r.userId, "phone", str(data, "next"));
+    dest = await signInWithPhoneAt(r.userId, ref, str(data, "next"));
   } catch (e) {
     return fail(e);
   }

@@ -5,6 +5,7 @@ import { auditLog, roleAssignments, supportSessions, universities, users } from 
 import { assertPlatform, type Actor } from "../authz/engine";
 import { ValidationError } from "../errors";
 import { emitFor } from "../events";
+import { auditData } from "../tenant";
 
 const SUPPORT_SESSION_MINUTES = 120;
 
@@ -40,7 +41,7 @@ export async function enterSupportMode(actor: Actor, universityId: string, reaso
       action: "support.enter",
       entity: "support_session",
       entityId: session.id,
-      data: { reason: session.reason },
+      data: auditData(actor, { reason: session.reason }),
     });
     return session;
   });
@@ -61,6 +62,7 @@ export async function exitSupportMode(actor: Actor, sessionId: string) {
       action: "support.exit",
       entity: "support_session",
       entityId: session.id,
+      data: auditData(actor),
     });
   }
 }

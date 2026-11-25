@@ -12,7 +12,7 @@ import { ACTIONS, PLATFORM_ROLES, type Action } from "../authz/roles";
 import { liveCustomRole } from "./roles";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors";
 import { emit, emitFor } from "../events";
-import { audit, withTenant } from "../tenant";
+import { audit, auditData, withTenant } from "../tenant";
 import { addDays, todayIn } from "../lib/dates";
 
 function uni(actor: Actor) {
@@ -214,7 +214,7 @@ export async function updateUniversity(actor: Actor, universityId: string, patch
       action: "university.update",
       entity: "university",
       entityId: universityId,
-      data: patch as Record<string, unknown>,
+      data: auditData(actor, patch as Record<string, unknown>),
     });
     return after;
   });
@@ -266,7 +266,7 @@ export async function grantPlatformRole(actor: Actor, given: { email: string; na
       action: "platform.role_grant",
       entity: "role_assignment",
       entityId: a.id,
-      data: { userId: person.id, role: input.role },
+      data: auditData(actor, { userId: person.id, role: input.role }),
     });
     if (!person.passwordHash) {
       await emitFor(tx, null, actor.userId || null, "user.invited", { userId: person.id, email: person.email, name: person.name, role: input.role });
@@ -290,7 +290,7 @@ export async function revokePlatformRole(actor: Actor, assignmentId: string) {
       action: "platform.role_revoke",
       entity: "role_assignment",
       entityId: assignmentId,
-      data: { userId: a.userId, role: a.role },
+      data: auditData(actor, { userId: a.userId, role: a.role }),
     });
   });
 }
@@ -400,7 +400,7 @@ export async function setTrialState(actor: Actor, universityId: string, patch: T
       action: set.status === "frozen" ? "university.freeze" : set.status === "active" ? "university.unfreeze" : "university.trial_update",
       entity: "university",
       entityId: universityId,
-      data: { before: { status: before.status, trialEndsAt: before.trialEndsAt }, after: { status: after.status, trialEndsAt: after.trialEndsAt } },
+      data: auditData(actor, { before: { status: before.status, trialEndsAt: before.trialEndsAt }, after: { status: after.status, trialEndsAt: after.trialEndsAt } }),
     });
     return after;
   });

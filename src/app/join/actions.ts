@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import type { ActionState } from "@/components/forms";
-import { currentUserId } from "@/server/auth/session";
+import { clientInfo, currentUserId } from "@/server/auth/session";
 import { AppError } from "@/server/errors";
 import { cancelJoinRequest, joinWithCode } from "@/modules/identity/joining";
 
@@ -15,7 +15,8 @@ export async function joinAction(_: ActionState, data: FormData): Promise<Action
   if (!userId) redirect("/login?next=/join");
   let dest: string;
   try {
-    const r = await joinWithCode(userId, { code: str(data, "code"), departmentId: str(data, "departmentId") || null, message: str(data, "message") || null });
+    const { ip } = await clientInfo();
+    const r = await joinWithCode(userId, { code: str(data, "code"), departmentId: str(data, "departmentId") || null, message: str(data, "message") || null, ip });
     dest = r.status === "joined" ? r.landing : "/join?sent=1";
   } catch (e) {
     if (e instanceof AppError) return { error: e.message };

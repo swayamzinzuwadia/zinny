@@ -52,6 +52,11 @@ export const LIMITS = {
   signupPerIp: { limit: 30, windowMs: HOUR } satisfies Rule,
   /** Wrong current passwords on the profile page, per person. */
   currentPasswordPerUser: { limit: 5, windowMs: 15 * MIN, lockMs: 15 * MIN } satisfies Rule,
+  /**
+   * Joining codes that match no institute, per person and per network. A code is 6 characters,
+   * so without a limit an "instant" institute could be found by guessing.
+   */
+  joinCodeGuesses: { limit: 10, windowMs: HOUR, lockMs: HOUR } satisfies Rule,
 } as const;
 
 /** Repeat locks double, up to this many doublings (15 min → 4 h). */
