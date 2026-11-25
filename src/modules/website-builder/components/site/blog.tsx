@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cx } from "@/components/ui";
 import { formatDate } from "../../format";
 import type { PublicPost, PublicPostCard } from "../../public";
+import { sanitizeBlogHtml } from "../../sanitize";
 import { PROSE } from "../prose";
 import { container, PostCard, SiteImage } from "./bits";
 
@@ -52,7 +53,10 @@ export function BlogIndex({ uni, siteName, posts, page, pages }: { uni: string; 
   );
 }
 
-/** One post. `bodyHtml` was sanitised when it was saved (sanitize.ts), so it is safe to render. */
+/**
+ * One post. `bodyHtml` was sanitised when it was saved (sanitize.ts) and is sanitised again
+ * here, so a row changed outside the editor (an import, a database fix) can't run script.
+ */
 export function PostView({ uni, post }: { uni: string; post: PublicPost }) {
   return (
     <article className="pt-8 sm:pt-12">
@@ -87,7 +91,7 @@ export function PostView({ uni, post }: { uni: string; post: PublicPost }) {
         )}
       </header>
       <div className={`${container} mt-12`}>
-        <div className={cx("mx-auto max-w-[720px] [&_a]:text-[var(--site-primary)] [&_blockquote]:border-[var(--site-primary)]", PROSE)} dangerouslySetInnerHTML={{ __html: post.bodyHtml }} />
+        <div className={cx("mx-auto max-w-[720px] [&_a]:text-[var(--site-primary)] [&_blockquote]:border-[var(--site-primary)]", PROSE)} dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(post.bodyHtml) }} />
       </div>
       {post.related.length > 0 && (
         <aside aria-labelledby="related-heading" className={`${container} mt-20 border-t border-[var(--site-line)] pt-12`}>

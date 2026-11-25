@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Field, Input, Select, ActionLink } from "@/components/ui";
-import { currentUserId } from "@/server/auth/session";
+import { Badge, Field, Input, Notice, Select, ActionLink } from "@/components/ui";
+import { clientInfo, currentUserId } from "@/server/auth/session";
+import { guardFailure, guardLockedUntil, joinCodeGuard, joinCodeLockedMessage } from "@/server/security/limits";
 import { findInstituteByCode, myJoinRequests } from "@/modules/identity/joining";
 import { AuthShell } from "@/modules/identity/components/auth-shell";
 import { InstituteCodeForm } from "@/modules/identity/components/auth-forms";
@@ -26,7 +27,11 @@ export default async function JoinPage({ searchParams }: { searchParams: Promise
   if (!userId) redirect("/login?next=/join");
   const sp = await searchParams;
   const code = (sp.code ?? "").trim();
-  const [target, requests] = await Promise.all([code ? findInstituteByCode(code) : null, myJoinRequests(userId)]);
+  // A matching code shows the institute's name, so wrong codes count towards a lock-out.
+  const guard = joinCodeGuard({ ip: (await clientInfo()).ip, userId });
+  let locked = code ? await guardLockedUntil(guard) : null;
+  const [target, requests] = await Promise.all([code && !locked ? findInstituteByCode(code) : null, myJoinRequests(userId)]);
+  if (code && !locked && !target) locked = await guardFailure(guard);
 
   const history = requests.length > 0 && (
     <div className="mt-8">
@@ -106,7 +111,12 @@ export default async function JoinPage({ searchParams }: { searchParams: Promise
       title={sp.sent ? "Request sent" : "Join an institute"}
       subtitle={sp.sent ? "The institute will accept or decline it. Until then, the marketplace is yours to use." : "Enter the joining code your institute gave you."}
     >
-      <InstituteCodeForm code={code} notFound={!!code} action="/join" />
+      {locked && (
+        <div className="mb-4" role="alert">
+          <Notice tone="gold">{joinCodeLockedMessage(locked)}</Notice>
+        </div>
+      )}
+      <InstituteCodeForm code={code} notFound={!!code && !locked} action="/join" />
       {history}
       {back}
     </AuthShell>

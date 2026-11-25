@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { currentUserId } from "@/server/auth/session";
+import { Notice } from "@/components/ui";
+import { clientInfo, currentUserId } from "@/server/auth/session";
+import { guardFailure, guardLockedUntil, joinCodeGuard, joinCodeLockedMessage } from "@/server/security/limits";
 import { loginUniversity } from "@/modules/identity/auth";
 import { findInstituteByCode } from "@/modules/identity/joining";
 import { AuthShell } from "@/modules/identity/components/auth-shell";
@@ -30,7 +32,12 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
 
   const code = (sp.code ?? "").trim();
   const slug = (sp.uni ?? "").trim();
-  const byCode = code ? await findInstituteByCode(code) : null;
+  // A matching code shows the institute's name and lets anyone sign up as its student, so wrong
+  // codes from one network count towards a lock-out (src/server/security/limits.ts).
+  const guard = joinCodeGuard({ ip: (await clientInfo()).ip });
+  let locked = code ? await guardLockedUntil(guard) : null;
+  const byCode = code && !locked ? await findInstituteByCode(code) : null;
+  if (code && !locked && !byCode) locked = await guardFailure(guard);
   const bySlug = !code && slug ? await loginUniversity(slug) : null;
   const signInHref = bySlug ? `/login?uni=${bySlug.slug}` : byCode ? `/login?uni=${byCode.slug}` : "/login";
   const signIn = (
@@ -92,7 +99,12 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
   if (!bySlug) {
     return (
       <AuthShell title="Join your institute" subtitle="Enter the joining code your institute gave you.">
-        <InstituteCodeForm code={code || slug} notFound={!!(code || slug)} />
+        {locked && (
+          <div className="mb-4" role="alert">
+            <Notice tone="gold">{joinCodeLockedMessage(locked)}</Notice>
+          </div>
+        )}
+        <InstituteCodeForm code={code || slug} notFound={!!(code || slug) && !locked} />
         {signIn}
         <p className="mt-2 text-[14px] text-muted">
           Not with an institute?{" "}
