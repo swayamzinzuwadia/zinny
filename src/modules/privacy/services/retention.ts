@@ -75,7 +75,8 @@ export async function lastActive(tx: Tx): Promise<{ userId: string; lastActiveAt
   return rows.map((r) => ({ userId: r.user_id, lastActiveAt: new Date(r.last) }));
 }
 
-export type SweepResult = { flagged: number; cleared: number; anonymised: number };
+/** `erased` lists the people anonymised in this run, so the job can sign them out everywhere after the commit. */
+export type SweepResult = { flagged: number; cleared: number; anonymised: number; erased: string[] };
 
 /**
  * The daily job, as the institute's system actor: flags learners inactive past the period
@@ -84,7 +85,7 @@ export type SweepResult = { flagged: number; cleared: number; anonymised: number
  */
 export async function retentionSweep(actor: Actor, now = new Date()): Promise<SweepResult> {
   const universityId = assertHandler(actor);
-  const result: SweepResult = { flagged: 0, cleared: 0, anonymised: 0 };
+  const result: SweepResult = { flagged: 0, cleared: 0, anonymised: 0, erased: [] };
   const toEmail: { email: string; name: string }[] = [];
   await withTenant(actor, async (tx) => {
     const s = await settingsIn(tx);
@@ -100,7 +101,8 @@ export async function retentionSweep(actor: Actor, now = new Date()): Promise<Sw
           fresh.push(a.userId);
           result.flagged++;
         } else if (s.retentionAction === "anonymise" && noticeServed(flag.flaggedAt, now)) {
-          await eraseInInstitute(tx, actor, a.userId, now);
+          const erased = await eraseInInstitute(tx, actor, a.userId, now);
+          if (erased.anonymised) result.erased.push(a.userId);
           await tx.update(dpdpRetentionFlags).set({ resolvedAt: now, outcome: "anonymised" }).where(eq(dpdpRetentionFlags.id, flag.id));
           result.anonymised++;
         }
@@ -122,7 +124,7 @@ export async function retentionSweep(actor: Actor, now = new Date()): Promise<Sw
         await sendEmail({ to: u.email, subject: title, text: `Hello ${u.name}, ${body}`, html: `<p>Hello ${u.name},</p><p>${body}</p>`, kind: "privacy.retention", universityId });
       }
     }
-    if (result.anonymised || result.cleared) await audit(tx, actor, "privacy.retention.sweep", "dpdp_retention_flags", null, { ...result });
+    if (result.anonymised || result.cleared) await audit(tx, actor, "privacy.retention.sweep", "dpdp_retention_flags", null, { flagged: result.flagged, cleared: result.cleared, anonymised: result.anonymised });
   });
   return result;
 }

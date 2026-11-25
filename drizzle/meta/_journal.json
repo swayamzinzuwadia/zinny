@@ -78,6 +78,13 @@
       "when": 1795165788662,
       "tag": "0010_client_changes_signup_seats_privacy",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795610913393,
+      "tag": "0011_security_and_performance",
+      "breakpoints": true
     }
   ]
 }

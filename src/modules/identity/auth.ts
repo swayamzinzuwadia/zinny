@@ -41,7 +41,7 @@ const resetUrl = () => `${appUrl()}/reset`;
 export type LoginUniversity = { id: string; slug: string; name: string; phoneSignIn: boolean; signupOpen: boolean };
 
 /** Paths that are app routes, not university slugs. */
-const RESERVED = new Set(["login", "signup", "join", "invite", "reset", "platform", "marketplace", "api", "verify", "site", "_next", "brand", "favicon.ico"]);
+const RESERVED = new Set(["login", "signup", "join", "invite", "reset", "platform", "marketplace", "api", "verify", "site", "_next", "brand", "favicon.ico", "privacy", "frozen", "suspended", "book-a-demo"]);
 
 /** The university slug at the start of a `next` path ("/demo/learn" → "demo"), if any. */
 export function slugFromNext(next: string | null | undefined): string | null {

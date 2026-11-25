@@ -2,6 +2,7 @@ import type { ZinnyModule } from "@/contracts/module";
 import { GuardianHomeCard } from "./components/guardian-card";
 import { seed } from "./seed";
 import { openRequestCount } from "./services/requests";
+import { revokeAllSessions } from "@/server/auth/session";
 import { retentionSweep } from "./services/retention";
 
 /**
@@ -41,7 +42,9 @@ const privacy: ZinnyModule = {
       id: "privacy.retention",
       every: "day",
       async run(actor) {
-        await retentionSweep(actor);
+        const { erased } = await retentionSweep(actor);
+        // As with an erasure an admin approves: an anonymised person is signed out everywhere, after the commit.
+        for (const userId of erased) await revokeAllSessions(userId);
       },
     },
   ],

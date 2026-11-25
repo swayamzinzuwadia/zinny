@@ -25,6 +25,9 @@ import { db, EMAIL_RE, emptyUsage, isUuid, logAction, universityOrThrow, usageFo
 export const RESERVED_SLUGS = new Set([
   "platform", "login", "logout", "signup", "join", "marketplace", "api", "invite", "reset", "verify", "site", "admin", "learn", "_next", "static",
   "public", "brand", "favicon.ico", "robots.txt", "sitemap.xml", "help", "support", "www", "app", "zinny",
+  // Every other top-level page, so no institute's address can shadow it (tests/security/auth-reserved-slugs).
+  "privacy", "frozen", "suspended", "book-a-demo", "kyc", "terms", "legal", "grievance", "security", "status",
+  "pricing", "about", "contact", "blog", "docs", "onboarding", "account", "settings",
 ]);
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;

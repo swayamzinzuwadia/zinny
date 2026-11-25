@@ -17,8 +17,10 @@ const onboarding: ZinnyModule = {
     {
       // A self-signed institute whose free trial has ended without a paid plan is frozen:
       // nothing is deleted, admins can only choose a plan. Runs as each university's system actor.
+      // Daily, just after midnight India time (Vercel's daily cron): the rule is by date, so
+      // the institute freezes at the start of its trial end date. No hourly caller needed.
       id: "onboarding.trial-freeze",
-      every: "hour",
+      every: "day",
       async run(actor) {
         await freezeIfTrialOver(actor);
       },

@@ -12,10 +12,13 @@
 --     (append-only for `audit_log` and `domain_events`);
 --   * every other table is revoked from the app role, except `users` and `universities`,
 --     which keep the special policies below.
--- Row-level security is enabled AND forced on every table in `public`, so even the table
--- owner is bound by it unless it is a superuser or has BYPASSRLS (the owner connection,
--- `systemDb()`, must have one of those; see the check below). Tables without a policy
--- are deny-all for every other role.
+-- Row-level security is enabled on every table in `public`. Tables without a policy are
+-- deny-all for every role except the owner. Where the owner connection (`systemDb()`) is a
+-- superuser or has BYPASSRLS, row-level security is also FORCED, so even a table-owner
+-- connection is bound unless it bypasses on purpose. Where the owner can't bypass (some
+-- managed hosts don't let the owner grant itself BYPASSRLS), it is enabled but not forced:
+-- the owner stays exempt as the tables' owner, exactly as before, and every other role is
+-- still bound. Either way deploys never stop on this.
 -- No role other than the owner and the app role keeps any privilege on `public` objects:
 -- grants to PUBLIC or to roles a hosting provider adds (Supabase's `anon` and
 -- `authenticated`, which its REST API uses) are revoked on every run. A reporting role
@@ -47,12 +50,15 @@ begin
   ) then
     raise exception 'zinny_app owns tables in public, so it could turn row-level security off. Make the owner role own them: ALTER TABLE ... OWNER TO %;', current_user;
   end if;
-  -- Row-level security is forced below, so the owner connection (systemDb) only keeps
-  -- seeing every institute if it bypasses row-level security explicitly.
+  -- Force row-level security only when the owner connection can still bypass it on purpose.
   if not exists (select 1 from pg_roles where rolname = current_user and (rolsuper or rolbypassrls)) then
-    raise exception 'The owner role % has neither SUPERUSER nor BYPASSRLS. Row-level security is forced on every table, so the system connection would see nothing. Run as a superuser: ALTER ROLE % BYPASSRLS;', current_user, current_user;
+    raise notice 'The owner role % has neither SUPERUSER nor BYPASSRLS, so row-level security is enabled but not forced (the owner stays exempt as table owner; every other role is bound). To force it as well, run as a superuser: ALTER ROLE % BYPASSRLS;', current_user, current_user;
   end if;
 end $$;
+
+-- True when the owner connection bypasses row-level security, so forcing it is safe.
+create or replace function pg_temp.zinny_can_force() returns boolean language sql as
+  $f$ select exists (select 1 from pg_roles where rolname = current_user and (rolsuper or rolbypassrls)) $f$;
 
 -- Only the owner and the app role get anything in `public`: take back every other grant,
 -- including PUBLIC's and those a hosting provider's default privileges add.
@@ -122,7 +128,7 @@ begin
       and c.relname <> 'universities'
   loop
     execute format('alter table %I enable row level security', t);
-    execute format('alter table %I force row level security', t);
+    if pg_temp.zinny_can_force() then execute format('alter table %I force row level security', t); end if;
     execute format('drop policy if exists tenant_isolation on %I', t);
     execute format(
       'create policy tenant_isolation on %I using (university_id = zinny_current_university()) with check (university_id = zinny_current_university())',
@@ -159,14 +165,14 @@ begin
       and c.relname not in ('users', 'universities')
   loop
     execute format('alter table %I enable row level security', t);
-    execute format('alter table %I force row level security', t);
+    if pg_temp.zinny_can_force() then execute format('alter table %I force row level security', t); end if;
   end loop;
 end $$;
 
 -- A university can read only its own row. The app changes one column itself (whether the
 -- institute charges GST); everything else goes through the core API on the owner connection.
 alter table universities enable row level security;
-alter table universities force row level security;
+do $$ begin if pg_temp.zinny_can_force() then alter table universities force row level security; end if; end $$;
 drop policy if exists own_university on universities;
 create policy own_university on universities
   using (id = zinny_current_university())
@@ -179,7 +185,7 @@ grant update (gst_enabled) on universities to zinny_app;
 -- who holds a role in that university — nobody else. The app may change only a person's
 -- name, email, phone and password hash (profile, invites, erasure), never their id.
 alter table users enable row level security;
-alter table users force row level security;
+do $$ begin if pg_temp.zinny_can_force() then alter table users force row level security; end if; end $$;
 drop policy if exists visible_users on users;
 create policy visible_users on users
   using (
