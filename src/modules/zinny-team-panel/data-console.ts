@@ -80,6 +80,8 @@ export type TableMeta = {
   /** Primary key columns. Empty for the few tables without one: their rows are found by `ctid`. */
   primaryKey: string[];
   hasUniversity: boolean;
+  /** Shown but never changed here (READ_ONLY_TABLES). */
+  readOnly: boolean;
   /** Foreign keys from other tables (and this one) that point at this table. */
   incoming: ForeignKey[];
   outgoing: ForeignKey[];
@@ -117,8 +119,23 @@ const sentence = (v: string) => {
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
 
-/** Columns that hold credentials. Matched on the name, so new ones are caught too. */
-export const isSecretColumn = (name: string) => /hash|secret|token|password/i.test(name);
+/**
+ * Columns that hold credentials or KYC data: password and token hashes, one-time codes,
+ * encrypted values (the student's PAN) and Aadhaar digits. Matched on the name, so new ones
+ * are caught too. They are masked, can't be searched, filtered, sorted, set or logged here.
+ */
+export const isSecretColumn = (name: string) => /hash|secret|token|password|cipher|encrypt|aadhaar|(^|_)otp(_|$)|nonce|salt|api_?key|private_?key/i.test(name);
+
+/**
+ * Tables the console shows but never changes: the audit trail (which holds the console's own
+ * `plat.data.*` entries) and the event log. Both are append-only for the app too, so nobody,
+ * a Super Admin included, can rewrite what happened.
+ */
+export const READ_ONLY_TABLES: ReadonlySet<string> = new Set(["audit_log", "domain_events"]);
+
+function assertWritable(t: TableMeta) {
+  if (t.readOnly) throw new ValidationError(`${t.name} is the record of what happened, so it can be read here but not changed.`);
+}
 
 function kindOf(typname: string, typtype: string, category: string): ColumnKind {
   if (category === "A") return "array";
@@ -245,6 +262,7 @@ async function catalogue(conn: Conn = db()): Promise<Catalogue> {
         columns: [],
         primaryKey: pks.get(r.table_name) ?? [],
         hasUniversity: false,
+        readOnly: READ_ONLY_TABLES.has(r.table_name),
         incoming: fks.filter((f) => f.refTable === r.table_name),
         outgoing: fks.filter((f) => f.table === r.table_name),
       };
@@ -799,6 +817,7 @@ const universityOf = (t: TableMeta, row: Record<string, string | null> | null) =
 export async function insertRow(actor: Actor, table: string, values: Record<string, string | null>): Promise<string[]> {
   assertSuperAdmin(actor);
   const t = await tableOrThrow(table);
+  assertWritable(t);
   const cols: ColumnMeta[] = [];
   const vals: SQL[] = [];
   for (const [name, raw] of Object.entries(values)) {
@@ -843,6 +862,7 @@ export async function insertRow(actor: Actor, table: string, values: Record<stri
 export async function updateRow(actor: Actor, table: string, key: string[] | string, values: Record<string, string | null>): Promise<string[]> {
   assertSuperAdmin(actor);
   const t = await tableOrThrow(table);
+  assertWritable(t);
   const k = typeof key === "string" ? decodeRowKey(key) : key;
   if (!k) throw new NotFoundError("Row");
   const next: { c: ColumnMeta; v: string | null }[] = [];
@@ -894,6 +914,7 @@ export const DELETE_WORD = "delete";
 export async function deleteRows(actor: Actor, table: string, keys: (string[] | string)[], confirm: string): Promise<number> {
   assertSuperAdmin(actor);
   const t = await tableOrThrow(table);
+  assertWritable(t);
   if (confirm.trim().toLowerCase() !== DELETE_WORD) throw new ValidationError(`Type ${DELETE_WORD} in the box to confirm, then try again.`);
   const list = keys.map((k) => (typeof k === "string" ? decodeRowKey(k) : k));
   if (!list.length) throw new ValidationError("Select at least one row to delete.");

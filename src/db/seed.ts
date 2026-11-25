@@ -42,6 +42,8 @@ async function upsertStaff(email: string, name: string, role: "super_admin" | "s
 
 /** Seeds the Demo University (replacing it), then runs every module seed. Returns the context modules got. */
 export async function seedDemo(): Promise<SeedContext> {
+  const refusal = seedRefusal();
+  if (refusal) throw new Error(refusal);
   const db = systemDb();
   const today = todayIn("Asia/Kolkata");
   const nextMonday = addDays(weekStart(today), 7);
@@ -361,7 +363,25 @@ async function seedIds(universityId: string): Promise<SeedIds> {
   };
 }
 
+/**
+ * The demo data includes a Zinny Super Admin and dozens of accounts whose password is
+ * "zinny123", so it must never reach a database with real people in it. It runs in
+ * development and on demo deployments (ZINNY_DEMO=1) only.
+ */
+export function seedRefusal(env: NodeJS.ProcessEnv = process.env): string | null {
+  const production = env.NODE_ENV === "production" || env.VERCEL_ENV === "production";
+  if (production && env.ZINNY_DEMO !== "1") {
+    return "Refusing to seed: this looks like production (NODE_ENV or VERCEL_ENV is production) and ZINNY_DEMO isn't 1. The demo data adds a Super Admin and accounts with the password zinny123.";
+  }
+  return null;
+}
+
 if (process.argv[1]?.endsWith("seed.ts")) {
+  const refusal = seedRefusal();
+  if (refusal) {
+    console.error(refusal);
+    process.exit(1);
+  }
   seedDemo()
     .then(() => {
       const port = process.env.PORT ?? "3000";

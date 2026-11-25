@@ -77,8 +77,16 @@ describe("row-level security covers every table", () => {
       { table: "universities", policy: "own_university" },
       { table: "users", policy: "visible_users" },
     ]);
-    expect(await privileges("users")).toEqual({ select: true, insert: false, update: true, delete: false });
-    expect(await privileges("universities")).toEqual({ select: true, insert: false, update: true, delete: false });
+    // Updates are granted per column only (security review DATA-03): a person's name, email,
+    // phone and password hash; an institute's GST switch.
+    expect(await privileges("users")).toEqual({ select: true, insert: false, update: false, delete: false });
+    expect(await privileges("universities")).toEqual({ select: true, insert: false, update: false, delete: false });
+    const [cols] = await owner<{ name: boolean; id: boolean; gst: boolean; status: boolean }[]>`
+      select has_column_privilege('zinny_app', 'public.users', 'name', 'UPDATE') as name,
+             has_column_privilege('zinny_app', 'public.users', 'id', 'UPDATE') as id,
+             has_column_privilege('zinny_app', 'public.universities', 'gst_enabled', 'UPDATE') as gst,
+             has_column_privilege('zinny_app', 'public.universities', 'status', 'UPDATE') as status`;
+    expect(cols).toEqual({ name: true, id: false, gst: true, status: false });
   });
 
   it("a brand-new table is protected as soon as policies.sql runs, and nothing is granted by default", async () => {
