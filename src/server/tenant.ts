@@ -56,6 +56,14 @@ export async function audit(
     action,
     entity,
     entityId,
-    data: actor.impersonatedBy ? { ...data, impersonatedBy: actor.impersonatedBy } : data,
+    data: auditData(actor, data),
   });
+}
+
+/**
+ * An audit entry's data, with the Super Admin really behind it when the actor is someone they
+ * are signed in as. For the core code that writes audit_log rows itself (the Zinny panel's).
+ */
+export function auditData(actor: Actor, data: Record<string, unknown> = {}): Record<string, unknown> {
+  return actor.impersonatedBy ? { ...data, impersonatedBy: actor.impersonatedBy } : data;
 }

@@ -6,8 +6,11 @@ import type { Actor, Assignment } from "./authz/engine";
 import { canPlatform } from "./authz/engine";
 import { NotFoundError } from "./errors";
 
-/** What loadActor needs to know about the session it is building an actor for. */
-export type ActorSession = { userId: string; impersonatorUserId: string | null };
+/**
+ * What loadActor needs to know about the session it is building an actor for.
+ * `scopeUniversityId` is set for a phone-code session: it carries roles only in that institute.
+ */
+export type ActorSession = { userId: string; impersonatorUserId: string | null; scopeUniversityId?: string | null };
 
 /**
  * The session of the request in progress, or null outside one (jobs, scripts, tests).
@@ -23,8 +26,7 @@ async function requestSession(): Promise<ActorSession | null> {
 }
 
 /** The Super Admin signed in as `userId` in this session, if that is what the session is. */
-async function impersonatorOf(userId: string, session: ActorSession | null | undefined): Promise<Actor["impersonatedBy"]> {
-  const s = session === undefined ? await requestSession() : session;
+async function impersonatorOf(userId: string, s: ActorSession | null): Promise<Actor["impersonatedBy"]> {
   if (!s?.impersonatorUserId || s.userId !== userId) return undefined;
   const [who] = await systemDb().select({ id: users.id, name: users.name }).from(users).where(eq(users.id, s.impersonatorUserId));
   return who ? { userId: who.id, name: who.name } : undefined;
@@ -43,6 +45,15 @@ export async function loadActor(userId: string, universityId: string | null, opt
   const db = systemDb();
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) throw new NotFoundError("User");
+  const session = opts.session === undefined ? await requestSession() : opts.session;
+
+  // A phone-code session proves the person only to the institute the code was entered at.
+  // Anywhere else, including the Zinny panel, this request holds none of their roles; inside
+  // it, only that institute's (never a Zinny team role, so never support mode either).
+  const scope = session && session.userId === userId ? (session.scopeUniversityId ?? null) : null;
+  if (scope && scope !== universityId) {
+    return { userId: user.id, name: user.name, email: user.email, universityId, assignments: [], supportSessionId: null };
+  }
 
   // Each assignment comes with this institute's custom role, or its edit of a built-in role, or
   // (when the institute hasn't changed that role) the Zinny-wide edit a Super Admin made, which
@@ -96,10 +107,10 @@ export async function loadActor(userId: string, universityId: string | null, opt
     name: user.name,
     email: user.email,
     universityId,
-    assignments,
+    assignments: scope ? assignments.filter((a) => a.universityId === scope) : assignments,
     supportSessionId: null,
   };
-  const impersonatedBy = await impersonatorOf(userId, opts.session);
+  const impersonatedBy = await impersonatorOf(userId, session);
   if (impersonatedBy) actor.impersonatedBy = impersonatedBy;
 
   // Support mode: a Zinny team member with an open session acts as an Institute Admin

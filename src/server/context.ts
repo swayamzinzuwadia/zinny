@@ -6,7 +6,7 @@ import { systemDb } from "@/db/client";
 import { universities } from "@/db/schema";
 import type { UniversityLite } from "@/contracts/core";
 import { loadActor } from "./actor";
-import { currentUserId } from "./auth/session";
+import { currentSession, currentUserId } from "./auth/session";
 import { isChangeRequest, readViewAs } from "./auth/view-as";
 import { ADMIN_PANEL_ROLES } from "./authz/roles";
 import { can, isActive, type Actor } from "./authz/engine";
@@ -82,8 +82,11 @@ export const spaceContext = cache(async (slug: string) => {
   // An address that isn't an institute is "not found" even when signed out, rather than a sign-in page.
   const university = await universityBySlug(slug);
   if (!university) notFound();
-  const userId = await currentUserId();
-  if (!userId) redirect(`/login?next=/${slug}`);
+  // A phone-code session counts only in the institute it was made at: anywhere else this
+  // person signs in again (with their password, or a code at this institute).
+  const session = await currentSession();
+  if (!session || (session.scopeUniversityId && session.scopeUniversityId !== university.id)) redirect(`/login?next=/${slug}`);
+  const userId = session.userId;
   const signedIn = await loadActor(userId, university.id);
   const viewed = await viewedLearner(signedIn, university.id);
   // Nothing can be changed while viewing as someone: this stops every action, whatever it writes to.

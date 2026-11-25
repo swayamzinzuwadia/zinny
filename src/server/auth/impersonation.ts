@@ -108,7 +108,8 @@ export async function beginImpersonation(targetUserId: string, opts: { jar?: Coo
     own = ownToken ? await resolveSession(ownToken, now) : null;
     if (own?.impersonatorUserId) own = null;
   }
-  if (!own || !ownToken) throw new ForbiddenError("Sign in again to do this.");
+  // A phone-code session counts only inside its institute, never on the Zinny panel.
+  if (!own || !ownToken || own.scopeUniversityId) throw new ForbiddenError("Sign in again to do this.");
   const adminUserId = own.userId;
   if (!(await isActiveSuperAdmin(adminUserId, now))) throw new ForbiddenError("Only a Super Admin can sign in as someone else.");
   if (adminUserId === targetUserId) throw new ValidationError("That's your own account. Pick someone else to sign in as.");

@@ -33,6 +33,17 @@ function assertSelf(actor: Actor, userId: string) {
   assertCan(actor, "self.profile", { universityId: uni(actor), ownerUserId: userId });
 }
 
+/**
+ * How someone signs in belongs to them alone. A Super Admin signed in as them ("Sign in as",
+ * two hours) can't change their mobile number, password or devices: a number of the Super
+ * Admin's own would be a way back in as this person long after the two hours.
+ */
+function assertOwnCredentials(actor: Actor) {
+  if (actor.impersonatedBy) {
+    throw new ForbiddenError(`You're signed in as ${actor.name} from the Zinny panel. Only they can change how they sign in.`);
+  }
+}
+
 /** Actors made by signUpPhoneActor. They work for the mobile number steps and nothing else. */
 const signUpActors = new WeakSet<Actor>();
 
@@ -170,6 +181,7 @@ export async function updateName(actor: Actor, userId: string, name: string) {
  */
 export async function startPhoneChange(actor: Actor, userId: string, input: { phone: string; ip?: string | null; now?: Date; defer?: Defer }) {
   assertPhoneSelf(actor, userId);
+  assertOwnCredentials(actor);
   const now = input.now ?? new Date();
   const e164 = normalizePhone(input.phone);
   if (!e164) throw new ValidationError("Enter a valid mobile number, like 98200 11001. For a number outside India, pick its country code.");
@@ -221,6 +233,7 @@ export async function startPhoneChange(actor: Actor, userId: string, input: { ph
 /** Saves the new number once its code is right. 5 tries per code, 5 minutes. */
 export async function verifyPhoneChange(actor: Actor, userId: string, input: { code: string; now?: Date }) {
   assertPhoneSelf(actor, userId);
+  assertOwnCredentials(actor);
   const now = input.now ?? new Date();
   const code = input.code.replace(/\s+/g, "");
   if (!/^\d{6}$/.test(code)) throw new ValidationError("Enter the 6-digit code from the SMS.");
@@ -288,6 +301,7 @@ export async function cancelPhoneChange(actor: Actor, userId: string, now = new 
 
 export async function removePhone(actor: Actor, userId: string) {
   assertSelf(actor, userId);
+  assertOwnCredentials(actor);
   await withTenant(actor, async (tx) => {
     await tx.update(users).set({ phone: null }).where(eq(users.id, userId));
     await audit(tx, actor, "profile.remove_phone", "user", userId);
@@ -354,6 +368,7 @@ export async function changePassword(
   input: { current: string; next: string; confirm: string; keepSessionId: string | null; now?: Date },
 ) {
   assertSelf(actor, userId);
+  assertOwnCredentials(actor);
   const now = input.now ?? new Date();
   const key = throttleKey("current-password", userId);
   const lock = await lockedUntil(key, now);
@@ -385,6 +400,7 @@ export async function mySessions(actor: Actor, userId: string): Promise<SessionI
 /** Signs one of your devices out. Only your own sessions can be ended. */
 export async function signOutSession(actor: Actor, userId: string, sessionId: string) {
   assertSelf(actor, userId);
+  assertOwnCredentials(actor);
   if (!(await revokeSession(userId, sessionId))) throw new NotFoundError("Session");
   await withTenant(actor, (tx) => audit(tx, actor, "session.revoke", "session", sessionId));
 }
@@ -392,6 +408,7 @@ export async function signOutSession(actor: Actor, userId: string, sessionId: st
 /** Signs out every device, this one included. */
 export async function signOutEverywhere(actor: Actor, userId: string) {
   assertSelf(actor, userId);
+  assertOwnCredentials(actor);
   const ended = await revokeAllSessions(userId);
   await auditEverywhere(userId, "session.revoke_all", { sessionsEnded: ended });
   return { sessionsEnded: ended };

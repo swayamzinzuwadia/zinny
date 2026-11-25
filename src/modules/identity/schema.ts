@@ -193,6 +193,13 @@ export const idnSessions = pgTable(
     ip: text("ip"),
     userAgent: text("user_agent"),
     lastSeenAt: at("last_seen_at").notNull().defaultNow(),
+    /**
+     * Set for a session started with a phone code: the institute the code was entered at.
+     * The session counts only inside that institute (server/auth/session.ts), because the
+     * number may have been typed in by that institute's admin rather than confirmed by the
+     * person. Deliberately not named university_id: this table stays off the app role.
+     */
+    scopeUniversityId: uuid("scope_university_id"),
   },
   (t) => [index("idn_sessions_user_idx").on(t.userId)],
 );

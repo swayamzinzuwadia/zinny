@@ -18,8 +18,12 @@ export function sha256(value: string): string {
  * Key for HMACs over short secrets (6-digit codes), so a database copy alone can't
  * brute-force them. Set AUTH_SECRET in production (see src/modules/identity/ENV.md).
  */
-function authSecret(): string {
-  return process.env.AUTH_SECRET || process.env.CRON_SECRET || "zinny-dev-auth-secret";
+export function authSecret(env: NodeJS.ProcessEnv = process.env): string {
+  const secret = env.AUTH_SECRET || env.CRON_SECRET;
+  if (secret) return secret;
+  // The development key is public (it is in this file), so a production build never uses it.
+  if (env.NODE_ENV === "production") throw new Error("AUTH_SECRET is not set, so sign-in codes can't be protected. Set AUTH_SECRET (see src/modules/identity/ENV.md).");
+  return "zinny-dev-auth-secret";
 }
 
 export function hmac(value: string, context: string): string {
