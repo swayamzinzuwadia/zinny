@@ -257,7 +257,8 @@ export function Film() {
             </span>
           </p>
         </div>
-        <p data-now className={`${display.className} ${css.headline} ${css.now} text-gold-strong`}>
+        {/* Brand green italic, like the film's other emphasis ("in order."), and the colour of the board that wipes in next. */}
+        <p data-now className={`${display.className} ${css.headline} ${css.now} text-brand italic`}>
           Now,
         </p>
         {/* A hint, not a control: plain text, so it isn't mistaken for a button. */}
