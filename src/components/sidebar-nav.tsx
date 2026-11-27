@@ -41,7 +41,7 @@ export function SidebarNav({ base, groups, label }: { base: string; groups: Side
     <nav aria-label={label}>
       {groups.map((g, n) => (
         <div key={g.key} role={g.label ? "group" : undefined} aria-label={g.label} className={cx(n > 0 && (g.label ? "mt-3" : "mt-3 border-t border-canvas/10 pt-3"))}>
-          {g.label && <div className="px-3 pb-1 text-[12px] leading-4 font-medium text-canvas/40">{g.label}</div>}
+          {g.label && <div className="zs-label px-3 pb-1 text-[12px] leading-4 font-medium text-canvas/40">{g.label}</div>}
           <div className="space-y-px">
             {g.items.map((i) => (
               <Item key={i.key} item={i} base={base} current={current} />
@@ -54,7 +54,7 @@ export function SidebarNav({ base, groups, label }: { base: string; groups: Side
 }
 
 // Rows are kept short so the whole menu fits a laptop screen without scrolling.
-const row = "group/row relative flex w-full items-center gap-3 rounded-xl px-3 py-1.5 text-[14px] leading-5 [transition-property:background-color,color] duration-150";
+const row = "zs-row group/row relative flex w-full items-center gap-3 rounded-xl px-3 py-1.5 text-[14px] leading-5 [transition-property:background-color,color] duration-150";
 
 function Item({ item, base, current }: { item: SidebarItem; base: string; current: string | null }) {
   // On the link's own page the link is marked; on one of its pages the link stays lit and the page is marked below it.
@@ -78,11 +78,12 @@ function Item({ item, base, current }: { item: SidebarItem; base: string; curren
         aria-expanded={item.children.length > 0 ? open : undefined}
         aria-controls={item.children.length > 0 ? id : undefined}
         title={item.access}
+        data-tip={item.label}
         className={cx(row, here ? "bg-canvas/[0.12] font-medium text-canvas" : inside ? "text-canvas" : "text-canvas/70 hover:bg-canvas/[0.06] hover:text-canvas")}
       >
         {here && <Marker />}
         <Icon name={item.icon} active={open} />
-        <span className="truncate">{item.label}</span>
+        <span className="zs-label truncate">{item.label}</span>
       </Link>
       {item.children.length > 0 && (
         // Grid rows animate from 0fr to 1fr, so the pages unfold from their link to their natural height.
@@ -90,7 +91,7 @@ function Item({ item, base, current }: { item: SidebarItem; base: string; curren
           id={id}
           onTransitionEnd={(e) => e.target === e.currentTarget && open && reveal()}
           className={cx(
-            "grid [transition-property:grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
+            "zs-sub grid [transition-property:grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none",
             open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
           )}
         >
@@ -158,6 +159,12 @@ const PATHS: Record<string, React.ReactNode> = {
   certificates: <path d="M10 11.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9ZM7.3 10.6 6.2 17.5 10 15.3l3.8 2.2-1.1-6.9" />,
   students: <path d="M2 8l8-4 8 4-8 4zM5.5 9.8v3.6c1.2 1.3 2.7 1.9 4.5 1.9s3.3-.6 4.5-1.9V9.8M18 8v4.5" />,
   enquiries: <path d="M3 4h14v9.5H9.5L5.5 17v-3.5H3zM6.5 7.5h7M6.5 10h4.5" />,
+  // A shield with a tick: personal data and consent.
+  privacy: <path d="M10 2.5 16 5v4.5c0 3.8-2.5 6.7-6 8-3.5-1.3-6-4.2-6-8V5zM7.5 10l2 2 3.5-3.5" />,
+  // Stacked discs: the data console's tables.
+  data: <path d="M10 6.5c3.6 0 6.5-1 6.5-2.3S13.6 2 10 2 3.5 3 3.5 4.2 6.4 6.5 10 6.5ZM3.5 4.2v11.6C3.5 17 6.4 18 10 18s6.5-1 6.5-2.2V4.2M3.5 10c0 1.3 2.9 2.3 6.5 2.3s6.5-1 6.5-2.3" />,
+  documents: <path d="M5 2.5h7l3.5 3.5v11.5H5zM12 2.5V6h3.5M7.5 10h5M7.5 13h3.5" />,
+  seats: <path d="M5 9V5.5A1.5 1.5 0 0 1 6.5 4h7A1.5 1.5 0 0 1 15 5.5V9M3.5 9h13v4.5h-13zM5 13.5V16M15 13.5V16" />,
 };
 
 function Icon({ name, active }: { name: string; active: boolean }) {

@@ -34,11 +34,6 @@ export function batchInReach(r: Reach, batchId: PgColumn, departmentId: PgColumn
   return parts.length ? or(...parts) : sql`false`;
 }
 
-/** Same check in memory, for rows already loaded. */
-export function batchIsInReach(r: Reach, batch: { id: string; departmentId: string }): boolean {
-  return r.all || r.departmentIds.has(batch.departmentId) || r.batchIds.has(batch.id);
-}
-
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isUuid(v: unknown): v is string {

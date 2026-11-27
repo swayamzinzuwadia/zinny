@@ -125,6 +125,9 @@ export const MENU: MenuSection[] = [
     items: [
       { label: "All settings", href: "/settings" },
       { label: "Notifications", href: "/settings/notifications" },
+      { label: "Seats", href: "/settings/seats" },
+      { label: "Privacy", href: "/settings/privacy" },
+      { label: "Documents", href: "/choose-plan/documents" },
     ],
   },
 ];
@@ -367,6 +370,9 @@ export const NAV: { key: string; label?: string; items: NavItemDef[] }[] = [
         children: [
           { label: "Roles & permissions", href: "/users/roles" },
           { label: "Notifications", href: "/settings/notifications" },
+          { label: "Seats", href: "/settings/seats" },
+          { label: "Privacy", href: "/settings/privacy" },
+          { label: "Documents", href: "/choose-plan/documents" },
         ],
       },
     ],

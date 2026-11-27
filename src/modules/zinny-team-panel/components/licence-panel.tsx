@@ -9,6 +9,8 @@ import { licenceDefaults } from "../lib/licence";
 import { licenceFormSettings } from "../services/billing-settings";
 import type { licenceFor } from "../services/licences";
 import { Fact, UsageMeter } from "./bits";
+import { SeatPacksCard } from "./seat-packs-card";
+import { seatPacksFor } from "../services/seat-packs";
 import { LicenceFields } from "./licence-fields";
 
 /**
@@ -16,11 +18,14 @@ import { LicenceFields } from "./licence-fields";
  * and warnings beside it. Shown on the institute's own page (its Licence tab), and on the
  * licence page for people who look after licences without the Institutes section.
  */
-export async function LicencePanel({ actor, data }: { actor: Actor; data: Awaited<ReturnType<typeof licenceFor>> }) {
+/** `seatActions` are the licence page's server actions for seat packs and caps (they live with the route). */
+export async function LicencePanel({ actor, data, seatActions }: { actor: Actor; data: Awaited<ReturnType<typeof licenceFor>>; seatActions: Parameters<typeof SeatPacksCard>[0]["actions"] }) {
   const { university: u, licence: l, usage, alerts, plans, invoices } = data;
   const settings = await licenceFormSettings(actor);
   const today = todayIST();
   const canFinance = canPlatform(actor, "platform.finance");
+  const seats = l ? await seatPacksFor(actor, u.id, today) : null;
+  const licencePlan = l ? plans.find((p) => p.key === l.plan) : undefined;
   // A new licence starts on Standard when there is one, otherwise on the first plan on offer.
   const first = plans.find((p) => p.key === "standard" && !p.archived) ?? plans.find((p) => !p.archived);
   const initial = l
@@ -106,6 +111,19 @@ export async function LicencePanel({ actor, data }: { actor: Actor; data: Awaite
             </dl>
             <p className="mt-4 text-[12.5px] text-muted">The price was copied from the plan when this licence was priced. A change to the plan&apos;s price applies from its next renewal.</p>
           </Card>
+        )}
+
+        {seats && (
+          <SeatPacksCard
+            data={seats}
+            universityId={u.id}
+            today={today}
+            gstRateBp={licencePlan?.gstRateBp ?? 1800}
+            intraState={u.stateCode === zinnySeller().stateCode}
+            canEditCaps={canPlatform(actor, "platform.seat_pricing")}
+            canEditPricing={canPlatform(actor, "platform.seat_pricing")}
+            actions={seatActions}
+          />
         )}
 
         <Card>

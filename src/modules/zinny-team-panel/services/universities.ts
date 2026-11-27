@@ -3,13 +3,15 @@
  * and suspending or reactivating it. University rows change only through the core API
  * (`createUniversity`, `updateUniversity`).
  */
-import { and, asc, count, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { courses, departments, enrolments, universities, users } from "@/db/schema";
-import { assertPlatform, canPlatform, createUniversity, updateUniversity, type Actor } from "@/server/core";
+import { assertCan, assertPlatform, canPlatform, createUniversity, updateUniversity, withTenant, type Actor } from "@/server/core";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/server/errors";
 import { platAlerts, platContentFlags, platLicences } from "../schema";
 import { checkNewPassword } from "@/server/auth/passwords";
-import { daysBetween, todayIST } from "../lib/format";
+import { addDays, daysBetween, todayIST } from "../lib/format";
+import { rankInstitutes } from "../components/institute-rank";
+import { reminderLevel, type ReminderLevel } from "../components/licence-reminder";
 import { setPersonPassword } from "./accounts";
 import { planForLicence, saveLicence, syncAlertsFor, validateLicence, type LicenceInput } from "./licences";
 import { planNameFallback, planNames } from "./plans";
@@ -23,6 +25,9 @@ import { db, EMAIL_RE, emptyUsage, isUuid, logAction, universityOrThrow, usageFo
 export const RESERVED_SLUGS = new Set([
   "platform", "login", "logout", "signup", "join", "marketplace", "api", "invite", "reset", "verify", "site", "admin", "learn", "_next", "static",
   "public", "brand", "favicon.ico", "robots.txt", "sitemap.xml", "help", "support", "www", "app", "zinny",
+  // Every other top-level page, so no institute's address can shadow it (tests/security/auth-reserved-slugs).
+  "privacy", "frozen", "suspended", "book-a-demo", "kyc", "terms", "legal", "grievance", "security", "status",
+  "pricing", "about", "contact", "blog", "docs", "onboarding", "account", "settings",
 ]);
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -46,6 +51,8 @@ export type UniversityListRow = {
   slug: string;
   status: string;
   createdAt: Date;
+  /** Set for an institute that signed itself up: the last day of its free trial. */
+  trialEndsAt: string | null;
   students: number;
   staff: number;
   /** The licence's plan key, and what that plan is called. */
@@ -64,7 +71,7 @@ export async function listUniversities(actor: Actor, today = todayIST()): Promis
   const conn = db();
   const [unis, usage, lics, alerts, names] = await Promise.all([
     conn
-      .select({ id: universities.id, name: universities.name, slug: universities.slug, status: universities.status, createdAt: universities.createdAt })
+      .select({ id: universities.id, name: universities.name, slug: universities.slug, status: universities.status, createdAt: universities.createdAt, trialEndsAt: universities.trialEndsAt })
       .from(universities)
       .orderBy(asc(universities.name)),
     usageFor(conn),
@@ -276,4 +283,96 @@ export async function universityOptions(actor: Actor) {
     .select({ id: universities.id, name: universities.name, slug: universities.slug, status: universities.status })
     .from(universities)
     .orderBy(asc(universities.name));
+}
+
+/* ─────────────────────────── Search and licence reminders ─────────────────────────── */
+
+export type InstituteHit = { id: string; name: string; slug: string; status: string; planName: string | null };
+
+/**
+ * The best matches for what is typed in the institute search: names that start with it
+ * first, then words that start with it, then anything that contains it. The database does
+ * the narrowing (so this stays quick with thousands of institutes); the ranking is shared
+ * with the dropdown and the tests.
+ */
+export async function searchUniversities(actor: Actor, query: string, limit = 8): Promise<InstituteHit[]> {
+  assertPlatform(actor, "platform.manage_universities");
+  const term = query.trim().slice(0, 80);
+  if (!term) return [];
+  const like = `%${term.replace(/[\\%_]/g, (c) => `\\${c}`).toLowerCase()}%`;
+  const conn = db();
+  const rows = await conn
+    .select({ id: universities.id, name: universities.name, slug: universities.slug, status: universities.status, trialEndsAt: universities.trialEndsAt })
+    .from(universities)
+    .where(or(sql`lower(${universities.name}) like ${like}`, sql`${universities.slug} like ${like}`))
+    .orderBy(asc(universities.name))
+    .limit(200);
+  const best = rankInstitutes(rows, term, Math.min(Math.max(limit, 1), 20));
+  const ids = best.map((r) => r.id);
+  const [lics, names] = ids.length
+    ? await Promise.all([
+        conn.select({ universityId: platLicences.universityId, plan: platLicences.plan }).from(platLicences).where(inArray(platLicences.universityId, ids)),
+        planNames(conn),
+      ])
+    : [[], {} as Record<string, string>];
+  const planOf = new Map(lics.map((l) => [l.universityId, l.plan]));
+  return best.map((r) => {
+    const plan = planOf.get(r.id);
+    // A self-signed institute with no licence yet is on its free trial.
+    const status = r.status === "active" && r.trialEndsAt && !plan ? "trial" : r.status;
+    return { id: r.id, name: r.name, slug: r.slug, status, planName: plan ? (names[plan] ?? planNameFallback(plan)) : null };
+  });
+}
+
+export type EndingLicence = {
+  universityId: string;
+  name: string;
+  slug: string;
+  planName: string;
+  endDate: string;
+  daysLeft: number;
+  level: ReminderLevel;
+};
+
+/**
+ * Active institutes whose licence ends within `withinDays` (or has already ended), soonest
+ * first. Feeds the "Licences ending soon" list on the platform overview.
+ */
+export async function licencesEndingSoon(actor: Actor, withinDays = 30, today = todayIST()): Promise<EndingLicence[]> {
+  assertPlatform(actor, "platform.licences");
+  const conn = db();
+  const [rows, names] = await Promise.all([
+    conn
+      .select({ universityId: universities.id, name: universities.name, slug: universities.slug, plan: platLicences.plan, endDate: platLicences.endDate })
+      .from(platLicences)
+      .innerJoin(universities, eq(universities.id, platLicences.universityId))
+      .where(and(eq(universities.status, "active"), sql`${platLicences.endDate} <= ${addDays(today, withinDays)}`))
+      .orderBy(asc(platLicences.endDate), asc(universities.name)),
+    planNames(conn),
+  ]);
+  return rows.flatMap((r) => {
+    const daysLeft = daysBetween(today, r.endDate);
+    const level = reminderLevel(daysLeft);
+    return level
+      ? [{ universityId: r.universityId, name: r.name, slug: r.slug, planName: names[r.plan] ?? planNameFallback(r.plan), endDate: r.endDate, daysLeft, level }]
+      : [];
+  });
+}
+
+export type OwnLicenceReminder = { endDate: string; daysLeft: number; level: ReminderLevel };
+
+/**
+ * An institute's own licence end date, for the reminder banner in its admin panel. Needs
+ * settings.manage (owners and admins) and runs under the institute's row-level security.
+ * Null when there is no licence or it ends more than 30 days from now.
+ */
+export async function ownLicenceReminder(actor: Actor, universityId: string, today = todayIST()): Promise<OwnLicenceReminder | null> {
+  assertCan(actor, "settings.manage", { universityId });
+  const [lic] = await withTenant(actor, (tx) =>
+    tx.select({ endDate: platLicences.endDate }).from(platLicences).where(eq(platLicences.universityId, universityId)),
+  );
+  if (!lic) return null;
+  const daysLeft = daysBetween(today, lic.endDate);
+  const level = reminderLevel(daysLeft);
+  return level ? { endDate: lic.endDate, daysLeft, level } : null;
 }

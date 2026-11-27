@@ -10,7 +10,7 @@ describe("learner focus mode", () => {
   });
   it("the learner header and tab bar are marked as chrome", () => {
     expect(read("src/app/[uni]/learn/layout.tsx")).toContain("<header data-learn-chrome");
-    expect(read("src/app/[uni]/learn/nav.tsx")).toContain("<nav data-learn-chrome");
+    expect(read("src/app/[uni]/learn/nav.tsx")).toMatch(/<nav\s+data-learn-chrome/);
   });
   it("the test player turns focus mode on", () => {
     expect(read("src/modules/assessments/components/test-player.tsx")).toContain("data-learner-focus");

@@ -65,6 +65,7 @@ export const mktListings = pgTable(
     uniqueIndex("mkt_listings_batch_uq").on(t.batchId).where(sql`${t.status} <> 'removed'`),
     index("mkt_listings_course_idx").on(t.courseId),
     index("mkt_listings_status_idx").on(t.status, t.createdAt),
+    index("mkt_listings_university_idx").on(t.universityId, t.status),
     // Renamed when "batch" and "removed" were added: drizzle-kit push leaves a check alone when only its text changes.
     check("mkt_listing_kinds", sql`${t.kind} in ('course', 'lecture', 'combo', 'batch')`),
     check("mkt_listing_statuses", sql`${t.status} in ('live', 'paused', 'removed')`),

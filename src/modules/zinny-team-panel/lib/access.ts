@@ -3,6 +3,7 @@
  * Hiding a section is only for convenience: every service function checks again.
  */
 import { assertPlatform, canPlatform, type Action, type Actor } from "@/server/core";
+import { withSignups } from "../components/platform-sections";
 import { ForbiddenError } from "@/server/errors";
 
 /**
@@ -70,7 +71,7 @@ const SECTIONS: Section[] = [
       { label: "Plans and prices", href: "/plans", allowed: can("platform.licences") },
       { label: "Licences", href: "/licences", allowed: can("platform.licences") },
       { label: "Invoices", href: "/billing", allowed: can("platform.finance") },
-      { label: "Billing settings", href: "/billing/settings", allowed: (a) => isSuperAdmin(a) || canPlatform(a, "platform.finance") },
+      { label: "Billing settings", href: "/billing/settings", allowed: (a) => isSuperAdmin(a) || canPlatform(a, "platform.finance") || canPlatform(a, "platform.seat_pricing") },
     ],
   },
   { key: "people", label: "Users", entries: [{ label: "Users", href: "/people", allowed: isSuperAdmin }] },
@@ -89,6 +90,15 @@ const SECTIONS: Section[] = [
     label: "Content review",
     entries: [{ label: "Content review", href: "/content", allowed: canSeeContentFlags }],
     access: (actor) => (canPlatform(actor, "platform.content_review") ? undefined : "View"),
+  },
+  // DPDP: Zinny's own privacy requests, every institute's queue, and the breach register (privacy module).
+  {
+    key: "privacy",
+    label: "Privacy",
+    entries: [
+      { label: "Privacy requests", href: "/privacy", allowed: can("platform.manage_universities") },
+      { label: "Breach register", href: "/privacy/breaches", allowed: can("platform.manage_universities") },
+    ],
   },
   { key: "analytics", label: "Analytics", entries: [{ label: "Analytics", href: "/analytics", allowed: can("platform.view_analytics") }] },
   // Every table in the database, for Super Admins only (see data-console.ts).
@@ -129,7 +139,8 @@ type SidebarDef = { key: string; icon: string; label: string; page?: string; chi
 
 const SIDEBAR: SidebarDef[] = [
   { key: "overview", icon: "overview", label: "Overview", page: "" },
-  { key: "universities", icon: "universities", label: "Institutes", page: "/institutes" },
+  // Institutes that signed themselves up on a trial wait under Sign-ups.
+  { key: "universities", icon: "universities", label: "Institutes", page: "/institutes", children: [{ label: "Sign-ups", href: "/signups" }] },
   { key: "people", icon: "people", label: "Users", page: "/people" },
   {
     key: "billing",
@@ -143,6 +154,8 @@ const SIDEBAR: SidebarDef[] = [
   },
   { key: "support", icon: "support", label: "Support mode", page: "/support", children: [{ label: "Activity log", href: "/support/log" }] },
   { key: "content", icon: "content", label: "Content review", page: "/content" },
+  // DPDP: privacy requests across institutes, and the breach register.
+  { key: "privacy", icon: "privacy", label: "Privacy", page: "/privacy", children: [{ label: "Breach register", href: "/privacy/breaches" }] },
   { key: "analytics", icon: "analytics", label: "Analytics", page: "/analytics" },
   // How the panel itself is set up, away from the everyday work above.
   {
@@ -160,7 +173,7 @@ const SIDEBAR: SidebarDef[] = [
 
 /** The sidebar for this person: SIDEBAR, keeping only the pages navFor lets them open. */
 export function sidebarFor(actor: Actor): PlatformSidebarGroup[] {
-  const sections = navFor(actor);
+  const sections = withSignups(navFor(actor));
   const open = new Set(sections.flatMap((s) => s.items.map((i) => i.href)));
   const content = sections.find((s) => s.key === "content")?.access;
   const items: PlatformSidebarItem[] = [];

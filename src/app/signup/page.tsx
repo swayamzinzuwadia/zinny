@@ -1,30 +1,43 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { currentUserId } from "@/server/auth/session";
+import { Notice } from "@/components/ui";
+import { clientInfo, currentUserId } from "@/server/auth/session";
+import { guardFailure, guardLockedUntil, joinCodeGuard, joinCodeLockedMessage } from "@/server/security/limits";
 import { loginUniversity } from "@/modules/identity/auth";
 import { findInstituteByCode } from "@/modules/identity/joining";
 import { AuthShell } from "@/modules/identity/components/auth-shell";
-import { InstituteCodeForm, SignUpForm } from "@/modules/identity/components/auth-forms";
-import { signUpAction } from "../login/actions";
+import { InstituteCodeForm } from "@/modules/identity/components/auth-forms";
+import { OnboardingShell } from "@/modules/onboarding/components/shell";
+import { SignupChoice } from "@/modules/onboarding/components/signup-choice";
+import { studentSignUpAction } from "./actions";
+import { StudentSignUp } from "./student-signup";
 
 export const metadata = { title: "Create your account", referrer: "strict-origin-when-cross-origin" as const };
 
 /**
- * Student sign-up.
- *  - On its own it makes a marketplace account, which belongs to no institute. The learner
+ * Sign-up. On its own, /signup offers two choices: "Sign up as institute" (the self sign-up
+ * wizard at /signup/institute, with a free trial) and "Sign up as student" (?as=student).
+ *
+ * Student sign-up:
+ *  - On its own (?as=student) it makes a marketplace account, which belongs to no institute. The learner
  *    can join an institute later from /join.
  *  - With ?code= (an institute's joining code) the account joins that institute, straight
  *    away or with a join request, as the institute chooses.
  *  - ?uni= is the institute's own website linking here; it works like a code.
  * Staff and parents are still added by the institute.
  */
-export default async function SignUpPage({ searchParams }: { searchParams: Promise<{ uni?: string; code?: string; join?: string }> }) {
+export default async function SignUpPage({ searchParams }: { searchParams: Promise<{ uni?: string; code?: string; join?: string; as?: string }> }) {
   const sp = await searchParams;
   if (await currentUserId()) redirect("/");
 
   const code = (sp.code ?? "").trim();
   const slug = (sp.uni ?? "").trim();
-  const byCode = code ? await findInstituteByCode(code) : null;
+  // A matching code shows the institute's name and lets anyone sign up as its student, so wrong
+  // codes from one network count towards a lock-out (src/server/security/limits.ts).
+  const guard = joinCodeGuard({ ip: (await clientInfo()).ip });
+  let locked = code ? await guardLockedUntil(guard) : null;
+  const byCode = code && !locked ? await findInstituteByCode(code) : null;
+  if (code && !locked && !byCode) locked = await guardFailure(guard);
   const bySlug = !code && slug ? await loginUniversity(slug) : null;
   const signInHref = bySlug ? `/login?uni=${bySlug.slug}` : byCode ? `/login?uni=${byCode.slug}` : "/login";
   const signIn = (
@@ -36,6 +49,14 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
     </p>
   );
 
+  if (!code && !slug && sp.join === undefined && sp.as !== "student") {
+    return (
+      <OnboardingShell>
+        <SignupChoice />
+      </OnboardingShell>
+    );
+  }
+
   if (!code && !slug && sp.join === undefined) {
     return (
       <AuthShell title="Create a free account" subtitle="Buy recorded courses and lectures from institutes on Zinny, and watch them at your own pace.">
@@ -46,7 +67,7 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
             Use your joining code
           </Link>
         </div>
-        <SignUpForm action={signUpAction} uni="" signInHref={signInHref} />
+        <StudentSignUp action={studentSignUpAction} uni="" signInHref={signInHref} />
         {signIn}
       </AuthShell>
     );
@@ -68,7 +89,7 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
           </span>
         }
       >
-        <SignUpForm action={signUpAction} uni="" code={byCode.code} departments={byCode.departments} signInHref={signInHref} />
+        <StudentSignUp action={studentSignUpAction} uni="" code={byCode.code} departments={byCode.departments} signInHref={signInHref} />
         {signIn}
         <p className="mt-2 text-[13px] text-muted">Staff and parents are added by the institute.</p>
       </AuthShell>
@@ -78,11 +99,16 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
   if (!bySlug) {
     return (
       <AuthShell title="Join your institute" subtitle="Enter the joining code your institute gave you.">
-        <InstituteCodeForm code={code || slug} notFound={!!(code || slug)} />
+        {locked && (
+          <div className="mb-4" role="alert">
+            <Notice tone="gold">{joinCodeLockedMessage(locked)}</Notice>
+          </div>
+        )}
+        <InstituteCodeForm code={code || slug} notFound={!!(code || slug) && !locked} />
         {signIn}
         <p className="mt-2 text-[14px] text-muted">
           Not with an institute?{" "}
-          <Link href="/signup" className="text-brand hover:underline">
+          <Link href="/signup?as=student" className="text-brand hover:underline">
             Create a free account
           </Link>
         </p>
@@ -112,7 +138,7 @@ export default async function SignUpPage({ searchParams }: { searchParams: Promi
         </span>
       }
     >
-      <SignUpForm action={signUpAction} uni={bySlug.slug} signInHref={signInHref} />
+      <StudentSignUp action={studentSignUpAction} uni={bySlug.slug} signInHref={signInHref} />
       {signIn}
       <p className="mt-2 text-[13px] text-muted">Staff and parents are added by the institute.</p>
     </AuthShell>

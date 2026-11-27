@@ -21,7 +21,7 @@ const STEPS = [
   ["Record", "Each class becomes a lesson, with progress saved for every student."],
   ["List", "A whole course, one lecture or a combo, at the price you set."],
   ["Sell", "Learners anywhere buy in one cart and pay with UPI, a card or netbanking."],
-  ["Get paid", "Every sale is invoiced in your institute's name, with GST."],
+  ["Get paid", "Every sale is invoiced in your institute's name, with GST added if you charge it."],
 ] as const;
 
 function Slider({

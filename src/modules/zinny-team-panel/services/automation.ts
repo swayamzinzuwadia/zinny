@@ -12,6 +12,8 @@
  *     date, on it, then every N days up to a limit). The institute's admins get an in-app
  *     notification and an email; the reminder goes into the invoice's history. Each step
  *     is stored on the invoice (reminder_stage) and is never sent twice.
+ *  3. Licence-end reminders (licenceEndRemindersFor): 30, 14, 7 and 1 days before the end
+ *     date, the admins get a notification and an email, once per step and end date.
  *
  * Overdue is not a stored status: an unpaid invoice past its due date shows as overdue
  * everywhere (see `isOverdue`).
@@ -27,6 +29,7 @@ import { roleAssignments, universities, users } from "@/db/schema";
 import { assertPlatform, notify, sendEmail, systemActorFor, type Actor } from "@/server/core";
 import { ForbiddenError } from "@/server/errors";
 import { platAlerts, platInvoices, platLicences } from "../schema";
+import { reminderLevel } from "../components/licence-reminder";
 import { assertSuperAdmin, canPlatform } from "../lib/access";
 import { chargeFor } from "../lib/charge";
 import { zinnySeller } from "../lib/constants";
@@ -375,3 +378,84 @@ export async function billingOverview(actor: Actor, today = todayIST()) {
   };
 }
 
+
+/* ─────────────────────────── Licence-end reminders ─────────────────────────── */
+
+export const LICENCE_END_REMINDER_KIND = "zinny.licence_end_reminder";
+
+/**
+ * The licence-end reminder to send today, or null: one at 30, 14, 7 and 1 days before the end
+ * date (the same steps as the banners). Only the latest step that has come is sent, so a
+ * missed day doesn't send two at once; a step already sent for this end date is never sent again.
+ */
+export function licenceEndReminderDue(
+  lic: { endDate: string; endReminderFor: string | null; endReminderDays: number | null },
+  today: string,
+): { days: 30 | 14 | 7 | 1; daysLeft: number } | null {
+  const daysLeft = daysBetween(today, lic.endDate);
+  const level = reminderLevel(daysLeft);
+  if (!level || level.ended || level.threshold === 0) return null;
+  const sent = lic.endReminderFor === lic.endDate ? lic.endReminderDays : null;
+  if (sent !== null && sent <= level.threshold) return null;
+  return { days: level.threshold, daysLeft };
+}
+
+/** The reminder's headline and text. */
+export function licenceEndMessage(lic: { endDate: string; autoRenew: boolean }, daysLeft: number) {
+  const when = formatDate(lic.endDate, { year: true });
+  const left = daysLeft === 0 ? "today" : daysLeft === 1 ? "tomorrow" : `in ${daysLeft} days`;
+  if (lic.autoRenew) {
+    return {
+      title: `Your Zinny licence renews on ${when}`,
+      body: `Your licence renews automatically ${left}, on ${when}, and Zinny will send the invoice for the next term. To change your plan or add seats before then, open Settings in Zinny or reply to this email.`,
+    };
+  }
+  return {
+    title: `Your Zinny licence ends on ${when}`,
+    body: `Your licence ends ${left}, on ${when}, and it isn't set to renew. To keep your institute running without a break, renew before then: open Settings in Zinny or reply to this email.`,
+  };
+}
+
+/**
+ * Emails and notifies the institute's admins as its licence end date comes near. Called by the
+ * daily billing job as the institute's system actor. Idempotent: each step is stored on the
+ * licence before the email goes, so a second run the same day sends nothing.
+ */
+export async function licenceEndRemindersFor(actor: Actor, today = todayIST()): Promise<number> {
+  const universityId = assertSystemActor(actor);
+  const [uni] = await db().select({ status: universities.status }).from(universities).where(eq(universities.id, universityId));
+  if (!uni || uni.status !== "active") return 0;
+  const email = await db().transaction(async (tx) => {
+    const [lic] = await tx.select().from(platLicences).where(eq(platLicences.universityId, universityId)).for("update");
+    const due = lic ? licenceEndReminderDue(lic, today) : null;
+    if (!lic || !due) return null;
+    const admins = await instituteAdmins(tx, universityId);
+    const message = licenceEndMessage(lic, due.daysLeft);
+    await tx.update(platLicences).set({ endReminderFor: lic.endDate, endReminderDays: due.days }).where(eq(platLicences.id, lic.id));
+    await notify(
+      tx,
+      universityId,
+      admins.map((a) => a.id),
+      { kind: LICENCE_END_REMINDER_KIND, title: message.title, body: message.body, data: { endDate: lic.endDate, daysLeft: due.daysLeft, autoRenew: lic.autoRenew } },
+    );
+    await logAction(tx, actor, { universityId, inUniversityLog: true }, "plat.licence.end_reminder", "plat_licence", lic.id, {
+      endDate: lic.endDate,
+      step: due.days,
+      recipients: admins.length,
+      automatic: true,
+    });
+    return { to: admins.map((a) => a.email), ...message };
+  });
+  if (!email) return 0;
+  if (email.to.length) {
+    await sendEmail({
+      to: email.to,
+      subject: email.title,
+      text: `${email.body}\n\nZinny`,
+      html: `<p>${escapeHtml(email.body)}</p><p>Zinny</p>`,
+      kind: LICENCE_END_REMINDER_KIND,
+      universityId,
+    }).catch((e) => console.error(`[billing] licence reminder email for ${universityId} failed:`, e));
+  }
+  return 1;
+}

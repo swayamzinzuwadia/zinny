@@ -3,7 +3,7 @@
  * an assignee, and a history of notes). A new enquiry emits `enquiry.received` and notifies
  * everyone who manages the website.
  */
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type { Tx } from "@/db/client";
 import { courses } from "@/db/schema";
 import { audit, emit, notify, peopleLite, systemActorFor, withTenant, type Actor } from "@/server/core";
@@ -182,14 +182,5 @@ export async function addEnquiryNote(actor: Actor, id: string, body: string) {
     await tx.update(siteEnquiries).set({ updatedAt: new Date() }).where(eq(siteEnquiries.id, id));
     await audit(tx, actor, "site.enquiry_note", "site_enquiry", id, {});
     return note;
-  });
-}
-
-/** How many enquiries are in each status. */
-export async function enquiryCounts(actor: Actor) {
-  assertManage(actor);
-  return withTenant(actor, async (tx) => {
-    const rows = await tx.select({ status: siteEnquiries.status, n: sql<number>`count(*)::int` }).from(siteEnquiries).where(inArray(siteEnquiries.status, ENQUIRY_STATUSES)).groupBy(siteEnquiries.status);
-    return Object.fromEntries(rows.map((r) => [r.status, r.n])) as Partial<Record<EnquiryStatus, number>>;
   });
 }

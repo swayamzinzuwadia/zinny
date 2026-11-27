@@ -6,6 +6,8 @@ const src = fileURLToPath(new URL("./src", import.meta.url));
 export default defineConfig({
   // tsconfig keeps jsx "preserve" for Next; tests compile slot components themselves.
   oxc: { jsx: { runtime: "automatic" } },
+  // Tests never render styles: skip the Tailwind PostCSS plugin when a component imports a .css file.
+  css: { postcss: { plugins: [] } },
   resolve: {
     alias: [
       { find: /^@\//, replacement: `${src}/` },

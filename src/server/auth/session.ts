@@ -11,6 +11,12 @@ import "server-only";
  *  - Cookie flags: httpOnly, SameSite=Lax, path=/; in production also Secure with the
  *    __Host- prefix (no Domain attribute, so a subdomain can't set or read it).
  *
+ *  - A session started with a phone code is bound to the institute the code was entered at
+ *    (`scopeUniversityId`). A mobile number can be typed in by an institute's admin, not
+ *    only confirmed by its owner, so it proves nothing outside that institute: there the
+ *    session counts as signed out (currentUserId, spaceContext) and grants no roles
+ *    (loadActor). A phone session that doesn't know its institute opens nothing.
+ *
  *  - A Zinny Super Admin can sign in as someone from the team panel (./impersonation.ts).
  *    That session carries `impersonator_user_id`, lasts two hours at most, never slides,
  *    and stops working the moment the Super Admin stops being one.
@@ -56,13 +62,33 @@ export function cookieOptions(expires?: Date): CookieOptions {
 export type SessionMethod = "password" | "phone" | "invite" | "reset" | "demo";
 export type ClientInfo = { ip: string | null; userAgent: string | null };
 
-/** The caller's IP and browser, from the request headers (Vercel sets x-forwarded-for). */
+/** How many proxies in front of the app append to x-forwarded-for (TRUSTED_PROXY_HOPS, default 1). */
+export function trustedProxyHops(env: NodeJS.ProcessEnv = process.env): number {
+  const n = Number(env.TRUSTED_PROXY_HOPS ?? "1");
+  return Number.isInteger(n) && n >= 1 && n <= 10 ? n : 1;
+}
+
+/**
+ * The caller's IP from the request headers. Each proxy appends the address it got the request
+ * from to x-forwarded-for, so only the entries our own proxies added can be trusted: the one
+ * `hops` from the right. Anything to its left was sent by the caller and is ignored, so nobody
+ * can dodge (or set off) another network's sign-in limits by sending the header themselves.
+ * Vercel replaces the header with the caller's address alone; an AWS load balancer appends it.
+ */
+export function clientIpFrom(h: { get(name: string): string | null }, hops = trustedProxyHops()): string | null {
+  const chain = (h.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const ip = chain.length > 0 ? chain[Math.max(0, chain.length - hops)] : h.get("x-real-ip")?.trim() || null;
+  return ip ? ip.slice(0, 64) : null;
+}
+
+/** The caller's IP and browser, from the request headers. */
 export async function clientInfo(): Promise<ClientInfo> {
   try {
     const h = await headers();
-    const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
-    const ip = forwarded || h.get("x-real-ip")?.trim() || null;
-    return { ip: ip ? ip.slice(0, 64) : null, userAgent: h.get("user-agent")?.slice(0, 400) ?? null };
+    return { ip: clientIpFrom(h), userAgent: h.get("user-agent")?.slice(0, 400) ?? null };
   } catch {
     return { ip: null, userAgent: null };
   }
@@ -72,8 +98,19 @@ export async function clientInfo(): Promise<ClientInfo> {
 
 export type NewSession = { token: string; sessionId: string; expiresAt: Date; cookieExpires: Date };
 
-/** Creates a session row and its device record. The token is returned once and never stored. */
-export async function createSession(userId: string, method: SessionMethod, client: ClientInfo, now = new Date()): Promise<NewSession> {
+/**
+ * Creates a session row and its device record. The token is returned once and never stored.
+ * A phone-code session names the institute it is for (`scopeUniversityId`); one that doesn't
+ * is bound to no institute at all (see resolveSession).
+ */
+export async function createSession(
+  userId: string,
+  method: SessionMethod,
+  client: ClientInfo,
+  now = new Date(),
+  opts: { scopeUniversityId?: string | null } = {},
+): Promise<NewSession> {
+  const scopeUniversityId = opts.scopeUniversityId ?? null;
   const token = randomToken();
   const expiresAt = new Date(now.getTime() + AUTH.session.idleMs);
   const cookieExpires = new Date(now.getTime() + AUTH.session.absoluteMs);
@@ -86,17 +123,23 @@ export async function createSession(userId: string, method: SessionMethod, clien
       ip: client.ip,
       userAgent: client.userAgent,
       lastSeenAt: now,
+      scopeUniversityId,
     });
     return s.id;
   });
   return { token, sessionId, expiresAt, cookieExpires };
 }
 
+/** The scope of a phone-code session that doesn't know its institute: no institute has this id. */
+export const NO_INSTITUTE = "00000000-0000-0000-0000-000000000000";
+
 export type ResolvedSession = {
   sessionId: string;
   userId: string;
   /** The Super Admin really behind this session, when it is a "sign in as" session. */
   impersonatorUserId: string | null;
+  /** Present for a phone-code session: the only institute it counts in. */
+  scopeUniversityId?: string;
 };
 
 /**
@@ -114,11 +157,16 @@ export async function resolveSession(token: string, now = new Date()): Promise<R
       createdAt: sessions.createdAt,
       impersonatorUserId: sessions.impersonatorUserId,
       method: idnSessions.method,
+      scopeUniversityId: idnSessions.scopeUniversityId,
     })
     .from(sessions)
     .leftJoin(idnSessions, eq(idnSessions.sessionId, sessions.id))
     .where(and(eq(sessions.tokenHash, sha256(token)), gt(sessions.expiresAt, now)));
   if (!s) return null;
+
+  // A phone-code session that doesn't know its institute (one made before sessions were
+  // bound) is bound to none: it opens nothing until the person signs in again.
+  const scopeUniversityId = s.scopeUniversityId ?? (s.method === "phone" ? NO_INSTITUTE : null);
 
   if (s.impersonatorUserId || s.method === IMPERSONATION_METHOD) {
     // A "sign in as" session: two hours from when it started, never extended, and only
@@ -141,7 +189,7 @@ export async function resolveSession(token: string, now = new Date()): Promise<R
     await db.update(sessions).set({ expiresAt: new Date(wanted) }).where(eq(sessions.id, s.id));
     await db.update(idnSessions).set({ lastSeenAt: now }).where(eq(idnSessions.sessionId, s.id));
   }
-  return { sessionId: s.id, userId: s.userId, impersonatorUserId: null };
+  return { sessionId: s.id, userId: s.userId, impersonatorUserId: null, ...(scopeUniversityId ? { scopeUniversityId } : {}) };
 }
 
 export async function destroySessionByToken(token: string): Promise<void> {
@@ -216,11 +264,15 @@ export async function pruneSessions(now = new Date()): Promise<number> {
   return gone.length;
 }
 
-/** This token's session, if it is this person's and was made in the last moments. */
-async function freshSession(token: string, userId: string, now: Date): Promise<NewSession | null> {
+/**
+ * This token's session, if it is this person's, was made in the last moments, and is bound
+ * to the same institute (or to none) as the sign-in asking for it.
+ */
+async function freshSession(token: string, userId: string, now: Date, scopeUniversityId: string | null): Promise<NewSession | null> {
   const [s] = await systemDb()
     .select({ id: sessions.id, expiresAt: sessions.expiresAt, createdAt: sessions.createdAt })
     .from(sessions)
+    .innerJoin(idnSessions, eq(idnSessions.sessionId, sessions.id))
     .where(
       and(
         eq(sessions.tokenHash, sha256(token)),
@@ -228,6 +280,7 @@ async function freshSession(token: string, userId: string, now: Date): Promise<N
         isNull(sessions.impersonatorUserId),
         gt(sessions.expiresAt, now),
         gt(sessions.createdAt, new Date(now.getTime() - AUTH.session.repeatSignInMs)),
+        scopeUniversityId ? eq(idnSessions.scopeUniversityId, scopeUniversityId) : isNull(idnSessions.scopeUniversityId),
       ),
     );
   if (!s) return null;
@@ -243,15 +296,16 @@ async function freshSession(token: string, userId: string, now: Date): Promise<N
 export async function startSession(
   userId: string,
   method: SessionMethod = "password",
-  opts: { jar?: CookieJar; client?: ClientInfo; now?: Date; keepFresh?: boolean } = {},
+  opts: { jar?: CookieJar; client?: ClientInfo; now?: Date; keepFresh?: boolean; scopeUniversityId?: string | null } = {},
 ): Promise<NewSession> {
   const jar = await jarOf(opts.jar);
   const name = sessionCookieName();
   const previous = jar.get(name)?.value;
+  const scope = opts.scopeUniversityId ?? null;
   if (previous) {
     // A double click signs in twice. Ending the session the first click just made would
     // leave the browser on a dead session, and the next page would send it to sign-in.
-    const fresh = opts.keepFresh ? await freshSession(previous, userId, opts.now ?? new Date()) : null;
+    const fresh = opts.keepFresh ? await freshSession(previous, userId, opts.now ?? new Date(), scope) : null;
     if (fresh) return fresh;
     await destroySessionByToken(previous);
   }
@@ -261,7 +315,7 @@ export async function startSession(
     await destroySessionByToken(back);
     jar.delete(returnCookieName());
   }
-  const s = await createSession(userId, method, opts.client ?? (await clientInfo()), opts.now);
+  const s = await createSession(userId, method, opts.client ?? (await clientInfo()), opts.now, { scopeUniversityId: scope });
   jar.set(name, s.token, cookieOptions(s.cookieExpires));
   return s;
 }
@@ -300,8 +354,16 @@ export async function sessionFromCookies(jar: Pick<CookieJar, "get">, now = new 
 /** The signed-in session (id and person), or null. Cached for the duration of one request. */
 export const currentSession = cache(async (): Promise<ResolvedSession | null> => sessionFromCookies((await cookies()) as unknown as CookieJar));
 
-/** The signed-in user's id, or null. Cached for the duration of one request. */
-export const currentUserId = cache(async (): Promise<string | null> => (await currentSession())?.userId ?? null);
+/**
+ * The signed-in user's id, or null. Cached for the duration of one request. A phone-code
+ * session counts only inside its own institute, which spaceContext checks through
+ * currentSession; everywhere else (the space picker, the marketplace, /join, /privacy, the
+ * Zinny panel) it is treated as signed out.
+ */
+export const currentUserId = cache(async (): Promise<string | null> => {
+  const s = await currentSession();
+  return s && !s.scopeUniversityId ? s.userId : null;
+});
 
 /* ───────────────────────────── Spaces ───────────────────────────── */
 

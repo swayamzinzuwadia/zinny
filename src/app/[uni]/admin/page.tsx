@@ -94,14 +94,12 @@ export default async function Dashboard({
   const { done, classDone } = await searchParams;
   const { actor, university } = await spaceContext(uni);
   const base = `/${uni}/admin`;
-  const data = await dashboard(actor);
   // "Get set up" for a new institute: until every step is done, or the admin hides it.
   const hidden = (await cookies()).get(setupHiddenCookie(university.id))?.value === "1";
-  const checklist = hidden ? null : await setupChecklist(actor, uni);
+  const [data, checklist] = await Promise.all([dashboard(actor), hidden ? Promise.resolve(null) : setupChecklist(actor, uni)]);
   const setup = checklist && checklist.done < checklist.total ? checklist : null;
   const courseReach = reach(actor, "course.create", university.id);
   const canNewCourse = can(actor, "department.manage", { universityId: university.id }) || courseReach.all || courseReach.departmentIds.size > 0;
-  const requests = data.canDecideSwitches ? await listSwitchRequests(actor) : [];
   // Students asking for a seat (faculty, HODs, admins) and asking to join (admins, HODs), and
   // the joining code for the people who accept new students.
   const admits = canAdmit(actor);
@@ -121,7 +119,8 @@ export default async function Dashboard({
     today: data.today,
   };
   const entries = slotsInReach("dashboardCards", actor, university.id);
-  const [enrolRequests, joinRequests, joining, today, choices, fee, overdue, departments, moduleRows, monthLines] = await Promise.all([
+  const [requests, enrolRequests, joinRequests, joining, today, choices, fee, overdue, departments, moduleRows, monthLines] = await Promise.all([
+    data.canDecideSwitches ? listSwitchRequests(actor) : Promise.resolve([]),
     listEnrolmentRequests(actor),
     admits ? listJoinRequests(actor) : Promise.resolve([]),
     admits ? getJoinSettings(actor) : Promise.resolve(null),

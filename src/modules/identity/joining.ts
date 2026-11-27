@@ -32,7 +32,8 @@ import {
 } from "@/server/core";
 import { ConflictError, NotFoundError, ValidationError } from "@/server/errors";
 import { personActor } from "@/server/auth/audit";
-import { appUrl } from "@/server/auth/config";
+import { LIMITS, appUrl, humanDuration } from "@/server/auth/config";
+import { lockedUntil, recordFailure, throttleKey } from "@/server/auth/throttle";
 import { mktLearners } from "@/modules/marketplace/schema";
 import { joinDecisionEmail } from "./emails";
 import { landingFor } from "./labels";
@@ -73,6 +74,23 @@ export async function findInstituteByCode(raw: string | null | undefined) {
 }
 
 export type JoinTarget = NonNullable<Awaited<ReturnType<typeof findInstituteByCode>>>;
+
+/**
+ * findInstituteByCode for a code someone typed: codes that match nothing are counted per person
+ * and per network (LIMITS.joinCodeGuesses), and too many pause joining by code for a while.
+ */
+export async function findInstituteByTypedCode(raw: string | null | undefined, who: { userId?: string | null; ip?: string | null }, now = new Date()) {
+  const keys = [who.userId ? throttleKey("join-code-user", who.userId) : null, who.ip ? throttleKey("join-code-ip", who.ip) : null].filter((k): k is string => !!k);
+  for (const key of keys) {
+    const until = await lockedUntil(key, now);
+    if (until) {
+      throw new ValidationError(`Too many joining codes didn't match an institute. Try again in ${humanDuration(until.getTime() - now.getTime())}, and check the code with your institute.`, "code_locked");
+    }
+  }
+  const target = await findInstituteByCode(raw);
+  if (!target) for (const key of keys) await recordFailure(key, LIMITS.joinCodeGuesses, now);
+  return target;
+}
 
 /* ───────────────────────────── Learner side ───────────────────────────── */
 
@@ -149,8 +167,8 @@ export async function joinTx(
 }
 
 /** A signed-in learner joins (or asks to join) with a code, from /join. */
-export async function joinWithCode(userId: string, input: { code: string; departmentId?: string | null; message?: string | null }) {
-  const target = await findInstituteByCode(input.code);
+export async function joinWithCode(userId: string, input: { code: string; departmentId?: string | null; message?: string | null; ip?: string | null }) {
+  const target = await findInstituteByTypedCode(input.code, { userId, ip: input.ip });
   if (!target) throw new ValidationError("We can't find an institute with that code. Check it with your institute and try again.", "unknown_code");
   return systemDb().transaction(async (tx) => {
     const [person] = await tx.select({ id: users.id, name: users.name, email: users.email }).from(users).where(eq(users.id, userId));

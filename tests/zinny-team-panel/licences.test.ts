@@ -20,8 +20,11 @@ afterAll(async () => {
 });
 
 let am: Actor;
+/** Caps set by hand on the same plan need platform.seat_pricing: a Super Admin's by default. */
+let caps: Actor;
 beforeAll(async () => {
   am = await team("Lic Manager", "account_manager");
+  caps = await team("Lic Caps", "super_admin");
 });
 
 async function people(universityId: string, students: number, staff: { role: "institute_admin" | "hod" | "permanent_faculty" | "visiting_faculty"; departmentId?: string }[]) {
@@ -136,11 +139,11 @@ describe("licence rules", () => {
     expect(worse).toMatchObject({ id: capAlert.id, level: "critical", acknowledgedAt: null });
 
     // Raising the cap and extending the term clears both.
-    await saveLicence(am, U.id, licence({ studentCap: 100, startDate: addDays(today, -300), endDate: addDays(today, 200) }));
+    await saveLicence(caps, U.id, licence({ studentCap: 100, startDate: addDays(today, -300), endDate: addDays(today, 200) }));
     expect(await open()).toEqual([]);
 
     // Suspended: no warnings even when over the cap.
-    await saveLicence(am, U.id, licence({ studentCap: 5, startDate: addDays(today, -300), endDate: addDays(today, 200) }));
+    await saveLicence(caps, U.id, licence({ studentCap: 5, startDate: addDays(today, -300), endDate: addDays(today, 200) }));
     expect(await open()).toHaveLength(1);
     await setUniversityStatus(am, U.id, "suspended", "Licence unpaid since September");
     expect(await open()).toEqual([]);

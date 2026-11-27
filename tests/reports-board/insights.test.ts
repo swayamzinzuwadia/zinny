@@ -99,13 +99,15 @@ describe("enrolments, completion and revenue", () => {
 
   it("shows seats taken against the limit for running and upcoming batches", async () => {
     const data = await loadInsights(w.admin, NOW);
-    expect(data.scopeLabel).toBe("the whole university");
+    expect(data.scopeLabel).toBe("the whole institute");
+    // Fullest first. Marketplace purchases enrol into the course's recorded batch, which has no
+    // seat limit and isn't listed here, so they don't take seats in the live Weekday morning batch.
     expect(data.batchFill.map((b) => [b.course, b.batch, b.taken, b.held, b.limit])).toEqual([
-      ["Data Analytics", "Weekday morning", 3, 1, 20],
       ["Digital Marketing", "Evening", 2, 0, 25],
+      ["Data Analytics", "Weekday morning", 0, 0, 20],
     ]);
-    expect(data.batchFill[0].fill).toBe(15);
-    expect(data.batchFill[0].startsOn).toBe("2030-11-04");
+    expect(data.batchFill[0].fill).toBe(8);
+    expect(data.batchFill[1].startsOn).toBe("2030-11-04");
     expect(data.stats.openBatches).toBe(2);
   });
 });

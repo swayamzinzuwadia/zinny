@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { buttonClass, cx } from "@/components/ui";
 import { demoEnabled } from "@/server/auth/config";
 import { currentUserId } from "@/server/auth/session";
-import { availableDemoAccounts, loginUniversity, phoneSignInView, safeNext, slugFromNext } from "@/modules/identity/auth";
+import { availableDemoAccounts, loginUniversity, phoneSignInView, safeNext, slugFromNext, teamDemoAllowed } from "@/modules/identity/auth";
 import { AuthShell, AuthTabs } from "@/modules/identity/components/auth-shell";
 import { DemoButton, PasswordSignInForm, PhoneChooseForm, PhoneCodeForm, PhoneNumberForm } from "@/modules/identity/components/auth-forms";
 import { PHONE_COOKIE, UNI_COOKIE } from "@/modules/identity/cookies";
@@ -78,6 +78,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                 </form>
               ))}
             </div>
+            {/* On a production build the Zinny team accounts aren't one click unless the site opts in (ZINNY_DEMO_TEAM): say so, so it isn't taken for a missing button. */}
+            {!teamDemoAllowed() && <p className="mt-3 text-[13px] text-muted">Zinny team demo accounts, Super Admin and Support Agent, sign in with their email and password above.</p>}
           </div>
         ) : undefined
       }

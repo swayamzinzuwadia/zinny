@@ -242,14 +242,3 @@ export async function addNote(actor: Actor, partnerId: string, body: string) {
     return n;
   });
 }
-
-/** Zinny team members who can own a partner relationship. */
-export async function partnerOwners(actor: Actor) {
-  assertPlatform(actor, "platform.partners");
-  return db()
-    .selectDistinct({ id: users.id, name: users.name })
-    .from(users)
-    .innerJoin(roleAssignments, eq(roleAssignments.userId, users.id))
-    .where(and(eq(roleAssignments.scopeType, "platform"), sql`${roleAssignments.revokedAt} is null`))
-    .orderBy(asc(users.name));
-}

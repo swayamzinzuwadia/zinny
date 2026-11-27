@@ -28,7 +28,7 @@ export function canOpenInsights(actor: Actor): boolean {
 
 export type Insights = {
   universityName: string;
-  /** "the whole university", or the HOD's department names. */
+  /** "the whole institute", or the HOD's department names. */
   scopeLabel: string;
   wholeUniversity: boolean;
   today: string;

@@ -92,10 +92,6 @@ export function canSeeScoped(vis: { all: boolean; ids: Set<string> }, department
   return departmentId === null || vis.all || vis.ids.has(departmentId);
 }
 
-export function canManageScoped(actor: Actor, departmentId: string | null): boolean {
-  return can(actor, "leaderboard.manage", scopeTarget(uni(actor), departmentId));
-}
-
 /** Departments the actor can create department-scoped items in, and whether they can create university-wide ones. */
 export function manageableScopes(actor: Actor, dir: Directory) {
   const u = uni(actor);

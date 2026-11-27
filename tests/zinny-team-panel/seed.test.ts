@@ -5,7 +5,7 @@ import { auditLog, universities } from "@/db/schema";
 import { setTestModules } from "@/server/registry";
 import { seedDemo } from "@/db/seed";
 import zinnyTeamPanel from "@/modules/zinny-team-panel";
-import { platAlerts, platContentFlags, platInvoices, platLicences, platPartners } from "@/modules/zinny-team-panel/schema";
+import { platAlerts, platContentFlags, platInvoices, platLicences, platPartners, platSeatPacks } from "@/modules/zinny-team-panel/schema";
 
 afterAll(async () => {
   setTestModules([]);
@@ -23,7 +23,7 @@ async function quietSeed() {
 }
 
 describe("seed", () => {
-  it("adds licences for two universities, invoices, partners, a flag and a support session, and can run again", async () => {
+  it("adds licences for two universities, invoices, partners and a support session, and no content flag, and can run again", async () => {
     setTestModules([zinnyTeamPanel], { only: true });
     await quietSeed();
     const ctx = await quietSeed();
@@ -33,11 +33,17 @@ describe("seed", () => {
     expect(lics.filter((l) => l.universityId === ctx.universityId || l.universityId === riverside.id)).toHaveLength(2);
     const alerts = await systemDb().select().from(platAlerts).where(and(eq(platAlerts.universityId, ctx.universityId), isNull(platAlerts.resolvedAt)));
     expect(alerts.map((a) => a.kind).sort()).toEqual(["licence_end", "student_cap"]);
-    expect(await systemDb().select().from(platInvoices).where(eq(platInvoices.universityId, ctx.universityId))).toHaveLength(2);
+    // The licence, an extra charge, and the staff pack the institute bought (paid).
+    const demoInvoices = await systemDb().select().from(platInvoices).where(eq(platInvoices.universityId, ctx.universityId));
+    expect(demoInvoices).toHaveLength(3);
+    const packs = await systemDb().select().from(platSeatPacks).where(eq(platSeatPacks.universityId, ctx.universityId));
+    expect(packs).toEqual([expect.objectContaining({ kind: "staff", packs: 1, seatsPerPack: 5, source: "institute" })]);
+    expect(demoInvoices.find((i) => i.id === packs[0].invoiceId)).toMatchObject({ status: "paid" });
+    expect(lics.find((l) => l.universityId === ctx.universityId)).toMatchObject({ staffCap: 25 });
     expect(await systemDb().select().from(platInvoices).where(eq(platInvoices.universityId, riverside.id))).toHaveLength(2);
     const partners = (await systemDb().select().from(platPartners)).map((p) => p.name);
     for (const n of ["BrightPath Skills Foundation", "Kalpana Infotech", "Northwind Analytics"]) expect(partners.filter((x) => x === n)).toHaveLength(1);
-    expect(await systemDb().select().from(platContentFlags).where(eq(platContentFlags.universityId, ctx.universityId))).toHaveLength(1);
+    expect(await systemDb().select().from(platContentFlags).where(eq(platContentFlags.universityId, ctx.universityId))).toHaveLength(0);
     const support = await systemDb().select().from(auditLog).where(eq(auditLog.universityId, ctx.universityId));
     expect(support.map((l) => l.action)).toEqual(expect.arrayContaining(["support.enter", "support.exit"]));
   });

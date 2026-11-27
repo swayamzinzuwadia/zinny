@@ -128,6 +128,43 @@
         "src/app/marketplace/",
         "src/app/[uni]/admin/products/marketplace/"
       ]
+    },
+    "onboarding": {
+      "module": "onboarding",
+      "port": 3114,
+      "paths": [
+        "src/modules/onboarding/",
+        "src/app/signup/",
+        "src/app/book-a-demo/",
+        "src/app/frozen/",
+        "src/app/[uni]/admin/choose-plan/",
+        "src/app/[uni]/learn/kyc/",
+        "src/app/platform/signups/"
+      ]
+    },
+    "privacy": {
+      "module": "privacy",
+      "port": 3205,
+      "paths": [
+        "src/modules/privacy/",
+        "src/app/privacy/",
+        "src/app/[uni]/profile/privacy/",
+        "src/app/[uni]/admin/settings/privacy/",
+        "src/app/platform/privacy/",
+        "src/app/layout.tsx",
+        "src/app/signup/",
+        "src/app/[uni]/learn/kyc/actions.ts",
+        "src/modules/onboarding/components/institute-signup.tsx",
+        "src/server/authz/menu.ts",
+        "src/server/authz/roles.ts",
+        "src/server/authz/abilities.ts",
+        "src/modules/zinny-team-panel/lib/access.ts",
+        "src/contracts/module.ts",
+        "docs/plan/ownership.json",
+        "tests/authz.test.ts",
+        "docs/compliance/dpdp.md",
+        "tests/zinny-team-panel/permissions.test.ts"
+      ]
     }
   }
 }

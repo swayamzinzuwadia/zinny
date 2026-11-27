@@ -8,6 +8,9 @@ import { NotFoundError } from "@/server/errors";
 import { setStatusAction, updateBasicsAction } from "@/modules/zinny-team-panel/actions";
 import { Fact, NoAccess, PlanBadge, RenewalText, StatusBadge, UsageMeter } from "@/modules/zinny-team-panel/components/bits";
 import { LicencePanel } from "@/modules/zinny-team-panel/components/licence-panel";
+import { addPacksAction, removePacksAction, setCapsAction } from "../../licences/[id]/seat-actions";
+import { DataPage, Morph } from "@/modules/zinny-team-panel/components/data-motion";
+import { instituteMorphName } from "@/modules/zinny-team-panel/components/institute-names";
 import { OpenInstitute } from "@/modules/zinny-team-panel/components/open-institute";
 import { PersonActions } from "@/modules/zinny-team-panel/components/person-actions";
 import { canSeeContentFlags, isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
@@ -73,7 +76,9 @@ export default async function UniversityPage({ params, searchParams }: { params:
   ]);
 
   return (
-    <>
+    <DataPage>
+      <Morph name={instituteMorphName(u.id)}>
+        <div>
       <PageHeader
         title={u.name}
         subtitle={
@@ -138,7 +143,7 @@ export default async function UniversityPage({ params, searchParams }: { params:
               </dl>
             </Card>
 
-            {can.flags && (
+            {can.flags && flags.length > 0 && (
               <Card>
                 <CardTitle
                   hint={
@@ -210,7 +215,7 @@ export default async function UniversityPage({ params, searchParams }: { params:
         </div>
       )}
 
-      {tab === "licence" && licenceData && <LicencePanel actor={actor} data={licenceData} />}
+      {tab === "licence" && licenceData && <LicencePanel actor={actor} data={licenceData} seatActions={{ add: addPacksAction, remove: removePacksAction, caps: setCapsAction }} />}
 
       {tab === "people" && people && (
         <Card>
@@ -362,6 +367,8 @@ export default async function UniversityPage({ params, searchParams }: { params:
           </div>
         </div>
       )}
-    </>
+        </div>
+      </Morph>
+    </DataPage>
   );
 }

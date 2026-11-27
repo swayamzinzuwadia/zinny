@@ -54,6 +54,31 @@ export function drizzlePush(url: string, cwd = process.cwd()) {
   }
 }
 
+/**
+ * Fails unless `url` (the app's DATABASE_URL) connects as a role that row-level security
+ * binds: not a superuser, no BYPASSRLS, owning no table. Pointing DATABASE_URL at the
+ * owner connection by mistake would otherwise let every institute see every other one.
+ */
+export async function verifyAppRole(url: string) {
+  const sql = postgres(url, { max: 1, onnotice: () => {} });
+  try {
+    const [r] = await sql<{ name: string; super: boolean; bypass: boolean; owns: boolean }[]>`
+      select current_user as name, r.rolsuper as super, r.rolbypassrls as bypass,
+             exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                      where n.nspname = 'public' and c.relowner = r.oid) as owns
+        from pg_roles r where r.rolname = current_user`;
+    const why = r.super ? "is a superuser" : r.bypass ? "has BYPASSRLS" : r.owns ? "owns tables" : null;
+    if (why) {
+      throw new Error(
+        `DATABASE_URL connects as ${r.name}, which ${why}, so row-level security would not keep institutes apart. ` +
+          "Point DATABASE_URL at the app role (zinny_app) and keep the owner only in DATABASE_URL_OWNER.",
+      );
+    }
+  } finally {
+    await sql.end();
+  }
+}
+
 /** Push the schema and apply row-level security, optionally after wiping the database. */
 export async function pushDatabase(url: string, opts: { reset?: boolean; cwd?: string } = {}) {
   if (opts.reset) await dropEverything(url);
@@ -67,6 +92,7 @@ async function main() {
   const reset = process.argv.includes("--reset");
   const dbName = new URL(url).pathname.slice(1);
   await pushDatabase(url, { reset });
+  if (process.env.DATABASE_URL) await verifyAppRole(process.env.DATABASE_URL);
   console.log(`${reset ? "Reset and pushed" : "Pushed"} the schema and row-level security to ${dbName}.`);
 }
 

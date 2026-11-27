@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { display, text } from "./fonts";
 import css from "./landing.module.css";
-import { Features } from "./components/Features";
+import { Audiences } from "./components/Audiences";
 import { Film } from "./components/Film";
 import { Finale } from "./components/Finale";
 import { Hero } from "./components/Hero";
@@ -24,7 +24,7 @@ export function LandingPage({ shelf, onSale }: { shelf: ReactNode; onSale: numbe
         <Hero />
         <Film />
         <Loop />
-        <Features />
+        <Audiences />
         <Learners shelf={shelf} count={onSale} />
         <India />
         <Finale />

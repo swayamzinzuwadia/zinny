@@ -46,6 +46,14 @@ export const platPlans = pgTable(
     /** Module ids a new licence on this plan starts with. */
     modules: jsonb("modules").$type<string[]>().notNull().default([]),
     gstRateBp: integer("gst_rate_bp").notNull().default(1800),
+    /**
+     * Seat packs on this plan, when they differ from the billing settings' defaults. Null:
+     * the default. Sizes are people per pack; prices are before GST for a year of one pack.
+     */
+    studentPackSize: integer("student_pack_size"),
+    studentPackPricePaise: integer("student_pack_price_paise"),
+    staffPackSize: integer("staff_pack_size"),
+    staffPackPricePaise: integer("staff_pack_price_paise"),
     sortOrder: integer("sort_order").notNull().default(0),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     createdAt: createdAt(),
@@ -57,6 +65,10 @@ export const platPlans = pgTable(
     check("plat_plan_price", sql`${t.pricePaise} >= 0`),
     check("plat_plan_months", sql`${t.billingMonths} between 1 and 120`),
     check("plat_plan_caps", sql`${t.studentCap} > 0 and ${t.staffCap} > 0`),
+    check(
+      "plat_plan_packs",
+      sql`coalesce(${t.studentPackSize}, 1) > 0 and coalesce(${t.staffPackSize}, 1) > 0 and coalesce(${t.studentPackPricePaise}, 0) >= 0 and coalesce(${t.staffPackPricePaise}, 0) >= 0`,
+    ),
   ],
 );
 
@@ -84,6 +96,12 @@ export const platLicences = pgTable(
     notes: text("notes"),
     /** Renewed by the daily billing job before it ends: the next term at the plan's price then, invoiced. */
     autoRenew: boolean("auto_renew").notNull().default(true),
+    /**
+     * Licence-end reminders already emailed to the institute's admins: the end date they were
+     * for and the smallest step sent (30, 14, 7 or 1 days before). A new end date starts over.
+     */
+    endReminderFor: date("end_reminder_for"),
+    endReminderDays: integer("end_reminder_days"),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
@@ -318,6 +336,17 @@ export const platBillingSettings = pgTable(
     remindEveryDaysAfter: integer("remind_every_days_after").notNull().default(7),
     /** …up to this many. */
     maxOverdueReminders: integer("max_overdue_reminders").notNull().default(3),
+    /**
+     * Seat packs: users an institute adds mid-term, in packs. Size is people per pack; price
+     * is before GST for a year of one pack (a mid-term purchase pays for the days left). A
+     * plan can set its own (plat_plans.*_pack_*). Changed only with platform.seat_pricing.
+     */
+    studentPackSize: integer("student_pack_size").notNull().default(25),
+    studentPackPricePaise: integer("student_pack_price_paise").notNull().default(2_500_00),
+    staffPackSize: integer("staff_pack_size").notNull().default(5),
+    staffPackPricePaise: integer("staff_pack_price_paise").notNull().default(3_000_00),
+    packsUpdatedAt: timestamp("packs_updated_at", { withTimezone: true }),
+    packsUpdatedBy: uuid("packs_updated_by").references(() => users.id, { onDelete: "set null" }),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     updatedBy: uuid("updated_by").references(() => users.id, { onDelete: "set null" }),
   },
@@ -328,6 +357,10 @@ export const platBillingSettings = pgTable(
       "plat_billing_settings_reminders",
       sql`${t.remindDaysBefore} between 0 and 30 and ${t.remindEveryDaysAfter} between 1 and 60 and ${t.maxOverdueReminders} between 0 and 10`,
     ),
+    check(
+      "plat_billing_settings_packs",
+      sql`${t.studentPackSize} > 0 and ${t.staffPackSize} > 0 and ${t.studentPackPricePaise} >= 0 and ${t.staffPackPricePaise} >= 0`,
+    ),
   ],
 );
 
@@ -336,3 +369,54 @@ export const platInvoiceCounters = pgTable("plat_invoice_counters", {
   financialYear: text("financial_year").primaryKey(),
   lastSeq: integer("last_seq").notNull().default(0),
 });
+
+/* ─────────────────────────── Seat packs ─────────────────────────── */
+
+/**
+ * Users an institute added to its licence mid-term, in packs: one row per purchase. A
+ * purchase's seats are added to the licence's cap when it is made (plat_licences.student_cap
+ * or staff_cap always holds the total) and taken off again when packs are removed. `packs`
+ * is how many of `packs_bought` are still on the licence; those renew with it, at the pack
+ * price on the day it renews.
+ *
+ * `unit_price_paise` is the year price of one pack when bought; `charged_paise` is what the
+ * purchase was invoiced before GST (pro-rated for the days left in the term, to the rupee).
+ */
+export const platSeatPacks = pgTable(
+  "plat_seat_packs",
+  {
+    id: id(),
+    universityId: universityId(),
+    licenceId: uuid("licence_id")
+      .notNull()
+      .references(() => platLicences.id, { onDelete: "cascade" }),
+    /** "student" | "staff" */
+    kind: text("kind").notNull(),
+    packsBought: integer("packs_bought").notNull(),
+    /** Still on the licence: 0 once every pack of this purchase was removed. */
+    packs: integer("packs").notNull(),
+    seatsPerPack: integer("seats_per_pack").notNull(),
+    unitPricePaise: integer("unit_price_paise").notNull(),
+    chargedPaise: integer("charged_paise").notNull().default(0),
+    /** The days this purchase paid for: from the day it was made to the licence's end date then. */
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+    invoiceId: uuid("invoice_id").references(() => platInvoices.id, { onDelete: "set null" }),
+    /** "institute" (bought on the institute's Seats page) | "zinny" (added by the Zinny team) */
+    source: text("source").notNull(),
+    note: text("note"),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("plat_seat_packs_licence_idx").on(t.licenceId, t.kind),
+    index("plat_seat_packs_university_idx").on(t.universityId, t.createdAt),
+    index("plat_seat_packs_invoice_idx").on(t.invoiceId),
+    check("plat_seat_pack_kind", sql`${t.kind} in ('student', 'staff')`),
+    check("plat_seat_pack_source", sql`${t.source} in ('institute', 'zinny')`),
+    check("plat_seat_pack_counts", sql`${t.packsBought} > 0 and ${t.packs} >= 0 and ${t.packs} <= ${t.packsBought} and ${t.seatsPerPack} > 0`),
+    check("plat_seat_pack_money", sql`${t.unitPricePaise} >= 0 and ${t.chargedPaise} >= 0`),
+    check("plat_seat_pack_period", sql`${t.periodEnd} >= ${t.periodStart}`),
+  ],
+);

@@ -120,12 +120,21 @@ export default async function DataRowPage({
                   ))}
                 </div>
                 <div className="mt-6 flex flex-wrap items-center gap-3">
-                  <SubmitButton pendingText="Saving…">
-                    Save changes
-                  </SubmitButton>
-                  <span className="text-[13px] text-muted">
-                    Only the values you change are written.
-                  </span>
+                  {t.readOnly ? (
+                    <span className="text-[13px] text-muted">
+                      This table is the record of what happened, so it can be
+                      read here but not changed.
+                    </span>
+                  ) : (
+                    <>
+                      <SubmitButton pendingText="Saving…">
+                        Save changes
+                      </SubmitButton>
+                      <span className="text-[13px] text-muted">
+                        Only the values you change are written.
+                      </span>
+                    </>
+                  )}
                 </div>
               </ActionForm>
             </Card>
@@ -213,6 +222,7 @@ export default async function DataRowPage({
                 </Card>
               )}
 
+              {!t.readOnly && (
               <Card className="p-5">
                 <CardTitle>Delete this row</CardTitle>
                 <p className="mb-3 text-[13px] text-muted">
@@ -236,6 +246,7 @@ export default async function DataRowPage({
                   </div>
                 </ActionForm>
               </Card>
+              )}
             </div>
           </div>
         </div>

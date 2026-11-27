@@ -142,6 +142,11 @@ async function assignRoleTx(tx: Tx, actor: Actor, input: RoleInput) {
 }
 
 async function assignRoleTxFlagged(tx: Tx, actor: Actor, given: RoleInput) {
+  // Support mode is Institute Admin for two hours. Giving yourself a role from inside it would
+  // keep that access after the session ends, so a Zinny team member can't (PRD page 9).
+  if (actor.supportSessionId && given.userId === actor.userId) {
+    throw new ForbiddenError("In support mode you can't give yourself a role here. Your access ends with the support session.");
+  }
   // A custom role is named by id. Its kind comes from the role, never from the form.
   if (!given.customRoleId && CUSTOM_ROLES.has(given.role)) throw new ValidationError("Pick which custom role to give.");
   const custom = given.customRoleId ? await liveCustomRole(tx, uni(actor), given.customRoleId) : null;

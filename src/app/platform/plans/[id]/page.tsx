@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Badge, Card, CardTitle, PageHeader } from "@/components/ui";
-import { canPlatform } from "@/server/core";
 import { platformContext } from "@/server/context";
 import { NotFoundError } from "@/server/errors";
 import { archivePlanAction, deletePlanAction, restorePlanAction } from "@/modules/zinny-team-panel/actions";
@@ -10,6 +9,11 @@ import { PlanForm } from "@/modules/zinny-team-panel/components/plan-form";
 import { isSuperAdmin } from "@/modules/zinny-team-panel/lib/access";
 import { formatDateTime, formatINR, plural } from "@/modules/zinny-team-panel/lib/format";
 import { getPlan } from "@/modules/zinny-team-panel/services/plans";
+import { canPlatform } from "@/server/core";
+import Link from "next/link";
+import { PackTermsForm } from "@/modules/zinny-team-panel/components/pack-terms-form";
+import { readSeatPackSettings } from "@/modules/zinny-team-panel/services/billing-settings";
+import { savePlanPacksAction } from "../../billing/settings/seat-actions";
 
 export const metadata = { title: "Plan" };
 
@@ -22,6 +26,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
     throw e;
   });
   const canEdit = isSuperAdmin(actor);
+  const packDefaults = await readSeatPackSettings();
 
   return (
     <>
@@ -52,6 +57,18 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
               <Fact label="Created">{formatDateTime(p.createdAt)}</Fact>
               <Fact label="Last changed">{formatDateTime(p.updatedAt)}</Fact>
             </dl>
+          </Card>
+          <Card>
+            <CardTitle hint={<Link href="/platform/billing/settings#seat-packs" className="hover:text-brand">Defaults</Link>}>Seat packs on this plan</CardTitle>
+            <p className="mb-4 text-[13px] text-muted">Leave a field empty to use the default from billing settings. Changes apply to packs bought or renewed from now on.</p>
+            <PackTermsForm
+              action={savePlanPacksAction}
+              values={{ studentPackSize: p.studentPackSize, studentPackPricePaise: p.studentPackPricePaise, staffPackSize: p.staffPackSize, staffPackPricePaise: p.staffPackPricePaise }}
+              defaults={packDefaults}
+              canEdit={canPlatform(actor, "platform.seat_pricing")}
+              hidden={{ planId: p.id }}
+              submitLabel="Save seat packs"
+            />
           </Card>
           {canEdit && (
             <Card>

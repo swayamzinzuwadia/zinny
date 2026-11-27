@@ -1,0 +1,90 @@
+/*
+ * The collapsible sidebar. The width and which parts show follow data-collapsed on the aside:
+ * "true" is the icon rail, "false" is open, "auto" is open on wide screens and a rail on
+ * tablets. Plain CSS (not utilities) so the first paint is right without JavaScript.
+ */
+
+.zs-aside {
+  width: 264px;
+  overflow-x: clip;
+  transition: width 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.zs-aside .zs-label {
+  white-space: nowrap;
+  animation: zs-fade 220ms ease-out 60ms both;
+}
+.zs-rail-only {
+  display: none;
+}
+
+/* The rail */
+.zs-aside[data-collapsed="true"] {
+  width: 72px;
+}
+.zs-aside[data-collapsed="true"] .zs-label,
+.zs-aside[data-collapsed="true"] .zs-wide-only,
+.zs-aside[data-collapsed="true"] .zs-sub {
+  display: none;
+}
+.zs-aside[data-collapsed="true"] .zs-rail-only {
+  display: block;
+}
+.zs-aside[data-collapsed="true"] .zs-row {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
+}
+.zs-aside[data-collapsed="true"] .zs-head {
+  padding-inline: 0;
+  text-align: center;
+}
+.zs-aside[data-collapsed="true"] .zs-account {
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (min-width: 768px) and (max-width: 1279.98px) {
+  .zs-aside[data-collapsed="auto"] {
+    width: 72px;
+  }
+  .zs-aside[data-collapsed="auto"] .zs-label,
+  .zs-aside[data-collapsed="auto"] .zs-wide-only,
+  .zs-aside[data-collapsed="auto"] .zs-sub {
+    display: none;
+  }
+  .zs-aside[data-collapsed="auto"] .zs-rail-only {
+    display: block;
+  }
+  .zs-aside[data-collapsed="auto"] .zs-row {
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+  .zs-aside[data-collapsed="auto"] .zs-head {
+    padding-inline: 0;
+    text-align: center;
+  }
+  .zs-aside[data-collapsed="auto"] .zs-account {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+.zs-tip {
+  animation: zs-fade 120ms ease-out both;
+}
+@keyframes zs-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zs-aside {
+    transition: none;
+  }
+  .zs-aside .zs-label,
+  .zs-tip {
+    animation: none;
+  }
+}

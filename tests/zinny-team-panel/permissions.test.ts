@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { closeDb } from "@/db/client";
 import type { Actor } from "@/server/authz/engine";
 import { isZinnyTeam, navFor, sidebarFor, sidebarLinks } from "@/modules/zinny-team-panel/lib/access";
+import { withSignups } from "@/modules/zinny-team-panel/components/platform-sections";
 import { analytics } from "@/modules/zinny-team-panel/services/analytics";
 import { listInvoices } from "@/modules/zinny-team-panel/services/billing";
 import { flagCourse, listOpenFlags, markReviewed, reviewQueue } from "@/modules/zinny-team-panel/services/content";
@@ -96,13 +97,13 @@ describe("each section allows its roles and refuses everyone else", () => {
 describe("the sidebar shows only the sections a person's roles allow", () => {
   const keys = (a: Actor) => navFor(a).map((s) => s.key);
   it("per role", () => {
-    expect(keys(sa)).toEqual(["overview", "universities", "billing", "people", "support", "content", "analytics", "data", "team"]);
+    expect(keys(sa)).toEqual(["overview", "universities", "billing", "people", "support", "content", "privacy", "analytics", "data", "team"]);
     expect(keys(sup)).toEqual(["overview", "support", "analytics"]);
     expect(keys(qa)).toEqual(["overview", "content"]);
     // Plans, licences and invoices live together under "Plans and billing".
     expect(keys(fin)).toEqual(["overview", "billing"]);
     expect(navFor(fin).find((s) => s.key === "billing")!.items.map((i) => i.label)).toEqual(["Plans and prices", "Licences", "Invoices", "Billing settings"]);
-    expect(keys(am)).toEqual(["overview", "universities", "billing", "content", "analytics"]);
+    expect(keys(am)).toEqual(["overview", "universities", "billing", "content", "privacy", "analytics"]);
     expect(navFor(am).find((s) => s.key === "billing")!.items.map((i) => i.label)).toEqual(["Plans and prices", "Licences"]);
     expect(navFor(am).find((s) => s.key === "universities")!.items.map((i) => i.label)).toEqual(["Institutes"]);
     expect(navFor(am).find((s) => s.key === "content")!.access).toBe("View");
@@ -121,11 +122,12 @@ describe("the sidebar arranges those pages by the job, each in one place", () =>
   it("Super Admin: everyday work first, set-up under Settings", () => {
     expect(shape(sa)).toEqual([
       "Overview",
-      "Institutes",
+      "Institutes: Sign-ups",
       "Users",
       "Billing: Invoices, Plans and prices, Licences",
       "Support mode: Activity log",
       "Content review",
+      "Privacy: Breach register",
       "Analytics",
       "Settings: Team, Roles & permissions, Billing settings, Data",
     ]);
@@ -134,14 +136,14 @@ describe("the sidebar arranges those pages by the job, each in one place", () =>
   });
   it("shows exactly the pages navFor allows, once each, for every role", () => {
     for (const a of [sa, am, sup, qa, fin, par, student]) {
-      const allowed = navFor(a).flatMap((s) => s.items.map((i) => i.href));
+      const allowed = withSignups(navFor(a)).flatMap((s) => s.items.map((i) => i.href));
       expect([...hrefs(a)].sort()).toEqual([...allowed].sort());
     }
   });
   it("per role", () => {
     expect(shape(sup)).toEqual(["Overview", "Support mode: Activity log", "Analytics"]);
     expect(shape(qa)).toEqual(["Overview", "Content review"]);
-    expect(shape(am)).toEqual(["Overview", "Institutes", "Billing: Plans and prices, Licences", "Content review", "Analytics"]);
+    expect(shape(am)).toEqual(["Overview", "Institutes: Sign-ups", "Billing: Plans and prices, Licences", "Content review", "Privacy: Breach register", "Analytics"]);
     expect(items(am).find((i) => i.key === "content")!.access).toBe("View");
     // A group with one page left shows that page under its own name.
     expect(shape(fin)).toEqual(["Overview", "Billing: Invoices, Plans and prices, Licences", "Billing settings"]);

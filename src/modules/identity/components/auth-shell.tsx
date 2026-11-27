@@ -11,11 +11,6 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
   return (
     <main className={`display-headings grid min-h-dvh lg:grid-cols-[1fr_1.05fr] ${display.variable}`}>
       <section className="relative hidden overflow-hidden bg-brand-deep p-12 text-canvas lg:flex lg:flex-col lg:justify-between">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.06]"
-          style={{ backgroundImage: "linear-gradient(to bottom, #faf6ea 1px, transparent 1px)", backgroundSize: "100% 28px" }}
-        />
         <div className="relative">
           <Link href="/" aria-label="Zinny home" className="inline-flex rounded-lg">
             <Logo height={40} tone="cream" />
@@ -26,7 +21,7 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
           <ul className="mt-8 space-y-3 text-[15px] text-canvas/80">
             <li className="flex gap-3">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-canvas/50" />
-              Courses, live classes, tests, fees and certificates in one place for each institute.
+              Courses, live classes, tests, fees and certificates for each institute, on one AI-enabled marketplace.
             </li>
             <li className="flex gap-3">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-canvas/50" />
@@ -34,14 +29,14 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
             </li>
             <li className="flex gap-3">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-canvas/50" />
-              Built for Indian institutes, with UPI payments and GST invoices.
+              Built for Indian institutes, with UPI payments, and GST invoices if your institute charges GST.
             </li>
           </ul>
         </div>
         <p className="relative text-[13px] text-canvas/70">
           Run an institute?{" "}
           <Link href="/book-a-demo" className="font-medium text-canvas underline-offset-4 hover:underline">
-            Book a demo
+            Start a free trial
           </Link>
         </p>
       </section>

@@ -1,8 +1,10 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { PageTrail } from "@/components/page-trail";
+import { CollapsibleAside, SidebarToggle } from "@/components/collapsible-sidebar";
+import { modeFromCookie } from "@/components/sidebar-mode";
 import { SidebarAccount } from "@/components/sidebar-account";
-import { Logo } from "@/components/ui";
+import { Logo, LogoMark } from "@/components/ui";
 import { ActionForm } from "@/components/forms";
 import { signOut } from "@/server/auth/session";
 import { canPlatform } from "@/server/core";
@@ -10,7 +12,8 @@ import { platformContext } from "@/server/context";
 import { leaveSupportAction } from "@/modules/zinny-team-panel/actions";
 import { ImpersonationBanner } from "@/modules/zinny-team-panel/components/impersonation-banner";
 import { PlatformNav } from "@/modules/zinny-team-panel/components/platform-nav";
-import { isZinnyTeam, sidebarFor, sidebarLinks } from "@/modules/zinny-team-panel/lib/access";
+import { PlatformTopbar } from "@/modules/zinny-team-panel/components/platform-topbar";
+import { isSuperAdmin, isZinnyTeam, sidebarFor, sidebarLinks } from "@/modules/zinny-team-panel/lib/access";
 import { PLATFORM_ROLE_LABELS, isPlatformRole } from "@/modules/zinny-team-panel/lib/constants";
 import { timeUntil } from "@/modules/zinny-team-panel/lib/format";
 import { activeSessions } from "@/modules/zinny-team-panel/services/support";
@@ -24,6 +27,11 @@ export default async function PlatformLayout({ children }: { children: React.Rea
   if (!isZinnyTeam(actor)) redirect("/");
 
   const groups = sidebarFor(actor);
+  const sidebarMode = modeFromCookie((await cookies()).get("zinny-sb-platform")?.value);
+  // Every page below a menu link leads back to it, from the top bar.
+  const parents = sidebarLinks(groups)
+    .filter((l) => l.href !== "")
+    .map((l) => ({ prefix: l.href, href: l.href, label: l.label }));
   const now = new Date();
   const roles = [
     ...new Set(
@@ -42,13 +50,19 @@ export default async function PlatformLayout({ children }: { children: React.Rea
 
   const sidebar = (
     <div className="flex h-full flex-col">
-      <Link href="/platform" className="mb-4 hidden px-3 pt-1 lg:block">
-        <Logo height={28} tone="cream" />
-        <div className="mt-2 text-[13px] text-canvas/55">Zinny team</div>
+      <Link href="/platform" aria-label="Zinny team home" className="zs-head mb-4 hidden px-3 pt-1 md:block">
+        <span className="zs-wide-only block">
+          <Logo height={28} tone="cream" />
+          <span className="mt-2 block text-[13px] text-canvas/55">Zinny team</span>
+        </span>
+        <span className="zs-rail-only">
+          <LogoMark size={32} />
+        </span>
       </Link>
       <div className="sidebar-scroll -mr-2 flex-1 overflow-y-auto py-1 pr-1">
         <PlatformNav groups={groups} />
       </div>
+      <SidebarToggle />
       <SidebarAccount name={actor.name} roles={roles.join(", ")} logout={logout} />
     </div>
   );
@@ -71,22 +85,27 @@ export default async function PlatformLayout({ children }: { children: React.Rea
         </div>
       ))}
       <div className="flex">
-        <aside className="hidden w-[264px] shrink-0 bg-brand-deep lg:block">
-          <div className="sticky top-0 h-dvh px-3 py-6">{sidebar}</div>
-        </aside>
+        <CollapsibleAside cookie="zinny-sb-platform" initial={sidebarMode}>
+          {sidebar}
+        </CollapsibleAside>
         <div className="min-w-0 flex-1">
-          <details className="group border-b border-line bg-brand-deep lg:hidden">
+          <details className="group border-b border-line bg-brand-deep md:hidden">
             <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3">
               <Logo height={26} tone="cream" />
               <span className="text-[13px] text-canvas/80">Menu</span>
             </summary>
             <div className="max-h-[75dvh] overflow-y-auto px-3 pb-4">{sidebar}</div>
           </details>
+          <PlatformTopbar
+            parents={parents}
+            name={actor.name}
+            email={actor.email}
+            roles={roles.join(", ")}
+            canSearch={canPlatform(actor, "platform.manage_universities")}
+            links={isSuperAdmin(actor) ? [{ label: "Team", href: "/platform/team" }] : []}
+            logout={logout}
+          />
           <main className="mx-auto max-w-[1280px] px-5 py-8 lg:px-10 lg:py-10">
-            <PageTrail
-              base="/platform"
-              parents={sidebarLinks(groups).filter((l) => l.href !== "").map((l) => ({ prefix: l.href, href: l.href, label: l.label }))}
-            />
             {children}
           </main>
         </div>

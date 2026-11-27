@@ -58,6 +58,8 @@ Open `https://<your address>/login`. Demo accounts appear on the sign-in page (b
 - `riya@demo.edu`: student
 - `zara@zinny.demo`: Zinny team (opens `/platform`)
 
+The Zinny team accounts (`zara@zinny.demo`, Super Admin, and `sid@zinny.demo`, Support Agent) aren't one-click buttons on a deployed site: type the email and `zinny123` into the sign-in form. To show them as buttons too, add `ZINNY_DEMO_TEAM` = `1` and redeploy. Only do that on a preview nobody else can reach: with it, anyone who opens the sign-in page can become Super Admin in one click.
+
 ## What doesn't work on this preview
 
 Say this plainly to anyone you share the link with:

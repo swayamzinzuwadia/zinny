@@ -70,13 +70,14 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
     );
   }
 
-  const week = await studentTimetable(actor);
-  const today = week.today;
-  const [ahead, learning, notes] = await Promise.all([
-    studentTimetable(actor, { from: today, to: addDays(today, 14) }),
+  const weekRequest = studentTimetable(actor);
+  const [week, ahead, learning, notes] = await Promise.all([
+    weekRequest,
+    weekRequest.then((w) => studentTimetable(actor, { from: w.today, to: addDays(w.today, 14) })),
     myLearning(actor),
     myNotifications(actor, UPDATES_SHOWN),
   ]);
+  const today = week.today;
   const active = learning.filter((l) => l.status === "active");
   // Same order as the timetable (this week's courses as they come), then the rest.
   const courseOrder = [...new Set([...week.sessions.map((s) => s.courseId), ...active.map((l) => l.course.id)])];
@@ -108,11 +109,6 @@ export default async function LearnHome({ params }: { params: Promise<{ uni: str
     <div className="space-y-4 sm:space-y-6">
       {/* The board: the day, then the live or next class */}
       <section className="relative overflow-hidden rounded-[var(--radius-board)] bg-brand-deep p-5 text-canvas sm:p-8">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.06]"
-          style={{ backgroundImage: "linear-gradient(to bottom, #faf6ea 1px, transparent 1px)", backgroundSize: "100% 28px" }}
-        />
         <div className="relative">
           <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.02em] sm:text-[32px]">{dayTitle(today)}</h1>
           {next ? (

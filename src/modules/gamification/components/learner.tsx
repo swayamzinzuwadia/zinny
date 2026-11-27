@@ -11,11 +11,6 @@ import { ProgressBar } from "./board";
 export function XpHero({ total, week, month, children }: { total: number; week: number; month: number; children?: ReactNode }) {
   return (
     <section className="relative overflow-hidden rounded-[var(--radius-board)] bg-brand-deep p-6 text-canvas sm:p-8">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.06]"
-        style={{ backgroundImage: "linear-gradient(to bottom, #faf6ea 1px, transparent 1px)", backgroundSize: "100% 28px" }}
-      />
       <div className="relative">
         <div className="text-[14px] text-canvas/65">Your XP</div>
         <div className="tabular mt-1 text-[48px] font-semibold leading-none sm:text-[56px]">{total.toLocaleString("en-IN")}</div>

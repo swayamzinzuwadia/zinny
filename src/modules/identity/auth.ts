@@ -24,12 +24,12 @@ import { deferAfterResponse, type Defer } from "@/server/auth/defer";
 import { checkNewPassword, hashPassword, verifyAgainstNothing, verifyPassword } from "@/server/auth/passwords";
 import { maskEmail, maskPhone, normalizePhone, phoneTail } from "@/server/auth/phone";
 import { clearThrottle, consume, lockedUntil, pruneThrottles, recordFailure, throttleKey } from "@/server/auth/throttle";
-import { homeSpacesFor, pruneSessions } from "@/server/auth/session";
+import { homeSpacesFor, pruneSessions, spacesFor } from "@/server/auth/session";
 import { compactUuid, expandUuid, hmac, randomToken, sameHex, sha256, sixDigitCode } from "@/server/auth/tokens";
 import { mktLearners } from "@/modules/marketplace/schema";
 import { passwordChangedEmail, resetEmail, signInCodeSms } from "./emails";
 import { ADMIN_PANEL, landingFor, roleTitle } from "./labels";
-import { findInstituteByCode, joinTx, type JoinResult, type JoinTarget } from "./joining";
+import { findInstituteByTypedCode, joinTx, type JoinResult, type JoinTarget } from "./joining";
 import { idnInvites, idnOtpChallenges, idnSettings, idnTokens } from "./schema";
 
 const normEmail = (e: string) => e.trim().toLowerCase();
@@ -41,7 +41,7 @@ const resetUrl = () => `${appUrl()}/reset`;
 export type LoginUniversity = { id: string; slug: string; name: string; phoneSignIn: boolean; signupOpen: boolean };
 
 /** Paths that are app routes, not university slugs. */
-const RESERVED = new Set(["login", "signup", "join", "invite", "reset", "platform", "marketplace", "api", "verify", "site", "_next", "brand", "favicon.ico"]);
+const RESERVED = new Set(["login", "signup", "join", "invite", "reset", "platform", "marketplace", "api", "verify", "site", "_next", "brand", "favicon.ico", "privacy", "frozen", "suspended", "book-a-demo"]);
 
 /** The university slug at the start of a `next` path ("/demo/learn" → "demo"), if any. */
 export function slugFromNext(next: string | null | undefined): string | null {
@@ -110,6 +110,19 @@ export async function landingAfterSignIn(userId: string, next: string | null | u
     return learner ? "/marketplace" : "/";
   }
   return `/${space.slug}/${space.roles.some((r) => ADMIN_PANEL.has(r as RoleName)) ? "admin" : "learn"}`;
+}
+
+/**
+ * Where to go after signing in with a phone code at one institute. The session only counts
+ * there (server/auth/session.ts), so `next` is used only when it is inside that institute.
+ */
+export async function landingAfterPhoneSignIn(userId: string, universityId: string, next: string | null | undefined): Promise<{ slug: string; landing: string }> {
+  const [u] = await systemDb().select({ slug: universities.slug }).from(universities).where(eq(universities.id, universityId));
+  if (!u) return { slug: "", landing: "/login" };
+  const safe = safeNext(next);
+  if (safe && slugFromNext(safe) === u.slug) return { slug: u.slug, landing: safe };
+  const space = (await spacesFor(userId)).find((s) => s.id === universityId);
+  return { slug: u.slug, landing: `/${u.slug}/${space?.roles.some((r) => ADMIN_PANEL.has(r as RoleName)) ? "admin" : "learn"}` };
 }
 
 /* ───────────────────────────── Student sign-up ───────────────────────────── */
@@ -190,7 +203,7 @@ export async function signUpStudent(input: SignUpInput & { slug: string; departm
 
 /** A student account made with an institute's joining code, for /signup?code=<code>. */
 export async function signUpWithCode(input: SignUpInput & { code: string; departmentId?: string | null }): Promise<SignUpResult> {
-  const target = await findInstituteByCode(input.code);
+  const target = await findInstituteByTypedCode(input.code, { ip: input.ip, userId: null }, input.now);
   if (!target) throw new ValidationError("We can't find an institute with that code. Check it with your institute and try again.", "unknown_code");
   return signUpAndJoin(input, target, input.departmentId ?? null);
 }
@@ -280,20 +293,40 @@ export const DEMO_ACCOUNTS = [
   ["Parents", "pallavi@demo.edu", "Parent of Riya"],
 ] as const;
 
+/**
+ * One click doesn't open a Zinny team account on a production build: a Super Admin can sign in
+ * as anyone at every institute, so ZINNY_DEMO alone (left on, or set on the wrong deployment)
+ * must not hand that out without a password. Outside production it can.
+ *
+ * A private demo deployment can choose to offer them anyway with ZINNY_DEMO_TEAM=1, on top of
+ * ZINNY_DEMO=1. That is a second, separate switch so it is never on by accident: with it,
+ * anyone who can open the site's sign-in page can become Super Admin.
+ */
+export const teamDemoAllowed = (env: NodeJS.ProcessEnv = process.env) =>
+  env.NODE_ENV !== "production" || (env.ZINNY_DEMO === "1" && env.ZINNY_DEMO_TEAM === "1");
+const isTeamDemo = (email: string) => DEMO_ACCOUNTS.some(([group, x]) => x === email && group === "Zinny team");
+
 /** The demo accounts this database has, so a site seeded before an account was added never offers a broken button. */
 export async function availableDemoAccounts() {
   const rows = await systemDb().select({ email: users.email }).from(users).where(inArray(sql`lower(${users.email})`, DEMO_ACCOUNTS.map(([, email]) => email)));
   const present = new Set(rows.map((r) => r.email.toLowerCase()));
-  return DEMO_ACCOUNTS.filter(([, email]) => present.has(email));
+  return DEMO_ACCOUNTS.filter(([, email]) => present.has(email) && (teamDemoAllowed() || !isTeamDemo(email)));
 }
 
-/** Only the listed demo accounts, and only when demo mode is on. */
+/**
+ * Only the listed demo accounts, and only when demo mode is on. On a production build, an
+ * account that holds a Zinny team role signs in with its password like anyone else, unless
+ * ZINNY_DEMO_TEAM=1 (see teamDemoAllowed).
+ */
 export async function demoSignIn(email: string): Promise<string> {
   if (!demoEnabled()) throw new ForbiddenError("Demo accounts are turned off.");
   const e = normEmail(email);
   if (!DEMO_ACCOUNTS.some(([, x]) => x === e)) throw new ForbiddenError("That isn't a demo account.");
   const [u] = await systemDb().select({ id: users.id }).from(users).where(sql`lower(${users.email}) = ${e}`);
   if (!u) throw new NotFoundError("Demo account");
+  if (!teamDemoAllowed() && (isTeamDemo(e) || (await activePlatformRole(u.id, new Date())))) {
+    throw new ForbiddenError("Zinny team demo accounts sign in with their password here.");
+  }
   return u.id;
 }
 
@@ -667,6 +700,15 @@ function parseRef(ref: string | null | undefined): Ref | null {
   const universityId = expandUuid(m[1]);
   const challengeId = expandUuid(m[2]);
   return universityId && challengeId ? { universityId, challengeId, nonce: m[3] } : null;
+}
+
+/**
+ * The institute a phone sign-in is for, from its cookie. Only meaningful once
+ * verifyPhoneCode or choosePhoneAccount accepted the same ref: they load the challenge
+ * under that institute's row-level security and check the ref's secret.
+ */
+export function phoneRefUniversity(ref: string | null | undefined): string | null {
+  return parseRef(ref)?.universityId ?? null;
 }
 
 export type PhoneAccount = { id: string; name: string; email: string };

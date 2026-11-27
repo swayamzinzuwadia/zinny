@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useId, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
-import { buttonClass, cx, inputClass } from "@/components/ui";
+import { ButtonLabel, buttonClass, cx, inputClass } from "@/components/ui";
 
 /** What the action answers: a thank-you, or an error with what was typed so nothing is lost. */
 export type DemoRequestState = { ok?: string; error?: string; values?: Record<string, string>; at?: number } | null;
@@ -23,13 +23,14 @@ function Send() {
   const { pending } = useFormStatus();
   return (
     <button type="submit" disabled={pending} className={cx(buttonClass("primary"), "h-11 w-full text-[15px] sm:w-auto sm:px-7")}>
-      {pending ? "Sending…" : "Send request"}
+      {pending ? "Sending…" : <ButtonLabel icon="send">Request a call</ButtonLabel>}
     </button>
   );
 }
 
 /**
- * The "Book a demo" form. React clears a form after its action runs, so on an error the
+ * "Request a call" on /book-a-demo, for institutes that would rather talk to the Zinny team
+ * before starting their free trial. React clears a form after its action runs, so on an error the
  * values come back in the state and the fields are drawn again with them.
  */
 export function DemoRequestForm({ action }: { action: (prev: DemoRequestState, data: FormData) => Promise<DemoRequestState> }) {
@@ -40,14 +41,11 @@ export function DemoRequestForm({ action }: { action: (prev: DemoRequestState, d
   if (state?.ok) {
     return (
       <div role="status" className="space-y-4">
-        <h2 className="text-[26px] leading-tight font-semibold">We have your request</h2>
+        <h2 className="text-[24px] leading-tight font-semibold">We&apos;ll call you soon</h2>
         <p className="text-[15px] leading-relaxed text-ink/80">{state.ok}</p>
         <div className="flex flex-wrap gap-3 pt-2">
           <Link href="/" className={buttonClass("secondary")}>
-            Back to the home page
-          </Link>
-          <Link href="/marketplace" className={buttonClass("ghost")}>
-            Browse the marketplace
+            <ButtonLabel>Back to the home page</ButtonLabel>
           </Link>
         </div>
       </div>
@@ -118,7 +116,7 @@ export function DemoRequestForm({ action }: { action: (prev: DemoRequestState, d
       )}
       <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:gap-4">
         <Send />
-        <p className="text-[13px] text-muted">We only use your details to set up the demo.</p>
+        <p className="text-[13px] text-muted">We only use your details to call you back.</p>
       </div>
     </form>
   );

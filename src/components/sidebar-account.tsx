@@ -15,16 +15,18 @@ export function SidebarAccount({
 }) {
   return (
     <div className="mt-3 border-t border-canvas/10 px-1 pt-4">
-      <div className="flex items-center gap-3">
-        <Avatar name={name} size={32} />
-        <div className="min-w-0 flex-1 leading-snug">
+      <div className="zs-account flex items-center gap-3">
+        <span data-tip={`${name}, ${roles}`} className="shrink-0">
+          <Avatar name={name} size={32} />
+        </span>
+        <div className="zs-label min-w-0 flex-1 leading-snug">
           <div className="truncate text-[13px] font-medium text-canvas">{name}</div>
           <div className="truncate text-[12px] text-canvas/55">{roles}</div>
         </div>
-        <form action={logout}>
+        <form action={logout} className="zs-signout">
           <button
             aria-label="Sign out"
-            title="Sign out"
+            data-tip="Sign out"
             className="grid size-8 place-items-center rounded-lg text-canvas/55 [transition-property:background-color,color] duration-150 hover:bg-canvas/10 hover:text-canvas"
           >
             <svg aria-hidden viewBox="0 0 20 20" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -33,7 +35,7 @@ export function SidebarAccount({
           </button>
         </form>
       </div>
-      {children && <div className="mt-3 flex flex-wrap gap-1">{children}</div>}
+      {children && <div className="zs-label mt-3 flex flex-wrap gap-1">{children}</div>}
     </div>
   );
 }

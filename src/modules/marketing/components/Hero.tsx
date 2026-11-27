@@ -290,8 +290,8 @@ export function Hero() {
             <span className="text-brand">Sell what it teaches.</span>
           </h1>
           <p data-rise className="mt-6 max-w-[34rem] text-[18px] leading-relaxed text-ink/75">
-            Zinny is one place for courses, live classes, tests, fees and certificates, and a marketplace where learners anywhere buy the courses you&apos;ve
-            recorded. Built for Indian institutes, with UPI and GST invoices.
+            Zinny is one AI-enabled marketplace: courses, live classes, tests, fees and certificates for your institute, and a storefront where learners
+            anywhere buy the courses you&apos;ve recorded. Built for Indian institutes, with UPI checkout and GST invoices if you charge GST.
           </p>
           <div data-rise className="mt-9 grid max-w-[34rem] gap-3 sm:grid-cols-2">
             <Link
@@ -316,7 +316,7 @@ export function Hero() {
         </div>
         <div data-rise className="relative pb-16 lg:pb-10">
           <Scene />
-          <p className="mt-40 text-center text-[12px] text-muted sm:mt-16">The screens on this page are illustrations. Names and numbers are examples.</p>
+          <p className="mt-40 text-center text-[12px] text-muted sm:mt-16">The screens on this page are illustrations. Names and numbers are examples, and GST shows only where an institute charges it.</p>
         </div>
       </div>
     </section>

@@ -110,8 +110,8 @@ describe("PRD page 3: who sees what in the admin menu", () => {
     expect(items(admin, "finance")).toContain("/finance/reports");
     expect(items(board, "insights")).not.toContain("/finance/reports");
   });
-  it("Settings lists the settings hub and Notifications for the Institute Admin", () => {
-    expect(items(admin, "settings")).toEqual(["/settings", "/settings/notifications"]);
+  it("Settings lists the settings hub, Notifications, Seats, Privacy and Documents for the Institute Admin", () => {
+    expect(items(admin, "settings")).toEqual(["/settings", "/settings/notifications", "/settings/seats", "/settings/privacy", "/choose-plan/documents"]);
   });
 });
 
@@ -355,7 +355,7 @@ describe("admin sidebar: pages arranged by the job they do", () => {
     expect(kids(admin, "leaderboard")).toEqual(["Challenges", "XP rules", "Badges"]);
     // Reports is one screen: its pages are its tabs, not links under it.
     expect(kids(admin, "reports")).toEqual([]);
-    expect(kids(admin, "settings")).toEqual(["Roles & permissions", "Notifications"]);
+    expect(kids(admin, "settings")).toEqual(["Roles & permissions", "Notifications", "Seats", "Privacy", "Documents"]);
   });
   it("a link without a page of its own leads to its first page", () => {
     expect(item(admin, "website")).toMatchObject({ own: false, href: "/website/profile/builder" });

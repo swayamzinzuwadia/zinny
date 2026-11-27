@@ -40,7 +40,7 @@ describe("module notification kinds", () => {
   it("keeps the generic channel defaults and text, and none of them is a security kind", () => {
     for (const k of MODULE_KINDS) {
       // Zinny's payment reminders are emailed directly when sent, so the in-app copy isn't emailed again.
-      const email = k.kind === "zinny.invoice_reminder" ? "off" : "on";
+      const email = k.kind === "zinny.invoice_reminder" || k.kind === "zinny.licence_end_reminder" ? "off" : "on";
       expect(k.defaults, k.kind).toEqual({ email, sms: "off", whatsapp: "off" });
       expect(k.template.emailSubject).toBe("{{title}}");
       expect(isSecurityKind(k.kind), k.kind).toBe(false);

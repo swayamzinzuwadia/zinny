@@ -9,7 +9,7 @@
  * A failed push fails the build, so Vercel keeps serving the previous deployment instead
  * of new code against an old schema.
  */
-import { pushDatabase } from "./db-push";
+import { pushDatabase, verifyAppRole } from "./db-push";
 
 async function main() {
   if (!process.env.VERCEL) return;
@@ -24,6 +24,9 @@ async function main() {
   }
   const started = Date.now();
   await pushDatabase(url);
+  // The app connection must be bound by row-level security; refuse to deploy otherwise.
+  if (process.env.DATABASE_URL) await verifyAppRole(process.env.DATABASE_URL);
+  else console.warn("deploy-db: DATABASE_URL is not set in Vercel, so the app role could not be checked.");
   console.log(`deploy-db: schema and row-level security are up to date (${Math.round((Date.now() - started) / 1000)}s).`);
 }
 

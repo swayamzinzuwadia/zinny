@@ -22,13 +22,6 @@ function Shell({ eyebrow, title, children, tone = "plain" }: { eyebrow: string; 
         board ? "bg-brand-deep text-canvas" : "border border-line bg-surface",
       )}
     >
-      {board && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.06]"
-          style={{ backgroundImage: "linear-gradient(to bottom, #faf6ea 1px, transparent 1px)", backgroundSize: "100% 28px" }}
-        />
-      )}
       <div className="relative max-w-xl">
         <div className={cx("text-[14px]", board ? "text-canvas/65" : "text-muted")}>{eyebrow}</div>
         <h1 className="mt-1 text-[28px] font-semibold leading-tight sm:text-[34px]">{title}</h1>

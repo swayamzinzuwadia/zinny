@@ -48,7 +48,7 @@ npm run dev                       # http://localhost:3000/login
 | `npm run db:migrate` | Production: applies `drizzle/` migrations, then row-level security |
 | `npm run check:ownership` | For module agents: fails on changes outside their ownership since `foundation-v1` |
 
-The login page lists one-click demo accounts (password for all: `zinny123`). Demo accounts are shown in development only, or when `ZINNY_DEMO=1`. They sign in without a password, so never set `ZINNY_DEMO` on a deployment with real data.
+The login page lists one-click demo accounts (password for all: `zinny123`). Demo accounts are shown in development only, or when `ZINNY_DEMO=1`. They sign in without a password, so never set `ZINNY_DEMO` on a deployment with real data. On a production build the Zinny team accounts (Super Admin, Support Agent) sign in with their password instead, unless `ZINNY_DEMO_TEAM=1` is also set; see `src/modules/identity/ENV.md` before turning that on.
 
 | Account | What to look at |
 |---|---|

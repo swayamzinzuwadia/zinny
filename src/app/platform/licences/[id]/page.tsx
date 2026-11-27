@@ -7,6 +7,7 @@ import { NoAccess, RenewalText, StatusBadge } from "@/modules/zinny-team-panel/c
 import { LicencePanel } from "@/modules/zinny-team-panel/components/licence-panel";
 import { formatDate, formatDateTime } from "@/modules/zinny-team-panel/lib/format";
 import { licenceFor } from "@/modules/zinny-team-panel/services/licences";
+import { addPacksAction, removePacksAction, setCapsAction } from "./seat-actions";
 
 export const metadata = { title: "Licence" };
 
@@ -45,7 +46,7 @@ export default async function LicencePage({ params }: { params: Promise<{ id: st
         }
       />
 
-      <LicencePanel actor={actor} data={data} />
+      <LicencePanel actor={actor} data={data} seatActions={{ add: addPacksAction, remove: removePacksAction, caps: setCapsAction }} />
     </>
   );
 }
